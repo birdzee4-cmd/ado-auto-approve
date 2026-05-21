@@ -1,0 +1,13 @@
+{
+  "name": "ado-auto-approve-api",
+  "version": "1.0.0",
+  "description": "Azure Functions backend for ADO Auto-Approve System",
+  "main": "index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "func start"
+  },
+  "dependencies": {}
+}
