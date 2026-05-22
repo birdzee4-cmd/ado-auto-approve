@@ -68,37 +68,23 @@ staticwebapp.config.json               ← เพิ่ม route /api/webhook + 
 
 ---
 
-## ขั้นตอน 2: สร้าง Microsoft Teams Webhook (10 นาที)
+## ขั้นตอน 2: ติดตั้ง Webhook Bot ใน Teams (10 นาที)
 
-เราต้องสร้าง "Incoming Webhook" ใน Teams channel ที่ต้องการให้ระบบส่งข้อความเข้ามา
+ใช้ **Webhook Bot** (third-party app) ที่ติดตั้งใน Teams channel เพื่อรับข้อความ
+รูปแบบ payload ที่ระบบเราส่งคือ `{"text": "markdown content"}` ซึ่ง Webhook Bot รองรับ
 
-### 2.1 ใช้ Workflows (วิธีใหม่ Microsoft แนะนำ)
-
-> ⚠️ Microsoft กำลังเลิก "Incoming Webhook connector" แบบเก่า (มกราคม 2025) แนะนำให้ใช้ Workflows แทน
+### 2.1 ติดตั้ง Webhook Bot ใน Channel
 
 1. เปิด Microsoft Teams → ไปที่ **channel** ที่ต้องการให้แจ้งเตือนเข้า
-2. คลิกที่ **"..."** ข้างชื่อ channel → **Workflows**
-3. ในช่องค้นหา พิมพ์ **"webhook"**
-4. เลือก template: **"Post to a channel when a webhook request is received"**
-5. คลิก **"Next"** → ตรวจดูว่า Microsoft 365 Account ถูกต้อง → **"Next"**
-6. กรอก:
-   - Workflow name: `ADO Auto-Approve Bot`
-   - Team: เลือก Team ของคุณ
-   - Channel: เลือก channel ที่ต้องการ
-7. คลิก **"Add workflow"**
-8. **คัดลอก URL ที่แสดง** ← ค่านี้สำคัญที่สุด เก็บไว้สำหรับขั้นตอน 2.3
-   - หน้าตาประมาณ: `https://prod-XX.southeastasia.logic.azure.com/workflows/.../triggers/manual/paths/invoke?api-version=...`
-9. คลิก **"Done"**
+2. คลิกที่ **"+"** เพิ่ม tab/app → ค้นหา **"Webhook Bot"** (C-Toss)
+3. กด **Add** → เลือก team/channel ที่ต้องการ → **Configure**
+4. ตั้งชื่อ webhook เช่น `ADO Auto-Approve Bot`
+5. **คัดลอก URL ที่แสดง** ← ค่านี้สำคัญที่สุด เก็บไว้สำหรับขั้นตอน 2.2
+   - หน้าตาประมาณ: `https://webhookbot.c-toss.com/api/bot/webhooks/<uuid>`
 
-### 2.2 ทางเลือก: ใช้ Incoming Webhook (วิธีเก่า ใช้ได้ถ้าองค์กรยังไม่ถูกปิด)
+> 💡 ถ้าทดสอบยิง API ได้ response แล้ว แปลว่า URL ใช้งานได้
 
-1. เปิด Teams → channel ที่ต้องการ
-2. คลิก **"..."** → **Connectors** (ถ้าไม่เห็นต้องใช้วิธี Workflows)
-3. หา **"Incoming Webhook"** → **Configure**
-4. ตั้งชื่อ: `ADO Auto-Approve Bot` → Upload icon (optional) → **Create**
-5. คัดลอก URL ที่แสดง
-
-### 2.3 ใส่ URL ลง Azure Configuration
+### 2.2 ใส่ URL ลง Azure Configuration
 
 1. เข้า Azure Portal → Static Web App ของคุณ
 2. เมนูซ้าย คลิก **"Configuration"** → **"+ Add"**
@@ -107,6 +93,8 @@ staticwebapp.config.json               ← เพิ่ม route /api/webhook + 
    - **Value**: (วาง URL ที่ copy มา)
 4. คลิก **"OK"** → **"Save"** ด้านบน
 
+> 💡 ทางเลือกอื่น: ถ้าองค์กรไม่อนุญาตให้ติดตั้ง C-Toss สามารถใช้ Power Automate Workflows หรือ Incoming Webhook connector ของ Microsoft ได้เช่นกัน เพียงปรับ payload format ใน `api/shared/teams-notifier.js` ให้ตรงกับที่ provider ต้องการ
+
 ---
 
 ## ขั้นตอน 3: ทดสอบ Teams Notification (1 นาที)
@@ -114,12 +102,12 @@ staticwebapp.config.json               ← เพิ่ม route /api/webhook + 
 1. กลับมาที่เว็บ Dashboard
 2. คลิกปุ่ม **"💬 ทดสอบส่งข้อความเข้า Teams"**
 3. ควรเห็นข้อความสีเขียว: **✅ ส่งสำเร็จ!**
-4. เปิด Teams channel ที่ตั้งไว้ → ต้องเห็นการ์ดข้อความ "✅ Test Notification"
+4. เปิด Teams channel ที่ตั้งไว้ → ต้องเห็นข้อความ markdown "✅ Test Notification" พร้อมตาราง
 
 ### 🔧 ถ้าไม่สำเร็จ
-- **"TEAMS_WEBHOOK_URL is not configured"** → กลับขั้นตอน 2.3 ตรวจชื่อ env var
+- **"TEAMS_WEBHOOK_URL is not configured"** → กลับขั้นตอน 2.2 ตรวจชื่อ env var
 - **"Teams returned 4xx/5xx"** → URL ที่ copy มาผิด/หมดอายุ ทำขั้นตอน 2.1 ใหม่
-- **"timeout"** → Teams workflow ยังไม่ active กดเข้าไปเช็คใน Power Automate
+- **"timeout"** → Webhook Bot ไม่ตอบ ตรวจสอบใน Teams ว่ายังติดตั้งอยู่
 
 ---
 
@@ -220,8 +208,9 @@ staticwebapp.config.json               ← เพิ่ม route /api/webhook + 
 
 ## ❌ Teams ไม่ได้รับข้อความ
 1. ทดสอบด้วยปุ่ม "Test Teams" บน Dashboard ก่อน — ถ้าตรงนี้ไม่ผ่าน แสดงว่า TEAMS_WEBHOOK_URL ผิด
-2. ตรวจว่า Workflow ใน Teams ยัง active (เข้า Power Automate → My flows)
-3. ดู log ใน Azure Portal → Static Web App → Application Insights → Live Metrics
+2. ตรวจว่า Webhook Bot ยังติดตั้งอยู่ใน Teams channel
+3. ลองทดสอบยิง URL จาก Postman ด้วย payload `{"text": "test"}` ดูว่าได้ response 200
+4. ดู log ใน Azure Portal → Static Web App → Application Insights → Live Metrics
 
 ## ❌ ADO Service Hook test ขึ้น 401
 - WEBHOOK_USERNAME / WEBHOOK_PASSWORD ใน Azure Configuration ไม่ตรงกับใน ADO
