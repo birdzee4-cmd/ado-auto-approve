@@ -89,4 +89,47 @@
               <div class="status-desc">กำลังตรวจสอบ...</div>
             </div>
           </div>
-          <div clas
+          <div class="status-card status-ok" id="webhookStatus">
+            <div class="status-icon">✅</div>
+            <div class="status-text">
+              <div class="status-title">ADO Webhook Receiver</div>
+              <div class="status-desc">/api/webhook พร้อมรับ event</div>
+            </div>
+          </div>
+          <div class="status-card status-pending">
+            <div class="status-icon">🔜</div>
+            <div class="status-text">
+              <div class="status-title">Auto-Approve Logic</div>
+              <div class="status-desc">จะติดตั้งใน Phase 3</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Webhook Endpoint Info ===== -->
+      <div class="webhook-info">
+        <h2>🔗 Endpoint สำหรับตั้ง ADO Service Hook</h2>
+        <p class="section-desc">นำ URL นี้ไปใส่ในการตั้งค่า Service Hook ของ Azure DevOps</p>
+        <div class="endpoint-row">
+          <input type="text" id="webhookUrl" class="endpoint-input" readonly />
+          <button id="btnCopyUrl" class="copy-button">📋 Copy</button>
+        </div>
+        <p class="hint">วิธีตั้งค่าดูใน <code>PHASE2-GUIDE-TH.md</code></p>
+      </div>
+
+      <div class="next-steps">
+        <h2>🎯 ขั้นตอนถัดไป</h2>
+        <ol>
+          <li><s>Phase 1 — ระบบ Login O365</s> ✅</li>
+          <li><s>Phase 2 — Webhook + Teams Notification</s> ✅</li>
+          <li>Phase 3 — Logic Auto-Approve เต็มรูปแบบ (Validation + Approve API)</li>
+          <li>Phase 4 — Dashboard ดูประวัติ PR + Daily Report</li>
+          <li>Phase 5 — Production Hardening + Pilot</li>
+        </ol>
+      </div>
+    </div>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

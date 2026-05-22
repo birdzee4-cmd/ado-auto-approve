@@ -20,6 +20,16 @@
       "allowedRoles": ["anonymous"]
     },
     {
+      "route": "/api/test-notification",
+      "methods": ["POST"],
+      "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/api/webhook",
+      "methods": ["POST"],
+      "allowedRoles": ["anonymous"]
+    },
+    {
       "route": "/.auth/login/github",
       "statusCode": 404
     },

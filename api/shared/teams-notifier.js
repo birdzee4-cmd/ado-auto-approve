@@ -3,24 +3,24 @@
  * Microsoft Teams Notifier
  * ============================================
  *
- * ส่ง Adaptive Card เข้า Teams Incoming Webhook
- *
- * ใช้: const { sendTeamsCard } = require('../shared/teams-notifier');
+ * ส่งข้อความเข้า Teams ผ่าน "Webhook Bot" (เช่น C-Toss Webhook Bot)
+ * รูปแบบ payload:  { "text": "markdown content" }
  *
  * Environment variable:
- *   TEAMS_WEBHOOK_URL  =  https://outlook.office.com/webhook/.../IncomingWebhook/...
- *                         (หรือ workflow URL จาก Power Automate)
+ *   TEAMS_WEBHOOK_URL  =  https://webhookbot.c-toss.com/api/bot/webhooks/<id>
+ *
+ * หมายเหตุ:
+ *   - C-Toss Webhook Bot รองรับ markdown ใน field "text"
+ *   - ถ้าใช้ provider อื่นที่รับ payload แตกต่าง แก้ที่ฟังก์ชัน sendTeamsMessage() ได้
  */
 
 const https = require('https');
 const { URL } = require('url');
 
 /**
- * ส่ง JSON payload เข้า Teams Incoming Webhook
- * @param {object} card - Adaptive Card payload
- * @returns {Promise<{ok: boolean, status: number, body: string}>}
+ * ส่ง payload เข้า Teams Webhook
  */
-function sendTeamsCard(card) {
+function sendTeamsMessage(payload) {
   return new Promise((resolve, reject) => {
     const webhookUrl = process.env.TEAMS_WEBHOOK_URL;
     if (!webhookUrl) {
@@ -34,9 +34,10 @@ function sendTeamsCard(card) {
       return reject(new Error('TEAMS_WEBHOOK_URL is not a valid URL'));
     }
 
-    const data = JSON.stringify(card);
+    const data = JSON.stringify(payload);
     const options = {
       hostname: parsed.hostname,
+      port: parsed.port || 443,
       path: parsed.pathname + parsed.search,
       method: 'POST',
       headers: {
@@ -70,140 +71,135 @@ function sendTeamsCard(card) {
 }
 
 /**
- * สร้าง Adaptive Card สำหรับการแจ้งเตือน PR ใหม่ (Phase 2)
+ * Helper สำหรับส่ง markdown text
  */
+function sendTeamsText(text) {
+  return sendTeamsMessage({ text: text });
+}
+
+/**
+ * Backward-compatible alias (รับได้หลายรูปแบบ)
+ */
+function sendTeamsCard(payload) {
+  if (typeof payload === 'string') {
+    return sendTeamsText(payload);
+  }
+  if (payload && typeof payload === 'object' && typeof payload.text === 'string') {
+    return sendTeamsMessage(payload);
+  }
+  if (payload && payload.attachments) {
+    return sendTeamsText(adaptiveCardToText(payload));
+  }
+  return sendTeamsMessage(payload);
+}
+
+// ============================================
+// Message Builders (Markdown format)
+// ============================================
+
 function buildPrDetectedCard(pr) {
-  return {
-    type: 'message',
-    attachments: [{
-      contentType: 'application/vnd.microsoft.card.adaptive',
-      content: {
-        $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
-        type: 'AdaptiveCard',
-        version: '1.4',
-        body: [
-          {
-            type: 'TextBlock',
-            text: '🔔 New PR Detected on Staging',
-            weight: 'Bolder',
-            size: 'Large',
-            color: 'Accent'
-          },
-          {
-            type: 'TextBlock',
-            text: pr.title || 'Untitled PR',
-            wrap: true,
-            size: 'Medium',
-            weight: 'Bolder'
-          },
-          {
-            type: 'FactSet',
-            facts: [
-              { title: 'PR ID:',        value: `#${pr.id}` },
-              { title: 'Created By:',   value: pr.createdBy || '-' },
-              { title: 'Source Branch:', value: pr.sourceBranch || '-' },
-              { title: 'Target Branch:', value: pr.targetBranch || '-' },
-              { title: 'Repository:',   value: pr.repository || '-' },
-              { title: 'Event Type:',   value: pr.eventType || '-' },
-              { title: 'Time:',         value: new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }) + ' (Bangkok)' }
-            ]
-          },
-          {
-            type: 'TextBlock',
-            text: '⚙️ Phase 2 — Webhook ทำงานปกติ (ยังไม่ Auto-Approve, รอ Phase 3)',
-            wrap: true,
-            isSubtle: true,
-            size: 'Small',
-            spacing: 'Medium'
-          }
-        ],
-        actions: pr.url ? [
-          {
-            type: 'Action.OpenUrl',
-            title: '🔗 Open in Azure DevOps',
-            url: pr.url
-          }
-        ] : []
-      }
-    }]
-  };
+  const time = new Date().toLocaleString('en-GB', {
+    timeZone: 'Asia/Bangkok',
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
+
+  const lines = [
+    '🔔 **New PR Detected on Staging**',
+    '',
+    '**' + (pr.title || 'Untitled PR') + '**',
+    '',
+    '| Field | Value |',
+    '| --- | --- |',
+    '| **PR ID** | #' + (pr.id || '-') + ' |',
+    '| **Created By** | ' + (pr.createdBy || '-') + ' |',
+    '| **Source** | `' + (pr.sourceBranch || '-') + '` |',
+    '| **Target** | `' + (pr.targetBranch || '-') + '` |',
+    '| **Repository** | ' + (pr.repository || '-') + ' |',
+    '| **Event** | ' + (pr.eventType || '-') + ' |',
+    '| **Time** | ' + time + ' (Bangkok) |',
+    ''
+  ];
+
+  if (pr.url) {
+    lines.push('🔗 [Open in Azure DevOps](' + pr.url + ')');
+    lines.push('');
+  }
+
+  lines.push('_⚙️ Phase 2 — Webhook ทำงานปกติ (ยังไม่ Auto-Approve, รอ Phase 3)_');
+
+  return { text: lines.join('\n') };
 }
 
-/**
- * สร้าง Adaptive Card สำหรับการทดสอบ (ปุ่ม Test Teams บน dashboard)
- */
 function buildTestCard(triggeredBy) {
-  return {
-    type: 'message',
-    attachments: [{
-      contentType: 'application/vnd.microsoft.card.adaptive',
-      content: {
-        $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
-        type: 'AdaptiveCard',
-        version: '1.4',
-        body: [
-          {
-            type: 'TextBlock',
-            text: '✅ Test Notification',
-            weight: 'Bolder',
-            size: 'Large',
-            color: 'Good'
-          },
-          {
-            type: 'TextBlock',
-            text: 'Teams Webhook ทำงานปกติ ระบบ ADO Auto-Approve เชื่อมต่อกับ channel นี้ได้แล้ว',
-            wrap: true
-          },
-          {
-            type: 'FactSet',
-            facts: [
-              { title: 'Triggered By:', value: triggeredBy || 'Unknown' },
-              { title: 'Phase:',        value: 'Phase 2 - Webhook & Notification' },
-              { title: 'Time:',         value: new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }) + ' (Bangkok)' }
-            ]
-          }
-        ]
-      }
-    }]
-  };
+  const time = new Date().toLocaleString('en-GB', {
+    timeZone: 'Asia/Bangkok',
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
+
+  const text = [
+    '✅ **Test Notification**',
+    '',
+    'Teams Webhook ทำงานปกติ ระบบ ADO Auto-Approve เชื่อมต่อกับ channel นี้ได้แล้ว',
+    '',
+    '| Field | Value |',
+    '| --- | --- |',
+    '| **Triggered By** | ' + (triggeredBy || 'Unknown') + ' |',
+    '| **Phase** | Phase 2 - Webhook & Notification |',
+    '| **Time** | ' + time + ' (Bangkok) |'
+  ].join('\n');
+
+  return { text: text };
 }
 
-/**
- * สร้าง Adaptive Card แจ้งเตือนข้อผิดพลาด
- */
 function buildErrorCard(title, errorMessage, context) {
-  return {
-    type: 'message',
-    attachments: [{
-      contentType: 'application/vnd.microsoft.card.adaptive',
-      content: {
-        $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
-        type: 'AdaptiveCard',
-        version: '1.4',
-        body: [
-          {
-            type: 'TextBlock',
-            text: `⚠️ ${title}`,
-            weight: 'Bolder',
-            size: 'Large',
-            color: 'Attention'
-          },
-          {
-            type: 'TextBlock',
-            text: errorMessage,
-            wrap: true
-          },
-          context ? {
-            type: 'FactSet',
-            facts: Object.entries(context).map(([k, v]) => ({ title: k + ':', value: String(v) }))
-          } : null
-        ].filter(Boolean)
+  const lines = [
+    '⚠️ **' + title + '**',
+    '',
+    errorMessage,
+    ''
+  ];
+
+  if (context && typeof context === 'object') {
+    lines.push('| Field | Value |');
+    lines.push('| --- | --- |');
+    for (const [k, v] of Object.entries(context)) {
+      lines.push('| **' + k + '** | ' + String(v) + ' |');
+    }
+  }
+
+  return { text: lines.join('\n') };
+}
+
+function adaptiveCardToText(adaptiveCardPayload) {
+  try {
+    const content = adaptiveCardPayload.attachments[0].content;
+    const lines = [];
+    for (const block of (content.body || [])) {
+      if (block.type === 'TextBlock' && block.text) {
+        if (block.weight === 'Bolder') {
+          lines.push('**' + block.text + '**');
+        } else {
+          lines.push(block.text);
+        }
+        lines.push('');
+      } else if (block.type === 'FactSet' && Array.isArray(block.facts)) {
+        for (const f of block.facts) {
+          lines.push('**' + f.title + '** ' + f.value);
+        }
+        lines.push('');
       }
-    }]
-  };
+    }
+    return lines.join('\n');
+  } catch (e) {
+    return JSON.stringify(adaptiveCardPayload);
+  }
 }
 
 module.exports = {
+  sendTeamsMessage,
+  sendTeamsText,
   sendTeamsCard,
   buildPrDetectedCard,
   buildTestCard,
