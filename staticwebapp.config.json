@@ -20,6 +20,16 @@
       "allowedRoles": ["anonymous"]
     },
     {
+      "route": "/api/test-notification",
+      "methods": ["POST"],
+      "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/api/webhook",
+      "methods": ["POST"],
+      "allowedRoles": ["anonymous"]
+    },
+    {
       "route": "/.auth/login/github",
       "statusCode": 404
     },
@@ -50,7 +60,7 @@
     "identityProviders": {
       "azureActiveDirectory": {
         "registration": {
-          "openIdIssuer": "https://login.microsoftonline.com/36f04887-ce29-484c-900e-f23ad3f60b77/v2.0",
+          "openIdIssuer": "https://login.microsoftonline.com/__AAD_TENANT_ID__/v2.0",
           "clientIdSettingName": "AAD_CLIENT_ID",
           "clientSecretSettingName": "AAD_CLIENT_SECRET"
         }

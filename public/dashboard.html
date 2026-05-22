@@ -24,7 +24,7 @@
   <main class="dashboard">
     <div class="welcome-card">
       <h1>ยินดีต้อนรับสู่ระบบ Auto-Approve PR</h1>
-      <p>Phase 1 — ระบบ Login ทำงานเรียบร้อยแล้ว ✅</p>
+      <p>Phase 2 — ระบบรับ Webhook จาก ADO + แจ้งเตือนเข้า Teams ✅</p>
 
       <div class="info-grid">
         <div class="info-item">
@@ -45,8 +45,35 @@
         </div>
       </div>
 
+      <!-- ===== Test Tools Section ===== -->
+      <div class="test-section">
+        <h2>🧪 เครื่องมือทดสอบ</h2>
+        <p class="section-desc">ใช้สำหรับตรวจสอบว่าระบบต่างๆ ทำงานปกติ</p>
+
+        <div class="test-buttons">
+          <button id="btnTestTeams" class="action-button">
+            <span class="btn-icon">💬</span>
+            <span class="btn-text">
+              <span class="btn-title">ทดสอบส่งข้อความเข้า Teams</span>
+              <span class="btn-desc">ส่ง Adaptive Card ทดสอบเข้า channel</span>
+            </span>
+          </button>
+
+          <button id="btnTestHealth" class="action-button">
+            <span class="btn-icon">❤️</span>
+            <span class="btn-text">
+              <span class="btn-title">ทดสอบ Backend Health</span>
+              <span class="btn-desc">ตรวจ /api/health endpoint</span>
+            </span>
+          </button>
+        </div>
+
+        <div id="testResult" class="test-result" hidden></div>
+      </div>
+
+      <!-- ===== System Status ===== -->
       <div class="status-section">
-        <h2>สถานะระบบ</h2>
+        <h2>📊 สถานะระบบ</h2>
         <div class="status-grid">
           <div class="status-card status-ok">
             <div class="status-icon">✅</div>
@@ -62,35 +89,4 @@
               <div class="status-desc">กำลังตรวจสอบ...</div>
             </div>
           </div>
-          <div class="status-card status-pending">
-            <div class="status-icon">🔜</div>
-            <div class="status-text">
-              <div class="status-title">ADO Webhook</div>
-              <div class="status-desc">จะติดตั้งใน Phase 2</div>
-            </div>
-          </div>
-          <div class="status-card status-pending">
-            <div class="status-icon">🔜</div>
-            <div class="status-text">
-              <div class="status-title">Auto-Approve Logic</div>
-              <div class="status-desc">จะติดตั้งใน Phase 3</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="next-steps">
-        <h2>ขั้นตอนถัดไป</h2>
-        <ol>
-          <li>Phase 2 — เชื่อม ADO Webhook + ส่งแจ้งเตือนเข้า Teams</li>
-          <li>Phase 3 — Logic Auto-Approve เต็มรูปแบบ (Validation + Approve API)</li>
-          <li>Phase 4 — Dashboard ดูประวัติ PR + Daily Report</li>
-          <li>Phase 5 — Production Hardening + Pilot</li>
-        </ol>
-      </div>
-    </div>
-  </main>
-
-  <script src="/app.js"></script>
-</body>
-</html>
+          <div clas
