@@ -3,7 +3,6 @@
 // ============================================
 
 (async function init() {
-  // 1. ตรวจสอบว่า login แล้วหรือยัง
   try {
     const authResp = await fetch('/.auth/me');
     const authData = await authResp.json();
@@ -13,7 +12,6 @@
       return;
     }
 
-    // 2. แสดงข้อมูล user ที่ login
     const principal = authData.clientPrincipal;
     setText('userName', principal.userDetails || 'Unknown');
     setText('displayName', principal.userDetails || '-');
@@ -23,12 +21,10 @@
       dateStyle: 'medium', timeStyle: 'short'
     }));
 
-    // 3. แสดง webhook URL
     const webhookUrl = window.location.origin + '/api/webhook';
     const wUrl = document.getElementById('webhookUrl');
     if (wUrl) wUrl.value = webhookUrl;
 
-    // 4. ดึงข้อมูล user เพิ่มเติมจาก API
     try {
       const userResp = await fetch('/api/userinfo');
       if (userResp.ok) {
@@ -40,10 +36,8 @@
       console.warn('userinfo API not available:', e);
     }
 
-    // 5. ตรวจ Backend Health
     await checkHealthStatus();
 
-    // 6. ผูก event handlers
     document.getElementById('btnTestTeams') && document.getElementById('btnTestTeams').addEventListener('click', testTeams);
     document.getElementById('btnTestHealth') && document.getElementById('btnTestHealth').addEventListener('click', testHealth);
     document.getElementById('btnCopyUrl') && document.getElementById('btnCopyUrl').addEventListener('click', copyWebhookUrl);
@@ -88,30 +82,80 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+/**
+ * Fetch JSON อย่างปลอดภัย — ถ้า server ตอบ non-JSON จะคืน {parseError, rawBody, status}
+ */
+async function safeFetchJson(url, options) {
+  const resp = await fetch(url, options || {});
+  const text = await resp.text();
+  const contentType = resp.headers.get('Content-Type') || '';
+
+  let data = null;
+  let parseError = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      parseError = e.message;
+    }
+  } else {
+    parseError = 'Empty response body';
+  }
+
+  return {
+    ok: resp.ok,
+    status: resp.status,
+    contentType: contentType,
+    data: data,
+    rawBody: text,
+    parseError: parseError
+  };
+}
+
 // ===== Test Functions =====
 async function testTeams() {
   setButtonLoading('btnTestTeams', true);
   showResult('⏳ กำลังส่งข้อความทดสอบเข้า Teams...', 'info');
 
   try {
-    const resp = await fetch('/api/test-notification', { method: 'POST' });
-    const data = await resp.json();
+    const r = await safeFetchJson('/api/test-notification', { method: 'POST' });
 
-    if (resp.ok && data.ok) {
+    // กรณี backend ตอบ non-JSON (เช่น HTML page ของ login, error page)
+    if (r.parseError) {
+      const isHtml = r.contentType.indexOf('text/html') >= 0 || r.rawBody.indexOf('<') === 0;
+      const preview = (r.rawBody || '(empty)').substring(0, 300);
+      showResult(
+        '❌ <strong>Backend ตอบกลับไม่ใช่ JSON</strong><br/>' +
+        '<small>HTTP ' + r.status + ' | Content-Type: ' + escapeHtml(r.contentType || '(none)') + '</small><br/>' +
+        '<small><strong>สาเหตุที่เป็นไปได้:</strong></small><br/>' +
+        '<small>' + (isHtml
+          ? '• Session login หมดอายุ — refresh หน้านี้แล้วลองใหม่<br/>• Deploy ยังไม่เสร็จ — ตรวจ GitHub Actions tab'
+          : '• Function ยัง deploy ไม่เสร็จ<br/>• Function crash ตอน startup') +
+        '</small><br/>' +
+        '<small><strong>Response preview:</strong></small><br/>' +
+        '<code style="display:block;padding:8px;background:#fff;border-radius:4px;font-size:11px;margin-top:6px;white-space:pre-wrap;word-break:break-all">' + escapeHtml(preview) + '</code>',
+        'error'
+      );
+      return;
+    }
+
+    if (r.ok && r.data && r.data.ok) {
       showResult(
         '✅ <strong>ส่งสำเร็จ!</strong> ตรวจดู Teams channel ที่ตั้งค่าไว้<br/>' +
-        '<small>โดย: ' + escapeHtml(data.sentBy) + ' | เวลา: ' + new Date(data.timestamp).toLocaleString('th-TH') + '</small>',
+        '<small>โดย: ' + escapeHtml(r.data.sentBy) + ' | เวลา: ' + new Date(r.data.timestamp).toLocaleString('th-TH') + ' | Teams HTTP ' + (r.data.teamsStatus || '-') + '</small>',
         'success'
       );
     } else {
+      const d = r.data || {};
       showResult(
-        '❌ <strong>ส่งไม่สำเร็จ:</strong> ' + escapeHtml(data.error || 'Unknown error') + '<br/>' +
-        '<small>' + escapeHtml(data.hint || data.teamsBody || '') + '</small>',
+        '❌ <strong>ส่งไม่สำเร็จ:</strong> ' + escapeHtml(d.error || 'Unknown error') + ' (HTTP ' + r.status + ')<br/>' +
+        '<small>' + escapeHtml(d.hint || d.detail || d.teamsBody || '') + '</small>' +
+        (d.teamsStatus ? '<br/><small>Teams returned HTTP ' + d.teamsStatus + '</small>' : ''),
         'error'
       );
     }
   } catch (err) {
-    showResult('❌ <strong>เกิดข้อผิดพลาด:</strong> ' + escapeHtml(err.message), 'error');
+    showResult('❌ <strong>เกิดข้อผิดพลาด (network):</strong> ' + escapeHtml(err.message), 'error');
   } finally {
     setButtonLoading('btnTestTeams', false);
   }
@@ -122,17 +166,26 @@ async function testHealth() {
   showResult('⏳ กำลังตรวจ Backend Health...', 'info');
 
   try {
-    const resp = await fetch('/api/health');
-    const data = await resp.json();
+    const r = await safeFetchJson('/api/health');
 
-    if (resp.ok && data.status === 'healthy') {
+    if (r.parseError) {
+      showResult(
+        '❌ <strong>Health endpoint ตอบกลับไม่ใช่ JSON</strong> (HTTP ' + r.status + ')<br/>' +
+        '<small>Content-Type: ' + escapeHtml(r.contentType) + '</small><br/>' +
+        '<code style="display:block;padding:8px;background:#fff;border-radius:4px;font-size:11px;margin-top:6px;white-space:pre-wrap;word-break:break-all">' + escapeHtml((r.rawBody || '(empty)').substring(0, 300)) + '</code>',
+        'error'
+      );
+      return;
+    }
+
+    if (r.ok && r.data && r.data.status === 'healthy') {
       showResult(
         '✅ <strong>Backend ทำงานปกติ</strong><br/>' +
-        '<small>Phase: ' + escapeHtml(data.phase) + ' | Node: ' + escapeHtml(data.node_version) + ' | Uptime: ' + data.uptime_seconds + 's</small>',
+        '<small>Phase: ' + escapeHtml(r.data.phase) + ' | Node: ' + escapeHtml(r.data.node_version) + ' | Uptime: ' + r.data.uptime_seconds + 's</small>',
         'success'
       );
     } else {
-      showResult('⚠️ <strong>Backend ตอบกลับผิดปกติ:</strong> HTTP ' + resp.status, 'error');
+      showResult('⚠️ <strong>Backend ตอบกลับผิดปกติ:</strong> HTTP ' + r.status, 'error');
     }
   } catch (err) {
     showResult('❌ <strong>เชื่อมต่อ Backend ไม่ได้:</strong> ' + escapeHtml(err.message), 'error');
@@ -153,7 +206,7 @@ async function checkHealthStatus() {
       card.classList.remove('status-ok');
       card.classList.add('status-error');
       card.querySelector('.status-icon').textContent = '❌';
-      card.querySelector('.status-desc').textContent = 'Backend ตอบไม่ปกติ';
+      card.querySelector('.status-desc').textContent = 'Backend ตอบไม่ปกติ (HTTP ' + resp.status + ')';
     }
   } catch (e) {
     const card = document.getElementById('apiStatus');
