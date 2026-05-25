@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - ADO Auto-Approve</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-left">
+      <svg width="32" height="32" viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r="30" fill="#1F4E79"/>
+        <path d="M20 32 L28 40 L44 24" stroke="white" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="brand">ADO Auto-Approve</span>
+    </div>
+    <div class="nav-right">
+      <span id="userName" class="user-name">กำลังโหลด...</span>
+      <a href="/.auth/logout?post_logout_redirect_uri=/" class="logout-button">ออกจากระบบ</a>
+    </div>
+  </nav>
+
+  <main class="dashboard">
+    <div class="welcome-card">
+      <h1>ยินดีต้อนรับสู่ระบบ Auto-Approve PR</h1>
+      <p>Phase 2 (Polling Mode) — ดึง PR จาก ADO ด้วย PAT ✅</p>
+
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">ชื่อผู้ใช้</div>
+          <div class="info-value" id="displayName">-</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Email</div>
+          <div class="info-value" id="userEmail">-</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">User ID</div>
+          <div class="info-value" id="userId">-</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">เวลาที่เข้าระบบ</div>
+          <div class="info-value" id="loginTime">-</div>
+        </div>
+      </div>
+
+      <!-- ===== PR Checker Section (Phase 2 Polling) ===== -->
+      <div class="pr-section">
+        <div class="pr-header">
+          <div>
+            <h2>📋 Active PRs in Staging</h2>
+            <p class="section-desc">ดึงรายการ PR ที่ active และ target = staging branch จาก Azure DevOps</p>
+          </div>
+          <button id="btnCheckPrs" class="primary-button">
+            <span>🔄</span>
+            <span>Check Now</span>
+          </button>
+        </div>
+
+        <div id="prResult" hidden></div>
+        <div id="prTableContainer" hidden>
+          <div class="pr-meta" id="prMeta"></div>
+          <div class="pr-table-wrap">
+            <table class="pr-table">
+              <thead>
+                <tr>
+                  <th>PR ID</th>
+                  <th>Title</th>
+                  <th>Created By</th>
+                  <th>Source → Target</th>
+                  <th>Repo</th>
+                  <th>Merge</th>
+                  <th>Created</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="prTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Test Tools ===== -->
+      <div class="test-section">
+        <h2>🧪 เครื่องมือทดสอบ</h2>
+        <p class="section-desc">ใช้สำหรับตรวจสอบว่าระบบต่างๆ ทำงานปกติ</p>
+
+        <div class="test-buttons">
+          <button id="btnTestTeams" class="action-button">
+            <span class="btn-icon">💬</span>
+            <span class="btn-text">
+              <span class="btn-title">ทดสอบส่งข้อความเข้า Teams</span>
+              <span class="btn-desc">ส่งข้อความ markdown ทดสอบ</span>
+            </span>
+          </button>
+
+          <button id="btnTestHealth" class="action-button">
+            <span class="btn-icon">❤️</span>
+            <span class="btn-text">
+              <span class="btn-title">ทดสอบ Backend Health</span>
+              <span class="btn-desc">ตรวจ /api/health endpoint</span>
+            </span>
+          </button>
+        </div>
+
+        <div id="testResult" class="test-result" hidden></div>
+      </div>
+
+      <!-- ===== System Status ===== -->
+      <div class="status-section">
+        <h2>📊 สถานะระบบ</h2>
+        <div class="status-grid">
+          <div class="status-card status-ok">
+            <div class="status-icon">✅</div>
+            <div class="status-text">
+              <div class="status-title">Authentication</div>
+              <div class="status-desc">O365 Login ทำงานปกติ</div>
+            </div>
+          </div>
+          <div class="status-card status-ok" id="apiStatus">
+            <div class="status-icon">⏳</div>
+            <div class="status-text">
+              <div class="status-title">Backend API</div>
+              <div class="status-desc">กำลังตรวจสอบ...</div>
+            </div>
+          </div>
+          <div class="status-card status-ok">
+            <div class="status-icon">✅</div>
+            <div class="status-text">
+              <div class="status-title">ADO Polling</div>
+              <div class="status-desc">/api/list-prs พร้อมใช้งาน</div>
+            </div>
+          </div>
+          <div class="status-card status-pending">
+            <div class="status-icon">🔜</div>
+            <div class="status-text">
+              <div class="status-title">Auto-Approve Logic</div>
+              <div class="status-desc">จะติดตั้งใน Phase 3</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="next-steps">
+        <h2>🎯 ขั้นตอนถัดไป</h2>
+        <ol>
+          <li><s>Phase 1 — ระบบ Login O365</s> ✅</li>
+          <li>Phase 2 — Polling PR + Teams Notification (กำลังทดสอบ)</li>
+          <li>Phase 3 — Logic Auto-Approve เต็มรูปแบบ (Validation + Approve API)</li>
+          <li>Phase 4 — Dashboard ดูประวัติ PR + Daily Report</li>
+          <li>Phase 5 — Production Hardening + Pilot</li>
+        </ol>
+      </div>
+    </div>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
