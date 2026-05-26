@@ -1,8 +1,9 @@
 // ============================================
-// ADO Auto-Approve - Dashboard Script (Phase 3)
+// ADO Auto-Approve - Dashboard Script (Phase 3.1)
 // ============================================
 
-let currentPrForAction = null; // เก็บ PR ปัจจุบันที่กำลังจะ approve/reject
+let currentPrForAction = null;
+window._prCache = {};
 
 (async function init() {
   try {
@@ -31,14 +32,12 @@ let currentPrForAction = null; // เก็บ PR ปัจจุบันที
 
     await checkHealthStatus();
 
-    // Buttons
     bind('btnCheckPrs', checkPrs);
     bind('btnTestTeams', testTeams);
     bind('btnTestHealth', testHealth);
     bind('btnConfirmApprove', doApprove);
     bind('btnConfirmReject', doReject);
 
-    // Modal close buttons
     document.querySelectorAll('[data-close]').forEach(el => {
       el.addEventListener('click', () => closeModal(el.getAttribute('data-close')));
     });
@@ -48,7 +47,6 @@ let currentPrForAction = null; // เก็บ PR ปัจจุบันที
       });
     });
 
-    // Auto-load PR list
     checkPrs();
 
   } catch (err) {
@@ -158,9 +156,10 @@ function renderPrTable(prs) {
   document.getElementById('prMeta').textContent = 'พบ ' + prs.length + ' รายการ';
   const tbody = document.getElementById('prTableBody');
   tbody.innerHTML = '';
+  window._prCache = {};
 
   if (prs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#9ca3af">— ไม่มี PR ที่รอ Approve ตอนนี้ —</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#9ca3af">— ไม่มี PR ที่รอ Approve ตอนนี้ —</td></tr>';
     return;
   }
 
@@ -169,6 +168,7 @@ function renderPrTable(prs) {
     if (pr.isDraft) tr.classList.add('pr-draft');
 
     const draftBadge = pr.isDraft ? ' <span class="pr-badge">DRAFT</span>' : '';
+    const approvalBadge = renderApprovalBadge(pr);
     const actionsHtml =
       '<div class="action-cell">' +
       '<button class="btn-mini btn-approve" onclick="openApproveModal(' + pr.id + ', \'' + pr.repositoryId + '\')">✅ Approve</button>' +
@@ -182,24 +182,114 @@ function renderPrTable(prs) {
       '<td>' + escapeHtml(pr.title) + draftBadge + '</td>' +
       '<td>' + escapeHtml(pr.createdBy || '-') + '</td>' +
       '<td><code>' + escapeHtml(shortBranch(pr.sourceBranch)) + '</code> → <code>' + escapeHtml(shortBranch(pr.targetBranch)) + '</code></td>' +
+      '<td>' + approvalBadge + '</td>' +
       '<td>' + escapeHtml(pr.repository || '-') + '</td>' +
       '<td>' + formatDate(pr.creationDate) + '</td>' +
       '<td>' + actionsHtml + '</td>';
 
-    // เก็บข้อมูล PR ลงใน row dataset เผื่อใช้ภายหลัง
     tr.dataset.pr = JSON.stringify({
       id: pr.id, title: pr.title, repository: pr.repository,
       sourceBranch: shortBranch(pr.sourceBranch), targetBranch: shortBranch(pr.targetBranch),
       createdBy: pr.createdBy, repositoryId: pr.repositoryId
     });
+
+    window._prCache[pr.id] = {
+      id: pr.id,
+      title: pr.title,
+      repository: pr.repository,
+      reviewers: pr.reviewers || [],
+      approval: pr.approval || {},
+      policyFetched: pr.policyFetched === true
+    };
     tbody.appendChild(tr);
   }
 }
 
+// ===== Approval Badge =====
+function renderApprovalBadge(pr) {
+  const a = pr.approval || {};
+  const approved = a.approvedCount || 0;
+  const required = a.requiredCount || 0;
+  const status = a.status || 'pending';
+
+  let cls = 'approval-badge approval-pending';
+  let icon = '🟡';
+  let text = 'Pending';
+
+  if (status === 'rejected') {
+    cls = 'approval-badge approval-rejected';
+    icon = '🔴';
+    text = 'Rejected';
+  } else if (status === 'complete') {
+    cls = 'approval-badge approval-complete';
+    icon = '🟢';
+    text = 'Complete';
+  }
+
+  const ratio = required > 0 ? approved + '/' + required : approved + '';
+  const label = icon + ' ' + ratio + ' ' + text;
+  return '<button class="' + cls + '" onclick="openReviewersModal(' + pr.id + ')" title="คลิกดูรายชื่อ reviewers">' +
+    escapeHtml(label) + '</button>';
+}
+
+// ===== Reviewers Modal =====
+window.openReviewersModal = function(prId) {
+  const data = (window._prCache || {})[prId];
+  if (!data) return;
+  document.getElementById('reviewersPrId').textContent = '#' + prId;
+
+  const a = data.approval || {};
+  const summaryHtml =
+    '<div class="rev-summary-row"><strong>Status:</strong> ' + voteStatusText(a.status) + '</div>' +
+    '<div class="rev-summary-row"><strong>Approved:</strong> ' + (a.approvedCount || 0) + ' / ' + (a.requiredCount || 0) + '</div>' +
+    '<div class="rev-summary-row"><strong>Branch Policy minimum:</strong> ' +
+      (a.minApproversFromPolicy || 0) +
+      (data.policyFetched ? '' : ' <em style="color:#dc2626">(policy fetch failed)</em>') + '</div>' +
+    '<div class="rev-summary-row"><strong>Required reviewers in PR:</strong> ' +
+      (a.requiredReviewerApproved || 0) + ' / ' + (a.requiredReviewerTotal || 0) + ' approved</div>';
+  document.getElementById('reviewersSummary').innerHTML = summaryHtml;
+
+  const reviewers = (data.reviewers || []).slice().sort((x, y) => {
+    if (x.isRequired !== y.isRequired) return x.isRequired ? -1 : 1;
+    if (x.isContainer !== y.isContainer) return x.isContainer ? -1 : 1;
+    return (x.displayName || '').localeCompare(y.displayName || '');
+  });
+
+  let listHtml = '<table class="pr-table" style="margin-top:12px"><thead><tr>' +
+    '<th>Reviewer</th><th>Type</th><th>Required</th><th>Vote</th></tr></thead><tbody>';
+  if (reviewers.length === 0) {
+    listHtml += '<tr><td colspan="4" style="text-align:center;padding:16px;color:#9ca3af">— ไม่มี reviewer —</td></tr>';
+  } else {
+    for (const r of reviewers) {
+      const v = Number(r.vote) || 0;
+      let voteIcon = '⏳', voteText = 'No vote', voteClass = '';
+      if (v >= 10) { voteIcon = '✅'; voteText = 'Approved'; voteClass = 'log-approved'; }
+      else if (v === 5) { voteIcon = '☑️'; voteText = 'Approved with suggestions'; voteClass = 'log-approved'; }
+      else if (v === -5) { voteIcon = '⏸'; voteText = 'Waiting for author'; }
+      else if (v <= -10) { voteIcon = '❌'; voteText = 'Rejected'; voteClass = 'log-rejected'; }
+      const typeIcon = r.isContainer ? '👥 Group' : '👤 Person';
+      const reqBadge = r.isRequired ? '<span class="req-badge">REQUIRED</span>' : '<span style="color:#9ca3af">optional</span>';
+      listHtml += '<tr>' +
+        '<td>' + escapeHtml(r.displayName || '-') + '</td>' +
+        '<td>' + typeIcon + '</td>' +
+        '<td>' + reqBadge + '</td>' +
+        '<td><span class="' + voteClass + '">' + voteIcon + ' ' + voteText + '</span></td>' +
+      '</tr>';
+    }
+  }
+  listHtml += '</tbody></table>';
+  document.getElementById('reviewersList').innerHTML = listHtml;
+  openModal('reviewersModal');
+};
+
+function voteStatusText(s) {
+  if (s === 'complete') return '<span class="log-approved">🟢 Complete (พร้อม merge)</span>';
+  if (s === 'rejected') return '<span class="log-rejected">🔴 Rejected (มี reviewer reject)</span>';
+  return '<span style="color:#d97706">🟡 Pending (รอ approver เพิ่ม)</span>';
+}
+
 // ===== Approve Modal =====
 window.openApproveModal = function(prId, repositoryId) {
-  const row = document.querySelector('#prTableBody tr td strong');
-  // หา row ของ PR นี้
   const rows = document.querySelectorAll('#prTableBody tr');
   let prData = null;
   rows.forEach(r => {
@@ -209,7 +299,7 @@ window.openApproveModal = function(prId, repositoryId) {
     }
   });
   if (!prData) return;
-  currentPrForAction = { ...prData, repositoryId };
+  currentPrForAction = Object.assign({}, prData, { repositoryId });
 
   document.getElementById('approvePrInfo').innerHTML =
     '<div><strong>PR #' + prData.id + '</strong>: ' + escapeHtml(prData.title) + '</div>' +
@@ -235,11 +325,15 @@ async function doApprove() {
       const d = r.data || {};
       alert('❌ Approve ไม่สำเร็จ:\n' + (d.error || 'Unknown') + '\n\n' + (d.detail || d.hint || ''));
     } else {
+      const ignoredText = r.data.releaseNotesIgnored > 0
+        ? '\nRelease Notes ignored: ' + r.data.releaseNotesIgnored + ' policy'
+        : '\nRelease Notes: ไม่พบ policy (ข้าม)';
       alert('✅ Approve สำเร็จ!\n\nPR #' + r.data.prId +
         '\nAuto-Complete: ' + (r.data.autoComplete ? 'เปิดแล้ว' : 'ตั้งไม่สำเร็จ') +
+        ignoredText +
         '\nLog SharePoint: ' + r.data.logStatus);
       closeModal('confirmApproveModal');
-      checkPrs(); // refresh list
+      checkPrs();
     }
   } catch (err) {
     alert('❌ Error: ' + err.message);
@@ -259,7 +353,7 @@ window.openRejectModal = function(prId, repositoryId) {
     }
   });
   if (!prData) return;
-  currentPrForAction = { ...prData, repositoryId };
+  currentPrForAction = Object.assign({}, prData, { repositoryId });
 
   document.getElementById('rejectPrInfo').innerHTML =
     '<div><strong>PR #' + prData.id + '</strong>: ' + escapeHtml(prData.title) + '</div>' +
@@ -343,7 +437,7 @@ window.openHistoryModal = async function(prId) {
   }
 };
 
-// ===== Test Functions (เดิม) =====
+// ===== Test Functions =====
 async function testTeams() {
   setButtonLoading('btnTestTeams', true);
   showResult('⏳ กำลังส่งข้อความทดสอบ...', 'info');

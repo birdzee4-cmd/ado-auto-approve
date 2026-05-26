@@ -3,11 +3,13 @@
  *
  * Body: { prId, repositoryId }
  *
- * 1. ดึง PR detail + รายการ reviewers
- * 2. Bot vote = 10 (Approved)
- * 3. Set Auto-Complete (transitionWorkItems: false)
- * 4. Add comment ระบุ user ที่กดปุ่ม
- * 5. Log ลง SharePoint
+ * ลำดับ Phase 3.1:
+ *   1. GET PR detail + reviewers
+ *   2. GET Branch Policies (เพื่อหา Release Notes policy ID)
+ *   3. Set Auto-Complete (merge existing options + uncheck Release Notes)
+ *   4. Vote = 10 (Approved)
+ *   5. Add comment ระบุ user
+ *   6. Log SharePoint
  */
 
 module.exports = async function (context, req) {
@@ -20,7 +22,6 @@ module.exports = async function (context, req) {
   }
 
   try {
-    // ตรวจ auth
     const principalHeader = req.headers && req.headers['x-ms-client-principal'];
     if (!principalHeader) {
       jsonResponse(401, { ok: false, error: 'Authentication required' });
@@ -33,7 +34,6 @@ module.exports = async function (context, req) {
       userEmail = principal.userDetails || 'Unknown User';
     } catch (e) {}
 
-    // Parse body
     let body = req.body;
     if (typeof body === 'string') {
       try { body = JSON.parse(body); } catch (e) { body = {}; }
@@ -45,10 +45,8 @@ module.exports = async function (context, req) {
       return;
     }
 
-    // Load modules
     const ado = require('../shared/ado-client');
 
-    // ดึง bot user ID (จาก PAT) — ใช้สำหรับ vote
     let botUserId;
     try {
       const conn = await ado.getConnectionData();
@@ -61,7 +59,7 @@ module.exports = async function (context, req) {
       return;
     }
 
-    // ดึง PR detail
+    // 1) ดึง PR detail
     const prResult = await ado.getPullRequest(prId);
     if (!prResult.ok) {
       jsonResponse(502, { ok: false, error: 'Cannot fetch PR', detail: 'HTTP ' + prResult.status });
@@ -69,12 +67,11 @@ module.exports = async function (context, req) {
     }
     const pr = prResult.body;
 
-    // ตรวจว่า target branch = staging (security check)
     const expectedBranch = process.env.ADO_TARGET_BRANCH || 'refs/heads/staging';
     if (pr.targetRefName !== expectedBranch) {
       jsonResponse(403, {
         ok: false,
-        error: 'PR target is not Staging — refuse to approve',
+        error: 'PR target is not Staging - refuse to approve',
         actual: pr.targetRefName,
         expected: expectedBranch
       });
@@ -86,19 +83,46 @@ module.exports = async function (context, req) {
       return;
     }
 
-    // ตรวจว่า PR ยัง active
     if (pr.status !== 'active') {
       jsonResponse(409, { ok: false, error: 'PR status is not active', status: pr.status });
       return;
     }
 
-    // 1) Vote = 10
+    // 2) ดึง Branch Policies เพื่อหา Release Notes
+    let releaseNotesIgnoreIds = [];
+    let policiesFetched = false;
+    try {
+      const polResult = await ado.getBranchPolicies(repositoryId, expectedBranch);
+      if (polResult.ok && polResult.body && Array.isArray(polResult.body.value)) {
+        policiesFetched = true;
+        releaseNotesIgnoreIds = ado.findReleaseNotesPolicyIds(polResult.body.value);
+        context.log('Release Notes policy IDs to ignore:', releaseNotesIgnoreIds);
+      } else {
+        context.log.warn('getBranchPolicies returned HTTP ' + polResult.status);
+      }
+    } catch (e) {
+      context.log.warn('Failed to fetch branch policies:', e.message);
+    }
+
+    // 3) Set Auto-Complete (merge existing options + uncheck Release Notes)
+    const existingOptions = pr.completionOptions || {};
+    const acResult = await ado.setAutoComplete(prId, repositoryId, botUserId, {
+      existingOptions: existingOptions,
+      releaseNotesIgnoreIds: releaseNotesIgnoreIds
+    });
+    const autoCompleteOk = acResult.ok;
+    if (!autoCompleteOk) {
+      context.log.warn('setAutoComplete failed: HTTP ' + acResult.status + ' ' + JSON.stringify(acResult.body).substring(0, 200));
+    }
+
+    // 4) Vote = 10
     const voteResult = await ado.approvePR(prId, repositoryId, botUserId);
     if (!voteResult.ok) {
       jsonResponse(502, {
         ok: false,
         error: 'Failed to approve in ADO',
-        detail: 'HTTP ' + voteResult.status + ': ' + JSON.stringify(voteResult.body).substring(0, 300)
+        detail: 'HTTP ' + voteResult.status + ': ' + JSON.stringify(voteResult.body).substring(0, 300),
+        autoCompleteOk: autoCompleteOk
       });
       await logToSharePoint(context, {
         prId, action: 'Failed', user: userEmail, repository: pr.repository.name,
@@ -108,30 +132,32 @@ module.exports = async function (context, req) {
       return;
     }
 
-    // 2) Set Auto-Complete (transitionWorkItems: false)
-    const acResult = await ado.setAutoComplete(prId, repositoryId, botUserId);
-    const autoCompleteOk = acResult.ok;
-
-    // 3) Add comment ระบุ user
+    // 5) Add comment ระบุ user
     const time = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Bangkok', dateStyle: 'medium', timeStyle: 'short' });
+    const ignoreInfo = releaseNotesIgnoreIds.length > 0
+      ? '\nIgnored optional check(s): Release Notes (' + releaseNotesIgnoreIds.length + ' policy ID)'
+      : '\nNo "Release Notes" policy detected for this branch';
     const commentText =
-      `✅ **Approved** by \`${userEmail}\` via ADO Auto-Approve System\n` +
-      `Timestamp: ${time} (Bangkok)\n` +
-      `Auto-Complete: ${autoCompleteOk ? 'enabled (merge when policy met)' : 'failed to set'}\n` +
-      `_Note: transitionWorkItems = false (Work Items not touched)_`;
+      '✅ **Approved** by `' + userEmail + '` via ADO Auto-Approve System\n' +
+      'Timestamp: ' + time + ' (Bangkok)\n' +
+      'Auto-Complete: ' + (autoCompleteOk ? 'enabled (waits for branch policy)' : 'failed to set') +
+      ignoreInfo +
+      '\n_Note: transitionWorkItems = false (Work Items not touched)_';
     try {
       await ado.addComment(prId, repositoryId, commentText);
     } catch (e) {
       context.log.warn('addComment failed:', e.message);
     }
 
-    // 4) Log SharePoint
+    // 6) Log SharePoint
     let logStatus = 'skipped';
+    const resultText = (autoCompleteOk ? 'Success (auto-complete enabled' : 'Vote OK (auto-complete failed') +
+      (releaseNotesIgnoreIds.length > 0 ? ', Release Notes ignored)' : ')');
     try {
       const logResult = await logToSharePoint(context, {
         prId, action: 'Approved', user: userEmail, repository: pr.repository.name,
         prTitle: pr.title, targetBranch: pr.targetRefName,
-        result: autoCompleteOk ? 'Success (with auto-complete)' : 'Success (auto-complete failed)'
+        result: resultText
       });
       logStatus = logResult.ok ? 'logged' : 'failed: HTTP ' + logResult.status;
     } catch (e) {
@@ -141,8 +167,11 @@ module.exports = async function (context, req) {
     jsonResponse(200, {
       ok: true,
       message: 'PR approved successfully',
-      prId, user: userEmail,
+      prId,
+      user: userEmail,
       autoComplete: autoCompleteOk,
+      policiesFetched: policiesFetched,
+      releaseNotesIgnored: releaseNotesIgnoreIds.length,
       logStatus: logStatus,
       timestamp: new Date().toISOString()
     });
