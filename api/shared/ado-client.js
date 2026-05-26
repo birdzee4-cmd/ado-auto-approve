@@ -3,15 +3,7 @@
  * Azure DevOps REST API Client
  * ============================================
  *
- * Helpers สำหรับเรียก ADO REST API:
- *   - getPullRequest(id)
- *   - approvePR(id, botUserId)
- *   - rejectPR(id)
- *   - addComment(id, text)
- *   - setAutoComplete(id, botUserId)
- *
- * Env vars ที่ต้องการ:
- *   ADO_ORGANIZATION, ADO_PROJECT, ADO_PAT
+ * Helpers สำหรับเรียก ADO REST API (Phase 3.1)
  */
 
 const https = require('https');
@@ -97,8 +89,67 @@ async function getConnectionData() {
 }
 
 /**
+ * ดึง Branch Policy Configurations สำหรับ branch ที่ระบุ
+ *
+ * @param {string} repositoryId - GUID ของ repo
+ * @param {string} refName - เช่น "refs/heads/staging"
+ */
+async function getBranchPolicies(repositoryId, refName) {
+  const { org, project } = getConfig();
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/policy/configurations?repositoryId=${encodeURIComponent(repositoryId)}&refName=${encodeURIComponent(refName)}&api-version=7.0`;
+  return adoRequest('GET', path);
+}
+
+/**
+ * หา Policy Config ID ของ "Release Notes" status check
+ * Strategy:
+ *   - statusName / statusGenre / displayName / type.displayName
+ *     contain "release note" / "release-note"
+ */
+function findReleaseNotesPolicyIds(policies) {
+  if (!Array.isArray(policies)) return [];
+  const matches = [];
+  const isReleaseNotes = (text) => {
+    if (!text) return false;
+    const t = String(text).toLowerCase().trim();
+    return t.includes('release note') || t.includes('release-note') || t === 'release_notes';
+  };
+
+  for (const p of policies) {
+    if (!p || !p.id) continue;
+    const settings = p.settings || {};
+    const typeDisplay = p.type && p.type.displayName;
+
+    if (isReleaseNotes(settings.statusName) ||
+        isReleaseNotes(settings.statusGenre) ||
+        isReleaseNotes(settings.displayName) ||
+        isReleaseNotes(typeDisplay) ||
+        isReleaseNotes(p.displayName)) {
+      matches.push(p.id);
+    }
+  }
+  return matches;
+}
+
+/**
+ * หา minimumApproverCount ของ "Minimum number of reviewers" policy
+ * Type GUID: fa4e907d-c16b-4a4c-9dfa-4906e5d171dd
+ */
+function findMinimumApproverCount(policies) {
+  if (!Array.isArray(policies)) return 0;
+  const MIN_REVIEWER_TYPE_ID = 'fa4e907d-c16b-4a4c-9dfa-4906e5d171dd';
+  for (const p of policies) {
+    if (!p || !p.type) continue;
+    const typeId = (p.type.id || '').toLowerCase();
+    if (typeId === MIN_REVIEWER_TYPE_ID && p.settings && p.settings.minimumApproverCount) {
+      return Number(p.settings.minimumApproverCount) || 0;
+    }
+  }
+  return 0;
+}
+
+/**
  * Vote = 10 (Approved) สำหรับ bot user บน PR นี้
- *  - ถ้า bot ยังไม่ใน reviewers list จะ add ก่อน
  */
 async function approvePR(prId, repositoryId, botUserId) {
   const { org, project } = getConfig();
@@ -123,24 +174,44 @@ async function rejectPR(prId, repositoryId, botUserId) {
 
 /**
  * Set Auto-Complete (merge เมื่อ policy ครบ)
- * สำคัญ: transitionWorkItems = false (ไม่แตะ Work Item ตามนโยบาย)
+ *
+ * ★ บังคับเสมอ:
+ *   - transitionWorkItems = false (ห้ามแตะ Worklist)
+ *   - bypassPolicy = false (เคารพ branch policy)
+ *
+ * Strategy "Merge & Preserve":
+ *   - รับ existingOptions แล้ว merge ของเราเข้าไป
+ *   - เพิ่ม releaseNotesIgnoreIds เข้า autoCompleteIgnoreConfigIds
  */
-async function setAutoComplete(prId, repositoryId, botUserId, mergeStrategy) {
+async function setAutoComplete(prId, repositoryId, botUserId, options) {
   const { org, project } = getConfig();
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repositoryId}/pullRequests/${prId}?api-version=7.0`;
+
+  options = options || {};
+  const existing = options.existingOptions || {};
+  const ignoreIds = Array.isArray(options.releaseNotesIgnoreIds) ? options.releaseNotesIgnoreIds.slice() : [];
+
+  const existingIgnore = Array.isArray(existing.autoCompleteIgnoreConfigIds)
+    ? existing.autoCompleteIgnoreConfigIds : [];
+  const mergedIgnore = Array.from(new Set([...existingIgnore, ...ignoreIds]));
+
+  const completionOptions = {
+    ...existing,
+    bypassPolicy: false,
+    transitionWorkItems: false,
+    deleteSourceBranch: existing.deleteSourceBranch === true ? true : false,
+    mergeStrategy: options.mergeStrategy || existing.mergeStrategy || 'noFastForward',
+    autoCompleteIgnoreConfigIds: mergedIgnore
+  };
+
   return adoRequest('PATCH', path, {
     autoCompleteSetBy: { id: botUserId },
-    completionOptions: {
-      deleteSourceBranch: false,
-      mergeStrategy: mergeStrategy || 'noFastForward',
-      bypassPolicy: false,
-      transitionWorkItems: false  // ★ ห้ามแตะ Work Item / Worklist
-    }
+    completionOptions: completionOptions
   });
 }
 
 /**
- * Add comment ใน PR thread (เพื่อระบุว่าใครเป็นคนสั่ง action)
+ * Add comment ใน PR thread
  */
 async function addComment(prId, repositoryId, commentText) {
   const { org, project } = getConfig();
@@ -149,9 +220,9 @@ async function addComment(prId, repositoryId, commentText) {
     comments: [{
       parentCommentId: 0,
       content: commentText,
-      commentType: 1   // = "text"
+      commentType: 1
     }],
-    status: 1   // = "active"
+    status: 1
   });
 }
 
@@ -177,5 +248,8 @@ module.exports = {
   rejectPR,
   setAutoComplete,
   addComment,
-  hasReviewerGroup
+  hasReviewerGroup,
+  getBranchPolicies,
+  findReleaseNotesPolicyIds,
+  findMinimumApproverCount
 };

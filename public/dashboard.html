@@ -69,6 +69,7 @@
                   <th>Title</th>
                   <th>By</th>
                   <th>Branch</th>
+                  <th>Approvals</th>
                   <th>Repo</th>
                   <th>Created</th>
                   <th>Actions</th>
@@ -151,8 +152,10 @@
         <div class="modal-pr-info" id="approvePrInfo"></div>
         <p class="modal-warning">⚠️ Action นี้จะ:</p>
         <ul class="modal-list">
+          <li>เปิด <strong>Set Auto-Complete</strong> ก่อน (merge ตาม branch policy)</li>
+          <li>⭐ <strong>Uncheck "Release Notes"</strong> optional check (ถ้ามี)</li>
+          <li>เคารพการตั้งค่า completionOptions อื่นที่ผู้เปิด PR ตั้งไว้</li>
           <li>ส่ง Vote = 10 (Approved) ในนามของ Bot</li>
-          <li>เปิด Auto-Complete (merge ตาม branch policy)</li>
           <li>เพิ่ม comment ใน PR ระบุชื่อคุณ</li>
           <li>บันทึก log ลง SharePoint</li>
           <li><strong>ไม่</strong> แตะ Work Item / Worklist</li>
@@ -186,22 +189,10 @@
     </div>
   </div>
 
-  <!-- ===== History Modal ===== -->
-  <div id="historyModal" class="modal-backdrop" hidden>
+  <!-- ===== Reviewers Detail Modal ===== -->
+  <div id="reviewersModal" class="modal-backdrop" hidden>
     <div class="modal modal-wide">
       <div class="modal-header">
-        <h3>📜 ประวัติของ PR <span id="historyPrId"></span></h3>
-        <button class="modal-close" data-close="historyModal">✕</button>
-      </div>
-      <div class="modal-body">
-        <div id="historyContent">กำลังโหลด...</div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn-cancel" data-close="historyModal">ปิด</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="/app.js"></script>
-</body>
-</html>
+        <h3>👥 Reviewers ของ PR <span id="reviewersPrId"></span></h3>
+        <button class="modal-close" data-close="reviewersModal">✕</button>
+  

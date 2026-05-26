@@ -52,7 +52,7 @@ https://<yourorg>.sharepoint.com/sites/ADO-Auto-Approve
 
 1. ในหน้า site ที่เพิ่งสร้าง คลิก **+ New** → **List**
 2. เลือก **Blank list**
-3. ตั้งชื่อ: `ADO Auto-Approve Log` → **Create**
+3. ตั้งชื่อ: `  ` → **Create**
 
 ## 1.3 เพิ่ม Columns
 
@@ -219,3 +219,4 @@ Azure Portal → Static Web App → **Configuration** → เพิ่ม:
 | ADO REST API | ไม่มี hard limit | < 100/วัน |
 
 ทั้งหมดยังอยู่ใน **0 บาท/เดือน** ครับ
+                  
