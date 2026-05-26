@@ -23,8 +23,8 @@
 
   <main class="dashboard">
     <div class="welcome-card">
-      <h1>ยินดีต้อนรับสู่ระบบ Auto-Approve PR</h1>
-      <p>Phase 2 (Polling Mode) — ดึง PR จาก ADO ด้วย PAT ✅</p>
+      <h1>ระบบ Approve PR — Staging</h1>
+      <p>Phase 3 — Manual Approve พร้อม Confirm + Log SharePoint ✅</p>
 
       <div class="info-grid">
         <div class="info-item">
@@ -36,8 +36,8 @@
           <div class="info-value" id="userEmail">-</div>
         </div>
         <div class="info-item">
-          <div class="info-label">User ID</div>
-          <div class="info-value" id="userId">-</div>
+          <div class="info-label">Role</div>
+          <div class="info-value">IT Support Approve</div>
         </div>
         <div class="info-item">
           <div class="info-label">เวลาที่เข้าระบบ</div>
@@ -45,16 +45,16 @@
         </div>
       </div>
 
-      <!-- ===== PR Checker Section (Phase 2 Polling) ===== -->
+      <!-- ===== PR Approval Section ===== -->
       <div class="pr-section">
         <div class="pr-header">
           <div>
-            <h2>📋 Active PRs in Staging</h2>
-            <p class="section-desc">ดึงรายการ PR ที่ active และ target = staging branch จาก Azure DevOps</p>
+            <h2>📋 PR ที่รออนุมัติ (Staging)</h2>
+            <p class="section-desc">เฉพาะ PR ที่ group <code>IT Support Approve</code> ถูก add เป็น reviewer</p>
           </div>
           <button id="btnCheckPrs" class="primary-button">
             <span>🔄</span>
-            <span>Check Now</span>
+            <span>Refresh</span>
           </button>
         </div>
 
@@ -67,12 +67,11 @@
                 <tr>
                   <th>PR ID</th>
                   <th>Title</th>
-                  <th>Created By</th>
-                  <th>Source → Target</th>
+                  <th>By</th>
+                  <th>Branch</th>
                   <th>Repo</th>
-                  <th>Merge</th>
                   <th>Created</th>
-                  <th>Action</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="prTableBody"></tbody>
@@ -84,17 +83,14 @@
       <!-- ===== Test Tools ===== -->
       <div class="test-section">
         <h2>🧪 เครื่องมือทดสอบ</h2>
-        <p class="section-desc">ใช้สำหรับตรวจสอบว่าระบบต่างๆ ทำงานปกติ</p>
-
         <div class="test-buttons">
           <button id="btnTestTeams" class="action-button">
             <span class="btn-icon">💬</span>
             <span class="btn-text">
-              <span class="btn-title">ทดสอบส่งข้อความเข้า Teams</span>
-              <span class="btn-desc">ส่งข้อความ markdown ทดสอบ</span>
+              <span class="btn-title">ทดสอบ Teams Notification</span>
+              <span class="btn-desc">ส่งข้อความทดสอบเข้า channel</span>
             </span>
           </button>
-
           <button id="btnTestHealth" class="action-button">
             <span class="btn-icon">❤️</span>
             <span class="btn-text">
@@ -103,57 +99,108 @@
             </span>
           </button>
         </div>
-
         <div id="testResult" class="test-result" hidden></div>
       </div>
 
-      <!-- ===== System Status ===== -->
+      <!-- ===== Status ===== -->
       <div class="status-section">
         <h2>📊 สถานะระบบ</h2>
         <div class="status-grid">
           <div class="status-card status-ok">
             <div class="status-icon">✅</div>
             <div class="status-text">
-              <div class="status-title">Authentication</div>
-              <div class="status-desc">O365 Login ทำงานปกติ</div>
+              <div class="status-title">Auth</div>
+              <div class="status-desc">O365 Login OK</div>
             </div>
           </div>
           <div class="status-card status-ok" id="apiStatus">
             <div class="status-icon">⏳</div>
             <div class="status-text">
-              <div class="status-title">Backend API</div>
-              <div class="status-desc">กำลังตรวจสอบ...</div>
+              <div class="status-title">Backend</div>
+              <div class="status-desc">checking...</div>
             </div>
           </div>
           <div class="status-card status-ok">
             <div class="status-icon">✅</div>
             <div class="status-text">
-              <div class="status-title">ADO Polling</div>
-              <div class="status-desc">/api/list-prs พร้อมใช้งาน</div>
+              <div class="status-title">Approve API</div>
+              <div class="status-desc">/api/approve-pr พร้อม</div>
             </div>
           </div>
-          <div class="status-card status-pending">
-            <div class="status-icon">🔜</div>
+          <div class="status-card status-ok">
+            <div class="status-icon">✅</div>
             <div class="status-text">
-              <div class="status-title">Auto-Approve Logic</div>
-              <div class="status-desc">จะติดตั้งใน Phase 3</div>
+              <div class="status-title">SharePoint Log</div>
+              <div class="status-desc">เปิดดูผ่าน SP Site</div>
             </div>
           </div>
         </div>
       </div>
-
-      <div class="next-steps">
-        <h2>🎯 ขั้นตอนถัดไป</h2>
-        <ol>
-          <li><s>Phase 1 — ระบบ Login O365</s> ✅</li>
-          <li>Phase 2 — Polling PR + Teams Notification (กำลังทดสอบ)</li>
-          <li>Phase 3 — Logic Auto-Approve เต็มรูปแบบ (Validation + Approve API)</li>
-          <li>Phase 4 — Dashboard ดูประวัติ PR + Daily Report</li>
-          <li>Phase 5 — Production Hardening + Pilot</li>
-        </ol>
-      </div>
     </div>
   </main>
+
+  <!-- ===== Approve Confirm Modal ===== -->
+  <div id="confirmApproveModal" class="modal-backdrop" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3>✅ ยืนยันการ Approve PR</h3>
+        <button class="modal-close" data-close="confirmApproveModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>คุณกำลังจะ <strong style="color:#059669">Approve</strong> PR ต่อไปนี้:</p>
+        <div class="modal-pr-info" id="approvePrInfo"></div>
+        <p class="modal-warning">⚠️ Action นี้จะ:</p>
+        <ul class="modal-list">
+          <li>ส่ง Vote = 10 (Approved) ในนามของ Bot</li>
+          <li>เปิด Auto-Complete (merge ตาม branch policy)</li>
+          <li>เพิ่ม comment ใน PR ระบุชื่อคุณ</li>
+          <li>บันทึก log ลง SharePoint</li>
+          <li><strong>ไม่</strong> แตะ Work Item / Worklist</li>
+        </ul>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" data-close="confirmApproveModal">ยกเลิก</button>
+        <button id="btnConfirmApprove" class="btn-approve">✅ ยืนยัน Approve</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Reject Confirm Modal ===== -->
+  <div id="confirmRejectModal" class="modal-backdrop" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3>❌ ยืนยันการ Reject PR</h3>
+        <button class="modal-close" data-close="confirmRejectModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>คุณกำลังจะ <strong style="color:#dc2626">Reject</strong> PR ต่อไปนี้:</p>
+        <div class="modal-pr-info" id="rejectPrInfo"></div>
+        <label class="modal-label">เหตุผลที่ Reject (จำเป็น):</label>
+        <textarea id="rejectReason" class="modal-textarea" rows="4" placeholder="เช่น Code review พบ bug ใน function X, ต้องแก้ไขก่อน merge..."></textarea>
+        <p class="modal-warning">⚠️ Reason จะถูกใส่เป็น comment ใน PR และบันทึกลง log</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" data-close="confirmRejectModal">ยกเลิก</button>
+        <button id="btnConfirmReject" class="btn-reject">❌ ยืนยัน Reject</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== History Modal ===== -->
+  <div id="historyModal" class="modal-backdrop" hidden>
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>📜 ประวัติของ PR <span id="historyPrId"></span></h3>
+        <button class="modal-close" data-close="historyModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="historyContent">กำลังโหลด...</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" data-close="historyModal">ปิด</button>
+      </div>
+    </div>
+  </div>
 
   <script src="/app.js"></script>
 </body>

@@ -6,41 +6,18 @@
   },
 
   "routes": [
-    {
-      "route": "/dashboard.html",
-      "allowedRoles": ["authenticated"]
-    },
-    {
-      "route": "/dashboard",
-      "rewrite": "/dashboard.html",
-      "allowedRoles": ["authenticated"]
-    },
-    {
-      "route": "/api/userinfo",
-      "allowedRoles": ["authenticated"]
-    },
-    {
-      "route": "/api/health",
-      "allowedRoles": ["anonymous"]
-    },
-    {
-      "route": "/api/test-notification",
-      "methods": ["POST"],
-      "allowedRoles": ["authenticated"]
-    },
-    {
-      "route": "/api/webhook",
-      "methods": ["POST"],
-      "allowedRoles": ["anonymous"]
-    },
-    {
-      "route": "/.auth/login/github",
-      "statusCode": 404
-    },
-    {
-      "route": "/.auth/login/twitter",
-      "statusCode": 404
-    }
+    { "route": "/dashboard.html", "allowedRoles": ["authenticated"] },
+    { "route": "/dashboard", "rewrite": "/dashboard.html", "allowedRoles": ["authenticated"] },
+    { "route": "/api/userinfo", "allowedRoles": ["authenticated"] },
+    { "route": "/api/health", "allowedRoles": ["anonymous"] },
+    { "route": "/api/list-prs", "methods": ["GET"], "allowedRoles": ["authenticated"] },
+    { "route": "/api/approve-pr", "methods": ["POST"], "allowedRoles": ["authenticated"] },
+    { "route": "/api/reject-pr", "methods": ["POST"], "allowedRoles": ["authenticated"] },
+    { "route": "/api/pr-history/*", "methods": ["GET"], "allowedRoles": ["authenticated"] },
+    { "route": "/api/test-notification", "methods": ["POST"], "allowedRoles": ["authenticated"] },
+    { "route": "/api/webhook", "methods": ["POST"], "allowedRoles": ["anonymous"] },
+    { "route": "/.auth/login/github", "statusCode": 404 },
+    { "route": "/.auth/login/twitter", "statusCode": 404 }
   ],
 
   "responseOverrides": {
@@ -48,10 +25,7 @@
       "statusCode": 302,
       "redirect": "/.auth/login/aad?post_login_redirect_uri=/dashboard.html"
     },
-    "403": {
-      "redirect": "/403.html",
-      "statusCode": 302
-    }
+    "403": { "redirect": "/403.html", "statusCode": 302 }
   },
 
   "navigationFallback": {
@@ -64,7 +38,7 @@
     "identityProviders": {
       "azureActiveDirectory": {
         "registration": {
-          "openIdIssuer": "https://login.microsoftonline.com/36f04887-ce29-484c-900e-f23ad3f60b77/v2.0",
+          "openIdIssuer": "https://login.microsoftonline.com/__AAD_TENANT_ID__/v2.0",
           "clientIdSettingName": "AAD_CLIENT_ID",
           "clientSecretSettingName": "AAD_CLIENT_SECRET"
         }
@@ -78,7 +52,5 @@
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains"
   },
 
-  "mimeTypes": {
-    ".json": "application/json"
-  }
+  "mimeTypes": { ".json": "application/json" }
 }

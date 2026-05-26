@@ -587,3 +587,167 @@ body {
 .pr-link:hover {
   text-decoration: underline;
 }
+
+/* ===== Phase 3: Action buttons in PR table ===== */
+.action-cell {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.btn-mini {
+  padding: 4px 8px;
+  border: 1px solid;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+  white-space: nowrap;
+  background: white;
+  transition: all 0.15s;
+}
+
+.btn-mini:hover { transform: translateY(-1px); }
+
+.btn-mini.btn-approve { color: #059669; border-color: #059669; }
+.btn-mini.btn-approve:hover { background: #059669; color: white; }
+
+.btn-mini.btn-reject { color: #dc2626; border-color: #dc2626; }
+.btn-mini.btn-reject:hover { background: #dc2626; color: white; }
+
+.btn-mini.btn-history { color: #6b7280; border-color: #d1d5db; }
+.btn-mini.btn-history:hover { background: #6b7280; color: white; }
+
+.btn-mini.btn-open { color: #2E75B6; border-color: #2E75B6; }
+.btn-mini.btn-open:hover { background: #2E75B6; color: white; }
+
+/* ===== Modal ===== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-backdrop[hidden] { display: none; }
+
+.modal {
+  background: white;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal.modal-wide { max-width: 900px; }
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 { margin: 0; color: #1F4E79; font-size: 18px; }
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+}
+.modal-close:hover { background: #f3f4f6; }
+
+.modal-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+}
+
+.modal-body p { margin-bottom: 12px; }
+
+.modal-pr-info {
+  background: #f9fafb;
+  border-left: 3px solid #2E75B6;
+  padding: 12px 14px;
+  margin: 12px 0;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.modal-warning {
+  color: #92400e;
+  font-size: 13px;
+  margin-top: 16px;
+}
+
+.modal-list {
+  margin-left: 20px;
+  font-size: 13px;
+  color: #4b5563;
+  line-height: 1.8;
+}
+
+.modal-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin: 12px 0 6px;
+}
+
+.modal-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+}
+.modal-textarea:focus { outline: none; border-color: #2E75B6; box-shadow: 0 0 0 3px rgba(46,117,182,0.1); }
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.btn-cancel, .btn-approve, .btn-reject {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.btn-cancel { background: #e5e7eb; color: #374151; }
+.btn-cancel:hover { background: #d1d5db; }
+
+.btn-approve { background: #059669; color: white; }
+.btn-approve:hover { background: #047857; }
+
+.btn-reject { background: #dc2626; color: white; }
+.btn-reject:hover { background: #b91c1c; }
+
+/* Log entry colors */
+.log-approved { color: #059669; font-weight: 600; }
+.log-rejected { color: #dc2626; font-weight: 600; }
+.log-failed   { color: #d97706; font-weight: 600; }
