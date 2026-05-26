@@ -1,0 +1,255 @@
+/**
+ * ============================================
+ * Azure DevOps REST API Client
+ * ============================================
+ *
+ * Helpers สำหรับเรียก ADO REST API (Phase 3.1)
+ */
+
+const https = require('https');
+
+function getConfig() {
+  const org = process.env.ADO_ORGANIZATION;
+  const project = process.env.ADO_PROJECT;
+  const pat = process.env.ADO_PAT;
+  if (!org || !project || !pat) {
+    throw new Error('Missing ADO_ORGANIZATION / ADO_PROJECT / ADO_PAT');
+  }
+  return { org, project, pat };
+}
+
+function adoRequest(method, path, body) {
+  const { pat } = getConfig();
+  const auth = 'Basic ' + Buffer.from(':' + pat).toString('base64');
+  const data = body ? JSON.stringify(body) : null;
+
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'dev.azure.com',
+      port: 443,
+      path: path,
+      method: method,
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': auth
+      },
+      timeout: 15000
+    };
+    if (data) {
+      options.headers['Content-Type'] = 'application/json';
+      options.headers['Content-Length'] = Buffer.byteLength(data);
+    }
+
+    const req = https.request(options, (res) => {
+      let resBody = '';
+      res.on('data', chunk => resBody += chunk);
+      res.on('end', () => {
+        let parsed = null;
+        try { parsed = resBody ? JSON.parse(resBody) : null; } catch (e) {}
+        resolve({
+          ok: res.statusCode >= 200 && res.statusCode < 300,
+          status: res.statusCode,
+          body: parsed || resBody
+        });
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('ADO API timeout (15s)')); });
+    if (data) req.write(data);
+    req.end();
+  });
+}
+
+/**
+ * ดึง PR detail พร้อม reviewers
+ */
+async function getPullRequest(prId) {
+  const { org, project } = getConfig();
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/pullrequests/${prId}?api-version=7.0&$expand=reviewers`;
+  return adoRequest('GET', path);
+}
+
+/**
+ * ดึง list active PRs ที่ target = staging
+ */
+async function listActivePRs(targetBranch) {
+  const { org, project } = getConfig();
+  const tb = targetBranch || 'refs/heads/staging';
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/pullrequests?api-version=7.0&searchCriteria.status=active&searchCriteria.targetRefName=${encodeURIComponent(tb)}&$top=100`;
+  return adoRequest('GET', path);
+}
+
+/**
+ * ดึง ID ของ bot user (จาก PAT) — ใช้สำหรับ vote
+ */
+async function getConnectionData() {
+  const { org } = getConfig();
+  const path = `/${encodeURIComponent(org)}/_apis/connectionData?api-version=7.0`;
+  return adoRequest('GET', path);
+}
+
+/**
+ * ดึง Branch Policy Configurations สำหรับ branch ที่ระบุ
+ *
+ * @param {string} repositoryId - GUID ของ repo
+ * @param {string} refName - เช่น "refs/heads/staging"
+ */
+async function getBranchPolicies(repositoryId, refName) {
+  const { org, project } = getConfig();
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/policy/configurations?repositoryId=${encodeURIComponent(repositoryId)}&refName=${encodeURIComponent(refName)}&api-version=7.0`;
+  return adoRequest('GET', path);
+}
+
+/**
+ * หา Policy Config ID ของ "Release Notes" status check
+ * Strategy:
+ *   - statusName / statusGenre / displayName / type.displayName
+ *     contain "release note" / "release-note"
+ */
+function findReleaseNotesPolicyIds(policies) {
+  if (!Array.isArray(policies)) return [];
+  const matches = [];
+  const isReleaseNotes = (text) => {
+    if (!text) return false;
+    const t = String(text).toLowerCase().trim();
+    return t.includes('release note') || t.includes('release-note') || t === 'release_notes';
+  };
+
+  for (const p of policies) {
+    if (!p || !p.id) continue;
+    const settings = p.settings || {};
+    const typeDisplay = p.type && p.type.displayName;
+
+    if (isReleaseNotes(settings.statusName) ||
+        isReleaseNotes(settings.statusGenre) ||
+        isReleaseNotes(settings.displayName) ||
+        isReleaseNotes(typeDisplay) ||
+        isReleaseNotes(p.displayName)) {
+      matches.push(p.id);
+    }
+  }
+  return matches;
+}
+
+/**
+ * หา minimumApproverCount ของ "Minimum number of reviewers" policy
+ * Type GUID: fa4e907d-c16b-4a4c-9dfa-4906e5d171dd
+ */
+function findMinimumApproverCount(policies) {
+  if (!Array.isArray(policies)) return 0;
+  const MIN_REVIEWER_TYPE_ID = 'fa4e907d-c16b-4a4c-9dfa-4906e5d171dd';
+  for (const p of policies) {
+    if (!p || !p.type) continue;
+    const typeId = (p.type.id || '').toLowerCase();
+    if (typeId === MIN_REVIEWER_TYPE_ID && p.settings && p.settings.minimumApproverCount) {
+      return Number(p.settings.minimumApproverCount) || 0;
+    }
+  }
+  return 0;
+}
+
+/**
+ * Vote = 10 (Approved) สำหรับ bot user บน PR นี้
+ */
+async function approvePR(prId, repositoryId, botUserId) {
+  const { org, project } = getConfig();
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repositoryId}/pullRequests/${prId}/reviewers/${botUserId}?api-version=7.0`;
+  return adoRequest('PUT', path, {
+    vote: 10,
+    isRequired: false
+  });
+}
+
+/**
+ * Vote = -10 (Rejected)
+ */
+async function rejectPR(prId, repositoryId, botUserId) {
+  const { org, project } = getConfig();
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repositoryId}/pullRequests/${prId}/reviewers/${botUserId}?api-version=7.0`;
+  return adoRequest('PUT', path, {
+    vote: -10,
+    isRequired: false
+  });
+}
+
+/**
+ * Set Auto-Complete (merge เมื่อ policy ครบ)
+ *
+ * ★ บังคับเสมอ:
+ *   - transitionWorkItems = false (ห้ามแตะ Worklist)
+ *   - bypassPolicy = false (เคารพ branch policy)
+ *
+ * Strategy "Merge & Preserve":
+ *   - รับ existingOptions แล้ว merge ของเราเข้าไป
+ *   - เพิ่ม releaseNotesIgnoreIds เข้า autoCompleteIgnoreConfigIds
+ */
+async function setAutoComplete(prId, repositoryId, botUserId, options) {
+  const { org, project } = getConfig();
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repositoryId}/pullRequests/${prId}?api-version=7.0`;
+
+  options = options || {};
+  const existing = options.existingOptions || {};
+  const ignoreIds = Array.isArray(options.releaseNotesIgnoreIds) ? options.releaseNotesIgnoreIds.slice() : [];
+
+  const existingIgnore = Array.isArray(existing.autoCompleteIgnoreConfigIds)
+    ? existing.autoCompleteIgnoreConfigIds : [];
+  const mergedIgnore = Array.from(new Set([...existingIgnore, ...ignoreIds]));
+
+  const completionOptions = {
+    ...existing,
+    bypassPolicy: false,
+    transitionWorkItems: false,
+    deleteSourceBranch: existing.deleteSourceBranch === true ? true : false,
+    mergeStrategy: options.mergeStrategy || existing.mergeStrategy || 'noFastForward',
+    autoCompleteIgnoreConfigIds: mergedIgnore
+  };
+
+  return adoRequest('PATCH', path, {
+    autoCompleteSetBy: { id: botUserId },
+    completionOptions: completionOptions
+  });
+}
+
+/**
+ * Add comment ใน PR thread
+ */
+async function addComment(prId, repositoryId, commentText) {
+  const { org, project } = getConfig();
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repositoryId}/pullRequests/${prId}/threads?api-version=7.0`;
+  return adoRequest('POST', path, {
+    comments: [{
+      parentCommentId: 0,
+      content: commentText,
+      commentType: 1
+    }],
+    status: 1
+  });
+}
+
+/**
+ * ตรวจว่ามี group "IT Support Approve" (หรือชื่ออื่น) อยู่ใน reviewers ของ PR ไหม
+ */
+function hasReviewerGroup(pr, groupName) {
+  if (!pr || !Array.isArray(pr.reviewers)) return false;
+  const target = (groupName || '').toLowerCase().trim();
+  return pr.reviewers.some(r =>
+    r.isContainer === true &&
+    (r.displayName || '').toLowerCase().includes(target)
+  );
+}
+
+module.exports = {
+  getConfig,
+  adoRequest,
+  getPullRequest,
+  listActivePRs,
+  getConnectionData,
+  approvePR,
+  rejectPR,
+  setAutoComplete,
+  addComment,
+  hasReviewerGroup,
+  getBranchPolicies,
+  findReleaseNotesPolicyIds,
+  findMinimumApproverCount
+};
