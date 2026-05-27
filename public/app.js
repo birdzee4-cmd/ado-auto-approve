@@ -214,15 +214,15 @@ function renderPrTable(prs) {
     const actionsHtml = renderActions(pr);
 
     tr.innerHTML =
-      '<td><strong>#' + pr.id + '</strong></td>' +
-      '<td>' + escapeHtml(pr.title) + draftBadge + mergeCodeBadge + '</td>' +
-      '<td>' + escapeHtml(pr.createdBy || '-') + '</td>' +
-      '<td>' + renderBranchCell(pr) + '</td>' +
-      '<td>' + approvalBadge + '</td>' +
-      '<td>' + myApprovalBadge + '</td>' +
-      '<td>' + escapeHtml(pr.repository || '-') + '</td>' +
-      '<td>' + formatDate(pr.creationDate) + '</td>' +
-      '<td>' + actionsHtml + '</td>';
+      '<td class="pr-id-cell"><strong>#' + pr.id + '</strong></td>' +
+      '<td class="pr-title-cell"><span class="pr-title-text">' + escapeHtml(pr.title) + '</span>' + draftBadge + mergeCodeBadge + '</td>' +
+      '<td class="pr-by-cell">' + escapeHtml(pr.createdBy || '-') + '</td>' +
+      '<td class="pr-branch-cell">' + renderBranchCell(pr) + '</td>' +
+      '<td class="pr-approval-cell">' + approvalBadge + '</td>' +
+      '<td class="pr-my-approval-cell">' + myApprovalBadge + '</td>' +
+      '<td class="pr-repo-cell">' + escapeHtml(pr.repository || '-') + '</td>' +
+      '<td class="pr-created-cell">' + formatDate(pr.creationDate) + '</td>' +
+      '<td class="pr-actions-cell">' + actionsHtml + '</td>';
 
     tr.dataset.pr = JSON.stringify({
       id: pr.id, title: pr.title, repository: pr.repository,
