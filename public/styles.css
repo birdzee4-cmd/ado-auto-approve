@@ -624,6 +624,70 @@ body {
   line-height: 1.2;
 }
 
+.my-approval {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 132px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  color: #374151;
+  line-height: 1.2;
+}
+
+.my-approval-label {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.my-approval-detail {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.my-approval-approved {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.my-approval-approved .my-approval-detail {
+  color: #15803d;
+}
+
+.my-approval-pending {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.my-approval-rejected {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.my-approval-warning {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #9a3412;
+}
+
+.my-approval-manual {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.my-approval-muted {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #6b7280;
+}
+
 .btn-mini {
   display: inline-flex;
   align-items: center;

@@ -38,6 +38,7 @@ module.exports = async function (context, req) {
     }
 
     // ---- 2) ตรวจ env vars ----
+    const currentUser = getCurrentUser(req.headers['x-ms-client-principal']);
     const org = process.env.ADO_ORGANIZATION;
     const project = process.env.ADO_PROJECT;
     const pat = process.env.ADO_PAT;
@@ -113,6 +114,7 @@ module.exports = async function (context, req) {
       const repositoryId = pr.repository && pr.repository.id;
       const isMergeCodeTarget = isMergeCodeBranch(pr.targetRefName);
       const approval = buildApprovalSummary(reviewers);
+      const myApproval = buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTarget);
       prs.push({
         id: pr.pullRequestId,
         title: pr.title,
@@ -127,6 +129,7 @@ module.exports = async function (context, req) {
         mergeStatus: pr.mergeStatus,
         reviewers: reviewers.map(mapReviewer),
         approval: approval,
+        myApproval: myApproval,
         policyFetched: false,
         isMergeCodeTarget: isMergeCodeTarget,
         actionMode: isMergeCodeTarget ? 'manual-azure-devops' : 'auto-approve',
@@ -205,6 +208,40 @@ function isMergeCodeBranch(refName) {
   return String(refName || '').toLowerCase().includes('mergecode');
 }
 
+function getCurrentUser(encodedPrincipal) {
+  const user = {
+    userDetails: '',
+    userId: '',
+    identities: []
+  };
+  try {
+    const principal = JSON.parse(Buffer.from(encodedPrincipal, 'base64').toString('utf-8'));
+    user.userDetails = principal.userDetails || '';
+    user.userId = principal.userId || '';
+    user.identities = collectPrincipalIdentities(principal);
+  } catch (e) {}
+  return user;
+}
+
+function collectPrincipalIdentities(principal) {
+  const values = [
+    principal.userDetails,
+    principal.userId
+  ];
+  const claims = Array.isArray(principal.claims) ? principal.claims : [];
+  for (const claim of claims) {
+    if (!claim) continue;
+    const typ = String(claim.typ || claim.type || '').toLowerCase();
+    if (typ.includes('email') ||
+        typ.includes('upn') ||
+        typ.includes('nameidentifier') ||
+        typ.endsWith('/name')) {
+      values.push(claim.val || claim.value);
+    }
+  }
+  return values.map(normalizeIdentity).filter(Boolean);
+}
+
 function hasReviewerGroup(pr, groupName) {
   const reviewers = Array.isArray(pr.reviewers) ? pr.reviewers : [];
   const target = String(groupName || '').toLowerCase().trim();
@@ -226,6 +263,93 @@ function mapReviewer(reviewer) {
     isRequired: reviewer.isRequired === true,
     isContainer: reviewer.isContainer === true
   };
+}
+
+function buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTarget) {
+  if (isMergeCodeTarget) {
+    return {
+      status: 'manual',
+      label: 'Manual in ADO',
+      detail: 'Open Azure DevOps',
+      vote: null,
+      matched: false,
+      waitingOthers: Math.max((approval.requiredCount || 0) - (approval.approvedCount || 0), 0)
+    };
+  }
+
+  const myReviewer = findCurrentUserReviewer(reviewers, currentUser);
+  const vote = myReviewer ? Number(myReviewer.vote) || 0 : 0;
+  const waitingOthers = Math.max((approval.requiredCount || 0) - (approval.approvedCount || 0), 0);
+
+  if (vote >= 10) {
+    return {
+      status: 'approved',
+      label: 'You approved',
+      detail: waitingOthers > 0 ? 'Waiting others: ' + waitingOthers : 'All required approved',
+      vote: vote,
+      matched: true,
+      waitingOthers: waitingOthers
+    };
+  }
+  if (vote === 5) {
+    return {
+      status: 'suggestions',
+      label: 'Approved with suggestions',
+      detail: waitingOthers > 0 ? 'Waiting others: ' + waitingOthers : 'All required approved',
+      vote: vote,
+      matched: true,
+      waitingOthers: waitingOthers
+    };
+  }
+  if (vote <= -10) {
+    return {
+      status: 'rejected',
+      label: 'You rejected',
+      detail: 'Review needed',
+      vote: vote,
+      matched: true,
+      waitingOthers: waitingOthers
+    };
+  }
+  if (vote === -5) {
+    return {
+      status: 'waiting-author',
+      label: 'Waiting for author',
+      detail: 'You requested changes',
+      vote: vote,
+      matched: true,
+      waitingOthers: waitingOthers
+    };
+  }
+
+  return {
+    status: myReviewer ? 'not-approved' : 'not-reviewer',
+    label: myReviewer ? 'Not approved' : 'Not assigned to you',
+    detail: 'Waiting: ' + (approval.approvedCount || 0) + '/' + (approval.requiredCount || 0),
+    vote: vote,
+    matched: !!myReviewer,
+    waitingOthers: waitingOthers
+  };
+}
+
+function findCurrentUserReviewer(reviewers, currentUser) {
+  const identities = currentUser && Array.isArray(currentUser.identities)
+    ? currentUser.identities
+    : [];
+  if (identities.length === 0) return null;
+  return reviewers.find(reviewer => {
+    if (!reviewer || reviewer.isContainer === true) return false;
+    const reviewerValues = [
+      reviewer.uniqueName,
+      reviewer.displayName,
+      reviewer.id
+    ].map(normalizeIdentity).filter(Boolean);
+    return reviewerValues.some(value => identities.includes(value));
+  }) || null;
+}
+
+function normalizeIdentity(value) {
+  return String(value || '').trim().toLowerCase();
 }
 
 function buildApprovalSummary(reviewers) {

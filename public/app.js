@@ -163,7 +163,7 @@ function renderPrTable(prs) {
   window._prCache = {};
 
   if (prs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#9ca3af">— ไม่มี PR ที่รอ Approve ตอนนี้ —</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#9ca3af">— ไม่มี PR ที่รอ Approve ตอนนี้ —</td></tr>';
     return;
   }
 
@@ -175,6 +175,7 @@ function renderPrTable(prs) {
     const mergeCodeBadge = isMergeCodePr(pr) ? ' <span class="pr-badge pr-badge-manual">MERGECODE MANUAL</span>' : '';
     const draftBadge = pr.isDraft ? ' <span class="pr-badge">DRAFT</span>' : '';
     const approvalBadge = renderApprovalBadge(pr);
+    const myApprovalBadge = renderMyApprovalBadge(pr);
     const actionsHtml = renderActions(pr);
 
     tr.innerHTML =
@@ -183,6 +184,7 @@ function renderPrTable(prs) {
       '<td>' + escapeHtml(pr.createdBy || '-') + '</td>' +
       '<td><code>' + escapeHtml(shortBranch(pr.sourceBranch)) + '</code> → <code>' + escapeHtml(shortBranch(pr.targetBranch)) + '</code></td>' +
       '<td>' + approvalBadge + '</td>' +
+      '<td>' + myApprovalBadge + '</td>' +
       '<td>' + escapeHtml(pr.repository || '-') + '</td>' +
       '<td>' + formatDate(pr.creationDate) + '</td>' +
       '<td>' + actionsHtml + '</td>';
@@ -199,6 +201,7 @@ function renderPrTable(prs) {
       repository: pr.repository,
       reviewers: pr.reviewers || [],
       approval: pr.approval || {},
+      myApproval: pr.myApproval || {},
       policyFetched: pr.policyFetched === true,
       isMergeCodeTarget: isMergeCodePr(pr)
     };
@@ -232,6 +235,39 @@ function isMergeCodePr(pr) {
     pr.isMergeCodeTarget === true ||
     String(pr.targetBranch || '').toLowerCase().includes('mergecode')
   );
+}
+
+function renderMyApprovalBadge(pr) {
+  const my = pr.myApproval || {};
+  let cls = 'my-approval my-approval-pending';
+  let icon = '⭕';
+  let label = my.label || 'Not approved';
+
+  if (my.status === 'approved') {
+    cls = 'my-approval my-approval-approved';
+    icon = '✅';
+  } else if (my.status === 'suggestions') {
+    cls = 'my-approval my-approval-approved';
+    icon = '☑️';
+  } else if (my.status === 'rejected') {
+    cls = 'my-approval my-approval-rejected';
+    icon = '❌';
+  } else if (my.status === 'waiting-author') {
+    cls = 'my-approval my-approval-warning';
+    icon = '⏸';
+  } else if (my.status === 'manual') {
+    cls = 'my-approval my-approval-manual';
+    icon = '🔗';
+  } else if (my.status === 'not-reviewer') {
+    cls = 'my-approval my-approval-muted';
+    icon = '—';
+  }
+
+  const detail = my.detail ? '<span class="my-approval-detail">' + escapeHtml(my.detail) + '</span>' : '';
+  return '<span class="' + cls + '">' +
+    '<span class="my-approval-label">' + icon + ' ' + escapeHtml(label) + '</span>' +
+    detail +
+    '</span>';
 }
 
 // ===== Approval Badge =====
