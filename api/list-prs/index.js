@@ -1,129 +1,178 @@
-// api/list-prs/index.js
-// แก้ไข: เปลี่ยนจาก exact match เป็น prefix match
-// รองรับ Staging/VN, Staging/api, staging, Staging ทุกรูปแบบ
+/**
+ * GET /api/list-prs
+ *
+ * ดึง active Pull Requests ที่ target = staging branch จาก Azure DevOps
+ * โดยใช้ Personal Access Token (PAT)
+ *
+ * Environment variables:
+ *   ADO_ORGANIZATION  =  ชื่อ organization (จาก URL: dev.azure.com/<org>)
+ *   ADO_PROJECT       =  ชื่อ project
+ *   ADO_PAT           =  Personal Access Token (scope: Code Read)
+ *   ADO_TARGET_BRANCH =  (optional) default: refs/heads/staging
+ *                        ใช้เป็น prefix match — รองรับ Staging/VN, Staging/api ฯลฯ
+ *
+ * รับประกัน: ตอบ JSON เสมอ มี Content-Type ชัดเจน
+ */
+
 const https = require('https');
 
 module.exports = async function (context, req) {
-    context.log('list-prs: called');
+  function jsonResponse(status, payload) {
+    context.res = {
+      status: status,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify(payload)
+    };
+  }
 
-    const org    = process.env.ADO_ORGANIZATION;
+  try {
+    // ---- 1) ตรวจ auth ----
+    if (!req.headers || !req.headers['x-ms-client-principal']) {
+      jsonResponse(401, {
+        ok: false,
+        error: 'Authentication required',
+        hint: 'Refresh หน้า dashboard แล้วลองใหม่'
+      });
+      return;
+    }
+
+    // ---- 2) ตรวจ env vars ----
+    const org = process.env.ADO_ORGANIZATION;
     const project = process.env.ADO_PROJECT;
-    const pat    = process.env.ADO_PAT;
+    const pat = process.env.ADO_PAT;
 
-    // --- แก้ไขตรงนี้ ---
-    // ADO_TARGET_BRANCH เดิมใช้เป็น exact match
-    // เปลี่ยนเป็น prefix match แทน
-    // default prefix = 'refs/heads/staging' (lowercase)
-    // รองรับทุก branch ที่ขึ้นต้นด้วย refs/heads/staging ไม่ว่าจะ case ใด
-    const stagingPrefix = (
-        process.env.ADO_TARGET_BRANCH || 'refs/heads/staging'
-    ).toLowerCase();
-    // -------------------
+    // [แก้ไข] เปลี่ยนจาก exact match → prefix match (case-insensitive)
+    // รองรับ: staging, Staging/VN, Staging/api, refs/heads/Staging/TH ฯลฯ
+    const stagingPrefix = (process.env.ADO_TARGET_BRANCH || 'refs/heads/staging').toLowerCase();
 
-    if (!org || !project || !pat) {
-        context.res = {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                error: 'Missing environment variables: ADO_ORGANIZATION, ADO_PROJECT หรือ ADO_PAT'
-            })
-        };
-        return;
+    const missing = [];
+    if (!org)     missing.push('ADO_ORGANIZATION');
+    if (!project) missing.push('ADO_PROJECT');
+    if (!pat)     missing.push('ADO_PAT');
+    if (missing.length > 0) {
+      jsonResponse(500, {
+        ok: false,
+        error: 'Missing environment variables: ' + missing.join(', '),
+        hint: 'เพิ่ม env vars ใน Azure Portal → Static Web App → Configuration'
+      });
+      return;
     }
 
+    // ---- 3) เรียก ADO REST API ----
+    // [แก้ไข] ลบ searchCriteria.targetRefName ออก — ดึงทุก active PR มาก่อน
+    // แล้วค่อย filter ด้วย prefix ใน step 4 แทน
+    const apiPath = '/' + encodeURIComponent(org) + '/' + encodeURIComponent(project) +
+      '/_apis/git/pullrequests?api-version=7.0' +
+      '&searchCriteria.status=active' +
+      '&$top=100';
+
+    const result = await callAdoApi('dev.azure.com', apiPath, pat);
+
+    if (!result.ok) {
+      jsonResponse(result.status === 401 ? 401 : 502, {
+        ok: false,
+        error: 'ADO API returned ' + result.status,
+        detail: (result.body || '').substring(0, 500),
+        hint: result.status === 401
+          ? 'PAT ไม่ถูกต้องหรือหมดอายุ — สร้างใหม่และอัปเดต ADO_PAT'
+          : result.status === 404
+          ? 'ตรวจ ADO_ORGANIZATION และ ADO_PROJECT ว่าสะกดถูก'
+          : 'ดู detail ด้านบนเพื่อหาสาเหตุ'
+      });
+      return;
+    }
+
+    // ---- 4) Parse และ map ข้อมูล ----
+    let data;
     try {
-        // ดึง PR ทั้งหมดที่ active (ไม่ filter branch ที่ API layer แล้ว)
-        const allPRs = await fetchActivePRs(org, project, pat);
-
-        // Filter เฉพาะ PR ที่ target branch ขึ้นต้นด้วย stagingPrefix
-        const stagingPRs = allPRs.filter(pr => {
-            const target = (pr.targetRefName || '').toLowerCase();
-            return target.startsWith(stagingPrefix);
-        });
-
-        context.log(`list-prs: พบ PR ทั้งหมด ${allPRs.length} รายการ, ใน Staging ${stagingPRs.length} รายการ`);
-
-        context.res = {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                count: stagingPRs.length,
-                organization: org,
-                project: project,
-                stagingPrefix: stagingPrefix,
-                pullRequests: stagingPRs.map(pr => ({
-                    id:          pr.pullRequestId,
-                    title:       pr.title,
-                    sourceRef:   pr.sourceRefName,
-                    targetRef:   pr.targetRefName,
-                    repoName:    pr.repository ? pr.repository.name : '',
-                    mergeStatus: pr.mergeStatus,
-                    isDraft:     pr.isDraft || false,
-                    createdBy:   pr.createdBy ? pr.createdBy.displayName : '',
-                    createdDate: pr.creationDate,
-                    url: `https://dev.azure.com/${org}/${project}/_git/` +
-                         `${pr.repository ? pr.repository.name : ''}/pullrequest/${pr.pullRequestId}`
-                }))
-            })
-        };
-
-    } catch (err) {
-        context.log.error('list-prs error:', err.message);
-        context.res = {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ error: err.message })
-        };
+      data = JSON.parse(result.body);
+    } catch (e) {
+      jsonResponse(502, {
+        ok: false,
+        error: 'ADO API returned non-JSON',
+        detail: (result.body || '').substring(0, 300)
+      });
+      return;
     }
+
+    // [แก้ไข] เพิ่ม .filter() ก่อน .map()
+    // เก็บเฉพาะ PR ที่ targetRefName ขึ้นต้นด้วย stagingPrefix (case-insensitive)
+    const prs = (data.value || [])
+      .filter(pr => (pr.targetRefName || '').toLowerCase().startsWith(stagingPrefix))
+      .map(pr => ({
+        id: pr.pullRequestId,
+        title: pr.title,
+        createdBy: pr.createdBy && pr.createdBy.displayName,
+        sourceBranch: pr.sourceRefName,
+        targetBranch: pr.targetRefName,
+        repository: pr.repository && pr.repository.name,
+        status: pr.status,
+        isDraft: pr.isDraft,
+        creationDate: pr.creationDate,
+        mergeStatus: pr.mergeStatus,
+        url: pr.repository && pr.repository.project
+          ? 'https://dev.azure.com/' + org + '/' + project +
+            '/_git/' + pr.repository.name + '/pullrequest/' + pr.pullRequestId
+          : null
+      }));
+
+    jsonResponse(200, {
+      ok: true,
+      count: prs.length,
+      organization: org,
+      project: project,
+      targetBranch: stagingPrefix,
+      fetchedAt: new Date().toISOString(),
+      prs: prs
+    });
+
+  } catch (err) {
+    context.log.error('Unexpected error:', err);
+    jsonResponse(500, {
+      ok: false,
+      error: 'Unexpected server error',
+      detail: err && err.message ? err.message : String(err)
+    });
+  }
 };
 
-// ดึง Active PR ทั้งหมดจาก ADO (ไม่ filter branch)
-function fetchActivePRs(org, project, pat) {
-    return new Promise((resolve, reject) => {
-        const token = Buffer.from(`:${pat}`).toString('base64');
+/**
+ * เรียก ADO REST API ด้วย Basic Auth (PAT)
+ */
+function callAdoApi(hostname, path, pat) {
+  return new Promise((resolve, reject) => {
+    const auth = 'Basic ' + Buffer.from(':' + pat).toString('base64');
 
-        // $top=200 เผื่อกรณีมี PR เปิดอยู่เยอะ
-        const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}` +
-                     `/_apis/git/pullrequests` +
-                     `?searchCriteria.status=active&$top=200&api-version=7.1`;
+    const options = {
+      hostname: hostname,
+      port: 443,
+      path: path,
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': auth
+      },
+      timeout: 15000
+    };
 
-        const options = {
-            hostname: 'dev.azure.com',
-            path:     path,
-            method:   'GET',
-            headers: {
-                'Authorization': `Basic ${token}`,
-                'Content-Type':  'application/json',
-                'Accept':        'application/json'
-            }
-        };
-
-        const httpReq = https.request(options, (res) => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-                if (res.statusCode === 200) {
-                    try {
-                        const json = JSON.parse(data);
-                        resolve(json.value || []);
-                    } catch (e) {
-                        reject(new Error('ADO API: parse JSON ไม่ได้'));
-                    }
-                } else if (res.statusCode === 401) {
-                    reject(new Error('ADO API returned 401: PAT ผิดหรือหมดอายุ'));
-                } else if (res.statusCode === 404) {
-                    reject(new Error('ADO API returned 404: Organization หรือ Project ไม่ถูกต้อง'));
-                } else {
-                    reject(new Error(`ADO API returned ${res.statusCode}: ${data.substring(0, 200)}`));
-                }
-            });
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        resolve({
+          ok: res.statusCode >= 200 && res.statusCode < 300,
+          status: res.statusCode,
+          body: body
         });
-
-        httpReq.on('error', (e) => reject(new Error(`Network error: ${e.message}`)));
-        httpReq.setTimeout(15000, () => {
-            httpReq.abort();
-            reject(new Error('ADO API timeout (15s)'));
-        });
-        httpReq.end();
+      });
     });
+
+    req.on('error', err => reject(err));
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('ADO API request timeout (15s)'));
+    });
+
+    req.end();
+  });
 }
