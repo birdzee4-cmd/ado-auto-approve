@@ -238,10 +238,11 @@ function mapReviewer(reviewer) {
 
 function buildApprovalSummary(reviewers, minApproversFromPolicy) {
   const people = reviewers.filter(r => r && r.isContainer !== true);
-  const required = people.filter(r => r.isRequired === true);
+  const required = reviewers.filter(r => r && r.isRequired === true);
+  const requiredPeople = people.filter(r => r.isRequired === true);
   const rejectedCount = people.filter(r => Number(r.vote) <= -10).length;
   const approvedCount = people.filter(r => Number(r.vote) >= 10).length;
-  const requiredApprovedCount = required.filter(r => Number(r.vote) >= 10).length;
+  const requiredApprovedCount = requiredPeople.filter(r => Number(r.vote) >= 10).length;
   const policyMinimum = Number(minApproversFromPolicy) || 0;
   const requiredCount = required.length || policyMinimum || people.length;
 
