@@ -16,7 +16,6 @@
  */
 
 const https = require('https');
-const ado = require('../shared/ado-client');
 
 module.exports = async function (context, req) {
   function jsonResponse(status, payload) {
@@ -113,24 +112,7 @@ module.exports = async function (context, req) {
       const reviewers = Array.isArray(pr.reviewers) ? pr.reviewers : [];
       const repositoryId = pr.repository && pr.repository.id;
       const isMergeCodeTarget = isMergeCodeBranch(pr.targetRefName);
-      let policyFetched = false;
-      let minApproversFromPolicy = 0;
-
-      if (!isMergeCodeTarget && repositoryId && pr.targetRefName) {
-        try {
-          const policiesResult = await ado.getBranchPolicies(repositoryId, pr.targetRefName);
-          if (policiesResult.ok && policiesResult.body && Array.isArray(policiesResult.body.value)) {
-            policyFetched = true;
-            minApproversFromPolicy = ado.findMinimumApproverCount(policiesResult.body.value);
-          } else {
-            context.log.warn('getBranchPolicies returned HTTP ' + policiesResult.status + ' for PR ' + pr.pullRequestId);
-          }
-        } catch (e) {
-          context.log.warn('Failed to fetch branch policies for PR ' + pr.pullRequestId + ': ' + e.message);
-        }
-      }
-
-      const approval = buildApprovalSummary(reviewers, minApproversFromPolicy);
+      const approval = buildApprovalSummary(reviewers);
       prs.push({
         id: pr.pullRequestId,
         title: pr.title,
@@ -145,7 +127,7 @@ module.exports = async function (context, req) {
         mergeStatus: pr.mergeStatus,
         reviewers: reviewers.map(mapReviewer),
         approval: approval,
-        policyFetched: policyFetched,
+        policyFetched: false,
         isMergeCodeTarget: isMergeCodeTarget,
         actionMode: isMergeCodeTarget ? 'manual-azure-devops' : 'auto-approve',
         url: pr.repository && pr.repository.project
@@ -246,15 +228,14 @@ function mapReviewer(reviewer) {
   };
 }
 
-function buildApprovalSummary(reviewers, minApproversFromPolicy) {
+function buildApprovalSummary(reviewers) {
   const people = reviewers.filter(r => r && r.isContainer !== true);
   const required = reviewers.filter(r => r && r.isRequired === true);
   const requiredPeople = people.filter(r => r.isRequired === true);
   const rejectedCount = people.filter(r => Number(r.vote) <= -10).length;
   const approvedCount = people.filter(r => Number(r.vote) >= 10).length;
   const requiredApprovedCount = requiredPeople.filter(r => Number(r.vote) >= 10).length;
-  const policyMinimum = Number(minApproversFromPolicy) || 0;
-  const requiredCount = required.length || policyMinimum || people.length;
+  const requiredCount = required.length || people.length;
 
   let status = 'pending';
   if (rejectedCount > 0) {
@@ -269,7 +250,7 @@ function buildApprovalSummary(reviewers, minApproversFromPolicy) {
     requiredCount: requiredCount,
     requiredReviewerApproved: requiredApprovedCount,
     requiredReviewerTotal: required.length,
-    minApproversFromPolicy: policyMinimum,
+    minApproversFromPolicy: 0,
     rejectedCount: rejectedCount
   };
 }
