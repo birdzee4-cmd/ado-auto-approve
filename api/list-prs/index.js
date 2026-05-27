@@ -243,7 +243,7 @@ function buildApprovalSummary(reviewers, minApproversFromPolicy) {
   const approvedCount = people.filter(r => Number(r.vote) >= 10).length;
   const requiredApprovedCount = required.filter(r => Number(r.vote) >= 10).length;
   const policyMinimum = Number(minApproversFromPolicy) || 0;
-  const requiredCount = Math.max(policyMinimum, required.length || people.length);
+  const requiredCount = required.length || policyMinimum || people.length;
 
   let status = 'pending';
   if (rejectedCount > 0) {
