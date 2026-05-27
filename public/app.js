@@ -88,6 +88,15 @@ function setButtonLoading(buttonId, loading, loadingText) {
     btn.innerHTML = loading ? '<span>⏳</span><span>' + loadingText + '</span>' : btn.dataset.originalHtml;
   }
 }
+function resetCheckPrsButton() {
+  const btn = document.getElementById('btnCheckPrs');
+  if (!btn) return;
+  btn.disabled = false;
+  btn.style.opacity = '1';
+  btn.style.cursor = 'pointer';
+  btn.innerHTML = '<span>🔄</span><span>เรียกดูข้อมูล</span>';
+  delete btn.dataset.originalHtml;
+}
 function escapeHtml(str) {
   if (str == null) return '';
   return String(str)
@@ -178,7 +187,7 @@ async function checkPrs() {
   } catch (err) {
     showBox('prResult', '<div class="test-result result-error">❌ ' + escapeHtml(err.message) + '</div>');
   } finally {
-    setButtonLoading('btnCheckPrs', false);
+    resetCheckPrsButton();
   }
 }
 
