@@ -110,6 +110,30 @@ function shortBranch(ref) {
   if (!ref) return '-';
   return ref.replace(/^refs\/heads\//, '');
 }
+function compactBranchName(branch, maxLength) {
+  const value = shortBranch(branch);
+  if (value.length <= maxLength) return value;
+  const head = Math.ceil((maxLength - 3) * 0.42);
+  const tail = Math.floor((maxLength - 3) * 0.58);
+  return value.slice(0, head) + '...' + value.slice(value.length - tail);
+}
+function renderBranchCell(pr) {
+  const sourceFull = shortBranch(pr.sourceBranch);
+  const targetFull = shortBranch(pr.targetBranch);
+  const sourceText = compactBranchName(pr.sourceBranch, 42);
+  const targetText = compactBranchName(pr.targetBranch, 58);
+
+  return '<div class="branch-stack">' +
+    '<div class="branch-line branch-from">' +
+      '<span class="branch-label">From</span>' +
+      '<code title="' + escapeHtml(sourceFull) + '">' + escapeHtml(sourceText) + '</code>' +
+    '</div>' +
+    '<div class="branch-line branch-into">' +
+      '<span class="branch-label">Into</span>' +
+      '<code title="' + escapeHtml(targetFull) + '">' + escapeHtml(targetText) + '</code>' +
+    '</div>' +
+  '</div>';
+}
 function openModal(id) {
   const m = document.getElementById(id);
   if (m) m.hidden = false;
@@ -182,7 +206,7 @@ function renderPrTable(prs) {
       '<td><strong>#' + pr.id + '</strong></td>' +
       '<td>' + escapeHtml(pr.title) + draftBadge + mergeCodeBadge + '</td>' +
       '<td>' + escapeHtml(pr.createdBy || '-') + '</td>' +
-      '<td><code>' + escapeHtml(shortBranch(pr.sourceBranch)) + '</code> → <code>' + escapeHtml(shortBranch(pr.targetBranch)) + '</code></td>' +
+      '<td>' + renderBranchCell(pr) + '</td>' +
       '<td>' + approvalBadge + '</td>' +
       '<td>' + myApprovalBadge + '</td>' +
       '<td>' + escapeHtml(pr.repository || '-') + '</td>' +
