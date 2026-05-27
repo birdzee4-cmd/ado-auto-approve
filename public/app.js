@@ -80,7 +80,10 @@ function setButtonLoading(buttonId, loading, loadingText) {
   btn.disabled = loading;
   btn.style.opacity = loading ? '0.6' : '1';
   btn.style.cursor = loading ? 'wait' : 'pointer';
-  if (loadingText) {
+  if (!loading && btn.dataset.originalHtml) {
+    btn.innerHTML = btn.dataset.originalHtml;
+    delete btn.dataset.originalHtml;
+  } else if (loadingText) {
     if (!btn.dataset.originalHtml) btn.dataset.originalHtml = btn.innerHTML;
     btn.innerHTML = loading ? '<span>⏳</span><span>' + loadingText + '</span>' : btn.dataset.originalHtml;
   }
