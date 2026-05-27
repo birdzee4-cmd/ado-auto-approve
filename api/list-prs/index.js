@@ -45,6 +45,7 @@ module.exports = async function (context, req) {
     // [แก้ไข] เปลี่ยนจาก exact match → prefix match (case-insensitive)
     // รองรับ: staging, Staging/VN, Staging/api, refs/heads/Staging/TH ฯลฯ
     const stagingPrefix = (process.env.ADO_TARGET_BRANCH || 'refs/heads/staging').toLowerCase();
+    const reviewerGroup = process.env.ADO_REVIEWER_GROUP || 'IT Support Approve';
 
     const missing = [];
     if (!org)     missing.push('ADO_ORGANIZATION');
@@ -98,31 +99,45 @@ module.exports = async function (context, req) {
 
     // [แก้ไข] เพิ่ม .filter() ก่อน .map()
     // เก็บเฉพาะ PR ที่ targetRefName ขึ้นต้นด้วย stagingPrefix (case-insensitive)
-    const prs = (data.value || [])
-      .filter(pr => (pr.targetRefName || '').toLowerCase().startsWith(stagingPrefix))
-      .map(pr => ({
+    const allActivePrs = data.value || [];
+    const targetPrs = allActivePrs
+      .filter(pr => (pr.targetRefName || '').toLowerCase().startsWith(stagingPrefix));
+    const prs = targetPrs
+      .filter(pr => hasReviewerGroup(pr, reviewerGroup))
+      .map(pr => {
+        const reviewers = Array.isArray(pr.reviewers) ? pr.reviewers : [];
+        const approval = buildApprovalSummary(reviewers);
+        return {
         id: pr.pullRequestId,
         title: pr.title,
         createdBy: pr.createdBy && pr.createdBy.displayName,
         sourceBranch: pr.sourceRefName,
         targetBranch: pr.targetRefName,
         repository: pr.repository && pr.repository.name,
+        repositoryId: pr.repository && pr.repository.id,
         status: pr.status,
         isDraft: pr.isDraft,
         creationDate: pr.creationDate,
         mergeStatus: pr.mergeStatus,
+        reviewers: reviewers.map(mapReviewer),
+        approval: approval,
+        policyFetched: false,
         url: pr.repository && pr.repository.project
           ? 'https://dev.azure.com/' + org + '/' + project +
             '/_git/' + pr.repository.name + '/pullrequest/' + pr.pullRequestId
           : null
-      }));
+        };
+      });
 
     jsonResponse(200, {
       ok: true,
       count: prs.length,
+      totalActive: allActivePrs.length,
+      totalTargetBranch: targetPrs.length,
       organization: org,
       project: project,
       targetBranch: stagingPrefix,
+      reviewerGroup: reviewerGroup,
       fetchedAt: new Date().toISOString(),
       prs: prs
     });
@@ -176,4 +191,53 @@ function callAdoApi(hostname, path, pat) {
 
     req.end();
   });
+}
+
+function hasReviewerGroup(pr, groupName) {
+  const reviewers = Array.isArray(pr.reviewers) ? pr.reviewers : [];
+  const target = String(groupName || '').toLowerCase().trim();
+  if (!target) return true;
+  if (reviewers.length === 0) return true;
+  return reviewers.some(reviewer =>
+    reviewer &&
+    reviewer.isContainer === true &&
+    String(reviewer.displayName || '').toLowerCase().includes(target)
+  );
+}
+
+function mapReviewer(reviewer) {
+  return {
+    id: reviewer.id,
+    displayName: reviewer.displayName,
+    uniqueName: reviewer.uniqueName,
+    vote: reviewer.vote,
+    isRequired: reviewer.isRequired === true,
+    isContainer: reviewer.isContainer === true
+  };
+}
+
+function buildApprovalSummary(reviewers) {
+  const people = reviewers.filter(r => r && r.isContainer !== true);
+  const required = people.filter(r => r.isRequired === true);
+  const rejectedCount = people.filter(r => Number(r.vote) <= -10).length;
+  const approvedCount = people.filter(r => Number(r.vote) >= 10).length;
+  const requiredApprovedCount = required.filter(r => Number(r.vote) >= 10).length;
+  const requiredCount = required.length || people.length;
+
+  let status = 'pending';
+  if (rejectedCount > 0) {
+    status = 'rejected';
+  } else if (requiredCount > 0 && approvedCount >= requiredCount) {
+    status = 'complete';
+  }
+
+  return {
+    status: status,
+    approvedCount: approvedCount,
+    requiredCount: requiredCount,
+    requiredReviewerApproved: requiredApprovedCount,
+    requiredReviewerTotal: required.length,
+    minApproversFromPolicy: 0,
+    rejectedCount: rejectedCount
+  };
 }

@@ -6,7 +6,8 @@
  * เป็น base64-encoded JSON ของข้อมูล user (ชื่อ, email, role, etc.)
  */
 module.exports = async function (context, req) {
-  const header = req.headers['x-ms-client-principal'];
+  const headers = req.headers || {};
+  const header = headers['x-ms-client-principal'] || headers['X-MS-CLIENT-PRINCIPAL'];
 
   // ถ้าไม่มี header แสดงว่าไม่ได้ login
   if (!header) {
@@ -21,7 +22,7 @@ module.exports = async function (context, req) {
   try {
     // Decode ข้อมูล user จาก header
     const encoded = Buffer.from(header, 'base64');
-    const decoded = encoded.toString('ascii');
+    const decoded = encoded.toString('utf-8');
     const principal = JSON.parse(decoded);
 
     // ดึงข้อมูลจาก claims (สำหรับ Microsoft Entra ID)
