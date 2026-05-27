@@ -351,7 +351,7 @@ window.openReviewersModal = function(prId) {
     return (x.displayName || '').localeCompare(y.displayName || '');
   });
 
-  let listHtml = '<table class="pr-table" style="margin-top:12px"><thead><tr>' +
+  let listHtml = '<table class="reviewers-table"><thead><tr>' +
     '<th>Reviewer</th><th>Type</th><th>Required</th><th>Vote</th></tr></thead><tbody>';
   if (reviewers.length === 0) {
     listHtml += '<tr><td colspan="4" style="text-align:center;padding:16px;color:#9ca3af">— ไม่มี reviewer —</td></tr>';

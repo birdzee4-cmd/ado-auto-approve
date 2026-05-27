@@ -888,7 +888,9 @@ body {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
-.modal.modal-wide { max-width: 900px; }
+.modal.modal-wide {
+  max-width: min(1100px, calc(100vw - 48px));
+}
 
 .modal-header {
   display: flex;
@@ -916,6 +918,7 @@ body {
 .modal-body {
   padding: 20px 24px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .modal-body p { margin-bottom: 12px; }
@@ -967,6 +970,64 @@ body {
   gap: 8px;
   padding: 16px 24px;
   border-top: 1px solid #e5e7eb;
+}
+
+.reviewers-table {
+  width: 100%;
+  min-width: 620px;
+  margin-top: 12px;
+  border-collapse: collapse;
+  font-size: 13px;
+  table-layout: fixed;
+}
+
+#reviewersList {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.reviewers-table thead {
+  background: #1F4E79;
+  color: white;
+}
+
+.reviewers-table th,
+.reviewers-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f3f4f6;
+  text-align: left;
+  vertical-align: top;
+}
+
+.reviewers-table th {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.reviewers-table th:nth-child(1),
+.reviewers-table td:nth-child(1) {
+  width: 48%;
+  overflow-wrap: anywhere;
+}
+
+.reviewers-table th:nth-child(2),
+.reviewers-table td:nth-child(2) {
+  width: 16%;
+  white-space: nowrap;
+}
+
+.reviewers-table th:nth-child(3),
+.reviewers-table td:nth-child(3) {
+  width: 18%;
+  white-space: nowrap;
+}
+
+.reviewers-table th:nth-child(4),
+.reviewers-table td:nth-child(4) {
+  width: 18%;
+  white-space: nowrap;
 }
 
 .btn-cancel, .btn-approve, .btn-reject {
