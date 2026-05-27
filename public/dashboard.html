@@ -195,4 +195,33 @@
       <div class="modal-header">
         <h3>👥 Reviewers ของ PR <span id="reviewersPrId"></span></h3>
         <button class="modal-close" data-close="reviewersModal">✕</button>
-  
+      </div>
+      <div class="modal-body">
+        <div id="reviewersSummary"></div>
+        <div id="reviewersList"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" data-close="reviewersModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PR History Modal ===== -->
+  <div id="historyModal" class="modal-backdrop" hidden>
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>History of PR <span id="historyPrId"></span></h3>
+        <button class="modal-close" data-close="historyModal">Close</button>
+      </div>
+      <div class="modal-body">
+        <div id="historyContent"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" data-close="historyModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
