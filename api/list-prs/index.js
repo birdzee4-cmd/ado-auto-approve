@@ -102,7 +102,10 @@ module.exports = async function (context, req) {
     // เก็บเฉพาะ PR ที่ targetRefName ขึ้นต้นด้วย stagingPrefix (case-insensitive)
     const allActivePrs = data.value || [];
     const targetPrs = allActivePrs
-      .filter(pr => (pr.targetRefName || '').toLowerCase().startsWith(stagingPrefix));
+      .filter(pr => {
+        const targetRef = (pr.targetRefName || '').toLowerCase();
+        return targetRef.startsWith(stagingPrefix) || isMergeCodeBranch(targetRef);
+      });
     const prs = [];
     for (const pr of targetPrs
       .filter(pr => hasReviewerGroup(pr, reviewerGroup))
@@ -127,6 +130,7 @@ module.exports = async function (context, req) {
       }
 
       const approval = buildApprovalSummary(reviewers, minApproversFromPolicy);
+      const isMergeCodeTarget = isMergeCodeBranch(pr.targetRefName);
       prs.push({
         id: pr.pullRequestId,
         title: pr.title,
@@ -142,6 +146,8 @@ module.exports = async function (context, req) {
         reviewers: reviewers.map(mapReviewer),
         approval: approval,
         policyFetched: policyFetched,
+        isMergeCodeTarget: isMergeCodeTarget,
+        actionMode: isMergeCodeTarget ? 'manual-azure-devops' : 'auto-approve',
         url: pr.repository && pr.repository.project
           ? 'https://dev.azure.com/' + org + '/' + project +
             '/_git/' + pr.repository.name + '/pullrequest/' + pr.pullRequestId
@@ -211,6 +217,10 @@ function callAdoApi(hostname, path, pat) {
 
     req.end();
   });
+}
+
+function isMergeCodeBranch(refName) {
+  return String(refName || '').toLowerCase().includes('mergecode');
 }
 
 function hasReviewerGroup(pr, groupName) {

@@ -1,7 +1,8 @@
 // ============================================
-// ADO PR Monitor - Dashboard Script
+// ADO Auto-Approve - Dashboard Script (Phase 3.1)
 // ============================================
 
+let currentPrForAction = null;
 window._prCache = {};
 
 (async function init() {
@@ -34,6 +35,8 @@ window._prCache = {};
     bind('btnCheckPrs', checkPrs);
     bind('btnTestTeams', testTeams);
     bind('btnTestHealth', testHealth);
+    bind('btnConfirmApprove', doApprove);
+    bind('btnConfirmReject', doReject);
 
     document.querySelectorAll('[data-close]').forEach(el => {
       el.addEventListener('click', () => closeModal(el.getAttribute('data-close')));
@@ -135,12 +138,15 @@ async function checkPrs() {
       return;
     }
     const d = r.data;
+    const mergeCodeCount = (d.prs || []).filter(isMergeCodePr).length;
+    const mergeCodeNote = mergeCodeCount > 0
+      ? '<br/><small><strong>MergeCode manual:</strong> พบ ' + mergeCodeCount + ' PR ที่ต้องเปิดไปทำเองใน Azure DevOps</small>'
+      : '';
     showBox('prResult',
-      '<div class="test-result result-success">✅ พบ <strong>' + d.count + '</strong> PR ที่ต้องตรวจสอบแบบ Manual ' +
+      '<div class="test-result result-success">✅ พบ <strong>' + d.count + '</strong> PR ที่รออนุมัติ ' +
       '(จาก ' + d.totalActive + ' active PRs ทั้งหมดใน <code>' + escapeHtml(d.targetBranch) + '</code>)' +
       '<br/><small>Filter: reviewer group = <strong>' + escapeHtml(d.reviewerGroup) + '</strong> | ดึงเมื่อ ' +
-      new Date(d.fetchedAt).toLocaleString('th-TH') + '</small>' +
-      '<br/><small>หมายเหตุ: ระบบนี้เป็น read-only monitor; การ Approve / Reject / Complete ต้องทำใน Azure DevOps</small></div>');
+      new Date(d.fetchedAt).toLocaleString('th-TH') + '</small>' + mergeCodeNote + '</div>');
     renderPrTable(d.prs);
     document.getElementById('prTableContainer').hidden = false;
   } catch (err) {
@@ -157,29 +163,23 @@ function renderPrTable(prs) {
   window._prCache = {};
 
   if (prs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#9ca3af">— ไม่มี PR ที่ต้องดำเนินการ Manual ตอนนี้ —</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#9ca3af">— ไม่มี PR ที่รอ Approve ตอนนี้ —</td></tr>';
     return;
   }
 
   for (const pr of prs) {
     const tr = document.createElement('tr');
     if (pr.isDraft) tr.classList.add('pr-draft');
+    if (isMergeCodePr(pr)) tr.classList.add('pr-mergecode');
 
+    const mergeCodeBadge = isMergeCodePr(pr) ? ' <span class="pr-badge pr-badge-manual">MERGECODE MANUAL</span>' : '';
     const draftBadge = pr.isDraft ? ' <span class="pr-badge">DRAFT</span>' : '';
     const approvalBadge = renderApprovalBadge(pr);
-    const manualStatus = getManualActionText(pr);
-    const openUrl = pr.url ? escapeHtml(pr.url) : '#';
-    const openDisabled = pr.url ? '' : ' aria-disabled="true" tabindex="-1"';
-    const actionsHtml =
-      '<div class="action-cell">' +
-      '<span class="manual-action-note">' + escapeHtml(manualStatus) + '</span>' +
-      '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')" title="ดูประวัติ">📜 History</button>' +
-      '<a class="btn-mini btn-open' + (pr.url ? '' : ' btn-disabled') + '" href="' + openUrl + '" target="_blank" rel="noopener"' + openDisabled + '>🔗 Open ADO</a>' +
-      '</div>';
+    const actionsHtml = renderActions(pr);
 
     tr.innerHTML =
       '<td><strong>#' + pr.id + '</strong></td>' +
-      '<td>' + escapeHtml(pr.title) + draftBadge + '</td>' +
+      '<td>' + escapeHtml(pr.title) + draftBadge + mergeCodeBadge + '</td>' +
       '<td>' + escapeHtml(pr.createdBy || '-') + '</td>' +
       '<td><code>' + escapeHtml(shortBranch(pr.sourceBranch)) + '</code> → <code>' + escapeHtml(shortBranch(pr.targetBranch)) + '</code></td>' +
       '<td>' + approvalBadge + '</td>' +
@@ -200,20 +200,38 @@ function renderPrTable(prs) {
       reviewers: pr.reviewers || [],
       approval: pr.approval || {},
       policyFetched: pr.policyFetched === true,
-      url: pr.url
+      isMergeCodeTarget: isMergeCodePr(pr)
     };
     tbody.appendChild(tr);
   }
 }
 
-function getManualActionText(pr) {
-  const approval = pr.approval || {};
-  if (approval.status === 'rejected') return 'Rejected - review in Azure DevOps';
-  if (approval.status === 'complete') return 'Ready for manual merge';
-  const approved = approval.approvedCount || 0;
-  const required = approval.requiredCount || 0;
-  if (required > 0) return 'Waiting for reviewers ' + approved + '/' + required;
-  return 'Review in Azure DevOps';
+function renderActions(pr) {
+  const openUrl = pr.url ? escapeHtml(pr.url) : '#';
+  const openAttrs = pr.url ? ' target="_blank" rel="noopener"' : ' aria-disabled="true" tabindex="-1"';
+  const openClass = pr.url ? 'btn-mini btn-open' : 'btn-mini btn-open btn-disabled';
+
+  if (isMergeCodePr(pr)) {
+    return '<div class="action-cell">' +
+      '<span class="manual-action-note">Manual in Azure DevOps</span>' +
+      '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
+      '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗 Open ADO</a>' +
+      '</div>';
+  }
+
+  return '<div class="action-cell">' +
+    '<button class="btn-mini btn-approve" onclick="openApproveModal(' + pr.id + ', \'' + pr.repositoryId + '\')">✅ Approve</button>' +
+    '<button class="btn-mini btn-reject" onclick="openRejectModal(' + pr.id + ', \'' + pr.repositoryId + '\')">❌ Reject</button>' +
+    '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
+    '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗</a>' +
+    '</div>';
+}
+
+function isMergeCodePr(pr) {
+  return pr && (
+    pr.isMergeCodeTarget === true ||
+    String(pr.targetBranch || '').toLowerCase().includes('mergecode')
+  );
 }
 
 // ===== Approval Badge =====
@@ -294,9 +312,117 @@ window.openReviewersModal = function(prId) {
 };
 
 function voteStatusText(s) {
-  if (s === 'complete') return '<span class="log-approved">🟢 Ready for manual merge</span>';
+  if (s === 'complete') return '<span class="log-approved">🟢 Complete (พร้อม merge)</span>';
   if (s === 'rejected') return '<span class="log-rejected">🔴 Rejected (มี reviewer reject)</span>';
   return '<span style="color:#d97706">🟡 Pending (รอ approver เพิ่ม)</span>';
+}
+
+// ===== Approve Modal =====
+window.openApproveModal = function(prId, repositoryId) {
+  const rows = document.querySelectorAll('#prTableBody tr');
+  let prData = null;
+  rows.forEach(r => {
+    if (r.dataset.pr) {
+      const p = JSON.parse(r.dataset.pr);
+      if (p.id === prId) prData = p;
+    }
+  });
+  if (!prData) return;
+  currentPrForAction = Object.assign({}, prData, { repositoryId });
+
+  document.getElementById('approvePrInfo').innerHTML =
+    '<div><strong>PR #' + prData.id + '</strong>: ' + escapeHtml(prData.title) + '</div>' +
+    '<div style="font-size:13px;color:#6b7280;margin-top:4px">' +
+    'Repo: <code>' + escapeHtml(prData.repository) + '</code> | ' +
+    '<code>' + escapeHtml(prData.sourceBranch) + '</code> → <code>' + escapeHtml(prData.targetBranch) + '</code></div>';
+  openModal('confirmApproveModal');
+};
+
+async function doApprove() {
+  if (!currentPrForAction) return;
+  setButtonLoading('btnConfirmApprove', true, 'กำลังส่ง...');
+  try {
+    const r = await safeFetchJson('/api/approve-pr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prId: currentPrForAction.id,
+        repositoryId: currentPrForAction.repositoryId
+      })
+    });
+    if (r.parseError || !r.ok || !r.data || !r.data.ok) {
+      const d = r.data || {};
+      alert('❌ Approve ไม่สำเร็จ:\n' + (d.error || 'Unknown') + '\n\n' + (d.detail || d.hint || ''));
+    } else {
+      const ignoredText = r.data.releaseNotesIgnored > 0
+        ? '\nRelease Notes ignored: ' + r.data.releaseNotesIgnored + ' policy'
+        : '\nRelease Notes: ไม่พบ policy (ข้าม)';
+      alert('✅ Approve สำเร็จ!\n\nPR #' + r.data.prId +
+        '\nAuto-Complete: ' + (r.data.autoComplete ? 'เปิดแล้ว' : 'ตั้งไม่สำเร็จ') +
+        ignoredText +
+        '\nLog SharePoint: ' + r.data.logStatus);
+      closeModal('confirmApproveModal');
+      checkPrs();
+    }
+  } catch (err) {
+    alert('❌ Error: ' + err.message);
+  } finally {
+    setButtonLoading('btnConfirmApprove', false);
+  }
+}
+
+// ===== Reject Modal =====
+window.openRejectModal = function(prId, repositoryId) {
+  const rows = document.querySelectorAll('#prTableBody tr');
+  let prData = null;
+  rows.forEach(r => {
+    if (r.dataset.pr) {
+      const p = JSON.parse(r.dataset.pr);
+      if (p.id === prId) prData = p;
+    }
+  });
+  if (!prData) return;
+  currentPrForAction = Object.assign({}, prData, { repositoryId });
+
+  document.getElementById('rejectPrInfo').innerHTML =
+    '<div><strong>PR #' + prData.id + '</strong>: ' + escapeHtml(prData.title) + '</div>' +
+    '<div style="font-size:13px;color:#6b7280;margin-top:4px">' +
+    'Repo: <code>' + escapeHtml(prData.repository) + '</code></div>';
+  document.getElementById('rejectReason').value = '';
+  openModal('confirmRejectModal');
+};
+
+async function doReject() {
+  if (!currentPrForAction) return;
+  const reason = document.getElementById('rejectReason').value.trim();
+  if (reason.length < 3) {
+    alert('⚠️ กรุณาใส่เหตุผลที่ Reject (อย่างน้อย 3 ตัวอักษร)');
+    return;
+  }
+  setButtonLoading('btnConfirmReject', true, 'กำลังส่ง...');
+  try {
+    const r = await safeFetchJson('/api/reject-pr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prId: currentPrForAction.id,
+        repositoryId: currentPrForAction.repositoryId,
+        reason: reason
+      })
+    });
+    if (r.parseError || !r.ok || !r.data || !r.data.ok) {
+      const d = r.data || {};
+      alert('❌ Reject ไม่สำเร็จ:\n' + (d.error || 'Unknown'));
+    } else {
+      alert('✅ Reject สำเร็จ!\n\nPR #' + r.data.prId + '\nLog: ' + r.data.logStatus);
+      closeModal('confirmRejectModal');
+      checkPrs();
+    }
+  } catch (err) {
+    alert('❌ Error: ' + err.message);
+  } finally {
+    setButtonLoading('btnConfirmReject', false);
+  }
 }
 
 // ===== History Modal =====

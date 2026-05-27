@@ -200,7 +200,7 @@ async function setAutoComplete(prId, repositoryId, botUserId, options) {
     bypassPolicy: false,
     transitionWorkItems: false,
     deleteSourceBranch: existing.deleteSourceBranch === true ? true : false,
-    mergeStrategy: options.mergeStrategy || existing.mergeStrategy || 'noFastForward',
+    mergeStrategy: 'noFastForward',
     autoCompleteIgnoreConfigIds: mergedIgnore
   };
 
