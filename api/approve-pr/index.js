@@ -67,17 +67,18 @@ module.exports = async function (context, req) {
     }
     const pr = prResult.body;
 
-    const expectedBranch = process.env.ADO_TARGET_BRANCH || 'refs/heads/staging';
-    if (pr.targetRefName !== expectedBranch) {
+    const expectedBranchPrefix = (process.env.ADO_TARGET_BRANCH || 'refs/heads/staging').toLowerCase();
+    const actualTargetBranch = pr.targetRefName || '';
+    if (!actualTargetBranch.toLowerCase().startsWith(expectedBranchPrefix)) {
       jsonResponse(403, {
         ok: false,
         error: 'PR target is not Staging - refuse to approve',
-        actual: pr.targetRefName,
-        expected: expectedBranch
+        actual: actualTargetBranch,
+        expected: expectedBranchPrefix + '*'
       });
       await logToSharePoint(context, {
         prId, action: 'Failed', user: userEmail, repository: pr.repository.name,
-        prTitle: pr.title, targetBranch: pr.targetRefName,
+        prTitle: pr.title, targetBranch: actualTargetBranch,
         result: 'Refused: target not staging'
       });
       return;
@@ -92,7 +93,7 @@ module.exports = async function (context, req) {
     let releaseNotesIgnoreIds = [];
     let policiesFetched = false;
     try {
-      const polResult = await ado.getBranchPolicies(repositoryId, expectedBranch);
+      const polResult = await ado.getBranchPolicies(repositoryId, actualTargetBranch);
       if (polResult.ok && polResult.body && Array.isArray(polResult.body.value)) {
         policiesFetched = true;
         releaseNotesIgnoreIds = ado.findReleaseNotesPolicyIds(polResult.body.value);

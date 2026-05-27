@@ -66,9 +66,15 @@ module.exports = async function (context, req) {
       return;
     }
     const pr = prResult.body;
-    const expectedBranch = process.env.ADO_TARGET_BRANCH || 'refs/heads/staging';
-    if (pr.targetRefName !== expectedBranch) {
-      jsonResponse(403, { ok: false, error: 'PR target is not Staging — refuse to reject', actual: pr.targetRefName });
+    const expectedBranchPrefix = (process.env.ADO_TARGET_BRANCH || 'refs/heads/staging').toLowerCase();
+    const actualTargetBranch = pr.targetRefName || '';
+    if (!actualTargetBranch.toLowerCase().startsWith(expectedBranchPrefix)) {
+      jsonResponse(403, {
+        ok: false,
+        error: 'PR target is not Staging - refuse to reject',
+        actual: actualTargetBranch,
+        expected: expectedBranchPrefix + '*'
+      });
       return;
     }
 
