@@ -112,10 +112,11 @@ module.exports = async function (context, req) {
     ) {
       const reviewers = Array.isArray(pr.reviewers) ? pr.reviewers : [];
       const repositoryId = pr.repository && pr.repository.id;
+      const isMergeCodeTarget = isMergeCodeBranch(pr.targetRefName);
       let policyFetched = false;
       let minApproversFromPolicy = 0;
 
-      if (repositoryId && pr.targetRefName) {
+      if (!isMergeCodeTarget && repositoryId && pr.targetRefName) {
         try {
           const policiesResult = await ado.getBranchPolicies(repositoryId, pr.targetRefName);
           if (policiesResult.ok && policiesResult.body && Array.isArray(policiesResult.body.value)) {
@@ -130,7 +131,6 @@ module.exports = async function (context, req) {
       }
 
       const approval = buildApprovalSummary(reviewers, minApproversFromPolicy);
-      const isMergeCodeTarget = isMergeCodeBranch(pr.targetRefName);
       prs.push({
         id: pr.pullRequestId,
         title: pr.title,
