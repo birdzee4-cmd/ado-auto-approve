@@ -16,6 +16,7 @@
  */
 
 const https = require('https');
+const ado = require('../shared/ado-client');
 
 module.exports = async function (context, req) {
   function jsonResponse(status, payload) {
@@ -102,32 +103,51 @@ module.exports = async function (context, req) {
     const allActivePrs = data.value || [];
     const targetPrs = allActivePrs
       .filter(pr => (pr.targetRefName || '').toLowerCase().startsWith(stagingPrefix));
-    const prs = targetPrs
+    const prs = [];
+    for (const pr of targetPrs
       .filter(pr => hasReviewerGroup(pr, reviewerGroup))
-      .map(pr => {
-        const reviewers = Array.isArray(pr.reviewers) ? pr.reviewers : [];
-        const approval = buildApprovalSummary(reviewers);
-        return {
+    ) {
+      const reviewers = Array.isArray(pr.reviewers) ? pr.reviewers : [];
+      const repositoryId = pr.repository && pr.repository.id;
+      let policyFetched = false;
+      let minApproversFromPolicy = 0;
+
+      if (repositoryId && pr.targetRefName) {
+        try {
+          const policiesResult = await ado.getBranchPolicies(repositoryId, pr.targetRefName);
+          if (policiesResult.ok && policiesResult.body && Array.isArray(policiesResult.body.value)) {
+            policyFetched = true;
+            minApproversFromPolicy = ado.findMinimumApproverCount(policiesResult.body.value);
+          } else {
+            context.log.warn('getBranchPolicies returned HTTP ' + policiesResult.status + ' for PR ' + pr.pullRequestId);
+          }
+        } catch (e) {
+          context.log.warn('Failed to fetch branch policies for PR ' + pr.pullRequestId + ': ' + e.message);
+        }
+      }
+
+      const approval = buildApprovalSummary(reviewers, minApproversFromPolicy);
+      prs.push({
         id: pr.pullRequestId,
         title: pr.title,
         createdBy: pr.createdBy && pr.createdBy.displayName,
         sourceBranch: pr.sourceRefName,
         targetBranch: pr.targetRefName,
         repository: pr.repository && pr.repository.name,
-        repositoryId: pr.repository && pr.repository.id,
+        repositoryId: repositoryId,
         status: pr.status,
         isDraft: pr.isDraft,
         creationDate: pr.creationDate,
         mergeStatus: pr.mergeStatus,
         reviewers: reviewers.map(mapReviewer),
         approval: approval,
-        policyFetched: false,
+        policyFetched: policyFetched,
         url: pr.repository && pr.repository.project
           ? 'https://dev.azure.com/' + org + '/' + project +
             '/_git/' + pr.repository.name + '/pullrequest/' + pr.pullRequestId
           : null
-        };
       });
+    }
 
     jsonResponse(200, {
       ok: true,
@@ -216,13 +236,14 @@ function mapReviewer(reviewer) {
   };
 }
 
-function buildApprovalSummary(reviewers) {
+function buildApprovalSummary(reviewers, minApproversFromPolicy) {
   const people = reviewers.filter(r => r && r.isContainer !== true);
   const required = people.filter(r => r.isRequired === true);
   const rejectedCount = people.filter(r => Number(r.vote) <= -10).length;
   const approvedCount = people.filter(r => Number(r.vote) >= 10).length;
   const requiredApprovedCount = required.filter(r => Number(r.vote) >= 10).length;
-  const requiredCount = required.length || people.length;
+  const policyMinimum = Number(minApproversFromPolicy) || 0;
+  const requiredCount = Math.max(policyMinimum, required.length || people.length);
 
   let status = 'pending';
   if (rejectedCount > 0) {
@@ -237,7 +258,7 @@ function buildApprovalSummary(reviewers) {
     requiredCount: requiredCount,
     requiredReviewerApproved: requiredApprovedCount,
     requiredReviewerTotal: required.length,
-    minApproversFromPolicy: 0,
+    minApproversFromPolicy: policyMinimum,
     rejectedCount: rejectedCount
   };
 }
