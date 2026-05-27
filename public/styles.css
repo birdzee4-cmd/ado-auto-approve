@@ -535,16 +535,19 @@ body {
 }
 
 .pr-table th:nth-child(1),
-.pr-table td:nth-child(1) { width: 76px; }
+.pr-table td:nth-child(1) {
+  width: 92px;
+  white-space: nowrap;
+}
 
 .pr-table th:nth-child(2),
-.pr-table td:nth-child(2) { width: 17%; }
+.pr-table td:nth-child(2) { width: 20%; }
 
 .pr-table th:nth-child(3),
 .pr-table td:nth-child(3) { width: 120px; }
 
 .pr-table th:nth-child(4),
-.pr-table td:nth-child(4) { width: 40%; }
+.pr-table td:nth-child(4) { width: 30%; }
 
 .pr-table th:nth-child(5),
 .pr-table td:nth-child(5) { width: 96px; }
@@ -553,7 +556,7 @@ body {
 .pr-table td:nth-child(6) { width: 150px; }
 
 .pr-table th:nth-child(7),
-.pr-table td:nth-child(7) { width: 130px; }
+.pr-table td:nth-child(7) { width: 150px; }
 
 .pr-table th:nth-child(8),
 .pr-table td:nth-child(8) { width: 86px; }
@@ -579,7 +582,7 @@ body {
   padding: 10px 12px;
   border-bottom: 1px solid #f3f4f6;
   vertical-align: top;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
 }
 
 .pr-table tbody tr:hover {
@@ -633,7 +636,7 @@ body {
 
 .branch-line code {
   display: block;
-  max-width: 100%;
+  max-width: min(100%, 560px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
