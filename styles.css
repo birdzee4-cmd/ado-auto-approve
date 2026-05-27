@@ -591,36 +591,82 @@ body {
 /* ===== Phase 3: Action buttons in PR table ===== */
 .action-cell {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .btn-mini {
-  padding: 4px 8px;
-  border: 1px solid;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
   cursor: pointer;
   text-decoration: none;
   font-family: inherit;
   white-space: nowrap;
-  background: white;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
-.btn-mini:hover { transform: translateY(-1px); }
+.btn-mini:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.16);
+}
 
-.btn-mini.btn-approve { color: #059669; border-color: #059669; }
-.btn-mini.btn-approve:hover { background: #059669; color: white; }
+.btn-mini:focus-visible {
+  outline: 3px solid rgba(46, 117, 182, 0.25);
+  outline-offset: 2px;
+}
 
-.btn-mini.btn-reject { color: #dc2626; border-color: #dc2626; }
-.btn-mini.btn-reject:hover { background: #dc2626; color: white; }
+.btn-mini.btn-approve {
+  background: #047857;
+  border-color: #047857;
+  color: #ffffff;
+}
+.btn-mini.btn-approve:hover {
+  background: #065f46;
+  border-color: #065f46;
+  color: #ffffff;
+}
 
-.btn-mini.btn-history { color: #6b7280; border-color: #d1d5db; }
-.btn-mini.btn-history:hover { background: #6b7280; color: white; }
+.btn-mini.btn-reject {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  color: #ffffff;
+}
+.btn-mini.btn-reject:hover {
+  background: #991b1b;
+  border-color: #991b1b;
+  color: #ffffff;
+}
 
-.btn-mini.btn-open { color: #2E75B6; border-color: #2E75B6; }
-.btn-mini.btn-open:hover { background: #2E75B6; color: white; }
+.btn-mini.btn-history {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+.btn-mini.btn-history:hover {
+  background: #475569;
+  border-color: #475569;
+  color: #ffffff;
+}
+
+.btn-mini.btn-open {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+.btn-mini.btn-open:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+}
 
 /* ===== Modal ===== */
 .modal-backdrop {
