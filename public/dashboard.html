@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard - ADO Auto-Approve</title>
+  <title>Dashboard - ADO PR Monitor</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -23,8 +23,8 @@
 
   <main class="dashboard">
     <div class="welcome-card">
-      <h1>ระบบ Approve PR — Staging</h1>
-      <p>Phase 3 — Manual Approve พร้อม Confirm + Log SharePoint ✅</p>
+      <h1>ระบบติดตาม PR — Staging</h1>
+      <p>Dashboard สำหรับดูสถานะ PR และเปิดไปดำเนินการ Manual ที่ Azure DevOps เท่านั้น</p>
 
       <div class="info-grid">
         <div class="info-item">
@@ -45,12 +45,12 @@
         </div>
       </div>
 
-      <!-- ===== PR Approval Section ===== -->
+      <!-- ===== PR Monitor Section ===== -->
       <div class="pr-section">
         <div class="pr-header">
           <div>
-            <h2>📋 PR ที่รออนุมัติ (Staging)</h2>
-            <p class="section-desc">เฉพาะ PR ที่ group <code>IT Support Approve</code> ถูก add เป็น reviewer</p>
+            <h2>📋 PR ที่ต้องดำเนินการ Manual (Staging)</h2>
+            <p class="section-desc">แสดงสถานะ PR แบบ read-only; Approve / Reject / Complete ต้องทำที่ Azure DevOps</p>
           </div>
           <button id="btnCheckPrs" class="primary-button">
             <span>🔄</span>
@@ -72,7 +72,7 @@
                   <th>Approvals</th>
                   <th>Repo</th>
                   <th>Created</th>
-                  <th>Actions</th>
+                  <th>Manual Action</th>
                 </tr>
               </thead>
               <tbody id="prTableBody"></tbody>
@@ -124,8 +124,8 @@
           <div class="status-card status-ok">
             <div class="status-icon">✅</div>
             <div class="status-text">
-              <div class="status-title">Approve API</div>
-              <div class="status-desc">/api/approve-pr พร้อม</div>
+              <div class="status-title">PR Actions</div>
+              <div class="status-desc">Manual only in Azure DevOps</div>
             </div>
           </div>
           <div class="status-card status-ok">
@@ -139,55 +139,6 @@
       </div>
     </div>
   </main>
-
-  <!-- ===== Approve Confirm Modal ===== -->
-  <div id="confirmApproveModal" class="modal-backdrop" hidden>
-    <div class="modal">
-      <div class="modal-header">
-        <h3>✅ ยืนยันการ Approve PR</h3>
-        <button class="modal-close" data-close="confirmApproveModal">✕</button>
-      </div>
-      <div class="modal-body">
-        <p>คุณกำลังจะ <strong style="color:#059669">Approve</strong> PR ต่อไปนี้:</p>
-        <div class="modal-pr-info" id="approvePrInfo"></div>
-        <p class="modal-warning">⚠️ Action นี้จะ:</p>
-        <ul class="modal-list">
-          <li>เปิด <strong>Set Auto-Complete</strong> ก่อน (merge ตาม branch policy)</li>
-          <li>⭐ <strong>Uncheck "Release Notes"</strong> optional check (ถ้ามี)</li>
-          <li>เคารพการตั้งค่า completionOptions อื่นที่ผู้เปิด PR ตั้งไว้</li>
-          <li>ส่ง Vote = 10 (Approved) ในนามของ Bot</li>
-          <li>เพิ่ม comment ใน PR ระบุชื่อคุณ</li>
-          <li>บันทึก log ลง SharePoint</li>
-          <li><strong>ไม่</strong> แตะ Work Item / Worklist</li>
-        </ul>
-      </div>
-      <div class="modal-actions">
-        <button class="btn-cancel" data-close="confirmApproveModal">ยกเลิก</button>
-        <button id="btnConfirmApprove" class="btn-approve">✅ ยืนยัน Approve</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== Reject Confirm Modal ===== -->
-  <div id="confirmRejectModal" class="modal-backdrop" hidden>
-    <div class="modal">
-      <div class="modal-header">
-        <h3>❌ ยืนยันการ Reject PR</h3>
-        <button class="modal-close" data-close="confirmRejectModal">✕</button>
-      </div>
-      <div class="modal-body">
-        <p>คุณกำลังจะ <strong style="color:#dc2626">Reject</strong> PR ต่อไปนี้:</p>
-        <div class="modal-pr-info" id="rejectPrInfo"></div>
-        <label class="modal-label">เหตุผลที่ Reject (จำเป็น):</label>
-        <textarea id="rejectReason" class="modal-textarea" rows="4" placeholder="เช่น Code review พบ bug ใน function X, ต้องแก้ไขก่อน merge..."></textarea>
-        <p class="modal-warning">⚠️ Reason จะถูกใส่เป็น comment ใน PR และบันทึกลง log</p>
-      </div>
-      <div class="modal-actions">
-        <button class="btn-cancel" data-close="confirmRejectModal">ยกเลิก</button>
-        <button id="btnConfirmReject" class="btn-reject">❌ ยืนยัน Reject</button>
-      </div>
-    </div>
-  </div>
 
   <!-- ===== Reviewers Detail Modal ===== -->
   <div id="reviewersModal" class="modal-backdrop" hidden>

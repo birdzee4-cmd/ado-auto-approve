@@ -596,6 +596,20 @@ body {
   align-items: center;
 }
 
+.manual-action-note {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
 .btn-mini {
   display: inline-flex;
   align-items: center;
@@ -666,6 +680,18 @@ body {
   background: #1d4ed8;
   border-color: #1d4ed8;
   color: #ffffff;
+}
+
+.btn-mini.btn-disabled,
+.btn-mini.btn-disabled:hover {
+  pointer-events: none;
+  cursor: not-allowed;
+  opacity: 0.55;
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #6b7280;
+  box-shadow: none;
+  transform: none;
 }
 
 /* ===== Modal ===== */
