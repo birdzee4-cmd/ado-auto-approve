@@ -121,7 +121,6 @@ function renderBranchCell(pr) {
   const sourceFull = shortBranch(pr.sourceBranch);
   const targetFull = shortBranch(pr.targetBranch);
   const sourceText = compactBranchName(pr.sourceBranch, 42);
-  const targetText = compactBranchName(pr.targetBranch, 58);
 
   return '<div class="branch-stack">' +
     '<div class="branch-line branch-from">' +
@@ -130,7 +129,7 @@ function renderBranchCell(pr) {
     '</div>' +
     '<div class="branch-line branch-into">' +
       '<span class="branch-label">Into</span>' +
-      '<code title="' + escapeHtml(targetFull) + '">' + escapeHtml(targetText) + '</code>' +
+      '<code title="' + escapeHtml(targetFull) + '">' + escapeHtml(targetFull) + '</code>' +
     '</div>' +
   '</div>';
 }

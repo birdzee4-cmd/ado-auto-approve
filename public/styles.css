@@ -642,6 +642,14 @@ body {
 .branch-into code {
   background: #eef6ff;
   color: #1F4E79;
+  display: -webkit-box;
+  line-height: 1.45;
+  max-height: 4.35em;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .pr-badge {
