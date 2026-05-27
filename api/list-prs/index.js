@@ -355,14 +355,21 @@ function normalizeIdentity(value) {
 function buildApprovalSummary(reviewers) {
   const people = reviewers.filter(r => r && r.isContainer !== true);
   const required = reviewers.filter(r => r && r.isRequired === true);
-  const requiredPeople = people.filter(r => r.isRequired === true);
   const rejectedCount = people.filter(r => Number(r.vote) <= -10).length;
-  const approvedCount = people.filter(r => Number(r.vote) >= 10).length;
-  const requiredApprovedCount = requiredPeople.filter(r => Number(r.vote) >= 10).length;
-  const requiredCount = required.length || people.length;
+  const hasRequiredReviewers = required.length > 0;
+  const reviewersToCount = hasRequiredReviewers ? required : people;
+  const approvedReviewers = reviewersToCount.filter(r => Number(r.vote) >= 10);
+  const rejectedRequiredReviewers = required.filter(r => Number(r.vote) <= -10);
+  const pendingRequiredReviewers = required.filter(r => {
+    const vote = Number(r.vote) || 0;
+    return vote < 10 && vote > -10;
+  });
+  const approvedCount = approvedReviewers.length;
+  const requiredApprovedCount = required.filter(r => Number(r.vote) >= 10).length;
+  const requiredCount = reviewersToCount.length;
 
   let status = 'pending';
-  if (rejectedCount > 0) {
+  if (rejectedCount > 0 || rejectedRequiredReviewers.length > 0) {
     status = 'rejected';
   } else if (requiredCount > 0 && approvedCount >= requiredCount) {
     status = 'complete';
@@ -374,6 +381,11 @@ function buildApprovalSummary(reviewers) {
     requiredCount: requiredCount,
     requiredReviewerApproved: requiredApprovedCount,
     requiredReviewerTotal: required.length,
+    requiredApprovedNames: required
+      .filter(r => Number(r.vote) >= 10)
+      .map(r => r.displayName || r.uniqueName || r.id || 'Unknown'),
+    requiredPendingNames: pendingRequiredReviewers.map(r => r.displayName || r.uniqueName || r.id || 'Unknown'),
+    requiredRejectedNames: rejectedRequiredReviewers.map(r => r.displayName || r.uniqueName || r.id || 'Unknown'),
     minApproversFromPolicy: 0,
     rejectedCount: rejectedCount
   };

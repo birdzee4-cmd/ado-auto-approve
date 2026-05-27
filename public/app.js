@@ -304,7 +304,7 @@ window.openReviewersModal = function(prId) {
   document.getElementById('reviewersPrId').textContent = '#' + prId;
 
   const a = data.approval || {};
-  const summaryHtml =
+  let summaryHtml =
     '<div class="rev-summary-row"><strong>Status:</strong> ' + voteStatusText(a.status) + '</div>' +
     '<div class="rev-summary-row"><strong>Approved:</strong> ' + (a.approvedCount || 0) + ' / ' + (a.requiredCount || 0) + '</div>' +
     '<div class="rev-summary-row"><strong>Branch Policy minimum:</strong> ' +
@@ -312,6 +312,14 @@ window.openReviewersModal = function(prId) {
       (data.policyFetched ? '' : ' <em style="color:#dc2626">(policy fetch failed)</em>') + '</div>' +
     '<div class="rev-summary-row"><strong>Required reviewers in PR:</strong> ' +
       (a.requiredReviewerApproved || 0) + ' / ' + (a.requiredReviewerTotal || 0) + ' approved</div>';
+  if (Array.isArray(a.requiredPendingNames) && a.requiredPendingNames.length > 0) {
+    summaryHtml += '<div class="rev-summary-row"><strong>Pending required:</strong> ' +
+      escapeHtml(a.requiredPendingNames.join(', ')) + '</div>';
+  }
+  if (Array.isArray(a.requiredRejectedNames) && a.requiredRejectedNames.length > 0) {
+    summaryHtml += '<div class="rev-summary-row"><strong>Rejected required:</strong> ' +
+      escapeHtml(a.requiredRejectedNames.join(', ')) + '</div>';
+  }
   document.getElementById('reviewersSummary').innerHTML = summaryHtml;
 
   const reviewers = (data.reviewers || []).slice().sort((x, y) => {
