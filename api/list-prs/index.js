@@ -11,7 +11,8 @@
  *   ADO_TARGET_BRANCH =  (optional) default: refs/heads/staging
  *                        ใช้เป็น prefix match — รองรับ Staging/VN, Staging/api ฯลฯ
  *
- * รับประกัน: ตอบ JSON เสมอ มี Content-Type ชัดเจน
+ * รับประกัน: ตอบ JSON เสมอ มี Content-Type ชัดเจน ชัวร์ว่าไม่ล่มกลางทาง
+ * และมี error handling ครอบคลุมทุกขั้นตอน
  */
 
 const https = require('https');
