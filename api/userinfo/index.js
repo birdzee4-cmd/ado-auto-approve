@@ -6,11 +6,11 @@
  * เป็น base64-encoded JSON ของข้อมูล user (ชื่อ, email, role, etc.)
  */
 module.exports = async function (context, req) {
-  const headers = req.headers || {};
-  const header = headers['x-ms-client-principal'] || headers['X-MS-CLIENT-PRINCIPAL'];
+  const auth = require('../shared/auth');
+  const principal = auth.parseClientPrincipal(req.headers);
 
   // ถ้าไม่มี header แสดงว่าไม่ได้ login
-  if (!header) {
+  if (!principal) {
     context.res = {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
@@ -20,11 +20,6 @@ module.exports = async function (context, req) {
   }
 
   try {
-    // Decode ข้อมูล user จาก header
-    const encoded = Buffer.from(header, 'base64');
-    const decoded = encoded.toString('utf-8');
-    const principal = JSON.parse(decoded);
-
     // ดึงข้อมูลจาก claims (สำหรับ Microsoft Entra ID)
     const claims = principal.claims || [];
     const getValue = (type) => {
@@ -43,6 +38,8 @@ module.exports = async function (context, req) {
 
     const oid = getValue('http://schemas.microsoft.com/identity/claims/objectidentifier') ||
                 principal.userId;
+    const userRoles = auth.getUserRoles(principal);
+    const requiredRole = auth.getRequiredApproverRole();
 
     context.res = {
       status: 200,
@@ -52,7 +49,11 @@ module.exports = async function (context, req) {
         email: email,
         userId: oid,
         identityProvider: principal.identityProvider,
-        userRoles: principal.userRoles || []
+        userRoles: userRoles,
+        requiredRole: requiredRole,
+        permissions: {
+          canApprovePrs: auth.hasRole(principal, requiredRole)
+        }
       }
     };
   } catch (err) {

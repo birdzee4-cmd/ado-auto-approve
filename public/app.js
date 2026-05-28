@@ -4,6 +4,11 @@
 
 let currentPrForAction = null;
 window._prCache = {};
+window._currentUser = {
+  roles: [],
+  requiredRole: 'it-support-approve',
+  canApprovePrs: false
+};
 
 (async function init() {
   try {
@@ -27,8 +32,15 @@ window._prCache = {};
         const userData = await userResp.json();
         if (userData.name)  setText('displayName', userData.name);
         if (userData.email) setText('userEmail', userData.email);
+        const roles = Array.isArray(userData.userRoles) ? userData.userRoles : [];
+        window._currentUser.roles = roles;
+        window._currentUser.requiredRole = userData.requiredRole || window._currentUser.requiredRole;
+        window._currentUser.canApprovePrs = !!(userData.permissions && userData.permissions.canApprovePrs);
+        setText('userRole', roles.length > 0 ? roles.join(', ') : 'No assigned roles');
       }
-    } catch (e) {}
+    } catch (e) {
+      setText('userRole', 'Unable to load role');
+    }
 
     await checkHealthStatus();
 
@@ -248,12 +260,25 @@ function renderActions(pr) {
   const openUrl = pr.url ? escapeHtml(pr.url) : '#';
   const openAttrs = pr.url ? ' target="_blank" rel="noopener"' : ' aria-disabled="true" tabindex="-1"';
   const openClass = pr.url ? 'btn-mini btn-open' : 'btn-mini btn-open btn-disabled';
+  const canApprovePrs = window._currentUser && window._currentUser.canApprovePrs === true;
+  const requiredRole = window._currentUser && window._currentUser.requiredRole
+    ? window._currentUser.requiredRole
+    : 'it-support-approve';
 
   if (isMergeCodePr(pr)) {
     return '<div class="action-cell">' +
       '<span class="manual-action-note">Manual in Azure DevOps</span>' +
       '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
       '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗 Open ADO</a>' +
+      '</div>';
+  }
+
+  if (!canApprovePrs) {
+    return '<div class="action-cell">' +
+      '<button class="btn-mini btn-approve" disabled title="ต้องมี role: ' + escapeHtml(requiredRole) + '">✅ Approve</button>' +
+      '<button class="btn-mini btn-reject" disabled title="ต้องมี role: ' + escapeHtml(requiredRole) + '">❌ Reject</button>' +
+      '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
+      '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗</a>' +
       '</div>';
   }
 

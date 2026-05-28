@@ -22,17 +22,14 @@ module.exports = async function (context, req) {
   }
 
   try {
-    const principalHeader = req.headers && req.headers['x-ms-client-principal'];
-    if (!principalHeader) {
-      jsonResponse(401, { ok: false, error: 'Authentication required' });
+    const auth = require('../shared/auth');
+    const roleCheck = auth.requireRole(context, req);
+    if (!roleCheck.ok) {
+      jsonResponse(roleCheck.status, roleCheck.body);
       return;
     }
 
-    let userEmail = 'Unknown User';
-    try {
-      const principal = JSON.parse(Buffer.from(principalHeader, 'base64').toString('utf-8'));
-      userEmail = principal.userDetails || 'Unknown User';
-    } catch (e) {}
+    const userEmail = auth.getUserEmail(roleCheck.principal);
 
     let body = req.body;
     if (typeof body === 'string') {
