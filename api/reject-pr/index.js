@@ -92,10 +92,12 @@ module.exports = async function (context, req) {
         error: 'Failed to reject in ADO',
         detail: 'HTTP ' + voteResult.status
       });
+      const statusSnapshot = await getStatusSnapshot(context, ado, pr, repositoryId, prId, null);
       await logToSharePoint(context, {
         prId, action: 'Failed', user: userEmail, repository: pr.repository.name,
         prTitle: pr.title, targetBranch: pr.targetRefName,
-        result: 'Reject vote failed: HTTP ' + voteResult.status, reason: reason
+        result: 'Reject vote failed: HTTP ' + voteResult.status, reason: reason,
+        ...statusSnapshot
       });
       return;
     }
@@ -114,11 +116,13 @@ module.exports = async function (context, req) {
 
     // Log
     let logStatus = 'skipped';
+    const statusSnapshot = await getStatusSnapshot(context, ado, pr, repositoryId, prId, null);
     try {
       const logResult = await logToSharePoint(context, {
         prId, action: 'Rejected', user: userEmail, repository: pr.repository.name,
         prTitle: pr.title, targetBranch: pr.targetRefName,
-        result: 'Success', reason: reason
+        result: 'Success', reason: reason,
+        ...statusSnapshot
       });
       logStatus = logResult.ok ? 'logged' : 'failed: HTTP ' + logResult.status;
     } catch (e) {
@@ -130,6 +134,7 @@ module.exports = async function (context, req) {
       message: 'PR rejected successfully',
       prId, user: userEmail, reason: reason,
       logStatus: logStatus,
+      statusSnapshot: statusSnapshot,
       timestamp: new Date().toISOString()
     });
 
@@ -141,6 +146,19 @@ module.exports = async function (context, req) {
 
 function isMergeCodeBranch(refName) {
   return String(refName || '').toLowerCase().includes('mergecode');
+}
+
+async function getStatusSnapshot(context, ado, pr, repositoryId, prId, autoCompleteOk) {
+  try {
+    const result = await ado.getPullRequestStatuses(repositoryId, prId);
+    const statuses = result.ok && result.body && Array.isArray(result.body.value)
+      ? result.body.value
+      : [];
+    return ado.summarizeStatusSnapshot(pr, statuses, autoCompleteOk);
+  } catch (e) {
+    context.log.warn('Failed to get PR status snapshot:', e.message);
+    return ado.summarizeStatusSnapshot(pr, [], autoCompleteOk);
+  }
 }
 
 async function logToSharePoint(context, opts) {

@@ -565,15 +565,19 @@ window.openHistoryModal = async function(prId) {
         '<div style="text-align:center;padding:24px;color:#9ca3af">— ยังไม่มี log สำหรับ PR นี้ —</div>';
       return;
     }
-    let html = '<table class="pr-table"><thead><tr><th>เวลา</th><th>Action</th><th>โดย</th><th>Result</th><th>Reason</th></tr></thead><tbody>';
+    let html = '<table class="pr-table"><thead><tr><th>เวลา</th><th>Action</th><th>โดย</th><th>Result</th><th>Build</th><th>Policy</th><th>Merge</th><th>Reason</th></tr></thead><tbody>';
     for (const it of items) {
       const actionClass = it.Action === 'Approved' ? 'log-approved' :
                           it.Action === 'Rejected' ? 'log-rejected' : 'log-failed';
+      const buildText = [it.Build_Status, it.Build_Result].filter(Boolean).join(' / ') || '-';
       html += '<tr>' +
         '<td>' + formatDate(it.createdAt) + '</td>' +
         '<td><span class="' + actionClass + '">' + escapeHtml(it.Action || '-') + '</span></td>' +
         '<td>' + escapeHtml(it.User || '-') + '</td>' +
         '<td>' + escapeHtml(it.Result || '-') + '</td>' +
+        '<td>' + escapeHtml(buildText) + '</td>' +
+        '<td>' + escapeHtml(it.Policy_Status || '-') + '</td>' +
+        '<td>' + escapeHtml(it.Merge_Status || '-') + '</td>' +
         '<td>' + escapeHtml(it.Reason || '-') + '</td>' +
         '</tr>';
     }

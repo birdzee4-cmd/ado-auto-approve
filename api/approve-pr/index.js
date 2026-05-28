@@ -82,10 +82,12 @@ module.exports = async function (context, req) {
         actual: actualTargetBranch,
         expected: expectedBranchPrefix + '*'
       });
+      const statusSnapshot = await getStatusSnapshot(context, ado, pr, repositoryId, prId, false);
       await logToSharePoint(context, {
         prId, action: 'Failed', user: userEmail, repository: pr.repository.name,
         prTitle: pr.title, targetBranch: actualTargetBranch,
-        result: 'Refused: target not staging'
+        result: 'Refused: target not staging',
+        ...statusSnapshot
       });
       return;
     }
@@ -131,10 +133,12 @@ module.exports = async function (context, req) {
         detail: 'HTTP ' + voteResult.status + ': ' + JSON.stringify(voteResult.body).substring(0, 300),
         autoCompleteOk: autoCompleteOk
       });
+      const statusSnapshot = await getStatusSnapshot(context, ado, pr, repositoryId, prId, autoCompleteOk);
       await logToSharePoint(context, {
         prId, action: 'Failed', user: userEmail, repository: pr.repository.name,
         prTitle: pr.title, targetBranch: pr.targetRefName,
-        result: 'Vote failed: HTTP ' + voteResult.status
+        result: 'Vote failed: HTTP ' + voteResult.status,
+        ...statusSnapshot
       });
       return;
     }
@@ -160,11 +164,13 @@ module.exports = async function (context, req) {
     let logStatus = 'skipped';
     const resultText = (autoCompleteOk ? 'Success (auto-complete enabled' : 'Vote OK (auto-complete failed') +
       (releaseNotesIgnoreIds.length > 0 ? ', Release Notes ignored)' : ')');
+    const statusSnapshot = await getStatusSnapshot(context, ado, pr, repositoryId, prId, autoCompleteOk);
     try {
       const logResult = await logToSharePoint(context, {
         prId, action: 'Approved', user: userEmail, repository: pr.repository.name,
         prTitle: pr.title, targetBranch: pr.targetRefName,
-        result: resultText
+        result: resultText,
+        ...statusSnapshot
       });
       logStatus = logResult.ok ? 'logged' : 'failed: HTTP ' + logResult.status;
     } catch (e) {
@@ -179,6 +185,7 @@ module.exports = async function (context, req) {
       autoComplete: autoCompleteOk,
       policiesFetched: policiesFetched,
       releaseNotesIgnored: releaseNotesIgnoreIds.length,
+      statusSnapshot: statusSnapshot,
       logStatus: logStatus,
       timestamp: new Date().toISOString()
     });
@@ -191,6 +198,19 @@ module.exports = async function (context, req) {
 
 function isMergeCodeBranch(refName) {
   return String(refName || '').toLowerCase().includes('mergecode');
+}
+
+async function getStatusSnapshot(context, ado, pr, repositoryId, prId, autoCompleteOk) {
+  try {
+    const result = await ado.getPullRequestStatuses(repositoryId, prId);
+    const statuses = result.ok && result.body && Array.isArray(result.body.value)
+      ? result.body.value
+      : [];
+    return ado.summarizeStatusSnapshot(pr, statuses, autoCompleteOk);
+  } catch (e) {
+    context.log.warn('Failed to get PR status snapshot:', e.message);
+    return ado.summarizeStatusSnapshot(pr, [], autoCompleteOk);
+  }
 }
 
 async function logToSharePoint(context, opts) {

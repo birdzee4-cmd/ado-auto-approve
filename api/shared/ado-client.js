@@ -70,6 +70,15 @@ async function getPullRequest(prId) {
 }
 
 /**
+ * ดึง PR statuses เช่น build validation / policy checks
+ */
+async function getPullRequestStatuses(repositoryId, prId) {
+  const { org, project } = getConfig();
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repositoryId}/pullRequests/${prId}/statuses?api-version=7.0`;
+  return adoRequest('GET', path);
+}
+
+/**
  * ดึง list active PRs ที่ target = staging
  */
 async function listActivePRs(targetBranch) {
@@ -146,6 +155,58 @@ function findMinimumApproverCount(policies) {
     }
   }
   return 0;
+}
+
+function summarizeStatusSnapshot(pr, statuses, autoCompleteOk) {
+  const values = Array.isArray(statuses) ? statuses : [];
+  const buildStatuses = values.filter(s => {
+    const context = s && s.context ? s.context : {};
+    const text = [
+      context.genre,
+      context.name,
+      s.description,
+      s.targetUrl
+    ].map(v => String(v || '').toLowerCase()).join(' ');
+    return text.includes('build') ||
+      text.includes('pipeline') ||
+      text.includes('continuous-integration') ||
+      text.includes('ci');
+  });
+
+  const summarizeStates = (items) => {
+    if (!items.length) return { status: 'no_status', result: 'unknown' };
+    const states = items.map(s => String(s.state || '').toLowerCase());
+    if (states.some(s => s === 'failed' || s === 'error')) {
+      return { status: 'completed', result: 'failed' };
+    }
+    if (states.some(s => s === 'pending' || s === 'notset' || s === 'not_applicable')) {
+      return { status: 'in_progress', result: 'pending' };
+    }
+    if (states.every(s => s === 'succeeded' || s === 'success')) {
+      return { status: 'completed', result: 'succeeded' };
+    }
+    return { status: 'unknown', result: states.join(',') || 'unknown' };
+  };
+
+  const build = summarizeStates(buildStatuses);
+  const policy = summarizeStates(values);
+  const buildWithUrl = buildStatuses.find(s => s && s.targetUrl);
+
+  return {
+    buildStatus: build.status,
+    buildResult: build.result,
+    policyStatus: policy.result,
+    mergeStatus: (pr && pr.mergeStatus) || '',
+    autoCompleteStatus: autoCompleteOk === true
+      ? 'enabled'
+      : autoCompleteOk === false
+      ? 'failed'
+      : 'not_applicable',
+    lastCheckedAt: new Date().toISOString(),
+    adoBuildUrl: buildWithUrl ? buildWithUrl.targetUrl : '',
+    statusCount: values.length,
+    buildStatusCount: buildStatuses.length
+  };
 }
 
 /**
@@ -242,6 +303,7 @@ module.exports = {
   getConfig,
   adoRequest,
   getPullRequest,
+  getPullRequestStatuses,
   listActivePRs,
   getConnectionData,
   approvePR,
@@ -251,5 +313,6 @@ module.exports = {
   hasReviewerGroup,
   getBranchPolicies,
   findReleaseNotesPolicyIds,
-  findMinimumApproverCount
+  findMinimumApproverCount,
+  summarizeStatusSnapshot
 };

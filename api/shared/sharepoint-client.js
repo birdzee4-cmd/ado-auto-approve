@@ -22,6 +22,19 @@ let cachedToken = null;
 let tokenExpiresAt = 0;
 let cachedSiteId = null;
 let cachedListId = null;
+let cachedListColumns = null;
+let optionalColumnsEnsured = false;
+
+const OPTIONAL_LOG_COLUMNS = [
+  'Build_Status',
+  'Build_Result',
+  'Policy_Status',
+  'Merge_Status',
+  'AutoComplete_Status',
+  'Last_Checked_At',
+  'ADO_Build_URL',
+  'ADO_PR_URL'
+];
 
 function getConfig() {
   const required = {
@@ -143,6 +156,64 @@ async function getListId() {
   return cachedListId;
 }
 
+async function getListColumns(forceRefresh) {
+  if (cachedListColumns && !forceRefresh) return cachedListColumns;
+  const siteId = await getSiteId();
+  const listId = await getListId();
+  const token = await getAccessToken();
+  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/columns?$select=name,displayName`;
+  const result = await httpRequest('GET', url, { 'Authorization': 'Bearer ' + token });
+  if (!result.ok) {
+    throw new Error('Failed to list SharePoint columns: HTTP ' + result.status);
+  }
+  cachedListColumns = new Set((result.body.value || []).map(c => c.name));
+  return cachedListColumns;
+}
+
+async function ensureOptionalLogColumns() {
+  if (optionalColumnsEnsured || process.env.SHAREPOINT_AUTO_CREATE_LOG_COLUMNS === 'false') return;
+  let columns = await getListColumns(false);
+  const missing = OPTIONAL_LOG_COLUMNS.filter(name => !columns.has(name));
+  if (!missing.length) {
+    optionalColumnsEnsured = true;
+    return;
+  }
+
+  const siteId = await getSiteId();
+  const listId = await getListId();
+  const token = await getAccessToken();
+  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/columns`;
+  for (const name of missing) {
+    await httpRequest('POST', url, {
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': 'application/json'
+    }, {
+      name: name,
+      displayName: name.replace(/_/g, ' '),
+      text: {}
+    });
+  }
+  cachedListColumns = null;
+  await getListColumns(true);
+  optionalColumnsEnsured = true;
+}
+
+async function filterFieldsForList(fields) {
+  try {
+    await ensureOptionalLogColumns();
+    const columns = await getListColumns(false);
+    const filtered = {};
+    for (const [key, value] of Object.entries(fields || {})) {
+      if (!OPTIONAL_LOG_COLUMNS.includes(key) || columns.has(key)) {
+        filtered[key] = value;
+      }
+    }
+    return Object.keys(filtered).length > 0 ? filtered : fields;
+  } catch (e) {
+    return fields;
+  }
+}
+
 /**
  * เพิ่ม log entry ใน SharePoint List
  * @param {object} fields - { Title, PR_ID, Action, User, Repository, ... }
@@ -152,9 +223,10 @@ async function addLogItem(fields) {
   const listId = await getListId();
   const token = await getAccessToken();
   const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items`;
+  const listFields = await filterFieldsForList(fields);
   const result = await httpRequest('POST', url,
     { 'Authorization': 'Bearer ' + token },
-    { fields: fields }
+    { fields: listFields }
   );
   return result;
 }
@@ -188,7 +260,15 @@ function buildLogFields(opts) {
     PR_Title: opts.prTitle || '',
     Target_Branch: opts.targetBranch || '',
     Result: opts.result || 'Success',
-    Reason: opts.reason || ''
+    Reason: opts.reason || '',
+    Build_Status: opts.buildStatus || '',
+    Build_Result: opts.buildResult || '',
+    Policy_Status: opts.policyStatus || '',
+    Merge_Status: opts.mergeStatus || '',
+    AutoComplete_Status: opts.autoCompleteStatus || '',
+    Last_Checked_At: opts.lastCheckedAt || '',
+    ADO_Build_URL: opts.adoBuildUrl || '',
+    ADO_PR_URL: opts.adoPrUrl || ''
   };
 }
 
@@ -196,6 +276,8 @@ module.exports = {
   getAccessToken,
   getSiteId,
   getListId,
+  getListColumns,
+  ensureOptionalLogColumns,
   addLogItem,
   getLogForPR,
   buildLogFields
