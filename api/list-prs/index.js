@@ -49,7 +49,7 @@ module.exports = async function (context, req) {
     const stagingPrefix = (process.env.ADO_TARGET_BRANCH || 'refs/heads/staging').toLowerCase();
     const reviewerGroup = process.env.ADO_REVIEWER_GROUP || 'IT Support Approve';
     const completedLookbackHours = Number(process.env.COMPLETED_PR_LOOKBACK_HOURS) || 24;
-    const completedDisplayLimit = Math.min(Math.max(Number(process.env.COMPLETED_PR_DISPLAY_LIMIT) || 100, 1), 100);
+    const completedDisplayLimit = Math.min(Math.max(Number(process.env.COMPLETED_PR_DISPLAY_LIMIT) || 10, 1), 100);
 
     const missing = [];
     if (!org)     missing.push('ADO_ORGANIZATION');
