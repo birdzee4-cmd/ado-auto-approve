@@ -48,6 +48,7 @@ module.exports = async function (context, req) {
     // รองรับ: staging, Staging/VN, Staging/api, refs/heads/Staging/TH ฯลฯ
     const stagingPrefix = (process.env.ADO_TARGET_BRANCH || 'refs/heads/staging').toLowerCase();
     const reviewerGroup = process.env.ADO_REVIEWER_GROUP || 'IT Support Approve';
+    const completedLookbackHours = Number(process.env.COMPLETED_PR_LOOKBACK_HOURS) || 24;
 
     const missing = [];
     if (!org)     missing.push('ADO_ORGANIZATION');
@@ -111,36 +112,41 @@ module.exports = async function (context, req) {
     for (const pr of targetPrs
       .filter(pr => hasReviewerGroup(pr, reviewerGroup))
     ) {
-      const reviewers = Array.isArray(pr.reviewers) ? pr.reviewers : [];
-      const repositoryId = pr.repository && pr.repository.id;
-      const isMergeCodeTarget = isMergeCodeBranch(pr.targetRefName);
-      const approval = buildApprovalSummary(reviewers);
-      const myApproval = buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTarget);
-      const statusSnapshot = await getStatusSnapshot(context, ado, pr, repositoryId, isMergeCodeTarget);
-      prs.push({
-        id: pr.pullRequestId,
-        title: pr.title,
-        createdBy: pr.createdBy && pr.createdBy.displayName,
-        sourceBranch: pr.sourceRefName,
-        targetBranch: pr.targetRefName,
-        repository: pr.repository && pr.repository.name,
-        repositoryId: repositoryId,
-        status: pr.status,
-        isDraft: pr.isDraft,
-        creationDate: pr.creationDate,
-        mergeStatus: pr.mergeStatus,
-        reviewers: reviewers.map(mapReviewer),
-        approval: approval,
-        myApproval: myApproval,
-        statusSnapshot: statusSnapshot,
-        policyFetched: false,
-        isMergeCodeTarget: isMergeCodeTarget,
-        actionMode: isMergeCodeTarget ? 'manual-azure-devops' : 'auto-approve',
-        url: pr.repository && pr.repository.project
-          ? 'https://dev.azure.com/' + org + '/' + project +
-            '/_git/' + pr.repository.name + '/pullrequest/' + pr.pullRequestId
-          : null
-      });
+      prs.push(await buildPrRow(context, pr, currentUser, org, project));
+    }
+
+    let allCompletedPrs = [];
+    try {
+      const completedPath = '/' + encodeURIComponent(org) + '/' + encodeURIComponent(project) +
+        '/_apis/git/pullrequests?api-version=7.0' +
+        '&searchCriteria.status=completed' +
+        '&$top=100';
+      const completedResult = await callAdoApi('dev.azure.com', completedPath, pat);
+      if (completedResult.ok) {
+        const completedData = JSON.parse(completedResult.body);
+        allCompletedPrs = completedData.value || [];
+      } else {
+        context.log.warn('Completed PR lookup returned HTTP ' + completedResult.status);
+      }
+    } catch (e) {
+      context.log.warn('Completed PR lookup failed: ' + e.message);
+    }
+
+    const completedCutoff = Date.now() - completedLookbackHours * 60 * 60 * 1000;
+    const completedPrs = [];
+    for (const pr of allCompletedPrs
+      .filter(pr => {
+        const targetRef = (pr.targetRefName || '').toLowerCase();
+        return targetRef.startsWith(stagingPrefix) || isMergeCodeBranch(targetRef);
+      })
+      .filter(pr => hasReviewerGroup(pr, reviewerGroup))
+      .filter(pr => {
+        const completedAt = Date.parse(pr.closedDate || pr.completionDate || pr.lastMergeCommit && pr.lastMergeCommit.committer && pr.lastMergeCommit.committer.date || pr.creationDate);
+        return Number.isFinite(completedAt) && completedAt >= completedCutoff;
+      })
+      .slice(0, 20)
+    ) {
+      completedPrs.push(await buildPrRow(context, pr, currentUser, org, project));
     }
 
     jsonResponse(200, {
@@ -152,8 +158,11 @@ module.exports = async function (context, req) {
       project: project,
       targetBranch: stagingPrefix,
       reviewerGroup: reviewerGroup,
+      completedLookbackHours: completedLookbackHours,
       fetchedAt: new Date().toISOString(),
-      prs: prs
+      prs: prs,
+      completedCount: completedPrs.length,
+      completedPrs: completedPrs
     });
 
   } catch (err) {
@@ -227,6 +236,40 @@ async function getStatusSnapshot(context, adoClient, pr, repositoryId, isMergeCo
     }
     return adoClient.summarizeStatusSnapshot(pr, [], isMergeCodeTarget ? null : undefined);
   }
+}
+
+async function buildPrRow(context, pr, currentUser, org, project) {
+  const reviewers = Array.isArray(pr.reviewers) ? pr.reviewers : [];
+  const repositoryId = pr.repository && pr.repository.id;
+  const isMergeCodeTarget = isMergeCodeBranch(pr.targetRefName);
+  const approval = buildApprovalSummary(reviewers);
+  const myApproval = buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTarget);
+  const statusSnapshot = await getStatusSnapshot(context, ado, pr, repositoryId, isMergeCodeTarget);
+  return {
+    id: pr.pullRequestId,
+    title: pr.title,
+    createdBy: pr.createdBy && pr.createdBy.displayName,
+    sourceBranch: pr.sourceRefName,
+    targetBranch: pr.targetRefName,
+    repository: pr.repository && pr.repository.name,
+    repositoryId: repositoryId,
+    status: pr.status,
+    isDraft: pr.isDraft,
+    creationDate: pr.creationDate,
+    closedDate: pr.closedDate || pr.completionDate || null,
+    mergeStatus: pr.mergeStatus,
+    reviewers: reviewers.map(mapReviewer),
+    approval: approval,
+    myApproval: myApproval,
+    statusSnapshot: statusSnapshot,
+    policyFetched: false,
+    isMergeCodeTarget: isMergeCodeTarget,
+    actionMode: isMergeCodeTarget ? 'manual-azure-devops' : 'auto-approve',
+    url: pr.repository && pr.repository.project
+      ? 'https://dev.azure.com/' + org + '/' + project +
+        '/_git/' + pr.repository.name + '/pullrequest/' + pr.pullRequestId
+      : null
+  };
 }
 
 function getCurrentUser(encodedPrincipal) {

@@ -212,6 +212,7 @@ async function checkPrs() {
       '<br/><small>Filter: reviewer group = <strong>' + escapeHtml(d.reviewerGroup) + '</strong> | ดึงเมื่อ ' +
       new Date(d.fetchedAt).toLocaleString('th-TH') + '</small>' + mergeCodeNote + '</div>');
     renderPrTable(d.prs);
+    renderCompletedPrTable(d.completedPrs || [], d.completedLookbackHours || 24);
     document.getElementById('prTableContainer').hidden = false;
   } catch (err) {
     showBox('prResult', '<div class="test-result result-error">❌ ' + escapeHtml(err.message) + '</div>');
@@ -276,6 +277,40 @@ function renderPrTable(prs) {
   }
 }
 
+function renderCompletedPrTable(prs, lookbackHours) {
+  const section = document.getElementById('completedSection');
+  const meta = document.getElementById('completedMeta');
+  const tbody = document.getElementById('completedTableBody');
+  if (!section || !meta || !tbody) return;
+
+  if (!Array.isArray(prs) || prs.length === 0) {
+    section.hidden = true;
+    tbody.innerHTML = '';
+    return;
+  }
+
+  section.hidden = false;
+  meta.textContent = 'ล่าสุด ' + lookbackHours + ' ชั่วโมง | พบ ' + prs.length + ' รายการ';
+  tbody.innerHTML = '';
+
+  for (const pr of prs) {
+    const tr = document.createElement('tr');
+    const statusBadge = renderStatusBadge(pr);
+    const completedAt = pr.closedDate || pr.creationDate;
+    const actionsHtml = renderCompletedActions(pr);
+    tr.innerHTML =
+      '<td class="pr-id-cell"><strong>#' + pr.id + '</strong></td>' +
+      '<td class="pr-title-cell"><span class="pr-title-text">' + escapeHtml(pr.title) + '</span></td>' +
+      '<td class="pr-by-cell">' + escapeHtml(pr.createdBy || '-') + '</td>' +
+      '<td class="pr-branch-cell">' + renderBranchCell(pr) + '</td>' +
+      '<td class="pr-status-cell">' + statusBadge + '</td>' +
+      '<td class="pr-repo-cell">' + escapeHtml(pr.repository || '-') + '</td>' +
+      '<td class="pr-created-cell">' + formatDate(completedAt) + '</td>' +
+      '<td class="pr-actions-cell">' + actionsHtml + '</td>';
+    tbody.appendChild(tr);
+  }
+}
+
 function renderActions(pr) {
   const openUrl = pr.url ? escapeHtml(pr.url) : '#';
   const openAttrs = pr.url ? ' target="_blank" rel="noopener"' : ' aria-disabled="true" tabindex="-1"';
@@ -303,6 +338,16 @@ function renderActions(pr) {
   return '<div class="action-cell">' +
     '<button class="btn-mini btn-approve" onclick="openApproveModal(' + pr.id + ', \'' + pr.repositoryId + '\')">✅ Approve</button>' +
     '<button class="btn-mini btn-reject" onclick="openRejectModal(' + pr.id + ', \'' + pr.repositoryId + '\')">❌ Reject</button>' +
+    '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
+    '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗</a>' +
+    '</div>';
+}
+
+function renderCompletedActions(pr) {
+  const openUrl = pr.url ? escapeHtml(pr.url) : '#';
+  const openAttrs = pr.url ? ' target="_blank" rel="noopener"' : ' aria-disabled="true" tabindex="-1"';
+  const openClass = pr.url ? 'btn-mini btn-open' : 'btn-mini btn-open btn-disabled';
+  return '<div class="action-cell">' +
     '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
     '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗</a>' +
     '</div>';

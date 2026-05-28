@@ -653,6 +653,57 @@ body {
   opacity: 0.65;
 }
 
+.completed-section {
+  margin-top: 24px;
+}
+
+.completed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.completed-header h3 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 16px;
+}
+
+.completed-meta {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.completed-table {
+  min-width: 1280px;
+}
+
+.completed-table th:nth-child(1),
+.completed-table td:nth-child(1) { width: 88px; }
+
+.completed-table th:nth-child(2),
+.completed-table td:nth-child(2) { width: 300px; }
+
+.completed-table th:nth-child(3),
+.completed-table td:nth-child(3) { width: 155px; }
+
+.completed-table th:nth-child(4),
+.completed-table td:nth-child(4) { width: 360px; }
+
+.completed-table th:nth-child(5),
+.completed-table td:nth-child(5) { width: 155px; }
+
+.completed-table th:nth-child(6),
+.completed-table td:nth-child(6) { width: 160px; }
+
+.completed-table th:nth-child(7),
+.completed-table td:nth-child(7) { width: 105px; }
+
+.completed-table th:nth-child(8),
+.completed-table td:nth-child(8) { width: 110px; }
+
 .pr-table code {
   font-family: 'Consolas', monospace;
   font-size: 11px;
