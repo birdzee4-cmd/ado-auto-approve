@@ -292,8 +292,6 @@ function renderActions(pr) {
 
   if (!canApprovePrs) {
     return '<div class="action-cell">' +
-      '<button class="btn-mini btn-approve" disabled title="ต้องมี role: ' + escapeHtml(requiredRole) + '">✅ Approve</button>' +
-      '<button class="btn-mini btn-reject" disabled title="ต้องมี role: ' + escapeHtml(requiredRole) + '">❌ Reject</button>' +
       '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
       '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗</a>' +
       '</div>';
