@@ -93,7 +93,7 @@ async function listActivePRs(targetBranch) {
  */
 async function getConnectionData() {
   const { org } = getConfig();
-  const path = `/${encodeURIComponent(org)}/_apis/connectionData?api-version=7.0`;
+  const path = `/${encodeURIComponent(org)}/_apis/connectionData`;
   return adoRequest('GET', path);
 }
 
