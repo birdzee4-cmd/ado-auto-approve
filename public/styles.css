@@ -805,6 +805,20 @@ body {
   line-height: 1.2;
 }
 
+.action-note {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #86efac;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
 .my-approval {
   display: inline-flex;
   flex-direction: column;

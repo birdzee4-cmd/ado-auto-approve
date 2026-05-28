@@ -338,6 +338,15 @@ function renderActions(pr) {
       '</div>';
   }
 
+  const myStatus = pr.myApproval && pr.myApproval.status ? String(pr.myApproval.status).toLowerCase() : '';
+  if (['approved', 'suggestions', 'rejected', 'waiting-author'].includes(myStatus)) {
+    return '<div class="action-cell">' +
+      '<span class="action-note">Vote submitted</span>' +
+      '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
+      '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗</a>' +
+      '</div>';
+  }
+
   return '<div class="action-cell">' +
     '<button class="btn-mini btn-approve" onclick="openApproveModal(' + pr.id + ', \'' + pr.repositoryId + '\')">✅ Approve</button>' +
     '<button class="btn-mini btn-reject" onclick="openRejectModal(' + pr.id + ', \'' + pr.repositoryId + '\')">❌ Reject</button>' +
