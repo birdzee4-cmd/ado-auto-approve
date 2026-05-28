@@ -227,7 +227,7 @@ function renderPrTable(prs) {
   window._prCache = {};
 
   if (prs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#9ca3af">— ไม่มี PR ที่รอ Approve ตอนนี้ —</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:#9ca3af">— ไม่มี PR ที่รอ Approve ตอนนี้ —</td></tr>';
     return;
   }
 
@@ -239,6 +239,7 @@ function renderPrTable(prs) {
     const mergeCodeBadge = isMergeCodePr(pr) ? ' <span class="pr-badge pr-badge-manual">MERGECODE MANUAL</span>' : '';
     const draftBadge = pr.isDraft ? ' <span class="pr-badge">DRAFT</span>' : '';
     const approvalBadge = renderApprovalBadge(pr);
+    const statusBadge = renderStatusBadge(pr);
     const myApprovalBadge = renderMyApprovalBadge(pr);
     const actionsHtml = renderActions(pr);
 
@@ -248,6 +249,7 @@ function renderPrTable(prs) {
       '<td class="pr-by-cell">' + escapeHtml(pr.createdBy || '-') + '</td>' +
       '<td class="pr-branch-cell">' + renderBranchCell(pr) + '</td>' +
       '<td class="pr-approval-cell">' + approvalBadge + '</td>' +
+      '<td class="pr-status-cell">' + statusBadge + '</td>' +
       '<td class="pr-my-approval-cell">' + myApprovalBadge + '</td>' +
       '<td class="pr-repo-cell">' + escapeHtml(pr.repository || '-') + '</td>' +
       '<td class="pr-created-cell">' + formatDate(pr.creationDate) + '</td>' +
@@ -266,6 +268,7 @@ function renderPrTable(prs) {
       reviewers: pr.reviewers || [],
       approval: pr.approval || {},
       myApproval: pr.myApproval || {},
+      statusSnapshot: pr.statusSnapshot || {},
       policyFetched: pr.policyFetched === true,
       isMergeCodeTarget: isMergeCodePr(pr)
     };
@@ -343,6 +346,45 @@ function renderMyApprovalBadge(pr) {
     '<span class="my-approval-label">' + icon + ' ' + escapeHtml(label) + '</span>' +
     detail +
     '</span>';
+}
+
+function renderStatusBadge(pr) {
+  const s = pr.statusSnapshot || {};
+  const buildResult = String(s.buildResult || 'unknown').toLowerCase();
+  const buildStatus = String(s.buildStatus || 'unknown').toLowerCase();
+  const policyStatus = String(s.policyStatus || 'unknown').toLowerCase();
+  const mergeStatus = String(s.mergeStatus || '').toLowerCase();
+
+  let cls = 'status-snapshot status-snapshot-muted';
+  let icon = '○';
+  let buildLabel = 'No build status';
+
+  if (buildResult === 'succeeded') {
+    cls = 'status-snapshot status-snapshot-success';
+    icon = '✅';
+    buildLabel = 'Build Success';
+  } else if (buildResult === 'failed' || buildResult === 'error') {
+    cls = 'status-snapshot status-snapshot-failed';
+    icon = '❌';
+    buildLabel = 'Build Failed';
+  } else if (buildResult === 'pending' || buildStatus === 'in_progress') {
+    cls = 'status-snapshot status-snapshot-pending';
+    icon = '⏳';
+    buildLabel = 'Build Running';
+  }
+
+  const policyLabel = policyStatus && policyStatus !== 'unknown'
+    ? 'Policy: ' + policyStatus
+    : 'Policy: unknown';
+  const mergeLabel = mergeStatus ? 'Merge: ' + mergeStatus : 'Merge: -';
+  const title = buildLabel + ' | ' + policyLabel + ' | ' + mergeLabel;
+  const inner = '<span class="status-main">' + icon + ' ' + escapeHtml(buildLabel) + '</span>' +
+    '<span class="status-detail">' + escapeHtml(policyLabel) + '</span>';
+
+  if (s.adoBuildUrl) {
+    return '<a class="' + cls + '" href="' + escapeHtml(s.adoBuildUrl) + '" target="_blank" rel="noopener" title="' + escapeHtml(title) + '">' + inner + '</a>';
+  }
+  return '<span class="' + cls + '" title="' + escapeHtml(title) + '">' + inner + '</span>';
 }
 
 // ===== Approval Badge =====

@@ -16,6 +16,7 @@
  */
 
 const https = require('https');
+const ado = require('../shared/ado-client');
 
 module.exports = async function (context, req) {
   function jsonResponse(status, payload) {
@@ -115,6 +116,7 @@ module.exports = async function (context, req) {
       const isMergeCodeTarget = isMergeCodeBranch(pr.targetRefName);
       const approval = buildApprovalSummary(reviewers);
       const myApproval = buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTarget);
+      const statusSnapshot = await getStatusSnapshot(context, ado, pr, repositoryId, isMergeCodeTarget);
       prs.push({
         id: pr.pullRequestId,
         title: pr.title,
@@ -130,6 +132,7 @@ module.exports = async function (context, req) {
         reviewers: reviewers.map(mapReviewer),
         approval: approval,
         myApproval: myApproval,
+        statusSnapshot: statusSnapshot,
         policyFetched: false,
         isMergeCodeTarget: isMergeCodeTarget,
         actionMode: isMergeCodeTarget ? 'manual-azure-devops' : 'auto-approve',
@@ -206,6 +209,24 @@ function callAdoApi(hostname, path, pat) {
 
 function isMergeCodeBranch(refName) {
   return String(refName || '').toLowerCase().includes('mergecode');
+}
+
+async function getStatusSnapshot(context, adoClient, pr, repositoryId, isMergeCodeTarget) {
+  try {
+    if (!repositoryId || !pr || !pr.pullRequestId) {
+      return adoClient.summarizeStatusSnapshot(pr, [], isMergeCodeTarget ? null : undefined);
+    }
+    const result = await adoClient.getPullRequestStatuses(repositoryId, pr.pullRequestId);
+    const statuses = result.ok && result.body && Array.isArray(result.body.value)
+      ? result.body.value
+      : [];
+    return adoClient.summarizeStatusSnapshot(pr, statuses, isMergeCodeTarget ? null : undefined);
+  } catch (e) {
+    if (context && context.log && context.log.warn) {
+      context.log.warn('Failed to get PR status snapshot for #' + (pr && pr.pullRequestId) + ': ' + e.message);
+    }
+    return adoClient.summarizeStatusSnapshot(pr, [], isMergeCodeTarget ? null : undefined);
+  }
 }
 
 function getCurrentUser(encodedPrincipal) {

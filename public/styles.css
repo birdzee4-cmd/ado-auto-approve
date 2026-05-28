@@ -530,7 +530,7 @@ body {
 
 .pr-table {
   width: 100%;
-  min-width: 1580px;
+  min-width: 1730px;
   border-collapse: collapse;
   font-size: 13px;
   table-layout: fixed;
@@ -555,16 +555,19 @@ body {
 .pr-table td:nth-child(5) { width: 100px; }
 
 .pr-table th:nth-child(6),
-.pr-table td:nth-child(6) { width: 170px; }
+.pr-table td:nth-child(6) { width: 150px; }
 
 .pr-table th:nth-child(7),
-.pr-table td:nth-child(7) { width: 160px; }
+.pr-table td:nth-child(7) { width: 170px; }
 
 .pr-table th:nth-child(8),
-.pr-table td:nth-child(8) { width: 100px; }
+.pr-table td:nth-child(8) { width: 160px; }
 
 .pr-table th:nth-child(9),
-.pr-table td:nth-child(9) { width: 157px; }
+.pr-table td:nth-child(9) { width: 100px; }
+
+.pr-table th:nth-child(10),
+.pr-table td:nth-child(10) { width: 157px; }
 
 .pr-table thead {
   background: #1F4E79;
@@ -625,6 +628,7 @@ body {
 }
 
 .pr-approval-cell,
+.pr-status-cell,
 .pr-my-approval-cell,
 .pr-actions-cell {
   overflow: visible;
@@ -811,6 +815,57 @@ body {
 .my-approval-muted {
   background: #f3f4f6;
   border-color: #e5e7eb;
+  color: #6b7280;
+}
+
+.status-snapshot {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 128px;
+  max-width: 140px;
+  padding: 7px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #f9fafb;
+  color: #374151;
+  text-decoration: none;
+  line-height: 1.2;
+}
+
+.status-main {
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.status-detail {
+  font-size: 11px;
+  color: #6b7280;
+  overflow-wrap: anywhere;
+}
+
+.status-snapshot-success {
+  border-color: #86efac;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.status-snapshot-failed {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.status-snapshot-pending {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.status-snapshot-muted {
+  border-color: #e5e7eb;
+  background: #f9fafb;
   color: #6b7280;
 }
 
