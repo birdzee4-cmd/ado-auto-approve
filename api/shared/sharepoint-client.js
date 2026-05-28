@@ -33,7 +33,9 @@ const OPTIONAL_LOG_COLUMNS = [
   'AutoComplete_Status',
   'Last_Checked_At',
   'ADO_Build_URL',
-  'ADO_PR_URL'
+  'ADO_PR_URL',
+  'Source',
+  'Event_Key'
 ];
 
 function getConfig() {
@@ -261,6 +263,8 @@ function buildLogFields(opts) {
     Target_Branch: opts.targetBranch || '',
     Result: opts.result || 'Success',
     Reason: opts.reason || '',
+    Source: opts.source || 'Dashboard',
+    Event_Key: opts.eventKey || '',
     Build_Status: opts.buildStatus || '',
     Build_Result: opts.buildResult || '',
     Policy_Status: opts.policyStatus || '',

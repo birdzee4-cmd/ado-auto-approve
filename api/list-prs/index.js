@@ -149,6 +149,8 @@ module.exports = async function (context, req) {
       completedPrs.push(await buildPrRow(context, pr, currentUser, org, project));
     }
 
+    const syncResult = await syncExternalVoteLogs(context, prs.concat(completedPrs));
+
     jsonResponse(200, {
       ok: true,
       count: prs.length,
@@ -164,6 +166,7 @@ module.exports = async function (context, req) {
       completedCount: completedPrs.length,
       completedTotalMatched: completedMatches.length,
       completedDisplayLimit: completedDisplayLimit,
+      externalLogSync: syncResult,
       completedPrs: completedPrs
     });
 
@@ -220,6 +223,121 @@ function callAdoApi(hostname, path, pat) {
 
 function isMergeCodeBranch(refName) {
   return String(refName || '').toLowerCase().includes('mergecode');
+}
+
+async function syncExternalVoteLogs(context, prRows) {
+  const rows = Array.isArray(prRows) ? prRows.slice(0, 25) : [];
+  if (!rows.length || process.env.ADO_EXTERNAL_LOG_SYNC === 'false') {
+    return { ok: true, checked: 0, logged: 0, skipped: true };
+  }
+
+  let sp;
+  try {
+    sp = require('../shared/sharepoint-client');
+  } catch (e) {
+    context.log.warn('External vote log sync skipped: cannot load SharePoint client: ' + e.message);
+    return { ok: false, checked: 0, logged: 0, error: e.message };
+  }
+
+  let checked = 0;
+  let logged = 0;
+  const errors = [];
+
+  for (const pr of rows) {
+    try {
+      const history = await sp.getLogForPR(pr.id);
+      const existing = history.ok && history.body && Array.isArray(history.body.value)
+        ? history.body.value.map(item => item.fields || {})
+        : [];
+
+      const voteEvents = buildExternalVoteEvents(pr);
+      for (const event of voteEvents) {
+        checked += 1;
+        if (hasExistingVoteLog(existing, event)) continue;
+
+        const s = pr.statusSnapshot || {};
+        const fields = sp.buildLogFields({
+          prId: pr.id,
+          action: event.action,
+          user: event.user,
+          repository: pr.repository,
+          prTitle: pr.title,
+          targetBranch: pr.targetBranch,
+          result: event.result,
+          reason: event.reason,
+          source: 'Azure DevOps Sync',
+          eventKey: event.eventKey,
+          buildStatus: s.buildStatus,
+          buildResult: s.buildResult,
+          policyStatus: s.policyStatus,
+          mergeStatus: s.mergeStatus || pr.mergeStatus,
+          autoCompleteStatus: s.autoCompleteStatus,
+          lastCheckedAt: s.lastCheckedAt,
+          adoBuildUrl: s.adoBuildUrl,
+          adoPrUrl: pr.url
+        });
+        const addResult = await sp.addLogItem(fields);
+        if (addResult.ok) {
+          logged += 1;
+        } else {
+          errors.push('PR #' + pr.id + ' ' + event.action + ': HTTP ' + addResult.status);
+        }
+      }
+    } catch (e) {
+      errors.push('PR #' + (pr && pr.id) + ': ' + e.message);
+    }
+  }
+
+  if (errors.length) {
+    context.log.warn('External vote log sync completed with errors: ' + errors.slice(0, 3).join(' | '));
+  }
+  return { ok: errors.length === 0, checked: checked, logged: logged, errors: errors.slice(0, 5) };
+}
+
+function buildExternalVoteEvents(pr) {
+  const reviewers = Array.isArray(pr.reviewers) ? pr.reviewers : [];
+  return reviewers
+    .filter(r => r && r.isContainer !== true)
+    .map(r => {
+      const vote = Number(r.vote) || 0;
+      const voteState = getVoteState(vote);
+      if (!voteState) return null;
+      const identity = normalizeIdentity(r.id || r.uniqueName || r.displayName || 'unknown');
+      return {
+        action: voteState.action,
+        result: voteState.result,
+        reason: 'Detected from Azure DevOps reviewer vote during dashboard refresh',
+        user: r.uniqueName || r.displayName || r.id || 'Unknown',
+        reviewerKey: identity,
+        vote: vote,
+        eventKey: 'ado-sync:vote:' + pr.id + ':' + identity + ':' + vote
+      };
+    })
+    .filter(Boolean);
+}
+
+function getVoteState(vote) {
+  if (vote >= 10) return { action: 'External Approved', result: 'Approved in Azure DevOps' };
+  if (vote === 5) return { action: 'External Approved with Suggestions', result: 'Approved with suggestions in Azure DevOps' };
+  if (vote <= -10) return { action: 'External Rejected', result: 'Rejected in Azure DevOps' };
+  if (vote === -5) return { action: 'External Waiting Author', result: 'Waiting for author in Azure DevOps' };
+  return null;
+}
+
+function hasExistingVoteLog(existingLogs, event) {
+  return existingLogs.some(log => {
+    if (log.Event_Key && log.Event_Key === event.eventKey) return true;
+    const action = String(log.Action || '').toLowerCase();
+    const user = normalizeIdentity(log.User);
+    const sameAction =
+      action === event.action.toLowerCase() ||
+      (event.action === 'External Approved' && action === 'approved') ||
+      (event.action === 'External Rejected' && action === 'rejected');
+    return sameAction && user && (
+      user === normalizeIdentity(event.user) ||
+      user === event.reviewerKey
+    );
+  });
 }
 
 async function getStatusSnapshot(context, adoClient, pr, repositoryId, isMergeCodeTarget) {
