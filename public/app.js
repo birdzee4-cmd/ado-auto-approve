@@ -36,7 +36,7 @@ window._currentUser = {
         window._currentUser.roles = roles;
         window._currentUser.requiredRole = userData.requiredRole || window._currentUser.requiredRole;
         window._currentUser.canApprovePrs = !!(userData.permissions && userData.permissions.canApprovePrs);
-        setText('userRole', roles.length > 0 ? roles.join(', ') : 'No assigned roles');
+        setText('userRole', formatDisplayRoles(roles));
       }
     } catch (e) {
       setText('userRole', 'Unable to load role');
@@ -75,6 +75,23 @@ function bind(id, fn) {
 function setText(id, text) {
   const el = document.getElementById(id);
   if (el) el.textContent = text;
+}
+function formatDisplayRoles(roles) {
+  const roleLabels = {
+    it_support_approve: 'IT Support Approve',
+    admin: 'Admin'
+  };
+  const systemRoles = new Set(['anonymous', 'authenticated']);
+  const displayRoles = (Array.isArray(roles) ? roles : [])
+    .map(role => String(role || '').trim())
+    .filter(Boolean)
+    .filter(role => !systemRoles.has(role.toLowerCase()))
+    .map(role => roleLabels[role.toLowerCase()] || role);
+
+  if (displayRoles.length > 0) return displayRoles.join(', ');
+  return roles && roles.some(role => String(role).toLowerCase() === 'authenticated')
+    ? 'Authenticated User'
+    : 'No approval role';
 }
 function showBox(id, html, type) {
   const box = document.getElementById(id);
