@@ -298,7 +298,7 @@ function renderCompletedPrTable(prs, lookbackHours, totalMatched) {
 
   for (const pr of prs) {
     const tr = document.createElement('tr');
-    const statusBadge = renderStatusBadge(pr);
+    const statusBadge = renderCompletedStatusBadge(pr);
     const completedAt = pr.closedDate || pr.creationDate;
     const actionsHtml = renderCompletedActions(pr);
     tr.innerHTML =
@@ -446,6 +446,49 @@ function renderStatusBadge(pr) {
     return '<a class="' + cls + '" href="' + escapeHtml(s.adoBuildUrl) + '" target="_blank" rel="noopener" title="' + escapeHtml(title) + '">' + inner + '</a>';
   }
   return '<span class="' + cls + '" title="' + escapeHtml(title) + '">' + inner + '</span>';
+}
+
+function renderCompletedStatusBadge(pr) {
+  const s = pr.statusSnapshot || {};
+  const policyStatus = String(s.policyStatus || 'unknown').toLowerCase();
+  const mergeStatus = String(s.mergeStatus || pr.mergeStatus || '').toLowerCase();
+  const isCompleted = String(pr.status || '').toLowerCase() === 'completed';
+  const isMerged = mergeStatus === 'succeeded' || mergeStatus === 'completed';
+  const supportingLabel = getStatusSummaryText(pr);
+
+  let cls = 'status-snapshot status-snapshot-success';
+  let icon = '✅';
+  let label = 'Completed';
+
+  if (!isCompleted && !isMerged) {
+    cls = 'status-snapshot status-snapshot-muted';
+    icon = '○';
+    label = 'Closed';
+  }
+
+  const policyLabel = policyStatus && policyStatus !== 'unknown'
+    ? 'Policy: ' + policyStatus
+    : 'Policy: unknown';
+  const title = label + ' | ' + supportingLabel + ' | ' + policyLabel;
+  return '<span class="' + cls + '" title="' + escapeHtml(title) + '">' +
+    '<span class="status-main">' + icon + ' ' + escapeHtml(label) + '</span>' +
+    '<span class="status-detail">' + escapeHtml(supportingLabel) + '</span>' +
+    '</span>';
+}
+
+function getStatusSummaryText(pr) {
+  const s = pr.statusSnapshot || {};
+  const buildResult = String(s.buildResult || 'unknown').toLowerCase();
+  const buildStatus = String(s.buildStatus || 'unknown').toLowerCase();
+  const policyStatus = String(s.policyStatus || 'unknown').toLowerCase();
+
+  if (buildResult === 'succeeded') return 'Build Success';
+  if (buildResult === 'failed' || buildResult === 'error') return 'Build Failed';
+  if (buildResult === 'pending' || buildStatus === 'in_progress') return 'Build Running';
+  if (policyStatus === 'approved') return 'Policy Approved';
+  if (policyStatus === 'failed') return 'Policy Failed';
+  if (policyStatus === 'pending') return 'Policy Pending';
+  return 'No build status';
 }
 
 // ===== Approval Badge =====
