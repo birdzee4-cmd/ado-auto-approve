@@ -18,7 +18,7 @@ function getUserRoles(principal) {
 }
 
 function getRequiredApproverRole() {
-  return process.env.AUTH_REQUIRED_ROLE || 'it-support-approve';
+  return process.env.AUTH_REQUIRED_ROLE || 'it_support_approve';
 }
 
 function hasRole(principal, requiredRole) {

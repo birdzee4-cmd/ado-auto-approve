@@ -6,7 +6,7 @@ let currentPrForAction = null;
 window._prCache = {};
 window._currentUser = {
   roles: [],
-  requiredRole: 'it-support-approve',
+  requiredRole: 'it_support_approve',
   canApprovePrs: false
 };
 
@@ -263,7 +263,7 @@ function renderActions(pr) {
   const canApprovePrs = window._currentUser && window._currentUser.canApprovePrs === true;
   const requiredRole = window._currentUser && window._currentUser.requiredRole
     ? window._currentUser.requiredRole
-    : 'it-support-approve';
+    : 'it_support_approve';
 
   if (isMergeCodePr(pr)) {
     return '<div class="action-cell">' +
