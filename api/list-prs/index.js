@@ -49,6 +49,7 @@ module.exports = async function (context, req) {
     const stagingPrefix = (process.env.ADO_TARGET_BRANCH || 'refs/heads/staging').toLowerCase();
     const reviewerGroup = process.env.ADO_REVIEWER_GROUP || 'IT Support Approve';
     const completedLookbackHours = Number(process.env.COMPLETED_PR_LOOKBACK_HOURS) || 24;
+    const completedDisplayLimit = Math.min(Math.max(Number(process.env.COMPLETED_PR_DISPLAY_LIMIT) || 100, 1), 100);
 
     const missing = [];
     if (!org)     missing.push('ADO_ORGANIZATION');
@@ -133,8 +134,7 @@ module.exports = async function (context, req) {
     }
 
     const completedCutoff = Date.now() - completedLookbackHours * 60 * 60 * 1000;
-    const completedPrs = [];
-    for (const pr of allCompletedPrs
+    const completedMatches = allCompletedPrs
       .filter(pr => {
         const targetRef = (pr.targetRefName || '').toLowerCase();
         return targetRef.startsWith(stagingPrefix) || isMergeCodeBranch(targetRef);
@@ -143,9 +143,9 @@ module.exports = async function (context, req) {
       .filter(pr => {
         const completedAt = Date.parse(pr.closedDate || pr.completionDate || pr.lastMergeCommit && pr.lastMergeCommit.committer && pr.lastMergeCommit.committer.date || pr.creationDate);
         return Number.isFinite(completedAt) && completedAt >= completedCutoff;
-      })
-      .slice(0, 20)
-    ) {
+      });
+    const completedPrs = [];
+    for (const pr of completedMatches.slice(0, completedDisplayLimit)) {
       completedPrs.push(await buildPrRow(context, pr, currentUser, org, project));
     }
 
@@ -162,6 +162,8 @@ module.exports = async function (context, req) {
       fetchedAt: new Date().toISOString(),
       prs: prs,
       completedCount: completedPrs.length,
+      completedTotalMatched: completedMatches.length,
+      completedDisplayLimit: completedDisplayLimit,
       completedPrs: completedPrs
     });
 

@@ -212,7 +212,7 @@ async function checkPrs() {
       '<br/><small>Filter: reviewer group = <strong>' + escapeHtml(d.reviewerGroup) + '</strong> | ดึงเมื่อ ' +
       new Date(d.fetchedAt).toLocaleString('th-TH') + '</small>' + mergeCodeNote + '</div>');
     renderPrTable(d.prs);
-    renderCompletedPrTable(d.completedPrs || [], d.completedLookbackHours || 24);
+    renderCompletedPrTable(d.completedPrs || [], d.completedLookbackHours || 24, d.completedTotalMatched);
     document.getElementById('prTableContainer').hidden = false;
   } catch (err) {
     showBox('prResult', '<div class="test-result result-error">❌ ' + escapeHtml(err.message) + '</div>');
@@ -277,7 +277,7 @@ function renderPrTable(prs) {
   }
 }
 
-function renderCompletedPrTable(prs, lookbackHours) {
+function renderCompletedPrTable(prs, lookbackHours, totalMatched) {
   const section = document.getElementById('completedSection');
   const meta = document.getElementById('completedMeta');
   const tbody = document.getElementById('completedTableBody');
@@ -290,7 +290,10 @@ function renderCompletedPrTable(prs, lookbackHours) {
   }
 
   section.hidden = false;
-  meta.textContent = 'ล่าสุด ' + lookbackHours + ' ชั่วโมง | พบ ' + prs.length + ' รายการ';
+  const total = Number.isFinite(Number(totalMatched)) ? Number(totalMatched) : prs.length;
+  meta.textContent = total > prs.length
+    ? 'ล่าสุด ' + lookbackHours + ' ชั่วโมง | แสดง ' + prs.length + ' จาก ' + total + ' รายการ'
+    : 'ล่าสุด ' + lookbackHours + ' ชั่วโมง | พบ ' + prs.length + ' รายการ';
   tbody.innerHTML = '';
 
   for (const pr of prs) {
