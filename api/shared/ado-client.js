@@ -7,6 +7,7 @@
  */
 
 const https = require('https');
+let cachedProjectId = null;
 
 function getConfig() {
   const org = process.env.ADO_ORGANIZATION;
@@ -75,6 +76,25 @@ async function getPullRequest(prId) {
 async function getPullRequestStatuses(repositoryId, prId) {
   const { org, project } = getConfig();
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repositoryId}/pullRequests/${prId}/statuses?api-version=7.0`;
+  return adoRequest('GET', path);
+}
+
+async function getProjectId() {
+  if (cachedProjectId) return cachedProjectId;
+  const { project } = getConfig();
+  const result = await adoRequest('GET', `/_apis/projects/${encodeURIComponent(project)}?api-version=7.0`);
+  if (!result.ok || !result.body || !result.body.id) {
+    throw new Error('Cannot resolve ADO project id');
+  }
+  cachedProjectId = result.body.id;
+  return cachedProjectId;
+}
+
+async function getPolicyEvaluations(prId) {
+  const { project } = getConfig();
+  const projectId = await getProjectId();
+  const artifactId = `vstfs:///CodeReview/CodeReviewId/${projectId}/${prId}`;
+  const path = `/${encodeURIComponent(project)}/_apis/policy/evaluations?artifactId=${encodeURIComponent(artifactId)}&api-version=7.1-preview.1`;
   return adoRequest('GET', path);
 }
 
@@ -157,8 +177,9 @@ function findMinimumApproverCount(policies) {
   return 0;
 }
 
-function summarizeStatusSnapshot(pr, statuses, autoCompleteOk) {
+function summarizeStatusSnapshot(pr, statuses, autoCompleteOk, policyEvaluations) {
   const values = Array.isArray(statuses) ? statuses : [];
+  const evaluations = Array.isArray(policyEvaluations) ? policyEvaluations : [];
   const buildStatuses = values.filter(s => {
     const context = s && s.context ? s.context : {};
     const text = [
@@ -189,13 +210,14 @@ function summarizeStatusSnapshot(pr, statuses, autoCompleteOk) {
   };
 
   const build = summarizeStates(buildStatuses);
-  const policy = summarizeStates(values);
+  const policy = summarizePolicyEvaluations(evaluations, values);
   const buildWithUrl = buildStatuses.find(s => s && s.targetUrl);
 
   return {
     buildStatus: build.status,
     buildResult: build.result,
     policyStatus: policy.result,
+    policyStatusDetail: policy.status,
     mergeStatus: (pr && pr.mergeStatus) || '',
     autoCompleteStatus: autoCompleteOk === true
       ? 'enabled'
@@ -205,8 +227,25 @@ function summarizeStatusSnapshot(pr, statuses, autoCompleteOk) {
     lastCheckedAt: new Date().toISOString(),
     adoBuildUrl: buildWithUrl ? buildWithUrl.targetUrl : '',
     statusCount: values.length,
-    buildStatusCount: buildStatuses.length
+    buildStatusCount: buildStatuses.length,
+    policyEvaluationCount: evaluations.length
   };
+}
+
+function summarizePolicyEvaluations(evaluations, statuses) {
+  const policyItems = evaluations.length > 0 ? evaluations : statuses;
+  if (!policyItems.length) return { status: 'no_policy_status', result: 'unknown' };
+  const states = policyItems.map(item => String(item.status || item.state || '').toLowerCase());
+  if (states.some(s => s === 'rejected' || s === 'failed' || s === 'error' || s === 'broken')) {
+    return { status: 'completed', result: 'failed' };
+  }
+  if (states.some(s => s === 'queued' || s === 'running' || s === 'pending' || s === 'notset')) {
+    return { status: 'in_progress', result: 'pending' };
+  }
+  if (states.every(s => s === 'approved' || s === 'succeeded' || s === 'success')) {
+    return { status: 'completed', result: 'approved' };
+  }
+  return { status: 'unknown', result: states.join(',') || 'unknown' };
 }
 
 /**
@@ -304,6 +343,7 @@ module.exports = {
   adoRequest,
   getPullRequest,
   getPullRequestStatuses,
+  getPolicyEvaluations,
   listActivePRs,
   getConnectionData,
   approvePR,

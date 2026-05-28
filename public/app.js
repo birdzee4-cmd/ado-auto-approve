@@ -403,6 +403,7 @@ function renderStatusBadge(pr) {
   let cls = 'status-snapshot status-snapshot-muted';
   let icon = '○';
   let buildLabel = 'No build status';
+  const hasBuildStatus = buildResult && buildResult !== 'unknown' && buildResult !== 'no_status';
 
   if (buildResult === 'succeeded') {
     cls = 'status-snapshot status-snapshot-success';
@@ -416,6 +417,18 @@ function renderStatusBadge(pr) {
     cls = 'status-snapshot status-snapshot-pending';
     icon = '⏳';
     buildLabel = 'Build Running';
+  } else if (!hasBuildStatus && policyStatus === 'approved') {
+    cls = 'status-snapshot status-snapshot-success';
+    icon = '✅';
+    buildLabel = 'Policy Approved';
+  } else if (!hasBuildStatus && policyStatus === 'failed') {
+    cls = 'status-snapshot status-snapshot-failed';
+    icon = '❌';
+    buildLabel = 'Policy Failed';
+  } else if (!hasBuildStatus && policyStatus === 'pending') {
+    cls = 'status-snapshot status-snapshot-pending';
+    icon = '⏳';
+    buildLabel = 'Policy Pending';
   }
 
   const policyLabel = policyStatus && policyStatus !== 'unknown'

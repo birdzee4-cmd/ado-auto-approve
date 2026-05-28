@@ -229,7 +229,11 @@ async function getStatusSnapshot(context, adoClient, pr, repositoryId, isMergeCo
     const statuses = result.ok && result.body && Array.isArray(result.body.value)
       ? result.body.value
       : [];
-    return adoClient.summarizeStatusSnapshot(pr, statuses, isMergeCodeTarget ? null : undefined);
+    const policyResult = await adoClient.getPolicyEvaluations(pr.pullRequestId);
+    const policyEvaluations = policyResult.ok && policyResult.body && Array.isArray(policyResult.body.value)
+      ? policyResult.body.value
+      : [];
+    return adoClient.summarizeStatusSnapshot(pr, statuses, isMergeCodeTarget ? null : undefined, policyEvaluations);
   } catch (e) {
     if (context && context.log && context.log.warn) {
       context.log.warn('Failed to get PR status snapshot for #' + (pr && pr.pullRequestId) + ': ' + e.message);
