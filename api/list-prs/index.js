@@ -232,6 +232,9 @@ async function getStatusSnapshot(context, adoClient, pr, repositoryId, isMergeCo
       ? result.body.value
       : [];
     const policyResult = await adoClient.getPolicyEvaluations(pr.pullRequestId);
+    if (!policyResult.ok && context && context.log && context.log.warn) {
+      context.log.warn('Policy evaluation lookup returned HTTP ' + policyResult.status + ' for #' + pr.pullRequestId);
+    }
     const policyEvaluations = policyResult.ok && policyResult.body && Array.isArray(policyResult.body.value)
       ? policyResult.body.value
       : [];

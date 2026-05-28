@@ -81,8 +81,8 @@ async function getPullRequestStatuses(repositoryId, prId) {
 
 async function getProjectId() {
   if (cachedProjectId) return cachedProjectId;
-  const { project } = getConfig();
-  const result = await adoRequest('GET', `/_apis/projects/${encodeURIComponent(project)}?api-version=7.0`);
+  const { org, project } = getConfig();
+  const result = await adoRequest('GET', `/${encodeURIComponent(org)}/_apis/projects/${encodeURIComponent(project)}?api-version=7.0`);
   if (!result.ok || !result.body || !result.body.id) {
     throw new Error('Cannot resolve ADO project id');
   }
@@ -91,10 +91,10 @@ async function getProjectId() {
 }
 
 async function getPolicyEvaluations(prId) {
-  const { project } = getConfig();
+  const { org, project } = getConfig();
   const projectId = await getProjectId();
   const artifactId = `vstfs:///CodeReview/CodeReviewId/${projectId}/${prId}`;
-  const path = `/${encodeURIComponent(project)}/_apis/policy/evaluations?artifactId=${encodeURIComponent(artifactId)}&api-version=7.1-preview.1`;
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/policy/evaluations?artifactId=${encodeURIComponent(artifactId)}&api-version=7.1-preview.1`;
   return adoRequest('GET', path);
 }
 
