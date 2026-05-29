@@ -45,6 +45,28 @@
           </div>
         </div>
       </div>
+
+      <div class="test-section diagnostic-section">
+        <h2>Diagnostic Tools</h2>
+        <p class="section-desc">เครื่องมือสำหรับตรวจสอบระบบและทดสอบ notification เมื่อจำเป็น</p>
+        <div class="test-buttons">
+          <button id="btnTestTeams" class="action-button">
+            <span class="btn-icon">💬</span>
+            <span class="btn-text">
+              <span class="btn-title">ทดสอบ Teams Notification</span>
+              <span class="btn-desc">ส่งข้อความทดสอบเข้า channel</span>
+            </span>
+          </button>
+          <button id="btnTestHealth" class="action-button">
+            <span class="btn-icon">❤️</span>
+            <span class="btn-text">
+              <span class="btn-title">ทดสอบ Backend Health</span>
+              <span class="btn-desc">ตรวจ /api/health endpoint</span>
+            </span>
+          </button>
+        </div>
+        <div id="testResult" class="test-result" hidden></div>
+      </div>
     </div>
   </main>
 

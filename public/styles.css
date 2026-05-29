@@ -448,6 +448,11 @@ body {
   box-shadow: 0 14px 30px rgba(91, 69, 0, 0.08);
 }
 
+.diagnostic-section {
+  margin-top: 28px;
+  margin-bottom: 0;
+}
+
 .test-section h2 {
   font-size: 18px;
   color: var(--bz-ink);
