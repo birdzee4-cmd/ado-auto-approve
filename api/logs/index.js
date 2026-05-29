@@ -84,13 +84,15 @@ module.exports = async function (context, req) {
 function normalizeLogItem(item) {
   const fields = item && item.fields || {};
   const buildText = [fields.Build_Status, fields.Build_Result].filter(Boolean).join(' / ');
+  const prId = fields.PR_ID || 0;
+  const repository = fields.Repository || '';
   return {
     id: item.id,
     createdAt: item.createdDateTime,
-    prId: fields.PR_ID || 0,
+    prId: prId,
     action: fields.Action || '',
     user: fields.User || '',
-    repository: fields.Repository || '',
+    repository: repository,
     prTitle: fields.PR_Title || '',
     targetBranch: fields.Target_Branch || '',
     result: fields.Result || '',
@@ -105,8 +107,17 @@ function normalizeLogItem(item) {
     autoCompleteStatus: fields.AutoComplete_Status || '',
     lastCheckedAt: fields.Last_Checked_At || '',
     adoBuildUrl: fields.ADO_Build_URL || '',
-    adoPrUrl: fields.ADO_PR_URL || ''
+    adoPrUrl: fields.ADO_PR_URL || buildAdoPrUrl(repository, prId)
   };
+}
+
+function buildAdoPrUrl(repository, prId) {
+  const org = process.env.ADO_ORGANIZATION;
+  const project = process.env.ADO_PROJECT;
+  const id = parseInt(prId, 10);
+  if (!org || !project || !repository || !Number.isFinite(id) || id <= 0) return '';
+  return 'https://dev.azure.com/' + org + '/' + project +
+    '/_git/' + encodeURIComponent(repository) + '/pullrequest/' + id;
 }
 
 function buildStats(items) {

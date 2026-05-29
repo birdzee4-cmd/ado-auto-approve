@@ -87,6 +87,7 @@ module.exports = async function (context, req) {
         prId, action: 'Failed', user: userEmail, repository: pr.repository.name,
         prTitle: pr.title, targetBranch: actualTargetBranch,
         result: 'Refused: target not staging',
+        adoPrUrl: getPrUrl(pr),
         ...statusSnapshot
       });
       return;
@@ -138,6 +139,7 @@ module.exports = async function (context, req) {
         prId, action: 'Failed', user: userEmail, repository: pr.repository.name,
         prTitle: pr.title, targetBranch: pr.targetRefName,
         result: 'Vote failed: HTTP ' + voteResult.status,
+        adoPrUrl: getPrUrl(pr),
         ...statusSnapshot
       });
       await notifyOperationFailed(context, {
@@ -181,6 +183,7 @@ module.exports = async function (context, req) {
         prId, action: 'Approved', user: userEmail, repository: pr.repository.name,
         prTitle: pr.title, targetBranch: pr.targetRefName,
         result: resultText,
+        adoPrUrl: getPrUrl(pr),
         ...statusSnapshot
       });
       logStatus = logResult.ok ? 'logged' : 'failed: HTTP ' + logResult.status;
