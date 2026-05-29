@@ -12,10 +12,10 @@ jobs:
     steps:
       - name: Send daily PR summary
         env:
-          DAILY_SUMMARY_TOKEN: ${{ secrets.DAILY_SUMMARY_TOKEN }}
+          DAILY_SUMMARY_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MANGO_WAVE_09CFF3700 }}
         run: |
           if [ -z "$DAILY_SUMMARY_TOKEN" ]; then
-            echo "DAILY_SUMMARY_TOKEN secret is not configured."
+            echo "Static Web Apps API token secret is not configured."
             exit 1
           fi
 
