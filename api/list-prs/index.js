@@ -464,6 +464,7 @@ function getCurrentUser(encodedPrincipal) {
     const principal = JSON.parse(Buffer.from(encodedPrincipal, 'base64').toString('utf-8'));
     user.userDetails = principal.userDetails || '';
     user.userId = principal.userId || '';
+    user.roles = Array.isArray(principal.userRoles) ? principal.userRoles : [];
     user.identities = collectPrincipalIdentities(principal);
   } catch (e) {}
   return user;
@@ -526,6 +527,7 @@ function buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTar
   const myReviewer = findCurrentUserReviewer(reviewers, currentUser);
   const vote = myReviewer ? Number(myReviewer.vote) || 0 : 0;
   const waitingOthers = Math.max((approval.requiredCount || 0) - (approval.approvedCount || 0), 0);
+  const canApproveAsGroup = hasApprovalRole(currentUser);
 
   if (vote >= 10) {
     return {
@@ -569,13 +571,18 @@ function buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTar
   }
 
   return {
-    status: myReviewer ? 'not-approved' : 'not-reviewer',
-    label: myReviewer ? 'Not approved' : 'Not assigned to you',
+    status: myReviewer || canApproveAsGroup ? 'not-approved' : 'not-reviewer',
+    label: myReviewer || canApproveAsGroup ? 'Awaiting your approval' : 'Awaiting group approval',
     detail: 'Waiting: ' + (approval.approvedCount || 0) + '/' + (approval.requiredCount || 0),
     vote: vote,
     matched: !!myReviewer,
     waitingOthers: waitingOthers
   };
+}
+
+function hasApprovalRole(currentUser) {
+  const roles = currentUser && Array.isArray(currentUser.roles) ? currentUser.roles : [];
+  return roles.some(role => String(role || '').toLowerCase() === 'it_support_approve');
 }
 
 function findCurrentUserReviewer(reviewers, currentUser) {
