@@ -5,6 +5,8 @@
  * แยกจาก exception/build notification เดิม
  */
 
+const attentionUtil = require('../shared/attention');
+
 module.exports = async function (context, req) {
   function jsonResponse(status, payload) {
     context.res = {
@@ -110,7 +112,7 @@ async function buildDailySummary(context) {
   const rejectedRows = rows.filter(row => row.approvalStatus === 'rejected');
   const attentionRows = rows
     .filter(row => row.status === 'active' && row.attention && Number(row.attention.rank) >= 2)
-    .sort(sortByAttention);
+    .sort(attentionUtil.sortByAttention);
   const criticalRows = attentionRows.filter(row => row.attention && Number(row.attention.rank) >= 4);
   const warningRows = attentionRows.filter(row => row.attention && Number(row.attention.rank) >= 2 && Number(row.attention.rank) < 4);
   const staleRows = attentionRows.filter(row => row.attention && row.attention.status === 'stale');
@@ -174,7 +176,7 @@ async function buildPrSummaryRow(context, ado, cfg, pr) {
   row.build = [snapshot.buildStatus, snapshot.buildResult].filter(Boolean).join(' / ') || '-';
   row.policy = snapshot.policyStatus || '-';
   row.issueType = getIssueType(snapshot);
-  row.attention = buildAttention(pr, approval, snapshot, isMergeCodeBranch(pr.targetRefName));
+  row.attention = attentionUtil.buildAttention(pr, approval, snapshot, isMergeCodeBranch(pr.targetRefName));
   return row;
 }
 
@@ -232,74 +234,6 @@ function getIssueType(snapshot) {
   if (buildResult === 'failed' || buildResult === 'error') return 'build_failed';
   if (policyStatus === 'failed') return 'policy_failed';
   return '';
-}
-
-function buildAttention(pr, approval, statusSnapshot, isMergeCodeTarget) {
-  const createdMs = Date.parse(pr && pr.creationDate || '');
-  const ageMs = Number.isFinite(createdMs) ? Math.max(Date.now() - createdMs, 0) : 0;
-  const ageHours = ageMs / (60 * 60 * 1000);
-  const ageLabel = formatAge(ageMs);
-  const buildResult = String(statusSnapshot && statusSnapshot.buildResult || '').toLowerCase();
-  const buildStatus = String(statusSnapshot && statusSnapshot.buildStatus || '').toLowerCase();
-  const policyStatus = String(statusSnapshot && statusSnapshot.policyStatus || '').toLowerCase();
-  const approvalStatus = String(approval && approval.status || '').toLowerCase();
-  const hasBuildStatus = buildResult && buildResult !== 'unknown' && buildResult !== 'no_status';
-
-  if (isMergeCodeTarget) {
-    return attention('manual', 1, 'Manual in ADO', ageLabel, 'MergeCode target branch requires Azure DevOps action', ageHours);
-  }
-  if (buildResult === 'failed' || buildResult === 'error') {
-    return attention('critical', 4, 'Build Failed', ageLabel, 'Build result is ' + buildResult, ageHours);
-  }
-  if (approvalStatus === 'rejected') {
-    return attention('critical', 4, 'Rejected', ageLabel, 'At least one reviewer rejected this PR', ageHours);
-  }
-  if (policyStatus === 'failed') {
-    return attention('critical', 4, 'Policy Failed', ageLabel, 'Azure DevOps policy evaluation failed', ageHours);
-  }
-
-  const buildPending = buildResult === 'pending' || buildStatus === 'in_progress';
-  const policyPending = policyStatus === 'pending';
-  if (approvalStatus === 'complete') {
-    if ((buildPending || policyPending) && ageHours >= 1) {
-      return attention('warning', 3, 'Completing slow', ageLabel, 'Approvals complete, waiting for build or policy', ageHours);
-    }
-    return attention('ready', 1, 'Ready', ageLabel, 'Approvals are complete', ageHours);
-  }
-
-  if (!hasBuildStatus && policyStatus === 'unknown' && ageHours >= 4) {
-    return attention('warning', 3, 'No status 4h+', ageLabel, 'No build or policy status found yet', ageHours);
-  }
-  if (ageHours >= 24) {
-    return attention('stale', 3, 'Stale 1d+', ageLabel, 'PR has been waiting more than one day', ageHours);
-  }
-  if (ageHours >= 4) {
-    return attention('warning', 2, 'Waiting 4h+', ageLabel, 'Approval is still pending', ageHours);
-  }
-  if (ageHours >= 2) {
-    return attention('watch', 1, 'Waiting ' + ageLabel, ageLabel, 'Approval is pending', ageHours);
-  }
-  return attention('normal', 0, 'New ' + ageLabel, ageLabel, 'Within normal waiting time', ageHours);
-}
-
-function attention(status, rank, label, ageLabel, reason, ageHours) {
-  return {
-    status: status,
-    rank: rank,
-    label: label,
-    ageLabel: ageLabel,
-    reason: reason,
-    ageHours: Math.round(ageHours * 10) / 10
-  };
-}
-
-function sortByAttention(a, b) {
-  const ar = a && a.attention ? Number(a.attention.rank) || 0 : 0;
-  const br = b && b.attention ? Number(b.attention.rank) || 0 : 0;
-  if (br !== ar) return br - ar;
-  const ah = a && a.attention ? Number(a.attention.ageHours) || 0 : 0;
-  const bh = b && b.attention ? Number(b.attention.ageHours) || 0 : 0;
-  return bh - ah;
 }
 
 function buildDailySummaryMessage(summary) {
@@ -395,19 +329,6 @@ function isMergeCodeBranch(refName) {
 function trimText(value, max) {
   const text = String(value || '');
   return text.length > max ? text.slice(0, max - 3) + '...' : text;
-}
-
-function formatAge(ageMs) {
-  if (!Number.isFinite(ageMs) || ageMs < 0) return '-';
-  const minutes = Math.floor(ageMs / (60 * 1000));
-  if (minutes < 1) return '<1m';
-  if (minutes < 60) return minutes + 'm';
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  if (hours < 24) return remainingMinutes > 0 ? hours + 'h ' + remainingMinutes + 'm' : hours + 'h';
-  const days = Math.floor(hours / 24);
-  const remainingHours = hours % 24;
-  return remainingHours > 0 ? days + 'd ' + remainingHours + 'h' : days + 'd';
 }
 
 function safe(value) {
