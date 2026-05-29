@@ -32,12 +32,45 @@ module.exports = async function (context, req) {
     }
 
     const summary = await buildDailySummary(context);
+    const eventKey = 'teams:daily-summary:' + summary.dateKey;
+    const sp = require('../shared/sharepoint-client');
+    const existing = await sp.getLogByEventKey(eventKey);
+    const existingItems = existing.ok && existing.body && Array.isArray(existing.body.value)
+      ? existing.body.value
+      : [];
+    if (existingItems.length > 0) {
+      jsonResponse(200, {
+        ok: true,
+        skipped: true,
+        reason: 'duplicate',
+        eventKey: eventKey,
+        summary: summary
+      });
+      return;
+    }
+
     const notifier = require('../shared/teams-notifier');
     const result = await notifier.sendTeamsCard({ text: buildDailySummaryMessage(summary) });
+    if (result.ok) {
+      await sp.addLogItem(sp.buildLogFields({
+        prId: 0,
+        action: 'Notification Sent',
+        user: 'System',
+        repository: 'Daily Summary',
+        prTitle: 'Daily PR Summary - ' + summary.dateLabel,
+        targetBranch: summary.targetBranch,
+        result: 'Daily summary sent',
+        reason: 'Teams status ' + result.status,
+        source: 'Teams Daily Summary',
+        eventKey: eventKey,
+        lastCheckedAt: summary.generatedAt
+      }));
+    }
 
     jsonResponse(result.ok ? 200 : 502, {
       ok: result.ok,
       teamsStatus: result.status,
+      eventKey: eventKey,
       summary: summary
     });
   } catch (err) {
@@ -83,6 +116,7 @@ async function buildDailySummary(context) {
 
   return {
     dateLabel: range.dateLabel,
+    dateKey: range.dateKey,
     generatedAt: new Date().toISOString(),
     targetBranch: targetPrefix,
     reviewerGroup: reviewerGroup,
@@ -248,6 +282,11 @@ function getBangkokTodayRange() {
   return {
     startUtcMs: startUtcMs,
     endUtcMs: endUtcMs,
+    dateKey: [
+      String(year).padStart(4, '0'),
+      String(month + 1).padStart(2, '0'),
+      String(date).padStart(2, '0')
+    ].join('-'),
     dateLabel: new Date(startUtcMs).toLocaleDateString('th-TH', {
       timeZone: 'Asia/Bangkok',
       year: 'numeric',

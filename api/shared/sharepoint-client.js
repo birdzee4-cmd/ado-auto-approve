@@ -250,6 +250,23 @@ async function getLogForPR(prId) {
 }
 
 /**
+ * Query items สำหรับ event key ที่ระบุ ใช้กัน notification ซ้ำ
+ */
+async function getLogByEventKey(eventKey) {
+  const siteId = await getSiteId();
+  const listId = await getListId();
+  const token = await getAccessToken();
+  const safeEventKey = String(eventKey || '').replace(/'/g, "''");
+  const filter = `fields/Event_Key eq '${safeEventKey}'`;
+  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$filter=${encodeURIComponent(filter)}&$orderby=createdDateTime desc&$top=5`;
+  const result = await httpRequest('GET', url, {
+    'Authorization': 'Bearer ' + token,
+    'Prefer': 'HonorNonIndexedQueriesWarningMayFailRandomly'
+  });
+  return result;
+}
+
+/**
  * Helper: สร้าง log entry มาตรฐาน
  */
 function buildLogFields(opts) {
@@ -284,5 +301,6 @@ module.exports = {
   ensureOptionalLogColumns,
   addLogItem,
   getLogForPR,
+  getLogByEventKey,
   buildLogFields
 };
