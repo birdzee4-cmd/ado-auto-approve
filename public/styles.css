@@ -916,6 +916,13 @@ body {
   margin-bottom: 12px;
 }
 
+.table-title {
+  color: var(--bz-ink);
+  font-size: 15px;
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+
 .pr-table-wrap {
   background: white;
   border-radius: 8px;
