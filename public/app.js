@@ -168,7 +168,7 @@ function compactBranchName(branch, maxLength) {
 function renderBranchCell(pr) {
   const sourceFull = shortBranch(pr.sourceBranch);
   const targetFull = shortBranch(pr.targetBranch);
-  const sourceText = compactBranchName(pr.sourceBranch, 42);
+  const sourceText = compactBranchName(pr.sourceBranch, 34);
 
   return '<div class="branch-stack">' +
     '<div class="branch-line branch-from">' +
@@ -244,7 +244,7 @@ function renderPrTable(prs) {
   window._prCache = {};
 
   if (prs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#9ca3af">— No PR waiting approve right now —</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#9ca3af">— No PR waiting approve right now —</td></tr>';
     return;
   }
 
@@ -262,16 +262,12 @@ function renderPrTable(prs) {
     const actionsHtml = renderActions(pr);
 
     tr.innerHTML =
-      '<td class="pr-id-cell"><strong>#' + pr.id + '</strong></td>' +
-      '<td class="pr-title-cell"><span class="pr-title-text">' + escapeHtml(pr.title) + '</span>' + draftBadge + mergeCodeBadge + '</td>' +
-      '<td class="pr-by-cell">' + escapeHtml(pr.createdBy || '-') + '</td>' +
+      '<td class="pr-summary-cell">' + renderPrSummaryCell(pr, draftBadge, mergeCodeBadge) + '</td>' +
       '<td class="pr-branch-cell">' + renderBranchCell(pr) + '</td>' +
       '<td class="pr-approval-cell">' + approvalBadge + '</td>' +
       '<td class="pr-status-cell">' + statusBadge + '</td>' +
       '<td class="pr-attention-cell">' + attentionBadge + '</td>' +
       '<td class="pr-my-approval-cell">' + myApprovalBadge + '</td>' +
-      '<td class="pr-repo-cell">' + escapeHtml(pr.repository || '-') + '</td>' +
-      '<td class="pr-created-cell">' + formatDate(pr.creationDate) + '</td>' +
       '<td class="pr-actions-cell">' + actionsHtml + '</td>';
 
     tr.dataset.pr = JSON.stringify({
@@ -331,6 +327,21 @@ function renderCompletedPrTable(prs, lookbackHours, totalMatched) {
       '<td class="pr-actions-cell">' + actionsHtml + '</td>';
     tbody.appendChild(tr);
   }
+}
+
+function renderPrSummaryCell(pr, draftBadge, mergeCodeBadge) {
+  return '<div class="pr-summary">' +
+    '<div class="pr-summary-main">' +
+      '<strong class="pr-summary-id">#' + pr.id + '</strong>' +
+      '<span class="pr-title-text">' + escapeHtml(pr.title) + '</span>' +
+      (draftBadge || '') + (mergeCodeBadge || '') +
+    '</div>' +
+    '<div class="pr-summary-meta">' +
+      '<span>' + escapeHtml(pr.repository || '-') + '</span>' +
+      '<span>By ' + escapeHtml(pr.createdBy || '-') + '</span>' +
+      '<span>' + formatDate(pr.creationDate) + '</span>' +
+    '</div>' +
+  '</div>';
 }
 
 function renderActions(pr) {
