@@ -212,20 +212,8 @@ async function checkPrs() {
     const d = r.data;
     saveLastSync(d);
     const mergeCodeCount = (d.prs || []).filter(isMergeCodePr).length;
-    const mergeCodeNote = mergeCodeCount > 0
-      ? '<br/><small><strong>MergeCode manual:</strong> Found ' + mergeCodeCount + ' PR that must be handled in Azure DevOps</small>'
-      : '';
     const attention = d.attentionSummary || {};
-    const attentionNote = attention.total
-      ? '<br/><small><strong>Attention:</strong> Critical ' + (attention.critical || 0) +
-        ' | Warning ' + (attention.warning || 0) +
-        ' | Stale ' + (attention.stale || 0) + '</small>'
-      : '';
-    showBox('prResult',
-      '<div class="test-result result-success">✅ Found <strong>' + d.count + '</strong> PR waiting approve ' +
-      '(from ' + d.totalActive + ' total active PRs in <code>' + escapeHtml(d.targetBranch) + '</code>)' +
-      '<br/><small>Filter: reviewer group = <strong>' + escapeHtml(d.reviewerGroup) + '</strong> | fetched at ' +
-      new Date(d.fetchedAt).toLocaleString('th-TH') + '</small>' + attentionNote + mergeCodeNote + '</div>');
+    showBox('prResult', renderPrSummaryBanner(d, attention, mergeCodeCount));
     renderPrTable(d.prs);
     renderCompletedPrTable(d.completedPrs || [], d.completedLookbackHours || 24, d.completedTotalMatched);
     checkHealthStatus();
@@ -235,6 +223,28 @@ async function checkPrs() {
   } finally {
     resetCheckPrsButton();
   }
+}
+
+function renderPrSummaryBanner(d, attention, mergeCodeCount) {
+  const attentionText = 'Attention: Critical ' + (attention.critical || 0) +
+    ' | Warning ' + (attention.warning || 0) +
+    ' | Stale ' + (attention.stale || 0);
+  const chips = [
+    'Reviewer: ' + escapeHtml(d.reviewerGroup),
+    'Fetched: ' + new Date(d.fetchedAt).toLocaleString('th-TH'),
+    attentionText
+  ];
+  if (mergeCodeCount > 0) {
+    chips.push('MergeCode manual: ' + mergeCodeCount + ' PR');
+  }
+
+  return '<div class="test-result result-success pr-summary-banner">' +
+    '<div class="summary-main-line">✅ Found <strong>' + d.count + '</strong> PR waiting approve</div>' +
+    '<div class="summary-sub-line">from ' + d.totalActive + ' total active PRs in <code>' + escapeHtml(d.targetBranch) + '</code></div>' +
+    '<div class="summary-chip-row">' +
+      chips.map(text => '<span class="summary-chip">' + text + '</span>').join('') +
+    '</div>' +
+  '</div>';
 }
 
 function renderPrTable(prs) {
