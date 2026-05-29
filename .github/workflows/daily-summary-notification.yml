@@ -1,0 +1,25 @@
+name: Daily PR Summary Notification
+
+on:
+  schedule:
+    # 18:00 Asia/Bangkok = 11:00 UTC
+    - cron: "0 11 * * *"
+  workflow_dispatch:
+
+jobs:
+  send-daily-summary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send daily PR summary
+        env:
+          DAILY_SUMMARY_TOKEN: ${{ secrets.DAILY_SUMMARY_TOKEN }}
+        run: |
+          if [ -z "$DAILY_SUMMARY_TOKEN" ]; then
+            echo "DAILY_SUMMARY_TOKEN secret is not configured."
+            exit 1
+          fi
+
+          curl --fail-with-body --show-error --silent \
+            --request POST \
+            --header "x-daily-summary-token: ${DAILY_SUMMARY_TOKEN}" \
+            "https://mango-wave-09cff3700.7.azurestaticapps.net/api/daily-summary"
