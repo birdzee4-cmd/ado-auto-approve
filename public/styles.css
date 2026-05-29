@@ -246,6 +246,171 @@ body {
   min-height: calc(100vh - 130px);
 }
 
+.audit-page {
+  min-height: calc(100vh - 130px);
+}
+
+.log-filter-panel {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.8fr) minmax(150px, 1fr) minmax(190px, 1fr) minmax(260px, 1.8fr) minmax(90px, 0.6fr) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 18px;
+  margin-bottom: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(245, 164, 0, 0.28);
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(91, 69, 0, 0.06);
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.filter-field span {
+  color: #6b5b33;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.filter-field input,
+.filter-field select {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 11px;
+  border: 1px solid #d6b24b;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1f2937;
+  font: inherit;
+  font-size: 13px;
+}
+
+.filter-field input:focus,
+.filter-field select:focus {
+  outline: none;
+  border-color: var(--bz-yellow);
+  box-shadow: 0 0 0 3px rgba(245, 164, 0, 0.16);
+}
+
+.log-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.log-stat-card {
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: #fff8e1;
+  border: 1px solid #ead8a8;
+  box-shadow: 0 8px 18px rgba(91, 69, 0, 0.06);
+}
+
+.log-stat-card span {
+  display: block;
+  color: #6b5b33;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.log-stat-card strong {
+  color: #111827;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.audit-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #ffffff;
+  border: 1px solid #ead8a8;
+  border-radius: 8px;
+  box-shadow: 0 10px 22px rgba(91, 69, 0, 0.06);
+}
+
+.audit-table {
+  width: 100%;
+  min-width: 1560px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 13px;
+}
+
+.audit-table thead {
+  background: var(--bz-ink);
+  color: #ffcf54;
+}
+
+.audit-table th,
+.audit-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f5ecd2;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.audit-table th {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.audit-table tbody tr:hover {
+  background: #fff9e8;
+}
+
+.audit-table th:nth-child(1),
+.audit-table td:nth-child(1) { width: 110px; white-space: nowrap; }
+.audit-table th:nth-child(2),
+.audit-table td:nth-child(2) { width: 78px; white-space: nowrap; }
+.audit-table th:nth-child(3),
+.audit-table td:nth-child(3) { width: 145px; }
+.audit-table th:nth-child(4),
+.audit-table td:nth-child(4) { width: 210px; }
+.audit-table th:nth-child(5),
+.audit-table td:nth-child(5) { width: 145px; }
+.audit-table th:nth-child(6),
+.audit-table td:nth-child(6) { width: 250px; }
+.audit-table th:nth-child(7),
+.audit-table td:nth-child(7) { width: 220px; }
+.audit-table th:nth-child(8),
+.audit-table td:nth-child(8) { width: 150px; }
+.audit-table th:nth-child(9),
+.audit-table td:nth-child(9) { width: 280px; }
+.audit-table th:nth-child(10),
+.audit-table td:nth-child(10) { width: 110px; }
+
+.audit-repo {
+  display: block;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.audit-table small {
+  display: block;
+  color: #6b7280;
+  margin-top: 3px;
+  line-height: 1.35;
+}
+
+.empty-cell {
+  text-align: center;
+  padding: 28px !important;
+  color: #9ca3af;
+}
+
 .info-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -663,6 +828,12 @@ body {
   .page-header,
   .status-header {
     flex-direction: column;
+  }
+  .log-filter-panel {
+    grid-template-columns: 1fr;
+  }
+  .log-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1575,3 +1746,4 @@ body {
 .log-approved { color: #059669; font-weight: 600; }
 .log-rejected { color: #dc2626; font-weight: 600; }
 .log-failed   { color: #d97706; font-weight: 600; }
+.log-neutral  { color: #374151; font-weight: 600; }
