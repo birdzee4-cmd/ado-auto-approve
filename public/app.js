@@ -720,7 +720,7 @@ window.openHistoryModal = async function(prId) {
         '<div style="text-align:center;padding:24px;color:#9ca3af">— ยังไม่มี log สำหรับ PR นี้ —</div>';
       return;
     }
-    let html = '<table class="pr-table"><thead><tr><th>เวลา</th><th>Action</th><th>โดย</th><th>Source</th><th>Result</th><th>Build</th><th>Policy</th><th>Merge</th><th>Reason</th></tr></thead><tbody>';
+    let html = '<div class="history-table-wrap"><table class="history-table"><thead><tr><th>เวลา</th><th>Action</th><th>โดย</th><th>Source</th><th>Result</th><th>Build</th><th>Policy</th><th>Merge</th><th>Reason</th></tr></thead><tbody>';
     for (const it of items) {
       const actionText = String(it.Action || '');
       const actionClass = actionText.includes('Approved') ? 'log-approved' :
@@ -738,7 +738,7 @@ window.openHistoryModal = async function(prId) {
         '<td>' + escapeHtml(it.Reason || '-') + '</td>' +
         '</tr>';
     }
-    html += '</tbody></table>';
+    html += '</tbody></table></div>';
     document.getElementById('historyContent').innerHTML = html;
   } catch (err) {
     document.getElementById('historyContent').innerHTML =
