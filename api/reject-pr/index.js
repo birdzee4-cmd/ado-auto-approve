@@ -99,6 +99,17 @@ module.exports = async function (context, req) {
         result: 'Reject vote failed: HTTP ' + voteResult.status, reason: reason,
         ...statusSnapshot
       });
+      await notifyOperationFailed(context, {
+        operation: 'Reject',
+        prId: prId,
+        user: userEmail,
+        repository: pr.repository.name,
+        prTitle: pr.title,
+        targetBranch: pr.targetRefName,
+        error: 'Reject vote failed: HTTP ' + voteResult.status,
+        statusSnapshot: statusSnapshot,
+        adoPrUrl: getPrUrl(pr)
+      });
       return;
     }
 
@@ -128,12 +139,23 @@ module.exports = async function (context, req) {
     } catch (e) {
       logStatus = 'failed: ' + e.message;
     }
+    const notificationStatus = await notifyRejected(context, {
+      prId: prId,
+      user: userEmail,
+      repository: pr.repository.name,
+      prTitle: pr.title,
+      targetBranch: pr.targetRefName,
+      reason: reason,
+      statusSnapshot: statusSnapshot,
+      adoPrUrl: getPrUrl(pr)
+    });
 
     jsonResponse(200, {
       ok: true,
       message: 'PR rejected successfully',
       prId, user: userEmail, reason: reason,
       logStatus: logStatus,
+      notificationStatus: notificationStatus,
       statusSnapshot: statusSnapshot,
       timestamp: new Date().toISOString()
     });
@@ -154,7 +176,11 @@ async function getStatusSnapshot(context, ado, pr, repositoryId, prId, autoCompl
     const statuses = result.ok && result.body && Array.isArray(result.body.value)
       ? result.body.value
       : [];
-    return ado.summarizeStatusSnapshot(pr, statuses, autoCompleteOk);
+    const policyResult = await ado.getPolicyEvaluations(prId);
+    const policyEvaluations = policyResult.ok && policyResult.body && Array.isArray(policyResult.body.value)
+      ? policyResult.body.value
+      : [];
+    return ado.summarizeStatusSnapshot(pr, statuses, autoCompleteOk, policyEvaluations);
   } catch (e) {
     context.log.warn('Failed to get PR status snapshot:', e.message);
     return ado.summarizeStatusSnapshot(pr, [], autoCompleteOk);
@@ -170,4 +196,32 @@ async function logToSharePoint(context, opts) {
     context.log.warn('SharePoint log failed:', e.message);
     return { ok: false, status: 0, body: e.message };
   }
+}
+
+async function notifyRejected(context, opts) {
+  try {
+    const notifications = require('../shared/notification-service');
+    return await notifications.notifyRejected(context, opts);
+  } catch (e) {
+    context.log.warn('Teams reject notification skipped:', e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+async function notifyOperationFailed(context, opts) {
+  try {
+    const notifications = require('../shared/notification-service');
+    return await notifications.notifyOperationFailed(context, opts);
+  } catch (e) {
+    context.log.warn('Teams failure notification skipped:', e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+function getPrUrl(pr) {
+  const org = process.env.ADO_ORGANIZATION;
+  const project = process.env.ADO_PROJECT;
+  if (!org || !project || !pr || !pr.repository || !pr.repository.name || !pr.pullRequestId) return '';
+  return 'https://dev.azure.com/' + org + '/' + project +
+    '/_git/' + pr.repository.name + '/pullrequest/' + pr.pullRequestId;
 }

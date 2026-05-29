@@ -149,6 +149,7 @@ module.exports = async function (context, req) {
       completedPrs.push(await buildPrRow(context, pr, currentUser, org, project));
     }
 
+    const notificationResult = await syncExceptionNotifications(context, prs);
     const syncResult = await syncExternalVoteLogs(context, prs.concat(completedPrs));
 
     jsonResponse(200, {
@@ -166,6 +167,7 @@ module.exports = async function (context, req) {
       completedCount: completedPrs.length,
       completedTotalMatched: completedMatches.length,
       completedDisplayLimit: completedDisplayLimit,
+      exceptionNotifications: notificationResult,
       externalLogSync: syncResult,
       completedPrs: completedPrs
     });
@@ -232,10 +234,12 @@ async function syncExternalVoteLogs(context, prRows) {
   }
 
   let sp;
+  let notifications = null;
   try {
     sp = require('../shared/sharepoint-client');
+    notifications = require('../shared/notification-service');
   } catch (e) {
-    context.log.warn('External vote log sync skipped: cannot load SharePoint client: ' + e.message);
+    context.log.warn('External vote log sync skipped: cannot load sync dependencies: ' + e.message);
     return { ok: false, checked: 0, logged: 0, error: e.message };
   }
 
@@ -279,6 +283,18 @@ async function syncExternalVoteLogs(context, prRows) {
         const addResult = await sp.addLogItem(fields);
         if (addResult.ok) {
           logged += 1;
+          if (event.action === 'External Rejected' && notifications) {
+            await notifications.notifyRejected(context, {
+              prId: pr.id,
+              user: event.user,
+              repository: pr.repository,
+              prTitle: pr.title,
+              targetBranch: pr.targetBranch,
+              reason: event.reason,
+              statusSnapshot: s,
+              adoPrUrl: pr.url
+            });
+          }
         } else {
           errors.push('PR #' + pr.id + ' ' + event.action + ': HTTP ' + addResult.status);
         }
@@ -292,6 +308,40 @@ async function syncExternalVoteLogs(context, prRows) {
     context.log.warn('External vote log sync completed with errors: ' + errors.slice(0, 3).join(' | '));
   }
   return { ok: errors.length === 0, checked: checked, logged: logged, errors: errors.slice(0, 5) };
+}
+
+async function syncExceptionNotifications(context, prRows) {
+  const rows = Array.isArray(prRows) ? prRows.slice(0, 25) : [];
+  if (!rows.length || process.env.TEAMS_EXCEPTION_NOTIFICATIONS === 'false') {
+    return { ok: true, checked: 0, sent: 0, skipped: true };
+  }
+
+  let notifications;
+  try {
+    notifications = require('../shared/notification-service');
+  } catch (e) {
+    context.log.warn('Exception notification sync skipped: cannot load notification service: ' + e.message);
+    return { ok: false, checked: 0, sent: 0, error: e.message };
+  }
+
+  let checked = 0;
+  let sent = 0;
+  const errors = [];
+  for (const pr of rows) {
+    try {
+      checked += 1;
+      const result = await notifications.notifyPrIssueIfNeeded(context, pr);
+      if (result && result.ok) sent += 1;
+      if (result && result.ok === false && result.error) errors.push('PR #' + pr.id + ': ' + result.error);
+    } catch (e) {
+      errors.push('PR #' + (pr && pr.id) + ': ' + e.message);
+    }
+  }
+
+  if (errors.length) {
+    context.log.warn('Exception notification sync completed with errors: ' + errors.slice(0, 3).join(' | '));
+  }
+  return { ok: errors.length === 0, checked: checked, sent: sent, errors: errors.slice(0, 5) };
 }
 
 function buildExternalVoteEvents(pr) {
