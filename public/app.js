@@ -47,6 +47,7 @@ window._currentUser = {
     bind('btnCheckPrs', checkPrs);
     bind('btnTestTeams', testTeams);
     bind('btnTestHealth', testHealth);
+    bind('btnRefreshHealth', checkHealthStatus);
     bind('btnConfirmApprove', doApprove);
     bind('btnConfirmReject', doReject);
 
@@ -202,6 +203,7 @@ async function checkPrs() {
       return;
     }
     const d = r.data;
+    saveLastSync(d);
     const mergeCodeCount = (d.prs || []).filter(isMergeCodePr).length;
     const mergeCodeNote = mergeCodeCount > 0
       ? '<br/><small><strong>MergeCode manual:</strong> พบ ' + mergeCodeCount + ' PR ที่ต้องเปิดไปทำเองใน Azure DevOps</small>'
@@ -213,6 +215,7 @@ async function checkPrs() {
       new Date(d.fetchedAt).toLocaleString('th-TH') + '</small>' + mergeCodeNote + '</div>');
     renderPrTable(d.prs);
     renderCompletedPrTable(d.completedPrs || [], d.completedLookbackHours || 24, d.completedTotalMatched);
+    checkHealthStatus();
     document.getElementById('prTableContainer').hidden = false;
   } catch (err) {
     showBox('prResult', '<div class="test-result result-error">❌ ' + escapeHtml(err.message) + '</div>');
@@ -764,30 +767,160 @@ async function testHealth() {
   showResult('⏳ กำลังตรวจ...', 'info');
   try {
     const r = await safeFetchJson('/api/health');
-    if (r.ok && r.data && r.data.status === 'healthy') {
-      showResult('✅ Backend OK | Node ' + escapeHtml(r.data.node_version) + ' | Uptime ' + r.data.uptime_seconds + 's', 'success');
+    if (r.ok && r.data) {
+      const status = r.data.status || 'unknown';
+      const checks = Array.isArray(r.data.checks) ? r.data.checks : [];
+      const failed = checks.filter(c => c.status === 'error').length;
+      const warning = checks.filter(c => c.status === 'warning').length;
+      const type = status === 'healthy' ? 'success' : (failed > 0 ? 'error' : 'info');
+      showResult('✅ Health checked: ' + escapeHtml(status) +
+        ' | checks ' + checks.length +
+        ' | warning ' + warning +
+        ' | error ' + failed, type);
+      renderSystemHealth(r.data);
     } else { showResult('⚠️ HTTP ' + r.status, 'error'); }
   } catch (err) { showResult('❌ ' + err.message, 'error'); }
   finally { setButtonLoading('btnTestHealth', false); }
 }
 
 async function checkHealthStatus() {
+  const refreshButton = document.getElementById('btnRefreshHealth');
+  if (refreshButton) refreshButton.disabled = true;
   try {
-    const resp = await fetch('/api/health');
-    const card = document.getElementById('apiStatus');
-    if (!card) return;
-    if (resp.ok) {
-      card.querySelector('.status-icon').textContent = '✅';
-      card.querySelector('.status-desc').textContent = 'OK';
-    } else {
-      card.querySelector('.status-icon').textContent = '❌';
-      card.querySelector('.status-desc').textContent = 'HTTP ' + resp.status;
-    }
+    const r = await safeFetchJson('/api/health');
+    if (r.ok && r.data) renderSystemHealth(r.data);
+    else renderSystemHealthError('HTTP ' + r.status);
   } catch (e) {
-    const card = document.getElementById('apiStatus');
-    if (card) {
-      card.querySelector('.status-icon').textContent = '⚠️';
-      card.querySelector('.status-desc').textContent = 'unreachable';
-    }
+    renderSystemHealthError(e.message || 'unreachable');
+  } finally {
+    if (refreshButton) refreshButton.disabled = false;
   }
+}
+
+function saveLastSync(data) {
+  try {
+    const payload = {
+      at: data && data.fetchedAt || new Date().toISOString(),
+      count: data && data.count,
+      totalActive: data && data.totalActive,
+      completedCount: Array.isArray(data && data.completedPrs) ? data.completedPrs.length : 0,
+      completedTotalMatched: data && data.completedTotalMatched,
+      reviewerGroup: data && data.reviewerGroup,
+      targetBranch: data && data.targetBranch
+    };
+    localStorage.setItem('adoDashboardLastSync', JSON.stringify(payload));
+  } catch (e) {}
+}
+
+function getLastSync() {
+  try {
+    return JSON.parse(localStorage.getItem('adoDashboardLastSync') || 'null');
+  } catch (e) {
+    return null;
+  }
+}
+
+function renderSystemHealth(data) {
+  const grid = document.getElementById('systemHealthGrid');
+  if (!grid) return;
+
+  const cards = [];
+  cards.push(buildHealthCard({
+    key: 'auth',
+    label: 'Auth',
+    status: 'ok',
+    message: 'O365 Login OK'
+  }));
+
+  const checks = Array.isArray(data.checks) ? data.checks : [];
+  for (const check of checks) cards.push(buildHealthCard(check));
+
+  const lastSync = getLastSync();
+  cards.push(buildHealthCard({
+    key: 'last-sync',
+    label: 'Last Sync',
+    status: lastSync && lastSync.at ? 'ok' : 'warning',
+    message: lastSync && lastSync.at
+      ? formatDate(lastSync.at)
+      : 'ยังไม่เคยเรียกดูข้อมูลใน browser นี้',
+    detail: lastSync && lastSync.at ? {
+      pendingPrs: lastSync.count,
+      totalActive: lastSync.totalActive,
+      completed: lastSync.completedTotalMatched || lastSync.completedCount,
+      reviewerGroup: lastSync.reviewerGroup
+    } : {}
+  }));
+
+  const lastNotification = data.lastNotification || null;
+  cards.push(buildHealthCard({
+    key: 'last-notification',
+    label: 'Last Notification',
+    status: lastNotification && lastNotification.at ? 'ok' : 'warning',
+    message: lastNotification && lastNotification.at
+      ? formatDate(lastNotification.at)
+      : 'ยังไม่พบ notification log',
+    detail: lastNotification ? {
+      source: lastNotification.source,
+      result: lastNotification.result,
+      title: lastNotification.title
+    } : {}
+  }));
+
+  const nextRun = data.schedule && data.schedule.dailySummary && data.schedule.dailySummary.nextRunAt;
+  cards.push(buildHealthCard({
+    key: 'next-summary',
+    label: 'Next Summary',
+    status: data.schedule && data.schedule.dailySummary && data.schedule.dailySummary.enabled ? 'ok' : 'warning',
+    message: nextRun ? formatDate(nextRun) : 'Daily summary schedule not ready',
+    detail: { schedule: '18:00 Asia/Bangkok' }
+  }));
+
+  grid.innerHTML = cards.join('');
+}
+
+function renderSystemHealthError(message) {
+  const grid = document.getElementById('systemHealthGrid');
+  if (!grid) return;
+  grid.innerHTML = buildHealthCard({
+    key: 'system-health',
+    label: 'System Health',
+    status: 'error',
+    message: message || 'unreachable'
+  });
+}
+
+function buildHealthCard(item) {
+  const status = item && item.status || 'warning';
+  const cls = status === 'ok' ? 'status-ok' : (status === 'error' ? 'status-error' : 'status-pending');
+  const icon = status === 'ok' ? '✅' : (status === 'error' ? '❌' : '⚠️');
+  const detail = formatHealthDetail(item && item.detail);
+  const duration = Number.isFinite(Number(item && item.durationMs))
+    ? '<span class="status-chip">' + Number(item.durationMs) + ' ms</span>'
+    : '';
+  return '<div class="status-card ' + cls + '">' +
+    '<div class="status-icon">' + icon + '</div>' +
+    '<div class="status-text">' +
+      '<div class="status-title">' + escapeHtml(item && item.label || '-') + duration + '</div>' +
+      '<div class="status-desc">' + escapeHtml(item && item.message || '-') + '</div>' +
+      detail +
+    '</div>' +
+  '</div>';
+}
+
+function formatHealthDetail(detail) {
+  if (!detail || typeof detail !== 'object') return '';
+  const pairs = Object.entries(detail)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .slice(0, 4);
+  if (pairs.length === 0) return '';
+  return '<div class="status-detail-list">' + pairs.map(([key, value]) =>
+    '<span><strong>' + escapeHtml(humanizeKey(key)) + ':</strong> ' + escapeHtml(String(value)) + '</span>'
+  ).join('') + '</div>';
+}
+
+function humanizeKey(key) {
+  return String(key || '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, ch => ch.toUpperCase());
 }

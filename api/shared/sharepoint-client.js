@@ -267,6 +267,22 @@ async function getLogByEventKey(eventKey) {
 }
 
 /**
+ * Query log ล่าสุด ใช้สำหรับ system health / last notification
+ */
+async function getRecentLogItems(top) {
+  const siteId = await getSiteId();
+  const listId = await getListId();
+  const token = await getAccessToken();
+  const limit = Math.max(1, Math.min(parseInt(top, 10) || 30, 100));
+  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$orderby=createdDateTime desc&$top=${limit}`;
+  const result = await httpRequest('GET', url, {
+    'Authorization': 'Bearer ' + token,
+    'Prefer': 'HonorNonIndexedQueriesWarningMayFailRandomly'
+  });
+  return result;
+}
+
+/**
  * Helper: สร้าง log entry มาตรฐาน
  */
 function buildLogFields(opts) {
@@ -302,5 +318,6 @@ module.exports = {
   addLogItem,
   getLogForPR,
   getLogByEventKey,
+  getRecentLogItems,
   buildLogFields
 };
