@@ -34,11 +34,7 @@ module.exports = async function (context, req) {
     const summary = await buildDailySummary(context);
     const eventKey = 'teams:daily-summary:' + summary.dateKey;
     const sp = require('../shared/sharepoint-client');
-    const existing = await sp.getLogByEventKey(eventKey);
-    const existingItems = existing.ok && existing.body && Array.isArray(existing.body.value)
-      ? existing.body.value
-      : [];
-    if (existingItems.length > 0) {
+    if (await dailySummaryAlreadySent(sp, summary, eventKey)) {
       jsonResponse(200, {
         ok: true,
         skipped: true,
@@ -318,4 +314,39 @@ function trimText(value, max) {
 
 function safe(value) {
   return String(value || '-').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+}
+
+async function dailySummaryAlreadySent(sp, summary, eventKey) {
+  const byEventKey = await sp.getLogByEventKey(eventKey);
+  const eventKeyItems = byEventKey.ok && byEventKey.body && Array.isArray(byEventKey.body.value)
+    ? byEventKey.body.value
+    : [];
+  if (eventKeyItems.length > 0) return true;
+
+  const markerLogs = await sp.getLogForPR(0);
+  const rows = markerLogs.ok && markerLogs.body && Array.isArray(markerLogs.body.value)
+    ? markerLogs.body.value.map(item => item.fields || {})
+    : [];
+  return rows.some(fields => {
+    const markerText = [
+      fields.PR_Title,
+      fields.Result,
+      fields.Reason,
+      fields.Title
+    ].join(' ').toLowerCase();
+    return markerText.includes('daily summary') &&
+      getBangkokDateKey(fields.Last_Checked_At) === summary.dateKey;
+  });
+}
+
+function getBangkokDateKey(value) {
+  const ts = Date.parse(value || '');
+  if (!Number.isFinite(ts)) return '';
+  const offsetMs = 7 * 60 * 60 * 1000;
+  const bkk = new Date(ts + offsetMs);
+  return [
+    String(bkk.getUTCFullYear()).padStart(4, '0'),
+    String(bkk.getUTCMonth() + 1).padStart(2, '0'),
+    String(bkk.getUTCDate()).padStart(2, '0')
+  ].join('-');
 }
