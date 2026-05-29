@@ -49,6 +49,7 @@ window._currentUser = {
     bind('btnTestHealth', testHealth);
     bind('btnRefreshHealth', checkHealthStatus);
     bind('btnRefreshLogs', loadAuditLogs);
+    bind('btnSearchLogs', loadAuditLogs);
     bind('btnClearLogFilters', clearAuditLogFilters);
     bind('btnConfirmApprove', doApprove);
     bind('btnConfirmReject', doReject);
@@ -63,7 +64,10 @@ window._currentUser = {
     });
 
     if (document.getElementById('btnCheckPrs')) checkPrs();
-    if (document.getElementById('logTableBody')) loadAuditLogs();
+    if (document.getElementById('logTableBody')) {
+      bindAuditLogFilters();
+      loadAuditLogs();
+    }
 
   } catch (err) {
     console.error('Init failed:', err);
@@ -796,11 +800,12 @@ window.openHistoryModal = async function(prId) {
 async function loadAuditLogs() {
   if (!document.getElementById('logTableBody')) return;
   setButtonLoading('btnRefreshLogs', true, 'Loading...');
+  setButtonLoading('btnSearchLogs', true, 'Searching...');
   showBox('logResult', '⏳ Loading SharePoint log...', 'info');
 
   try {
     const params = new URLSearchParams();
-    const prId = (document.getElementById('logFilterPrId') || {}).value || '';
+    const prId = normalizePrIdInput((document.getElementById('logFilterPrId') || {}).value || '');
     const action = (document.getElementById('logFilterAction') || {}).value || '';
     const source = (document.getElementById('logFilterSource') || {}).value || '';
     const keyword = (document.getElementById('logFilterKeyword') || {}).value || '';
@@ -835,7 +840,26 @@ async function loadAuditLogs() {
     renderAuditLogTable([]);
   } finally {
     setButtonLoading('btnRefreshLogs', false);
+    setButtonLoading('btnSearchLogs', false);
   }
+}
+
+function bindAuditLogFilters() {
+  ['logFilterPrId', 'logFilterKeyword'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        loadAuditLogs();
+      }
+    });
+  });
+}
+
+function normalizePrIdInput(value) {
+  const match = String(value || '').match(/\d+/);
+  return match ? match[0] : '';
 }
 
 function clearAuditLogFilters() {

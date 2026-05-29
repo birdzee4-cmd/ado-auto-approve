@@ -40,7 +40,7 @@
       <div class="log-filter-panel">
         <label class="filter-field">
           <span>PR ID</span>
-          <input id="logFilterPrId" type="number" min="1" inputmode="numeric" placeholder="เช่น 342651" />
+          <input id="logFilterPrId" type="text" inputmode="numeric" placeholder="เช่น 342651" />
         </label>
         <label class="filter-field">
           <span>Action</span>
@@ -73,7 +73,10 @@
             <option value="100" selected>100</option>
           </select>
         </label>
-        <button id="btnClearLogFilters" class="secondary-button">Clear</button>
+        <div class="log-filter-actions">
+          <button id="btnSearchLogs" class="primary-button">Search</button>
+          <button id="btnClearLogFilters" class="secondary-button">Clear</button>
+        </div>
       </div>
 
       <div id="logResult" class="test-result result-info">⏳ Loading SharePoint log...</div>
