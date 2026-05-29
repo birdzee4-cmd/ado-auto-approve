@@ -127,7 +127,7 @@ function resetCheckPrsButton() {
   btn.disabled = false;
   btn.style.opacity = '1';
   btn.style.cursor = 'pointer';
-  btn.innerHTML = '<span>🔄</span><span>เรียกดูข้อมูล</span>';
+  btn.innerHTML = '<span>🔄</span><span>Refresh PR</span>';
   delete btn.dataset.originalHtml;
 }
 function escapeHtml(str) {
@@ -190,9 +190,9 @@ function closeModal(id) {
 // ===== Check PRs =====
 async function checkPrs() {
   if (!document.getElementById('prTableContainer')) return;
-  setButtonLoading('btnCheckPrs', true, 'กำลังโหลด...');
+  setButtonLoading('btnCheckPrs', true, 'Loading...');
   document.getElementById('prTableContainer').hidden = true;
-  showBox('prResult', '<div class="test-result result-info">⏳ กำลังเรียก ADO API...</div>');
+  showBox('prResult', '<div class="test-result result-info">⏳ Calling ADO API...</div>');
 
   try {
     const r = await safeFetchJson('/api/list-prs');
@@ -210,7 +210,7 @@ async function checkPrs() {
     saveLastSync(d);
     const mergeCodeCount = (d.prs || []).filter(isMergeCodePr).length;
     const mergeCodeNote = mergeCodeCount > 0
-      ? '<br/><small><strong>MergeCode manual:</strong> พบ ' + mergeCodeCount + ' PR ที่ต้องเปิดไปทำเองใน Azure DevOps</small>'
+      ? '<br/><small><strong>MergeCode manual:</strong> Found ' + mergeCodeCount + ' PR that must be handled in Azure DevOps</small>'
       : '';
     const attention = d.attentionSummary || {};
     const attentionNote = attention.total
@@ -219,9 +219,9 @@ async function checkPrs() {
         ' | Stale ' + (attention.stale || 0) + '</small>'
       : '';
     showBox('prResult',
-      '<div class="test-result result-success">✅ พบ <strong>' + d.count + '</strong> PR ที่รออนุมัติ ' +
-      '(จาก ' + d.totalActive + ' active PRs ทั้งหมดใน <code>' + escapeHtml(d.targetBranch) + '</code>)' +
-      '<br/><small>Filter: reviewer group = <strong>' + escapeHtml(d.reviewerGroup) + '</strong> | ดึงเมื่อ ' +
+      '<div class="test-result result-success">✅ Found <strong>' + d.count + '</strong> PR waiting approve ' +
+      '(from ' + d.totalActive + ' total active PRs in <code>' + escapeHtml(d.targetBranch) + '</code>)' +
+      '<br/><small>Filter: reviewer group = <strong>' + escapeHtml(d.reviewerGroup) + '</strong> | fetched at ' +
       new Date(d.fetchedAt).toLocaleString('th-TH') + '</small>' + attentionNote + mergeCodeNote + '</div>');
     renderPrTable(d.prs);
     renderCompletedPrTable(d.completedPrs || [], d.completedLookbackHours || 24, d.completedTotalMatched);
@@ -235,13 +235,13 @@ async function checkPrs() {
 }
 
 function renderPrTable(prs) {
-  document.getElementById('prMeta').textContent = 'พบ ' + prs.length + ' รายการ';
+  document.getElementById('prMeta').textContent = prs.length + ' items';
   const tbody = document.getElementById('prTableBody');
   tbody.innerHTML = '';
   window._prCache = {};
 
   if (prs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#9ca3af">— ไม่มี PR ที่รอ Approve ตอนนี้ —</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#9ca3af">— No PR waiting approve right now —</td></tr>';
     return;
   }
 
@@ -308,8 +308,8 @@ function renderCompletedPrTable(prs, lookbackHours, totalMatched) {
   section.hidden = false;
   const total = Number.isFinite(Number(totalMatched)) ? Number(totalMatched) : prs.length;
   meta.textContent = total > prs.length
-    ? 'ล่าสุด ' + lookbackHours + ' ชั่วโมง | แสดง ' + prs.length + ' จาก ' + total + ' รายการ'
-    : 'ล่าสุด ' + lookbackHours + ' ชั่วโมง | พบ ' + prs.length + ' รายการ';
+    ? 'Last ' + lookbackHours + ' hours | showing ' + prs.length + ' of ' + total + ' items'
+    : 'Last ' + lookbackHours + ' hours | ' + prs.length + ' items';
   tbody.innerHTML = '';
 
   for (const pr of prs) {
@@ -660,7 +660,7 @@ window.openApproveModal = function(prId, repositoryId) {
 
 async function doApprove() {
   if (!currentPrForAction) return;
-  setButtonLoading('btnConfirmApprove', true, 'กำลังส่ง...');
+  setButtonLoading('btnConfirmApprove', true, 'Submitting...');
   try {
     const r = await safeFetchJson('/api/approve-pr', {
       method: 'POST',
@@ -719,7 +719,7 @@ async function doReject() {
     alert('⚠️ กรุณาใส่เหตุผลที่ Reject (อย่างน้อย 3 ตัวอักษร)');
     return;
   }
-  setButtonLoading('btnConfirmReject', true, 'กำลังส่ง...');
+  setButtonLoading('btnConfirmReject', true, 'Submitting...');
   try {
     const r = await safeFetchJson('/api/reject-pr', {
       method: 'POST',
@@ -748,7 +748,7 @@ async function doReject() {
 // ===== History Modal =====
 window.openHistoryModal = async function(prId) {
   document.getElementById('historyPrId').textContent = '#' + prId;
-  document.getElementById('historyContent').innerHTML = '⏳ กำลังโหลด log จาก SharePoint...';
+  document.getElementById('historyContent').innerHTML = '⏳ Loading log from SharePoint...';
   openModal('historyModal');
 
   try {
@@ -795,8 +795,8 @@ window.openHistoryModal = async function(prId) {
 // ===== Audit Logs Page =====
 async function loadAuditLogs() {
   if (!document.getElementById('logTableBody')) return;
-  setButtonLoading('btnRefreshLogs', true, 'กำลังโหลด...');
-  showBox('logResult', '⏳ กำลังโหลด SharePoint log...', 'info');
+  setButtonLoading('btnRefreshLogs', true, 'Loading...');
+  showBox('logResult', '⏳ Loading SharePoint log...', 'info');
 
   try {
     const params = new URLSearchParams();
@@ -814,7 +814,7 @@ async function loadAuditLogs() {
     const r = await safeFetchJson('/api/logs?' + params.toString());
     if (r.parseError || !r.ok || !r.data || !r.data.ok) {
       const d = r.data || {};
-      showBox('logResult', '❌ ' + escapeHtml(d.error || 'โหลด log ไม่สำเร็จ') +
+      showBox('logResult', '❌ ' + escapeHtml(d.error || 'Failed to load log') +
         '<br/><small>' + escapeHtml(d.hint || d.detail || '') + '</small>', 'error');
       renderAuditLogStats({});
       renderAuditLogTable([]);
@@ -825,9 +825,9 @@ async function loadAuditLogs() {
     renderAuditLogStats(d.stats || {});
     renderAuditLogTable(d.items || []);
     showBox('logResult',
-      '✅ พบ <strong>' + d.count + '</strong> รายการ' +
-      ' จากที่ดึงมา ' + d.totalFetched + ' รายการ' +
-      '<br/><small>ดึงข้อมูลเมื่อ ' + formatDate(d.fetchedAt) + '</small>',
+      '✅ Found <strong>' + d.count + '</strong> items' +
+      ' from ' + d.totalFetched + ' fetched items' +
+      '<br/><small>Fetched at ' + formatDate(d.fetchedAt) + '</small>',
       'success');
   } catch (err) {
     showBox('logResult', '❌ ' + escapeHtml(err.message), 'error');
@@ -914,7 +914,7 @@ function getLogActionClass(action, result, reason) {
 // ===== Test Functions =====
 async function testTeams() {
   setButtonLoading('btnTestTeams', true);
-  showResult('⏳ กำลังส่งข้อความทดสอบ...', 'info');
+  showResult('⏳ Sending test message...', 'info');
   try {
     const r = await safeFetchJson('/api/test-notification', { method: 'POST' });
     if (r.parseError) { showResult('❌ ตอบกลับไม่ใช่ JSON (HTTP ' + r.status + ')', 'error'); return; }
@@ -926,7 +926,7 @@ async function testTeams() {
 
 async function testHealth() {
   setButtonLoading('btnTestHealth', true);
-  showResult('⏳ กำลังตรวจ...', 'info');
+  showResult('⏳ Checking...', 'info');
   try {
     const r = await safeFetchJson('/api/health');
     if (r.ok && r.data) {
@@ -1005,7 +1005,7 @@ function renderSystemHealth(data) {
     status: lastSync && lastSync.at ? 'ok' : 'warning',
     message: lastSync && lastSync.at
       ? formatDate(lastSync.at)
-      : 'ยังไม่เคยเรียกดูข้อมูลใน browser นี้',
+      : 'No refresh in this browser yet',
     detail: lastSync && lastSync.at ? {
       pendingPrs: lastSync.count,
       totalActive: lastSync.totalActive,

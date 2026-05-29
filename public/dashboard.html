@@ -18,7 +18,7 @@
       </div>
     </div>
     <div class="nav-right">
-      <span id="userName" class="user-name">กำลังโหลด...</span>
+      <span id="userName" class="user-name">Loading...</span>
       <a href="/.auth/logout?post_logout_redirect_uri=/" class="logout-button">ออกจากระบบ</a>
       <img src="/assets/buzzebees-powered.png" alt="Powered by BUZZEBEES" class="nav-logo" />
     </div>
@@ -26,8 +26,8 @@
 
   <main class="dashboard">
     <div class="welcome-card">
-      <h1>ระบบ Approve PR — Staging</h1>
-      <p>ระบบ Dashboard สำหรับตรวจสอบและอนุมัติ Pull Request บน Azure DevOps<br>โดยออกแบบให้ผู้ใช้งานกลุ่ม IT Support Approve สามารถเห็นงาน PR ที่รออนุมัติบน branch staging<br>ได้จากหน้าเว็บเดียว พร้อมบันทึกผลการดำเนินการลง SharePoint Log</p>
+      <h1>Pull Request Approval — Staging</h1>
+      <p>Dashboard for monitoring and approving Azure DevOps Pull Requests<br>designed for IT Support Approve users to review staging PRs<br>from one place with SharePoint Log tracking</p>
 
       <div class="info-grid">
         <div class="info-item">
@@ -52,12 +52,12 @@
       <div class="pr-section">
         <div class="pr-header">
           <div>
-            <h2>📋 PR ที่รออนุมัติ (Staging)</h2>
-            <p class="section-desc">เฉพาะ PR ที่ group <code>IT Support Approve</code> ถูก add เป็น reviewer</p>
+            <h2>📋 Pull Request Waiting Approve (Staging)</h2>
+            <p class="section-desc">Only PRs where group <code>IT Support Approve</code> is added as reviewer</p>
           </div>
           <button id="btnCheckPrs" class="primary-button">
             <span>🔄</span>
-            <span>เรียกดูข้อมูล</span>
+            <span>Refresh PR</span>
           </button>
         </div>
 
