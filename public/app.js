@@ -48,7 +48,6 @@ window._currentUser = {
     bind('btnTestTeams', testTeams);
     bind('btnTestHealth', testHealth);
     bind('btnRefreshHealth', checkHealthStatus);
-    bind('btnRefreshLogs', loadAuditLogs);
     bind('btnSearchLogs', loadAuditLogs);
     bind('btnClearLogFilters', clearAuditLogFilters);
     bind('btnConfirmApprove', doApprove);
@@ -799,7 +798,6 @@ window.openHistoryModal = async function(prId) {
 // ===== Audit Logs Page =====
 async function loadAuditLogs() {
   if (!document.getElementById('logTableBody')) return;
-  setButtonLoading('btnRefreshLogs', true, 'Loading...');
   setButtonLoading('btnSearchLogs', true, 'Searching...');
   showBox('logResult', '⏳ Loading SharePoint log...', 'info');
 
@@ -839,7 +837,6 @@ async function loadAuditLogs() {
     renderAuditLogStats({});
     renderAuditLogTable([]);
   } finally {
-    setButtonLoading('btnRefreshLogs', false);
     setButtonLoading('btnSearchLogs', false);
   }
 }
