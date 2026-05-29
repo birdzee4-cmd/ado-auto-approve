@@ -210,7 +210,7 @@ body {
     linear-gradient(90deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 229, 0.94)),
     url('/assets/buzzebees-banner.png') right top / auto 100% no-repeat;
   border-radius: 14px;
-  padding: 30px 28px;
+  padding: 24px 28px;
   box-shadow: 0 18px 40px rgba(91, 69, 0, 0.12);
   border: 1px solid rgba(245, 164, 0, 0.28);
 }
@@ -218,14 +218,15 @@ body {
 .welcome-card h1 {
   color: #111827;
   font-size: 28px;
-  margin-bottom: 8px;
+  line-height: 1.18;
+  margin-bottom: 6px;
   font-weight: 800;
 }
 
 .welcome-card > p {
   color: #4a3b15;
-  margin-bottom: 32px;
-  line-height: 1.65;
+  margin-bottom: 24px;
+  line-height: 1.42;
   max-width: 980px;
 }
 
