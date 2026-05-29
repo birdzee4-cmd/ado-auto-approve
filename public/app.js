@@ -337,8 +337,8 @@ function renderPrSummaryCell(pr, draftBadge, mergeCodeBadge) {
       (draftBadge || '') + (mergeCodeBadge || '') +
     '</div>' +
     '<div class="pr-summary-meta">' +
-      '<span>' + escapeHtml(pr.repository || '-') + '</span>' +
-      '<span>By ' + escapeHtml(pr.createdBy || '-') + '</span>' +
+      '<span><strong>Repo:</strong> ' + escapeHtml(pr.repository || '-') + '</span>' +
+      '<span><strong>By:</strong> ' + escapeHtml(pr.createdBy || '-') + '</span>' +
       '<span>' + formatDate(pr.creationDate) + '</span>' +
     '</div>' +
   '</div>';
