@@ -8,6 +8,8 @@
   "routes": [
     { "route": "/dashboard.html", "allowedRoles": ["authenticated"] },
     { "route": "/dashboard", "rewrite": "/dashboard.html", "allowedRoles": ["authenticated"] },
+    { "route": "/health.html", "allowedRoles": ["authenticated"] },
+    { "route": "/health", "rewrite": "/health.html", "allowedRoles": ["authenticated"] },
     { "route": "/api/userinfo", "allowedRoles": ["authenticated"] },
     { "route": "/api/health", "allowedRoles": ["anonymous"] },
     { "route": "/api/list-prs", "methods": ["GET"], "allowedRoles": ["authenticated"] },

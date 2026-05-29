@@ -60,7 +60,7 @@ window._currentUser = {
       });
     });
 
-    checkPrs();
+    if (document.getElementById('btnCheckPrs')) checkPrs();
 
   } catch (err) {
     console.error('Init failed:', err);
@@ -186,6 +186,7 @@ function closeModal(id) {
 
 // ===== Check PRs =====
 async function checkPrs() {
+  if (!document.getElementById('prTableContainer')) return;
   setButtonLoading('btnCheckPrs', true, 'กำลังโหลด...');
   document.getElementById('prTableContainer').hidden = true;
   showBox('prResult', '<div class="test-result result-info">⏳ กำลังเรียก ADO API...</div>');
@@ -822,7 +823,8 @@ function getLastSync() {
 
 function renderSystemHealth(data) {
   const grid = document.getElementById('systemHealthGrid');
-  if (!grid) return;
+  const summary = document.getElementById('systemHealthSummary');
+  if (!grid && !summary) return;
 
   const cards = [];
   cards.push(buildHealthCard({
@@ -875,18 +877,47 @@ function renderSystemHealth(data) {
     detail: { schedule: '18:00 Asia/Bangkok' }
   }));
 
-  grid.innerHTML = cards.join('');
+  if (grid) grid.innerHTML = cards.join('');
+  if (summary) summary.innerHTML = buildHealthSummary(data);
 }
 
 function renderSystemHealthError(message) {
   const grid = document.getElementById('systemHealthGrid');
-  if (!grid) return;
-  grid.innerHTML = buildHealthCard({
+  const summary = document.getElementById('systemHealthSummary');
+  const errorCard = buildHealthCard({
     key: 'system-health',
     label: 'System Health',
     status: 'error',
     message: message || 'unreachable'
   });
+  if (grid) grid.innerHTML = errorCard;
+  if (summary) summary.innerHTML = errorCard;
+}
+
+function buildHealthSummary(data) {
+  const status = data && data.status || 'warning';
+  const checks = Array.isArray(data && data.checks) ? data.checks : [];
+  const errorCount = checks.filter(c => c.status === 'error').length;
+  const warningCount = checks.filter(c => c.status === 'warning').length;
+  const lastSync = getLastSync();
+  const lastNotification = data && data.lastNotification;
+  const cls = status === 'healthy' ? 'status-ok' : (errorCount > 0 ? 'status-error' : 'status-pending');
+  const icon = status === 'healthy' ? '✅' : (errorCount > 0 ? '❌' : '⚠️');
+  const statusLabel = status === 'healthy' ? 'Healthy' : (errorCount > 0 ? 'Degraded' : 'Warning');
+  const detail = [
+    '<span><strong>Checks:</strong> ' + checks.length + ' total, ' + warningCount + ' warning, ' + errorCount + ' error</span>',
+    '<span><strong>Last Sync:</strong> ' + escapeHtml(lastSync && lastSync.at ? formatDate(lastSync.at) : '-') + '</span>',
+    '<span><strong>Last Notification:</strong> ' + escapeHtml(lastNotification && lastNotification.at ? formatDate(lastNotification.at) : '-') + '</span>'
+  ].join('');
+
+  return '<div class="status-card ' + cls + ' health-summary-card">' +
+    '<div class="status-icon">' + icon + '</div>' +
+    '<div class="status-text">' +
+      '<div class="status-title">System Health: ' + escapeHtml(statusLabel) + '</div>' +
+      '<div class="status-desc">ระบบหลักพร้อมใช้งานสำหรับ Dashboard</div>' +
+      '<div class="status-detail-list">' + detail + '</div>' +
+    '</div>' +
+  '</div>';
 }
 
 function buildHealthCard(item) {

@@ -121,6 +121,31 @@ body {
   gap: 12px;
 }
 
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 12px;
+}
+
+.nav-link {
+  color: #f9fafb;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 11px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.nav-link:hover,
+.nav-link-active {
+  color: #111827;
+  background: var(--bz-yellow);
+  border-color: var(--bz-yellow);
+}
+
 .nav-icon {
   width: 34px;
   height: 34px;
@@ -204,6 +229,23 @@ body {
   max-width: 980px;
 }
 
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.page-header p {
+  color: #4a3b15;
+  line-height: 1.65;
+}
+
+.health-page {
+  min-height: calc(100vh - 130px);
+}
+
 .info-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -259,6 +301,18 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 12px;
+}
+
+.status-grid-full {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.health-summary {
+  max-width: 760px;
+}
+
+.health-summary-card {
+  min-height: auto;
 }
 
 .status-card {
@@ -573,6 +627,14 @@ body {
     flex-wrap: wrap;
     justify-content: flex-end;
   }
+  .nav-left {
+    flex-wrap: wrap;
+  }
+  .nav-links {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+  }
   .nav-logo {
     width: 150px;
     height: 30px;
@@ -592,6 +654,10 @@ body {
   }
   .welcome-card h1 {
     font-size: 22px;
+  }
+  .page-header,
+  .status-header {
+    flex-direction: column;
   }
 }
 

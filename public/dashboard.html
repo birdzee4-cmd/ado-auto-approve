@@ -11,6 +11,10 @@
     <div class="nav-left">
       <img src="/assets/buzzebees-icon.png" alt="BUZZEBEES" class="nav-icon" />
       <span class="brand">ADO Auto-Approve</span>
+      <div class="nav-links">
+        <a href="/dashboard.html" class="nav-link nav-link-active">Dashboard</a>
+        <a href="/health.html" class="nav-link">System Health</a>
+      </div>
     </div>
     <div class="nav-right">
       <span id="userName" class="user-name">กำลังโหลด...</span>
@@ -131,15 +135,12 @@
       <div class="status-section">
         <div class="status-header">
           <div>
-            <h2>System Health</h2>
-            <p class="section-desc">สถานะการเชื่อมต่อระบบหลัก พร้อมเวลาล่าสุดของ sync และ notification</p>
+            <h2>Health Summary</h2>
+            <p class="section-desc">ภาพรวมสถานะระบบล่าสุดแบบย่อ</p>
           </div>
-          <button id="btnRefreshHealth" class="secondary-button">
-            <span>🔄</span>
-            <span>Refresh Health</span>
-          </button>
+          <a href="/health.html" class="secondary-button">ดูรายละเอียด</a>
         </div>
-        <div class="status-grid" id="systemHealthGrid">
+        <div id="systemHealthSummary" class="health-summary status-pending">
           <div class="status-card status-pending">
             <div class="status-icon">⏳</div>
             <div class="status-text">
