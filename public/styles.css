@@ -913,14 +913,21 @@ body {
 .pr-meta {
   font-size: 13px;
   color: #6b7280;
-  margin-bottom: 12px;
 }
 
 .table-title {
   color: var(--bz-ink);
   font-size: 15px;
   font-weight: 800;
-  margin: 0 0 8px;
+  margin: 0;
+}
+
+.table-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
 }
 
 .pr-table-wrap {
