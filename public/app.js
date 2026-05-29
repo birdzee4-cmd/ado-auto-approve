@@ -209,11 +209,17 @@ async function checkPrs() {
     const mergeCodeNote = mergeCodeCount > 0
       ? '<br/><small><strong>MergeCode manual:</strong> พบ ' + mergeCodeCount + ' PR ที่ต้องเปิดไปทำเองใน Azure DevOps</small>'
       : '';
+    const attention = d.attentionSummary || {};
+    const attentionNote = attention.total
+      ? '<br/><small><strong>Attention:</strong> Critical ' + (attention.critical || 0) +
+        ' | Warning ' + (attention.warning || 0) +
+        ' | Stale ' + (attention.stale || 0) + '</small>'
+      : '';
     showBox('prResult',
       '<div class="test-result result-success">✅ พบ <strong>' + d.count + '</strong> PR ที่รออนุมัติ ' +
       '(จาก ' + d.totalActive + ' active PRs ทั้งหมดใน <code>' + escapeHtml(d.targetBranch) + '</code>)' +
       '<br/><small>Filter: reviewer group = <strong>' + escapeHtml(d.reviewerGroup) + '</strong> | ดึงเมื่อ ' +
-      new Date(d.fetchedAt).toLocaleString('th-TH') + '</small>' + mergeCodeNote + '</div>');
+      new Date(d.fetchedAt).toLocaleString('th-TH') + '</small>' + attentionNote + mergeCodeNote + '</div>');
     renderPrTable(d.prs);
     renderCompletedPrTable(d.completedPrs || [], d.completedLookbackHours || 24, d.completedTotalMatched);
     checkHealthStatus();
@@ -232,7 +238,7 @@ function renderPrTable(prs) {
   window._prCache = {};
 
   if (prs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:#9ca3af">— ไม่มี PR ที่รอ Approve ตอนนี้ —</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#9ca3af">— ไม่มี PR ที่รอ Approve ตอนนี้ —</td></tr>';
     return;
   }
 
@@ -246,6 +252,7 @@ function renderPrTable(prs) {
     const approvalBadge = renderApprovalBadge(pr);
     const statusBadge = renderStatusBadge(pr);
     const myApprovalBadge = renderMyApprovalBadge(pr);
+    const attentionBadge = renderAttentionBadge(pr);
     const actionsHtml = renderActions(pr);
 
     tr.innerHTML =
@@ -255,6 +262,7 @@ function renderPrTable(prs) {
       '<td class="pr-branch-cell">' + renderBranchCell(pr) + '</td>' +
       '<td class="pr-approval-cell">' + approvalBadge + '</td>' +
       '<td class="pr-status-cell">' + statusBadge + '</td>' +
+      '<td class="pr-attention-cell">' + attentionBadge + '</td>' +
       '<td class="pr-my-approval-cell">' + myApprovalBadge + '</td>' +
       '<td class="pr-repo-cell">' + escapeHtml(pr.repository || '-') + '</td>' +
       '<td class="pr-created-cell">' + formatDate(pr.creationDate) + '</td>' +
@@ -274,6 +282,7 @@ function renderPrTable(prs) {
       approval: pr.approval || {},
       myApproval: pr.myApproval || {},
       statusSnapshot: pr.statusSnapshot || {},
+      attention: pr.attention || {},
       policyFetched: pr.policyFetched === true,
       isMergeCodeTarget: isMergeCodePr(pr)
     };
@@ -459,6 +468,36 @@ function renderStatusBadge(pr) {
     return '<a class="' + cls + '" href="' + escapeHtml(s.adoBuildUrl) + '" target="_blank" rel="noopener" title="' + escapeHtml(title) + '">' + inner + '</a>';
   }
   return '<span class="' + cls + '" title="' + escapeHtml(title) + '">' + inner + '</span>';
+}
+
+function renderAttentionBadge(pr) {
+  const a = pr.attention || {};
+  const status = String(a.status || 'normal').toLowerCase();
+  let cls = 'attention-badge attention-normal';
+  let icon = '🟢';
+  if (status === 'critical') {
+    cls = 'attention-badge attention-critical';
+    icon = '🔴';
+  } else if (status === 'warning' || status === 'stale') {
+    cls = 'attention-badge attention-warning';
+    icon = '🟠';
+  } else if (status === 'watch') {
+    cls = 'attention-badge attention-watch';
+    icon = '🟡';
+  } else if (status === 'ready') {
+    cls = 'attention-badge attention-ready';
+    icon = '✅';
+  } else if (status === 'manual') {
+    cls = 'attention-badge attention-manual';
+    icon = '🔗';
+  }
+  const label = a.label || 'Normal';
+  const detail = a.reason ? '<span class="attention-detail">' + escapeHtml(a.reason) + '</span>' : '';
+  const title = [label, a.ageLabel, a.reason].filter(Boolean).join(' | ');
+  return '<span class="' + cls + '" title="' + escapeHtml(title) + '">' +
+    '<span class="attention-label">' + icon + ' ' + escapeHtml(label) + '</span>' +
+    detail +
+    '</span>';
 }
 
 function renderCompletedStatusBadge(pr) {
