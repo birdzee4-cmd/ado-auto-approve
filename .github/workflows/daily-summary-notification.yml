@@ -1,9 +1,8 @@
 name: Daily PR Summary Notification
 
 on:
-  schedule:
-    # 18:00 Asia/Bangkok = 11:00 UTC
-    - cron: "0 11 * * *"
+  # Azure Logic Apps Consumption is the primary 18:00 Asia/Bangkok scheduler.
+  # Keep this manual trigger as an emergency fallback.
   workflow_dispatch:
 
 jobs:

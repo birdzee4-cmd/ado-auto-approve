@@ -332,9 +332,11 @@ function parseRequestOptions(body) {
   return {
     reportDate: payload.reportDate ? String(payload.reportDate).trim() : '',
     scheduledFor: payload.scheduledFor ? String(payload.scheduledFor).trim() : '',
-    source: payload.source === 'Power Automate'
-      ? 'Power Automate Daily Summary'
-      : 'Teams Daily Summary'
+    source: payload.source === 'Logic Apps'
+      ? 'Logic Apps Daily Summary'
+      : (payload.source === 'Power Automate'
+        ? 'Power Automate Daily Summary'
+        : 'Teams Daily Summary')
   };
 }
 
