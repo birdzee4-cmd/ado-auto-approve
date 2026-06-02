@@ -409,13 +409,39 @@ async function getStatusSnapshot(context, adoClient, pr, repositoryId, isMergeCo
     const policyEvaluations = policyResult.ok && policyResult.body && Array.isArray(policyResult.body.value)
       ? policyResult.body.value
       : [];
-    return adoClient.summarizeStatusSnapshot(pr, statuses, isMergeCodeTarget ? null : undefined, policyEvaluations);
+    let buildRuns = [];
+    if (isMergeCodeTarget && !hasBuildStatus(statuses)) {
+      const buildsResult = await adoClient.getBuildsForBranch(repositoryId, pr.targetRefName, 10);
+      if (!buildsResult.ok && context && context.log && context.log.warn) {
+        context.log.warn('Branch build lookup returned HTTP ' + buildsResult.status + ' for #' + pr.pullRequestId);
+      }
+      buildRuns = buildsResult.ok && buildsResult.body && Array.isArray(buildsResult.body.value)
+        ? buildsResult.body.value
+        : [];
+    }
+    return adoClient.summarizeStatusSnapshot(pr, statuses, isMergeCodeTarget ? null : undefined, policyEvaluations, buildRuns);
   } catch (e) {
     if (context && context.log && context.log.warn) {
       context.log.warn('Failed to get PR status snapshot for #' + (pr && pr.pullRequestId) + ': ' + e.message);
     }
     return adoClient.summarizeStatusSnapshot(pr, [], isMergeCodeTarget ? null : undefined);
   }
+}
+
+function hasBuildStatus(statuses) {
+  return (Array.isArray(statuses) ? statuses : []).some(status => {
+    const statusContext = status && status.context ? status.context : {};
+    const text = [
+      statusContext.genre,
+      statusContext.name,
+      status && status.description,
+      status && status.targetUrl
+    ].map(value => String(value || '').toLowerCase()).join(' ');
+    return text.includes('build') ||
+      text.includes('pipeline') ||
+      text.includes('continuous-integration') ||
+      text.includes('ci');
+  });
 }
 
 async function buildPrRow(context, pr, currentUser, org, project) {

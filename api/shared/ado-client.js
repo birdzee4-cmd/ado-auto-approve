@@ -79,6 +79,12 @@ async function getPullRequestStatuses(repositoryId, prId) {
   return adoRequest('GET', path);
 }
 
+async function getBuildsForBranch(repositoryId, branchName, top) {
+  const { org, project } = getConfig();
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?repositoryId=${encodeURIComponent(repositoryId)}&repositoryType=TfsGit&branchName=${encodeURIComponent(branchName)}&queryOrder=queueTimeDescending&$top=${top || 10}&api-version=7.0`;
+  return adoRequest('GET', path);
+}
+
 async function getProjectId() {
   if (cachedProjectId) return cachedProjectId;
   const { org, project } = getConfig();
@@ -177,7 +183,7 @@ function findMinimumApproverCount(policies) {
   return 0;
 }
 
-function summarizeStatusSnapshot(pr, statuses, autoCompleteOk, policyEvaluations) {
+function summarizeStatusSnapshot(pr, statuses, autoCompleteOk, policyEvaluations, buildRuns) {
   const values = Array.isArray(statuses) ? statuses : [];
   const evaluations = Array.isArray(policyEvaluations) ? policyEvaluations : [];
   const buildStatuses = values.filter(s => {
@@ -209,7 +215,8 @@ function summarizeStatusSnapshot(pr, statuses, autoCompleteOk, policyEvaluations
     return { status: 'unknown', result: states.join(',') || 'unknown' };
   };
 
-  const build = summarizeStates(buildStatuses);
+  const branchBuild = summarizeBuildRuns(pr, buildRuns);
+  const build = buildStatuses.length ? summarizeStates(buildStatuses) : branchBuild;
   const policy = summarizePolicyEvaluations(evaluations, values);
   const buildWithUrl = buildStatuses.find(s => s && s.targetUrl);
 
@@ -225,11 +232,46 @@ function summarizeStatusSnapshot(pr, statuses, autoCompleteOk, policyEvaluations
       ? 'failed'
       : 'not_applicable',
     lastCheckedAt: new Date().toISOString(),
-    adoBuildUrl: buildWithUrl ? buildWithUrl.targetUrl : '',
+    adoBuildUrl: buildWithUrl ? buildWithUrl.targetUrl : branchBuild.url,
     statusCount: values.length,
-    buildStatusCount: buildStatuses.length,
+    buildStatusCount: buildStatuses.length || branchBuild.count,
+    buildStatusSource: buildStatuses.length ? 'pr-status' : branchBuild.source,
+    buildRunId: branchBuild.id,
     policyEvaluationCount: evaluations.length
   };
+}
+
+function summarizeBuildRuns(pr, buildRuns) {
+  const values = Array.isArray(buildRuns) ? buildRuns : [];
+  const openedAt = Date.parse(pr && pr.creationDate);
+  const closedAt = Date.parse(pr && (pr.closedDate || pr.completionDate));
+  const upperBound = Number.isFinite(closedAt) ? closedAt + 60 * 60 * 1000 : Date.now() + 60 * 60 * 1000;
+  const relevant = values
+    .filter(build => {
+      const queuedAt = Date.parse(build && (build.queueTime || build.startTime || build.finishTime));
+      return Number.isFinite(queuedAt) &&
+        (!Number.isFinite(openedAt) || queuedAt >= openedAt) &&
+        queuedAt <= upperBound;
+    })
+    .sort((a, b) =>
+      Date.parse(b.queueTime || b.startTime || b.finishTime) -
+      Date.parse(a.queueTime || a.startTime || a.finishTime));
+  const latest = relevant[0];
+  if (!latest) return { status: 'no_status', result: 'unknown', url: '', count: 0, source: '', id: '' };
+
+  const status = String(latest.status || '').toLowerCase();
+  const result = String(latest.result || '').toLowerCase();
+  const url = latest._links && latest._links.web && latest._links.web.href || '';
+  if (status !== 'completed') {
+    return { status: 'in_progress', result: 'pending', url, count: relevant.length, source: 'branch-build', id: latest.id || '' };
+  }
+  if (result === 'failed' || result === 'error') {
+    return { status: 'completed', result: 'failed', url, count: relevant.length, source: 'branch-build', id: latest.id || '' };
+  }
+  if (result === 'succeeded' || result === 'success') {
+    return { status: 'completed', result: 'succeeded', url, count: relevant.length, source: 'branch-build', id: latest.id || '' };
+  }
+  return { status: 'completed', result: result || 'unknown', url, count: relevant.length, source: 'branch-build', id: latest.id || '' };
 }
 
 function summarizePolicyEvaluations(evaluations, statuses) {
@@ -343,6 +385,7 @@ module.exports = {
   adoRequest,
   getPullRequest,
   getPullRequestStatuses,
+  getBuildsForBranch,
   getPolicyEvaluations,
   listActivePRs,
   getConnectionData,

@@ -317,8 +317,8 @@ function renderCompletedPrTable(prs, lookbackHours, totalMatched) {
   section.hidden = false;
   const total = Number.isFinite(Number(totalMatched)) ? Number(totalMatched) : prs.length;
   meta.textContent = total > prs.length
-    ? 'Last ' + lookbackHours + ' hours | showing ' + prs.length + ' of ' + total + ' items'
-    : 'Last ' + lookbackHours + ' hours | ' + prs.length + ' items';
+    ? 'Last ' + lookbackHours + ' hours | showing ' + prs.length + ' of ' + total + ' completed PRs'
+    : 'Last ' + lookbackHours + ' hours | ' + prs.length + ' completed PRs';
   tbody.innerHTML = '';
 
   for (const pr of prs) {
@@ -534,12 +534,22 @@ function renderCompletedStatusBadge(pr) {
   const isCompleted = String(pr.status || '').toLowerCase() === 'completed';
   const isMerged = mergeStatus === 'succeeded' || mergeStatus === 'completed';
   const supportingLabel = getStatusSummaryText(pr);
+  const isFailed = supportingLabel === 'Build Failed' || supportingLabel === 'Policy Failed';
+  const isRunning = supportingLabel === 'Build Running' || supportingLabel === 'Policy Pending';
 
   let cls = 'status-snapshot status-snapshot-success';
   let icon = '✅';
   let label = 'Completed';
 
-  if (!isCompleted && !isMerged) {
+  if (isFailed) {
+    cls = 'status-snapshot status-snapshot-failed';
+    icon = '❌';
+    label = supportingLabel;
+  } else if (isRunning) {
+    cls = 'status-snapshot status-snapshot-pending';
+    icon = '⏳';
+    label = supportingLabel;
+  } else if (!isCompleted && !isMerged) {
     cls = 'status-snapshot status-snapshot-muted';
     icon = '○';
     label = 'Closed';
@@ -551,7 +561,7 @@ function renderCompletedStatusBadge(pr) {
   const title = label + ' | ' + supportingLabel + ' | ' + policyLabel;
   return '<span class="' + cls + '" title="' + escapeHtml(title) + '">' +
     '<span class="status-main">' + icon + ' ' + escapeHtml(label) + '</span>' +
-    '<span class="status-detail">' + escapeHtml(supportingLabel) + '</span>' +
+    '<span class="status-detail">' + escapeHtml(isFailed || isRunning ? 'PR completed' : supportingLabel) + '</span>' +
     '</span>';
 }
 
