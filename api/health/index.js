@@ -54,6 +54,7 @@ module.exports = async function (context, req) {
       schedule: {
         dailySummary: {
           enabled: !!process.env.DAILY_SUMMARY_TOKEN && !!process.env.TEAMS_WEBHOOK_URL,
+          scheduler: 'Power Automate',
           timeZone: 'Asia/Bangkok',
           localTime: '18:00',
           nextRunAt: getNextDailySummaryRun(generatedAt)
@@ -135,10 +136,12 @@ function checkDailySummaryConfig() {
   const startedAt = Date.now();
   if (!process.env.DAILY_SUMMARY_TOKEN) {
     return buildCheck('daily-summary', 'Daily Summary', 'warning', 'DAILY_SUMMARY_TOKEN is not configured', startedAt, {
+      scheduler: 'Power Automate',
       schedule: '18:00 Asia/Bangkok'
     });
   }
   return buildCheck('daily-summary', 'Daily Summary', 'ok', 'Daily summary token is configured', startedAt, {
+    scheduler: 'Power Automate',
     schedule: '18:00 Asia/Bangkok'
   });
 }

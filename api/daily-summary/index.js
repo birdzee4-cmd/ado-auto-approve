@@ -26,14 +26,15 @@ module.exports = async function (context, req) {
       return;
     }
 
-    const suppliedToken = (req.headers && (req.headers['x-daily-summary-token'] || req.headers['X-Daily-Summary-Token'])) ||
-      (req.query && req.query.token);
+    const suppliedToken = req.headers &&
+      (req.headers['x-daily-summary-token'] || req.headers['X-Daily-Summary-Token']);
     if (suppliedToken !== expectedToken) {
       jsonResponse(401, { ok: false, error: 'Unauthorized' });
       return;
     }
 
-    const summary = await buildDailySummary(context);
+    const requestOptions = parseRequestOptions(req.body);
+    const summary = await buildDailySummary(context, requestOptions.reportDate);
     const eventKey = 'teams:daily-summary:' + summary.dateKey;
     const sp = require('../shared/sharepoint-client');
     if (await dailySummaryAlreadySent(sp, summary, eventKey)) {
@@ -58,8 +59,8 @@ module.exports = async function (context, req) {
         prTitle: 'Daily PR Summary - ' + summary.dateLabel,
         targetBranch: summary.targetBranch,
         result: 'Daily summary sent',
-        reason: 'Teams status ' + result.status,
-        source: 'Teams Daily Summary',
+        reason: buildLogReason(result.status, requestOptions),
+        source: requestOptions.source,
         eventKey: eventKey,
         lastCheckedAt: summary.generatedAt
       }));
@@ -77,12 +78,12 @@ module.exports = async function (context, req) {
   }
 };
 
-async function buildDailySummary(context) {
+async function buildDailySummary(context, reportDate) {
   const ado = require('../shared/ado-client');
   const cfg = ado.getConfig();
   const targetPrefix = (process.env.ADO_TARGET_BRANCH || 'refs/heads/staging').toLowerCase();
   const reviewerGroup = process.env.ADO_REVIEWER_GROUP || 'IT Support Approve';
-  const range = getBangkokTodayRange();
+  const range = getBangkokDateRange(reportDate);
 
   const allPrs = await fetchAllPullRequests(ado, cfg.org, cfg.project);
   const relevant = allPrs.filter(pr => {
@@ -285,13 +286,28 @@ function appendItems(lines, title, items, formatter, includeLink) {
   lines.push('');
 }
 
-function getBangkokTodayRange() {
+function getBangkokDateRange(reportDate) {
   const offsetMs = 7 * 60 * 60 * 1000;
-  const now = new Date();
-  const bkkNow = new Date(now.getTime() + offsetMs);
-  const year = bkkNow.getUTCFullYear();
-  const month = bkkNow.getUTCMonth();
-  const date = bkkNow.getUTCDate();
+  let year;
+  let month;
+  let date;
+  if (reportDate) {
+    const parts = String(reportDate).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!parts) throw new Error('reportDate must use YYYY-MM-DD format');
+    year = Number(parts[1]);
+    month = Number(parts[2]) - 1;
+    date = Number(parts[3]);
+    const check = new Date(Date.UTC(year, month, date));
+    if (check.getUTCFullYear() !== year || check.getUTCMonth() !== month || check.getUTCDate() !== date) {
+      throw new Error('reportDate is not a valid calendar date');
+    }
+  } else {
+    const now = new Date();
+    const bkkNow = new Date(now.getTime() + offsetMs);
+    year = bkkNow.getUTCFullYear();
+    month = bkkNow.getUTCMonth();
+    date = bkkNow.getUTCDate();
+  }
   const startUtcMs = Date.UTC(year, month, date) - offsetMs;
   const endUtcMs = startUtcMs + (24 * 60 * 60 * 1000);
   return {
@@ -309,6 +325,23 @@ function getBangkokTodayRange() {
       day: 'numeric'
     })
   };
+}
+
+function parseRequestOptions(body) {
+  const payload = body && typeof body === 'object' ? body : {};
+  return {
+    reportDate: payload.reportDate ? String(payload.reportDate).trim() : '',
+    scheduledFor: payload.scheduledFor ? String(payload.scheduledFor).trim() : '',
+    source: payload.source === 'Power Automate'
+      ? 'Power Automate Daily Summary'
+      : 'Teams Daily Summary'
+  };
+}
+
+function buildLogReason(teamsStatus, requestOptions) {
+  const details = ['Teams status ' + teamsStatus];
+  if (requestOptions.scheduledFor) details.push('scheduledFor ' + requestOptions.scheduledFor);
+  return details.join(' | ');
 }
 
 function isWithin(value, startUtcMs, endUtcMs) {
