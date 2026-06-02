@@ -30,7 +30,10 @@ window._currentUser = {
       const userResp = await fetch('/api/userinfo');
       if (userResp.ok) {
         const userData = await userResp.json();
-        if (userData.name)  setText('displayName', userData.name);
+        if (userData.name) {
+          setText('displayName', userData.name);
+          setText('userName', userData.name);
+        }
         if (userData.email) setText('userEmail', userData.email);
         const roles = Array.isArray(userData.userRoles) ? userData.userRoles : [];
         window._currentUser.roles = roles;

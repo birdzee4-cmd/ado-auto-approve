@@ -27,14 +27,25 @@ module.exports = async function (context, req) {
       return c ? (c.val || c.value) : null;
     };
 
-    const name = getValue('name') ||
-                 getValue('http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name') ||
-                 principal.userDetails;
-
     const email = getValue('email') ||
                   getValue('preferred_username') ||
                   getValue('http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress') ||
                   principal.userDetails;
+    let name = getValue('name') ||
+               getValue('http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name') ||
+               principal.userDetails;
+    let profileSource = name && name !== principal.userDetails ? 'auth-claim' : 'email-fallback';
+    if (process.env.GRAPH_USER_PROFILE_LOOKUP === 'true') {
+      try {
+        const profile = await require('../shared/user-profile').getUserProfile(email);
+        if (profile && profile.displayName) {
+          name = profile.displayName;
+          profileSource = 'microsoft-graph';
+        }
+      } catch (e) {
+        context.log.warn('User profile lookup skipped: ' + e.message);
+      }
+    }
 
     const oid = getValue('http://schemas.microsoft.com/identity/claims/objectidentifier') ||
                 principal.userId;
@@ -47,6 +58,7 @@ module.exports = async function (context, req) {
       body: {
         name: name,
         email: email,
+        profileSource: profileSource,
         userId: oid,
         identityProvider: principal.identityProvider,
         userRoles: userRoles,
