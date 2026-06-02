@@ -35,9 +35,11 @@ module.exports = async function (context, req) {
 
     const requestOptions = parseRequestOptions(req.body);
     const summary = await buildDailySummary(context, requestOptions.reportDate);
-    const eventKey = 'teams:daily-summary:' + summary.dateKey;
+    const eventKey = requestOptions.testMode
+      ? 'teams:daily-summary-test:' + summary.dateKey + ':' + Date.now()
+      : 'teams:daily-summary:' + summary.dateKey;
     const sp = require('../shared/sharepoint-client');
-    if (await dailySummaryAlreadySent(sp, summary, eventKey)) {
+    if (!requestOptions.testMode && await dailySummaryAlreadySent(sp, summary, eventKey)) {
       jsonResponse(200, {
         ok: true,
         skipped: true,
@@ -49,16 +51,16 @@ module.exports = async function (context, req) {
     }
 
     const notifier = require('../shared/teams-notifier');
-    const result = await notifier.sendTeamsCard({ text: buildDailySummaryMessage(summary) });
+    const result = await notifier.sendTeamsCard({ text: buildDailySummaryMessage(summary, requestOptions.testMode) });
     if (result.ok) {
       await sp.addLogItem(sp.buildLogFields({
         prId: 0,
-        action: 'Notification Sent',
-        user: 'System',
-        repository: 'Daily Summary',
-        prTitle: 'Daily PR Summary - ' + summary.dateLabel,
+        action: requestOptions.testMode ? 'Test Notification Sent' : 'Notification Sent',
+        user: requestOptions.requestedBy || 'System',
+        repository: requestOptions.testMode ? 'Daily Summary Test' : 'Daily Summary',
+        prTitle: (requestOptions.testMode ? '[TEST] ' : '') + 'Daily PR Summary - ' + summary.dateLabel,
         targetBranch: summary.targetBranch,
-        result: 'Daily summary sent',
+        result: requestOptions.testMode ? 'Test daily summary sent' : 'Daily summary sent',
         reason: buildLogReason(result.status, requestOptions),
         source: requestOptions.source,
         eventKey: eventKey,
@@ -192,7 +194,14 @@ async function getStatusSnapshot(context, ado, pr, repositoryId) {
     const policies = policyResult.ok && policyResult.body && Array.isArray(policyResult.body.value)
       ? policyResult.body.value
       : [];
-    return ado.summarizeStatusSnapshot(pr, statuses, null, policies);
+    let buildRuns = [];
+    if (isMergeCodeBranch(pr.targetRefName) && !statuses.some(ado.isBuildStatus)) {
+      const buildsResult = await ado.getBuildsForBranch(repositoryId, pr.targetRefName, 10);
+      buildRuns = buildsResult.ok && buildsResult.body && Array.isArray(buildsResult.body.value)
+        ? buildsResult.body.value
+        : [];
+    }
+    return ado.summarizeStatusSnapshot(pr, statuses, null, policies, buildRuns);
   } catch (e) {
     if (context && context.log && context.log.warn) {
       context.log.warn('Daily summary status lookup failed for #' + (pr && pr.pullRequestId) + ': ' + e.message);
@@ -237,10 +246,10 @@ function getIssueType(snapshot) {
   return '';
 }
 
-function buildDailySummaryMessage(summary) {
+function buildDailySummaryMessage(summary, testMode) {
   const c = summary.counts || {};
   const lines = [
-    '📊 **Daily PR Summary - Staging**',
+    '📊 **' + (testMode ? '[TEST] ' : '') + 'Daily PR Summary - Staging**',
     '',
     'สรุป Pull Request ประจำวันที่ **' + summary.dateLabel + '**',
     '',
@@ -332,11 +341,15 @@ function parseRequestOptions(body) {
   return {
     reportDate: payload.reportDate ? String(payload.reportDate).trim() : '',
     scheduledFor: payload.scheduledFor ? String(payload.scheduledFor).trim() : '',
-    source: payload.source === 'Logic Apps'
-      ? 'Logic Apps Daily Summary'
-      : (payload.source === 'Power Automate'
-        ? 'Power Automate Daily Summary'
-        : 'Teams Daily Summary')
+    testMode: payload.testMode === true,
+    requestedBy: payload.requestedBy ? String(payload.requestedBy).trim() : '',
+    source: payload.source === 'Dashboard Test'
+      ? 'Dashboard Test Daily Summary'
+      : (payload.source === 'Logic Apps'
+        ? 'Logic Apps Daily Summary'
+        : (payload.source === 'Power Automate'
+          ? 'Power Automate Daily Summary'
+          : 'Teams Daily Summary'))
   };
 }
 

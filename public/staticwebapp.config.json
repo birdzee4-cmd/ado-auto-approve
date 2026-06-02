@@ -20,6 +20,7 @@
     { "route": "/api/pr-history/*", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/logs", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/test-notification", "methods": ["POST"], "allowedRoles": ["authenticated"] },
+    { "route": "/api/test-daily-summary", "methods": ["POST"], "allowedRoles": ["authenticated"] },
     { "route": "/api/daily-summary", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/webhook", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/.auth/login/github", "statusCode": 404 },

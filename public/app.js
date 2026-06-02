@@ -46,6 +46,7 @@ window._currentUser = {
 
     bind('btnCheckPrs', checkPrs);
     bind('btnTestTeams', testTeams);
+    bind('btnTestDailySummary', testDailySummary);
     bind('btnTestHealth', testHealth);
     bind('btnRefreshHealth', checkHealthStatus);
     bind('btnSearchLogs', loadAuditLogs);
@@ -995,6 +996,25 @@ async function testHealth() {
     } else { showResult('⚠️ HTTP ' + r.status, 'error'); }
   } catch (err) { showResult('❌ ' + err.message, 'error'); }
   finally { setButtonLoading('btnTestHealth', false); }
+}
+
+async function testDailySummary() {
+  setButtonLoading('btnTestDailySummary', true);
+  showResult('⏳ Generating [TEST] Daily Summary...', 'info');
+  try {
+    const r = await safeFetchJson('/api/test-daily-summary', { method: 'POST' });
+    if (r.parseError) { showResult('❌ Response is not JSON (HTTP ' + r.status + ')', 'error'); return; }
+    if (r.ok && r.data && r.data.ok) {
+      const counts = r.data.summary && r.data.summary.counts || {};
+      showResult('✅ [TEST] Daily Summary sent | New PR ' + (counts.createdToday || 0) +
+        ' | Completed ' + (counts.completedToday || 0) +
+        ' | Failed ' + (counts.failedOrPolicyFailed || 0), 'success');
+    } else {
+      const d = r.data || {};
+      showResult('❌ ' + (d.error || 'Unknown'), 'error');
+    }
+  } catch (err) { showResult('❌ ' + err.message, 'error'); }
+  finally { setButtonLoading('btnTestDailySummary', false); }
 }
 
 async function checkHealthStatus() {

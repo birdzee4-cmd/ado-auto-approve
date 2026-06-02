@@ -186,19 +186,7 @@ function findMinimumApproverCount(policies) {
 function summarizeStatusSnapshot(pr, statuses, autoCompleteOk, policyEvaluations, buildRuns) {
   const values = Array.isArray(statuses) ? statuses : [];
   const evaluations = Array.isArray(policyEvaluations) ? policyEvaluations : [];
-  const buildStatuses = values.filter(s => {
-    const context = s && s.context ? s.context : {};
-    const text = [
-      context.genre,
-      context.name,
-      s.description,
-      s.targetUrl
-    ].map(v => String(v || '').toLowerCase()).join(' ');
-    return text.includes('build') ||
-      text.includes('pipeline') ||
-      text.includes('continuous-integration') ||
-      text.includes('ci');
-  });
+  const buildStatuses = values.filter(isBuildStatus);
 
   const summarizeStates = (items) => {
     if (!items.length) return { status: 'no_status', result: 'unknown' };
@@ -239,6 +227,20 @@ function summarizeStatusSnapshot(pr, statuses, autoCompleteOk, policyEvaluations
     buildRunId: branchBuild.id,
     policyEvaluationCount: evaluations.length
   };
+}
+
+function isBuildStatus(status) {
+  const context = status && status.context ? status.context : {};
+  const text = [
+    context.genre,
+    context.name,
+    status && status.description,
+    status && status.targetUrl
+  ].map(value => String(value || '').toLowerCase()).join(' ');
+  return text.includes('build') ||
+    text.includes('pipeline') ||
+    text.includes('continuous-integration') ||
+    text.includes('ci');
 }
 
 function summarizeBuildRuns(pr, buildRuns) {
@@ -397,5 +399,6 @@ module.exports = {
   getBranchPolicies,
   findReleaseNotesPolicyIds,
   findMinimumApproverCount,
+  isBuildStatus,
   summarizeStatusSnapshot
 };

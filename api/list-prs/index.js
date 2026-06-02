@@ -410,7 +410,7 @@ async function getStatusSnapshot(context, adoClient, pr, repositoryId, isMergeCo
       ? policyResult.body.value
       : [];
     let buildRuns = [];
-    if (isMergeCodeTarget && !hasBuildStatus(statuses)) {
+    if (isMergeCodeTarget && !statuses.some(adoClient.isBuildStatus)) {
       const buildsResult = await adoClient.getBuildsForBranch(repositoryId, pr.targetRefName, 10);
       if (!buildsResult.ok && context && context.log && context.log.warn) {
         context.log.warn('Branch build lookup returned HTTP ' + buildsResult.status + ' for #' + pr.pullRequestId);
@@ -426,22 +426,6 @@ async function getStatusSnapshot(context, adoClient, pr, repositoryId, isMergeCo
     }
     return adoClient.summarizeStatusSnapshot(pr, [], isMergeCodeTarget ? null : undefined);
   }
-}
-
-function hasBuildStatus(statuses) {
-  return (Array.isArray(statuses) ? statuses : []).some(status => {
-    const statusContext = status && status.context ? status.context : {};
-    const text = [
-      statusContext.genre,
-      statusContext.name,
-      status && status.description,
-      status && status.targetUrl
-    ].map(value => String(value || '').toLowerCase()).join(' ');
-    return text.includes('build') ||
-      text.includes('pipeline') ||
-      text.includes('continuous-integration') ||
-      text.includes('ci');
-  });
 }
 
 async function buildPrRow(context, pr, currentUser, org, project) {
