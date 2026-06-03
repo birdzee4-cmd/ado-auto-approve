@@ -241,7 +241,7 @@ async function getLogForPR(prId) {
   const listId = await getListId();
   const token = await getAccessToken();
   const filter = `fields/PR_ID eq ${parseInt(prId, 10) || 0}`;
-  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$filter=${encodeURIComponent(filter)}&$orderby=createdDateTime desc&$top=50`;
+  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$filter=${encodeURIComponent(filter)}&$orderby=lastModifiedDateTime desc&$top=50`;
   const result = await httpRequest('GET', url, {
     'Authorization': 'Bearer ' + token,
     'Prefer': 'HonorNonIndexedQueriesWarningMayFailRandomly'
@@ -258,7 +258,7 @@ async function getLogByEventKey(eventKey) {
   const token = await getAccessToken();
   const safeEventKey = String(eventKey || '').replace(/'/g, "''");
   const filter = `fields/Event_Key eq '${safeEventKey}'`;
-  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$filter=${encodeURIComponent(filter)}&$orderby=createdDateTime desc&$top=5`;
+  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$filter=${encodeURIComponent(filter)}&$orderby=lastModifiedDateTime desc&$top=5`;
   const result = await httpRequest('GET', url, {
     'Authorization': 'Bearer ' + token,
     'Prefer': 'HonorNonIndexedQueriesWarningMayFailRandomly'
@@ -274,7 +274,7 @@ async function getRecentLogItems(top) {
   const listId = await getListId();
   const token = await getAccessToken();
   const limit = Math.max(1, Math.min(parseInt(top, 10) || 30, 100));
-  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$orderby=createdDateTime desc&$top=${limit}`;
+  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$orderby=lastModifiedDateTime desc&$top=${limit}`;
   const result = await httpRequest('GET', url, {
     'Authorization': 'Bearer ' + token,
     'Prefer': 'HonorNonIndexedQueriesWarningMayFailRandomly'

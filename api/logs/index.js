@@ -63,7 +63,7 @@ module.exports = async function (context, req) {
       if (source && !String(item.source || '').toLowerCase().includes(source)) return false;
       if (q && !matchesKeyword(item, q)) return false;
       return true;
-    });
+    }).sort(sortLogNewestFirst);
 
     jsonResponse(200, {
       ok: true,
@@ -89,6 +89,7 @@ function normalizeLogItem(item) {
   return {
     id: item.id,
     createdAt: item.createdDateTime,
+    lastModifiedAt: item.lastModifiedDateTime,
     prId: prId,
     action: fields.Action || '',
     user: fields.User || '',
@@ -109,6 +110,20 @@ function normalizeLogItem(item) {
     adoBuildUrl: fields.ADO_Build_URL || '',
     adoPrUrl: fields.ADO_PR_URL || buildAdoPrUrl(repository, prId)
   };
+}
+
+function sortLogNewestFirst(a, b) {
+  const timeB = Date.parse(b && b.createdAt);
+  const timeA = Date.parse(a && a.createdAt);
+  if (Number.isFinite(timeB) && Number.isFinite(timeA) && timeB !== timeA) {
+    return timeB - timeA;
+  }
+  const modifiedB = Date.parse(b && b.lastModifiedAt);
+  const modifiedA = Date.parse(a && a.lastModifiedAt);
+  if (Number.isFinite(modifiedB) && Number.isFinite(modifiedA) && modifiedB !== modifiedA) {
+    return modifiedB - modifiedA;
+  }
+  return (parseInt(b && b.id, 10) || 0) - (parseInt(a && a.id, 10) || 0);
 }
 
 function buildAdoPrUrl(repository, prId) {
