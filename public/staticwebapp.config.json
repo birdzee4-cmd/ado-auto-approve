@@ -8,6 +8,8 @@
   "routes": [
     { "route": "/dashboard.html", "allowedRoles": ["authenticated"] },
     { "route": "/dashboard", "rewrite": "/dashboard.html", "allowedRoles": ["authenticated"] },
+    { "route": "/merge.html", "allowedRoles": ["authenticated"] },
+    { "route": "/merge", "rewrite": "/merge.html", "allowedRoles": ["authenticated"] },
     { "route": "/health.html", "allowedRoles": ["authenticated"] },
     { "route": "/health", "rewrite": "/health.html", "allowedRoles": ["authenticated"] },
     { "route": "/logs.html", "allowedRoles": ["authenticated"] },
@@ -15,6 +17,7 @@
     { "route": "/api/userinfo", "allowedRoles": ["authenticated"] },
     { "route": "/api/health", "allowedRoles": ["anonymous"] },
     { "route": "/api/list-prs", "methods": ["GET"], "allowedRoles": ["authenticated"] },
+    { "route": "/api/merge-lookup", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/approve-pr", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },
     { "route": "/api/reject-pr", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },
     { "route": "/api/pr-history/*", "methods": ["GET"], "allowedRoles": ["authenticated"] },
