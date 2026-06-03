@@ -1,5 +1,5 @@
 const ado = require('../shared/ado-client');
-const { findMergePipelineRule, isMergePr } = require('../shared/merge-pipeline-map');
+const { findMergePipelineRule, findStagingPipelineMappingByCi, isMergePr } = require('../shared/merge-pipeline-map');
 
 function shortBranch(refName) {
   return String(refName || '').replace(/^refs\/heads\//i, '');
@@ -34,16 +34,22 @@ function pickRelevantBuild(pr, builds, rule) {
     })
     .sort((a, b) => getBuildDate(b) - getBuildDate(a));
 
-  if (!relevant.length) return null;
+  const candidates = relevant.length
+    ? relevant
+    : values
+      .filter(build => Number.isFinite(getBuildDate(build)))
+      .sort((a, b) => getBuildDate(b) - getBuildDate(a));
+
+  if (!candidates.length) return null;
 
   if (expectedCiName) {
-    const exact = relevant.find(build =>
+    const exact = candidates.find(build =>
       normalizeName(build && build.definition && build.definition.name) === normalizeName(expectedCiName)
     );
     if (exact) return exact;
   }
 
-  return relevant[0];
+  return candidates[0];
 }
 
 async function getDetectedBuild(repositoryId, branchName, pr, rule) {
@@ -74,8 +80,8 @@ function buildToDto(build, branchName) {
   };
 }
 
-function classify(rule, detected) {
-  const mappedCi = rule && rule.ci && rule.ci.name;
+function classify(recommended, detected) {
+  const mappedCi = recommended && recommended.ciName;
   const detectedCi = detected && detected.name;
   if (mappedCi && detectedCi && normalizeName(mappedCi) === normalizeName(detectedCi)) return 'matched';
   if (mappedCi && detectedCi) return 'mismatch';
@@ -117,7 +123,29 @@ module.exports = async function (context, req) {
     }
 
     const detectedBuild = buildToDto(detected.build, detected.branch);
-    const status = classify(rule, detectedBuild);
+    const stgMapping = !rule && detectedBuild
+      ? findStagingPipelineMappingByCi(detectedBuild.name)
+      : null;
+    const recommended = rule ? {
+      source: 'branch-rule',
+      ciName: rule.ci && rule.ci.name || '',
+      cdName: rule.cd && rule.cd.name || '',
+      environment: rule.environment || '',
+      confidence: rule.confidence || '',
+      note: 'Recommended by branch mapping rule'
+    } : stgMapping ? {
+      source: 'staging-csv',
+      ciName: stgMapping.ciName || '',
+      cdName: stgMapping.cdName || '',
+      ciId: stgMapping.ciId || '',
+      ciFolder: stgMapping.ciFolder || '',
+      cdId: stgMapping.cdId || '',
+      cdPath: stgMapping.cdPath || '',
+      environment: 'STG',
+      confidence: 'high',
+      note: 'Recommended by Staging CI/CD mapping CSV'
+    } : null;
+    const status = classify(recommended, detectedBuild);
     const webUrl = pr.repository && pr.repository.webUrl
       ? pr.repository.webUrl + '/pullrequest/' + pr.pullRequestId
       : (pr.url || '');
@@ -145,15 +173,19 @@ module.exports = async function (context, req) {
           key: rule.key,
           label: rule.label,
           environment: rule.environment,
-          confidence: rule.confidence
+          confidence: rule.confidence,
+          source: 'branch-rule'
+        } : stgMapping ? {
+          matched: true,
+          key: 'staging-csv:' + (stgMapping.ciName || ''),
+          label: stgMapping.ciName || '',
+          environment: 'STG',
+          confidence: 'high',
+          source: 'staging-csv'
         } : {
           matched: false
         },
-        recommended: rule ? {
-          ciName: rule.ci && rule.ci.name || '',
-          cdName: rule.cd && rule.cd.name || '',
-          note: 'Recommended by branch mapping rule'
-        } : null,
+        recommended,
         detected: {
           ci: detectedBuild,
           targetBuildCount: detectedTarget.count,

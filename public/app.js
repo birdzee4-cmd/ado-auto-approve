@@ -1134,6 +1134,9 @@ function renderMergeLookup(data) {
         '<dl class="merge-definition-list">' +
           '<dt>CI</dt><dd>' + escapeHtml(recommended.ciName || '-') + '</dd>' +
           '<dt>CD</dt><dd>' + escapeHtml(recommended.cdName || '-') + '</dd>' +
+          '<dt>CI ID</dt><dd>' + escapeHtml(recommended.ciId || '-') + '</dd>' +
+          '<dt>CD ID</dt><dd>' + escapeHtml(recommended.cdId || '-') + '</dd>' +
+          '<dt>Source</dt><dd>' + escapeHtml(recommended.source || '-') + '</dd>' +
           '<dt>Environment</dt><dd>' + escapeHtml(data.mapping && data.mapping.environment || '-') + '</dd>' +
           '<dt>Confidence</dt><dd>' + escapeHtml(data.mapping && data.mapping.confidence || '-') + '</dd>' +
         '</dl>' +

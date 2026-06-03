@@ -1,3 +1,5 @@
+const STG_CI_CD_MAP = require('./stg-ci-cd-map.json');
+
 const MERGE_PIPELINE_RULES = [
   {
     key: 'wallet-backoffice-v28',
@@ -45,6 +47,14 @@ function findMergePipelineRule(pr) {
   ) || null;
 }
 
+function findStagingPipelineMappingByCi(ciName) {
+  const target = normalize(ciName);
+  if (!target) return null;
+  return (Array.isArray(STG_CI_CD_MAP) ? STG_CI_CD_MAP : []).find(item =>
+    normalize(item && item.ciName) === target
+  ) || null;
+}
+
 function isMergePr(pr) {
   const source = normalize(pr && pr.sourceRefName);
   const target = normalize(pr && pr.targetRefName);
@@ -56,5 +66,6 @@ function isMergePr(pr) {
 module.exports = {
   MERGE_PIPELINE_RULES,
   findMergePipelineRule,
+  findStagingPipelineMappingByCi,
   isMergePr
 };
