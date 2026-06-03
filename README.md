@@ -1,430 +1,672 @@
 # ADO Auto-Approve
 
-ระบบ Dashboard สำหรับตรวจสอบและอนุมัติ Pull Request บน Azure DevOps โดยออกแบบให้ผู้ใช้งานกลุ่ม IT Support Approve สามารถเห็นงาน PR ที่รออนุมัติบน branch staging ได้จากหน้าเว็บเดียว พร้อมบันทึกผลการดำเนินการลง SharePoint Log และแยกงานประเภท MergeCode ให้เป็นงาน Manual ที่ต้องไปดำเนินการบน Azure DevOps เอง
+ระบบ Dashboard สำหรับตรวจสอบและอนุมัติ Pull Request บน Azure DevOps โดยออกแบบให้ผู้ใช้งานกลุ่ม `IT Support Approve` สามารถเห็นงาน PR ที่รออนุมัติบน branch `staging` ได้จากหน้าเว็บเดียว พร้อมบันทึกผลการดำเนินการลง SharePoint Log, ตรวจสถานะ Build / Policy, แจ้งเตือน Teams เฉพาะเหตุการณ์สำคัญ, ส่ง Daily Summary รายวัน และมีหน้า Merge Lookup สำหรับช่วยตรวจสอบ CI/CD ของงานประเภท Merge
 
-เอกสารนี้สรุปภาพรวมโครงการ ส่วนประกอบที่เกี่ยวข้อง ขั้นตอนการทำงาน เงื่อนไขสำคัญ และแนวทางดูแลระบบ
+Production URL:
+
+- Dashboard: https://mango-wave-09cff3700.7.azurestaticapps.net/dashboard.html
+- Merge Lookup: https://mango-wave-09cff3700.7.azurestaticapps.net/merge.html
+- Audit Logs: https://mango-wave-09cff3700.7.azurestaticapps.net/logs.html
+- System Health: https://mango-wave-09cff3700.7.azurestaticapps.net/health.html
+
+## Current Status
+
+สถานะระบบล่าสุด:
+
+- ระบบ deploy บน Azure Static Web Apps
+- Azure Functions runtime ใช้ Node.js 22
+- Authentication ใช้ Microsoft Entra ID ผ่าน Static Web Apps Auth
+- Authorization ของ action สำคัญใช้ role `it_support_approve`
+- Dashboard หลักเป็น read/action page สำหรับ PR ปกติ
+- MergeCode / MergeCodeProduction ถูกแยกเป็น manual workflow บน Azure DevOps
+- Audit Logs อ่านจาก SharePoint และเรียงล่าสุดก่อน
+- Daily Summary ส่งผ่าน Azure Logic Apps Consumption เวลา 18:00 Asia/Bangkok
+- Branch backup ล่าสุดใช้ `staging` ตัวพิมพ์เล็กเท่านั้น
 
 ## วัตถุประสงค์
 
-- ลดเวลาการตรวจสอบ PR ที่รออนุมัติบน Azure DevOps
-- รวมรายการ PR ที่เกี่ยวข้องกับผู้ใช้งานไว้ใน Dashboard เดียว
-- แสดงสถานะ Approval ให้เห็นชัดเจน เช่น อนุมัติแล้ว รอผู้อื่นอนุมัติ หรือมี reviewer reject
-- รองรับการ Approve และ Reject งาน PR ปกติผ่านหน้าเว็บ
-- บันทึก Log การดำเนินการไปที่ SharePoint เพื่อใช้ตรวจสอบย้อนหลัง
-- แยกงาน MergeCode ออกจาก automation เพื่อบังคับให้ผู้ใช้งานไปดำเนินการบน Azure DevOps แบบ Manual
+- ลดเวลาการไล่เปิด Azure DevOps หลายหน้าเพื่อตรวจ PR ที่รออนุมัติ
+- รวมรายการ PR ที่เกี่ยวข้องกับ `IT Support Approve` ไว้บน Dashboard เดียว
+- แสดงสถานะ Approval, Build, Policy และ Attention ให้เห็นเร็ว
+- ทำ Approve / Reject PR ปกติผ่านหน้าเว็บได้อย่างปลอดภัย
+- ซ่อน action เมื่อผู้ใช้ไม่มีสิทธิ์หรือ vote ไปแล้ว
+- บังคับงาน MergeCode / MergeCodeProduction ให้ทำ manual บน Azure DevOps
+- บันทึก audit trail ลง SharePoint Log
+- ตรวจสอบ log ย้อนหลังจากหน้า Audit Logs
+- แจ้ง Teams เฉพาะเคสที่ควรสนใจ เช่น build/policy exception และ Daily Summary
+- ช่วยค้นหา CI/CD ที่ต้องใช้สำหรับ PR ประเภท Merge ผ่านหน้า Merge Lookup
 
-## ขอบเขตระบบ
+## High-Level Architecture
 
-ระบบนี้ใช้สำหรับ Pull Request ที่เกี่ยวข้องกับ branch staging และ reviewer group ที่กำหนดไว้ เช่น `IT Support Approve`
-
-ระบบรองรับ 2 ลักษณะงานหลัก:
-
-| ประเภทงาน | พฤติกรรมบน Dashboard | การดำเนินการ |
-|---|---|---|
-| PR ปกติ | แสดงปุ่ม Approve และ Reject | ผู้ใช้สามารถดำเนินการผ่าน Dashboard ได้ |
-| PR MergeCode | แสดง Highlight และสถานะ Manual | ผู้ใช้ต้องเปิด Azure DevOps แล้วดำเนินการเอง |
-
-สำหรับงาน MergeCode ระบบมีหน้าที่แสดงให้เห็นว่ามีงานรออนุมัติเท่านั้น และจะไม่กด Approve, Reject, Set auto-complete หรือเลือก Merge type แทนผู้ใช้
-
-## ภาพรวมสถาปัตยกรรม
-
-ระบบประกอบด้วย 4 ส่วนหลัก:
-
-| ส่วน | รายละเอียด |
-|---|---|
-| Frontend | Static Web App แสดงหน้า Login, Dashboard, ตาราง PR, Modal reviewer และปุ่ม action |
-| Backend API | Azure Functions สำหรับเรียก Azure DevOps, ทำ approve/reject, เขียน SharePoint Log และตรวจ health |
-| Azure DevOps | แหล่งข้อมูล Pull Request, reviewer, approval vote, branch และ policy |
-| SharePoint | เก็บ Log action ของผู้ใช้งาน เช่น Approve, Reject หรือ Failed |
-
-Flow โดยรวม:
-
-1. ผู้ใช้เข้าสู่ระบบผ่าน Microsoft Entra ID
-2. Dashboard เรียกข้อมูลผู้ใช้จาก Static Web Apps auth
-3. Frontend เรียก API เพื่อดึงรายการ PR จาก Azure DevOps
-4. Backend ตรวจ reviewer, approval, branch และสถานะ PR
-5. Frontend แสดงรายการ PR พร้อมสถานะ
-6. หากเป็น PR ปกติ ผู้ใช้สามารถ Approve หรือ Reject ได้
-7. Backend ส่ง action ไป Azure DevOps และบันทึก Log ลง SharePoint
-8. หากเป็น MergeCode Dashboard จะแสดงเป็น Manual-only และให้เปิด Azure DevOps เอง
-
-## โครงสร้างไฟล์สำคัญ
-
-```text
-ado-auto-approve/
-├── public/
-│   ├── dashboard.html
-│   ├── index.html
-│   ├── app.js
-│   └── styles.css
-├── api/
-│   ├── list-prs/
-│   ├── approve-pr/
-│   ├── reject-pr/
-│   ├── pr-history/
-│   ├── test-notification/
-│   ├── userinfo/
-│   ├── health/
-│   └── shared/
-│       ├── ado-client.js
-│       └── sharepoint-client.js
-├── .github/workflows/
-├── staticwebapp.config.json
-└── README.md
+```mermaid
+flowchart LR
+  User["User / IT Support"] --> SWA["Azure Static Web Apps"]
+  SWA --> Frontend["Static Frontend<br/>dashboard / logs / health / merge"]
+  Frontend --> API["Azure Functions API<br/>Node.js 22"]
+  API --> ADO["Azure DevOps REST API"]
+  API --> SP["SharePoint List<br/>ADO AutoApprove Log"]
+  API --> Teams["Teams Webhook"]
+  Logic["Azure Logic Apps<br/>18:00 Asia/Bangkok"] --> API
 ```
 
-## Frontend
+## Main Pages
 
-Frontend อยู่ภายใต้โฟลเดอร์ `public/`
+| Page | Path | Purpose |
+|---|---|---|
+| Login | `/` | Login ผ่าน Microsoft Entra ID |
+| Dashboard | `/dashboard.html` | ตรวจ PR ที่รออนุมัติ, Approve/Reject, Recently Completed, Health Summary |
+| Merge Lookup | `/merge.html` | กรอก PR ID เพื่อหา CI/CD ของงาน Merge |
+| Audit Logs | `/logs.html` | ค้นหา SharePoint Log ตาม PR, action, source, keyword |
+| System Health | `/health.html` | ตรวจ Backend, ADO, SharePoint, Teams, Daily Summary, Last Sync/Notification |
+| Forbidden | `/403.html` | แสดงเมื่อผู้ใช้ไม่มีสิทธิ์ |
 
-### `public/dashboard.html`
+## Dashboard Behavior
 
-เป็นหน้าหลักหลัง Login ใช้สำหรับ:
+หน้า Dashboard แสดงเฉพาะ PR ที่เกี่ยวข้องกับ:
 
-- แสดงข้อมูลผู้ใช้ที่ login
-- แสดงรายการ PR ที่รออนุมัติ
-- แสดงจำนวน PR ที่พบ
-- แสดงสถานะ Approval
-- แสดงสถานะ My Approval ของผู้ใช้ปัจจุบัน
-- แสดงปุ่ม Approve, Reject, Open ADO และ Reviewer detail
-- แสดงงาน MergeCode แบบ Manual-only
-
-### `public/app.js`
-
-เป็น logic หลักของหน้า Dashboard เช่น:
-
-- โหลดข้อมูลผู้ใช้
-- เรียก API ดึงรายการ PR
-- render ตาราง PR
-- จัดการปุ่ม Approve และ Reject
-- เปิด Modal แสดง reviewer
-- คำนวณข้อความสถานะบน UI
-- แยกงาน MergeCode ออกจากงาน PR ปกติ
-- reset ปุ่มโหลดข้อมูลหลังเรียกข้อมูลสำเร็จหรือเกิด error
-
-### `public/styles.css`
-
-ดูแล layout และ responsive behavior ของ Dashboard เช่น:
-
-- ความกว้าง container หลัก
-- ตาราง PR แบบ horizontal scroll
-- การจัด column ของ PR ID, Title, Branch, Approval, Repo, Created และ Actions
-- การแสดง Branch แบบ From/Into
-- Modal reviewer ที่แยก style จากตารางหลัก
-- ป้องกันข้อความทับซ้อนเมื่อหน้าจอเล็ก
-
-## Backend API
-
-Backend ใช้ Azure Functions ภายใต้โฟลเดอร์ `api/`
-
-### `api/list-prs/index.js`
-
-ใช้ดึงรายการ PR จาก Azure DevOps และส่งข้อมูลกลับให้ Dashboard
-
-หน้าที่หลัก:
-
-- ดึง active Pull Request
-- กรอง branch และ reviewer group ที่เกี่ยวข้อง
-- ตรวจสถานะ reviewer และ vote
-- คำนวณ approval summary
-- ตรวจว่า PR เป็นงาน MergeCode หรือไม่
-- ส่งข้อมูลสำหรับแสดงในตาราง Dashboard
-
-ข้อมูลที่ Dashboard ใช้จาก API นี้ เช่น:
-
-- PR ID
-- Title
-- Author
-- Source branch
-- Target branch
-- Repository
-- Created date
-- Approval count
-- My Approval
-- Reviewer list
-- MergeCode manual flag
-- Azure DevOps URL
-
-### `api/approve-pr/index.js`
-
-ใช้สำหรับ Approve PR ปกติผ่าน Dashboard
-
-ขั้นตอนโดยย่อ:
-
-1. รับ PR ID และข้อมูลผู้ใช้จาก request
-2. ตรวจข้อมูล PR จาก Azure DevOps
-3. ตรวจว่าเป็น PR ที่ระบบอนุญาตให้ approve ผ่านเว็บหรือไม่
-4. ส่ง vote approve ไป Azure DevOps
-5. บันทึก action ลง SharePoint Log
-6. ส่งผลลัพธ์กลับ Frontend
-
-ข้อสำคัญ: งาน MergeCode ต้องไม่ถูก approve ผ่าน endpoint นี้แบบ automation
-
-### `api/reject-pr/index.js`
-
-ใช้สำหรับ Reject PR ปกติผ่าน Dashboard
-
-ขั้นตอนโดยย่อ:
-
-1. รับ PR ID, ผู้ใช้งาน และเหตุผลถ้ามี
-2. ส่ง vote reject ไป Azure DevOps
-3. บันทึก action ลง SharePoint Log
-4. ส่งผลลัพธ์กลับ Dashboard
-
-### `api/pr-history/index.js`
-
-ใช้สำหรับอ่านข้อมูลประวัติหรือรายละเอียด PR เพิ่มเติมตามที่ Dashboard ต้องใช้
-
-### `api/test-notification/index.js`
-
-ใช้สำหรับทดสอบการแจ้งเตือนหรือการเชื่อมต่อ notification ที่เกี่ยวข้องกับระบบ
-
-### `api/health/index.js`
-
-ใช้ตรวจสอบสถานะ backend ว่ายังทำงานได้หรือไม่
-
-### `api/userinfo/index.js`
-
-ใช้คืนข้อมูลผู้ใช้จาก authentication context เพื่อแสดงใน Dashboard
-
-## Shared Backend Clients
-
-### `api/shared/ado-client.js`
-
-รวม logic ที่ใช้ติดต่อ Azure DevOps เช่น:
-
-- เรียก Pull Request API
-- อ่าน reviewer
-- ส่ง approve/reject vote
-- ตรวจ repository และ branch
-- สร้าง URL สำหรับเปิด Azure DevOps
-
-### `api/shared/sharepoint-client.js`
-
-รวม logic สำหรับเขียน SharePoint Log ผ่าน Microsoft Graph API เช่น:
-
-- ขอ access token
-- สร้าง item ใน SharePoint List
-- ส่งข้อมูล action log
-- จัดการ error จาก Graph API
-
-## Workflow การใช้งาน
-
-### การโหลดข้อมูล PR
-
-1. ผู้ใช้เปิด Dashboard
-2. ระบบโหลดข้อมูลผู้ใช้
-3. ผู้ใช้กดปุ่ม `เรียกดูข้อมูล`
-4. ปุ่มเปลี่ยนเป็นสถานะ `กำลังโหลด...`
-5. Frontend เรียก backend เพื่อดึงรายการ PR
-6. Backend ตอบข้อมูล PR กลับมา
-7. Dashboard แสดงรายการ PR
-8. ปุ่มกลับเป็น `เรียกดูข้อมูล` เพื่อให้กด refresh ใหม่ได้
-
-### การ Approve PR ปกติ
-
-1. ผู้ใช้ตรวจรายการ PR บน Dashboard
-2. กดปุ่ม `Approve`
-3. Frontend ส่งคำขอไป `api/approve-pr`
-4. Backend ส่ง vote approve ไป Azure DevOps
-5. Backend บันทึก Log ลง SharePoint
-6. Dashboard แสดงผลลัพธ์และ refresh สถานะ
-
-### การ Reject PR ปกติ
-
-1. ผู้ใช้กดปุ่ม `Reject`
-2. ระบบส่ง request ไป backend
-3. Backend ส่ง vote reject ไป Azure DevOps
-4. Backend บันทึก SharePoint Log
-5. Dashboard refresh รายการ PR
-
-### งาน MergeCode
-
-งาน MergeCode จะถูกแสดงบน Dashboard เพื่อแจ้งให้ผู้ใช้ทราบว่ามีงานรออนุมัติ แต่ระบบจะไม่ดำเนินการแทนผู้ใช้
-
-แนวทางที่ผู้ใช้ต้องทำเองบน Azure DevOps:
-
-1. เปิด PR ใน Azure DevOps
-2. ตรวจ target branch ว่าเป็น `MergeCodeProduction/...`
-3. กด `Set auto-complete`
-4. เลือก Merge type เป็น `Merge (no fast forward)`
-5. หากมี option `Require additional checks` ถูกติ๊กมา ให้เอาติ๊กออกตามเงื่อนไขงาน
-6. กด Approve ตามขั้นตอนบน Azure DevOps
-
-Dashboard จึงมีปุ่มหรือสถานะ `Manual in ADO` เพื่อสื่อสารว่ารายการนี้ไม่ใช่งานที่ระบบจะ approve ให้
-
-## Approval Logic
-
-ระบบแสดงข้อมูล Approval เพื่อช่วยให้ผู้ใช้เข้าใจสถานะ PR ได้เร็วขึ้น
-
-สถานะสำคัญ:
-
-| สถานะ | ความหมาย |
-|---|---|
-| Approved | reviewer ที่ required อนุมัติครบแล้ว |
-| Pending | ยังมี required reviewer ที่ยังไม่อนุมัติ |
-| Rejected | มี reviewer reject |
-| You approved | ผู้ใช้ปัจจุบันอนุมัติแล้ว |
-| Waiting others | ผู้ใช้ปัจจุบันอนุมัติแล้ว แต่ยังรอ reviewer คนอื่นหรือ group อื่น |
-| Not assigned to you | PR ไม่ได้ assign ให้ผู้ใช้ปัจจุบันโดยตรง |
-| Manual in ADO | เป็นงาน MergeCode ต้องทำเองบน Azure DevOps |
-
-ระบบคำนวณ approval จาก required reviewer หรือ required group โดยตรง เพื่อป้องกันการเข้าใจผิดจากจำนวน approval รวมที่ไม่ตรงกับ policy จริง
-
-## Reviewer Modal
-
-Reviewer Modal ใช้สำหรับดูรายละเอียด reviewer ของแต่ละ PR
+- target branch เริ่มจาก `refs/heads/staging` หรือเป็น MergeCode target branch ที่ระบบรองรับ
+- reviewer group มี `IT Support Approve`
+- สถานะ active สำหรับ Active PR Queue
+- completed ภายในช่วงเวลาที่กำหนดสำหรับ Recently Completed
 
 ข้อมูลที่แสดง:
 
-- Overall status
-- จำนวน approval
-- Branch policy minimum
-- Required reviewers in PR
-- Required reviewers ที่ reject
-- รายชื่อ reviewer
-- ประเภท reviewer เช่น Person หรือ Group
-- Required หรือ Optional
-- Vote status
+- Pull Request: PR ID, title, repository, author, created time
+- Branch: From / Into
+- Approvals: จำนวนที่ approve เทียบ required approval
+- Build / Policy: Build Success, Build Failed, Policy Pending, Policy Approved ฯลฯ
+- Attention: New, Waiting, Warning, Critical, Stale, Manual
+- My Approval: สถานะ vote ของผู้ใช้ปัจจุบัน
+- Actions: Approve, Reject, History, Open ADO ตามสิทธิ์และสถานะ
 
-Modal นี้ใช้ตารางและ style แยกจากตารางหลัก เพื่อไม่ให้ layout ของ Dashboard ได้รับผลกระทบ
+### Active PR Queue
+
+ใช้สำหรับงานที่ยังรอ approval อยู่ ผู้ใช้ที่มี role `it_support_approve` จะเห็นปุ่ม action เฉพาะเมื่อยัง vote ได้
+
+เงื่อนไข action:
+
+- ถ้าผู้ใช้ไม่มี role `it_support_approve` จะไม่แสดง Approve / Reject
+- ถ้าผู้ใช้ approve/reject ไปแล้ว จะแสดง `Vote submitted`
+- ถ้าเป็น MergeCode / MergeCodeProduction จะแสดง `Manual in Azure DevOps`
+- ถ้างานไม่ใช่ reviewer ของผู้ใช้ จะแสดงสถานะที่เหมาะสมและไม่เปิด action ที่ไม่ควรทำ
+
+### Recently Completed
+
+แสดง PR ที่จบภายในช่วงล่าสุด โดย default:
+
+- Lookback: 24 hours
+- Display limit: 10 items
+
+สถานะใน Result แยกระหว่าง:
+
+- `Completed`: PR จบ workflow แล้ว
+- `Build Failed`: PR completed แล้วแต่ build validation หรือ target branch build fail
+- `Policy Failed`: policy มีผล failed
+- `Policy Approved`: policy ผ่าน แต่ไม่มี build status โดยตรง
+
+สำหรับ MergeCode target branch ระบบมี fallback ไปตรวจ branch build run เพื่อไม่ให้แสดงผลผิดเป็น Completed ทั้งที่ build fail
+
+## MergeCode / MergeCodeProduction Workflow
+
+ระบบไม่ approve งาน MergeCode ผ่าน Dashboard เพราะ risk สูงและต้องเลือกขั้นตอนบน Azure DevOps อย่างระมัดระวัง
+
+งานกลุ่มนี้จะถูก highlight และแสดงเป็น manual:
+
+- ไม่มีปุ่ม Approve / Reject ผ่านเว็บ
+- มีปุ่ม Open ADO
+- แสดงสถานะ Build / Policy และ Attention
+- สามารถดู history ได้
+
+แนวทาง manual บน Azure DevOps:
+
+1. เปิด PR จากปุ่ม Open ADO
+2. ตรวจ source/target branch
+3. ตั้ง Auto-complete ตาม process ของทีม
+4. ใช้ merge strategy ที่ถูกต้อง เช่น Merge no fast-forward เมื่อ process กำหนด
+5. ตรวจ optional checks ที่เกี่ยวข้อง
+6. Approve หรือจัดการต่อบน Azure DevOps โดยตรง
+
+## Merge Lookup
+
+หน้า `/merge.html` ใช้สำหรับค้นหา CI/CD ของ PR ประเภท Merge โดยกรอก PR ID
+
+Logic เป็นแบบ Hybrid:
+
+1. ดึง PR จริงจาก Azure DevOps
+2. อ่าน repository, source branch, target branch
+3. ตรวจ build run ของ target branch
+4. ถ้า match branch rule เฉพาะ ให้ใช้ rule นั้น
+5. ถ้าไม่ match hardcoded rule แต่พบ CI run ให้ lookup จาก Staging CI/CD mapping
+6. แสดง Recommended CI/CD และ Detected Build
+
+ข้อมูลที่แสดง:
+
+- PR ID, title, repo, author, status, created time
+- Source branch / target branch
+- Recommended CI name
+- Recommended CD name
+- CI ID / CI folder
+- CD ID / CD path
+- Mapping source เช่น `branch-rule` หรือ `staging-csv`
+- Detected build run, status, result, branch, build link
+
+### Staging CI/CD Mapping
+
+ไฟล์ mapping ที่ระบบใช้งานจริง:
+
+```text
+api/shared/stg-ci-cd-map.json
+```
+
+ไฟล์นี้ generate จาก CSV ต้นทาง:
+
+| CSV | ความหมาย |
+|---|---|
+| `pipelines.csv` | รายชื่อ CI |
+| `release-pipelines.csv` | รายชื่อ CD |
+| `ci_cd_mapping.csv` | Mapping CI -> CD |
+
+ปัจจุบัน import เฉพาะ Staging (`stg`) เข้า repo จำนวนประมาณ 2,891 mappings
+
+เมื่อมี CI/CD ใหม่:
+
+1. อัปเดต CSV ต้นทางก่อน
+2. regenerate `api/shared/stg-ci-cd-map.json`
+3. ทดสอบด้วย PR ตัวอย่าง
+4. commit / push / deploy
+
+ไม่ควรแก้ `stg-ci-cd-map.json` ด้วยมือถ้าไม่จำเป็น เพราะเสี่ยงข้อมูลไม่ตรง CSV ต้นทาง
+
+## Audit Logs
+
+หน้า `/logs.html` ใช้ตรวจสอบ SharePoint Log
+
+Filter ที่รองรับ:
+
+- PR ID เช่น `342997` หรือ `#342997`
+- Action เช่น Approved, Rejected, Notification, Failed, External
+- Source เช่น Dashboard, Azure DevOps Sync, Teams
+- Keyword เช่น user, repo, title, result, reason
+- Limit: 50 หรือ 100
+
+ลำดับการแสดง:
+
+- API ดึง log จาก SharePoint ด้วย `lastModifiedDateTime desc`
+- Backend sort ซ้ำด้วย `createdAt desc`
+- ถ้าเวลาซ้ำ ใช้ `lastModifiedAt` และ `id` เป็น tie-breaker
+- ผลลัพธ์บนหน้าเว็บจึงแสดงล่าสุดก่อน
+
+Log source สำคัญ:
+
+- `Dashboard`: action ที่เกิดจากเว็บหรือ sync จาก Azure DevOps
+- `Azure DevOps Sync`: external vote ที่ตรวจพบจาก dashboard refresh
+- `Teams`: notification หรือ summary
+- `Dashboard Test Daily Summary`: การทดสอบ Daily Summary จากหน้า Health
 
 ## SharePoint Log
 
-หลังจากผู้ใช้กด Approve หรือ Reject ผ่าน Dashboard ระบบจะบันทึก Log ลง SharePoint List
+ระบบเขียน log ลง SharePoint List ผ่าน Microsoft Graph
 
-ตัวอย่างข้อมูลที่ควรเก็บ:
+Column สำคัญที่ใช้:
 
-- PR ID
-- PR title
-- Repository
-- Source branch
-- Target branch
-- Action เช่น Approve หรือ Reject
-- Result เช่น Success หรือ Failed
-- User email
-- User role
-- Timestamp
-- Error message ถ้ามี
-- Azure DevOps URL
+| Column | Purpose |
+|---|---|
+| `Title` | ชื่อ log item |
+| `PR_ID` | PR number |
+| `Action` | Approved, Rejected, External Approved, Notification Sent ฯลฯ |
+| `User` | ผู้ดำเนินการ |
+| `Repository` | repo |
+| `PR_Title` | title ของ PR |
+| `Target_Branch` | target branch |
+| `Result` | ผลลัพธ์ |
+| `Reason` | เหตุผลหรือรายละเอียด |
+| `Source` | Dashboard, Teams, Azure DevOps Sync |
+| `Event_Key` | key กัน duplicate |
+| `Build_Status` | build status |
+| `Build_Result` | build result |
+| `Policy_Status` | policy status |
+| `Merge_Status` | merge status |
+| `AutoComplete_Status` | auto-complete status |
+| `Last_Checked_At` | เวลาตรวจล่าสุด |
+| `ADO_Build_URL` | link build |
+| `ADO_PR_URL` | link PR |
 
-SharePoint Log ใช้สำหรับ:
+หมายเหตุ:
 
-- ตรวจสอบย้อนหลังว่าใครทำ action ใด
-- ตรวจสอบกรณี approve/reject ไม่สำเร็จ
-- ใช้เป็น audit trail ภายในทีม
-- ช่วยวิเคราะห์ปัญหาเมื่อตัวเลขบน Dashboard ไม่ตรงกับ Azure DevOps
+- `SHAREPOINT_AUTO_CREATE_LOG_COLUMNS=false` จะปิด auto-create optional columns
+- หาก Azure DevOps action สำเร็จแต่ SharePoint log ล้มเหลว ระบบจะแจ้ง error เพื่อให้ตรวจย้อนหลังได้
+
+## System Health
+
+หน้า `/health.html` แสดงรายละเอียดสถานะระบบ
+
+Checks หลัก:
+
+- Auth: ผู้ใช้ login ได้
+- Backend: API runtime, uptime, Node version
+- Azure DevOps: PAT/config เชื่อมต่อได้
+- SharePoint Log: site/list/read recent logs ได้
+- Teams Webhook: webhook URL ถูก config
+- Daily Summary: token และ scheduler พร้อม
+- Last Sync: เวลา refresh PR ล่าสุดจาก dashboard
+- Last Notification: notification ล่าสุดจาก SharePoint log
+- Next Summary: รอบส่งสรุปรายวันถัดไป
+
+Diagnostic Tools:
+
+- Test Teams Notification
+- Test Daily Summary
+- Test Backend Health
+
+## Teams Notification
+
+ระบบมี notification 2 กลุ่มหลัก:
+
+### Build / Policy Exception Notification
+
+ใช้แจ้งเฉพาะเหตุการณ์ที่ควรสนใจ เพื่อลด noise เช่น:
+
+- build failed
+- policy failed
+- rejected active PR
+- stale/critical attention ตาม logic ที่ระบบกำหนด
+
+สามารถปิดด้วย:
+
+```text
+TEAMS_EXCEPTION_NOTIFICATIONS=false
+```
+
+### Daily PR Summary
+
+ส่งสรุปรายวันเวลา 18:00 Asia/Bangkok ผ่าน Azure Logic Apps Consumption
+
+ข้อมูลใน summary:
+
+- New PR today
+- Completed today
+- Active now
+- Build/Policy failed
+- Rejected active
+- Abandoned today
+- Attention summary
+- Recently completed sample
+
+Endpoint:
+
+```text
+POST /api/daily-summary
+```
+
+Header:
+
+```text
+x-daily-summary-token: <DAILY_SUMMARY_TOKEN>
+```
+
+ระบบมี duplicate guard ด้วย `Event_Key` ใน SharePoint เพื่อไม่ให้ส่งซ้ำในวันเดียวกัน
 
 ## Authentication และ Authorization
 
-ระบบใช้ Microsoft Entra ID ผ่าน Azure Static Web Apps authentication
+ระบบใช้ Azure Static Web Apps Auth + Microsoft Entra ID
 
-แนวคิดหลัก:
+Routes สำคัญ:
 
-- ผู้ใช้ต้อง login ด้วยบัญชีองค์กร
-- Dashboard อ่านข้อมูลผู้ใช้จาก auth context
-- Role ของผู้ใช้ถูกใช้เพื่อกำหนดสิทธิ์และแสดงข้อมูล
-- Backend ใช้ token หรือ credential ที่กำหนดใน environment variables เพื่อเรียก Azure DevOps และ Microsoft Graph
+| Route | Allowed roles |
+|---|---|
+| `/dashboard.html` | `authenticated` |
+| `/merge.html` | `authenticated` |
+| `/logs.html` | `authenticated` |
+| `/health.html` | `authenticated` |
+| `/api/list-prs` | `authenticated` |
+| `/api/merge-lookup` | `authenticated` |
+| `/api/logs` | `authenticated` |
+| `/api/pr-history/*` | `authenticated` |
+| `/api/approve-pr` | `it_support_approve` |
+| `/api/reject-pr` | `it_support_approve` |
+| `/api/daily-summary` | `anonymous` + header token |
+| `/api/webhook` | `anonymous` + basic auth |
+
+Role display:
+
+- System roles เช่น `anonymous`, `authenticated` ถูกซ่อนจาก UI
+- `it_support_approve` แสดงเป็น `IT Support Approve`
+- ถ้าไม่มี approval role จะแสดงเป็น authenticated user แต่ไม่เปิดปุ่ม action
+
+## User Profile / Display Name
+
+ค่า user เริ่มต้นมาจาก Static Web Apps client principal ซึ่งมักเป็น email
+
+มี optional Graph lookup:
+
+```text
+GRAPH_USER_PROFILE_LOOKUP=true
+```
+
+เมื่อตั้งค่านี้ ระบบจะพยายามดึง display name จาก Microsoft Graph ผ่าน app credential
+
+ต้องมี Graph application permission ที่เหมาะสม เช่น `User.Read.All` พร้อม admin consent
+
+ถ้าไม่ได้เปิด feature นี้ ระบบ fallback เป็น email ตามเดิม
+
+## Backend API
+
+| API | Method | Purpose |
+|---|---|---|
+| `/api/userinfo` | GET | คืน user, roles, permissions |
+| `/api/list-prs` | GET | ดึง Active PR Queue และ Recently Completed |
+| `/api/approve-pr` | POST | Approve PR ปกติ, set auto-complete, log SharePoint |
+| `/api/reject-pr` | POST | Reject PR ปกติ, log SharePoint |
+| `/api/pr-history/{prId}` | GET | อ่าน history ของ PR จาก SharePoint |
+| `/api/logs` | GET | อ่าน audit logs จาก SharePoint |
+| `/api/health` | GET | ตรวจ system health |
+| `/api/merge-lookup` | GET | ค้นหา CI/CD ของ Merge PR |
+| `/api/test-notification` | POST | ทดสอบ Teams notification |
+| `/api/test-daily-summary` | POST | ทดสอบ Daily Summary |
+| `/api/daily-summary` | POST | endpoint สำหรับ Logic Apps scheduler |
+| `/api/webhook` | POST | legacy/webhook notification endpoint |
+
+## Important Shared Modules
+
+| File | Purpose |
+|---|---|
+| `api/shared/ado-client.js` | Azure DevOps REST API client |
+| `api/shared/sharepoint-client.js` | Microsoft Graph / SharePoint List client |
+| `api/shared/auth.js` | role / principal helper |
+| `api/shared/attention.js` | PR aging / stuck / attention logic |
+| `api/shared/notification-service.js` | exception notification orchestration |
+| `api/shared/teams-notifier.js` | Teams webhook client |
+| `api/shared/merge-pipeline-map.js` | Merge branch rule + Staging CSV lookup |
+| `api/shared/stg-ci-cd-map.json` | generated Staging CI/CD mapping |
+| `api/shared/user-profile.js` | optional Graph display name lookup |
+
+## Attention / PR Aging Logic
+
+ระบบแสดง Attention เพื่อช่วยให้เห็น PR ที่ควรรีบตรวจ
+
+ตัวอย่างสถานะ:
+
+| Status | Meaning |
+|---|---|
+| New | PR ยังใหม่ อยู่ในช่วงเวลาปกติ |
+| Waiting | รอ approval เกินช่วงสั้น ๆ |
+| Warning | เริ่มรอนาน |
+| Critical | รอนานมากหรือมีสัญญาณเสี่ยง |
+| Stale | ค้างนานจนควรตรวจ |
+| Manual | เป็น MergeCode/MergeCodeProduction ต้องทำใน ADO |
+| Ready | approval / policy พร้อมตามเงื่อนไข |
+
+Logic อยู่ใน:
+
+```text
+api/shared/attention.js
+```
+
+ใช้ร่วมกันใน Dashboard และ Daily Summary เพื่อลดความคลาดเคลื่อน
 
 ## Environment Variables
 
-ตัวแปรแวดล้อมที่เกี่ยวข้องโดยทั่วไป:
+ค่าจริงต้องเก็บใน Azure Static Web Apps Configuration หรือ GitHub Secrets ห้าม commit ลง repo
 
-| Variable | ใช้สำหรับ |
-|---|---|
-| `ADO_ORG` | ชื่อ organization บน Azure DevOps |
-| `ADO_PROJECT` | ชื่อ project |
-| `ADO_REPO` | repository เป้าหมาย |
-| `ADO_PAT` | token สำหรับเรียก Azure DevOps API |
-| `TENANT_ID` | Microsoft tenant |
-| `CLIENT_ID` | application client id |
-| `CLIENT_SECRET` | secret สำหรับ Graph API |
-| `SHAREPOINT_SITE_ID` | site id ของ SharePoint |
-| `SHAREPOINT_LIST_ID` | list id สำหรับเก็บ log |
-| `TEAMS_WEBHOOK_URL` | webhook สำหรับ notification ถ้ามีใช้งาน |
+### Azure DevOps
 
-ค่าจริงควรเก็บใน Azure Static Web Apps configuration หรือ GitHub secrets ไม่ควร commit ลง repo
+| Variable | Required | Description |
+|---|---:|---|
+| `ADO_ORGANIZATION` | Yes | organization จาก `dev.azure.com/<org>` |
+| `ADO_PROJECT` | Yes | Azure DevOps project |
+| `ADO_PAT` | Yes | PAT สำหรับอ่าน PR, vote, policy, build |
+| `ADO_TARGET_BRANCH` | No | default `refs/heads/staging` |
+| `ADO_REVIEWER_GROUP` | No | default `IT Support Approve` |
+| `ADO_EXTERNAL_LOG_SYNC` | No | set `false` เพื่อปิด external vote sync log |
 
-## CI/CD และ Deployment
+### Auth / Role
 
-ระบบ deploy ผ่าน GitHub Actions ไปยัง Azure Static Web Apps
+| Variable | Required | Description |
+|---|---:|---|
+| `AUTH_REQUIRED_ROLE` | No | default `it_support_approve` |
+| `GRAPH_USER_PROFILE_LOOKUP` | No | set `true` เพื่อเปิด Graph display name lookup |
 
-ไฟล์ที่เกี่ยวข้อง:
+### SharePoint / Graph
 
-- `.github/workflows/*.yml`
-- `staticwebapp.config.json`
-- `api/package.json`
+| Variable | Required | Description |
+|---|---:|---|
+| `AAD_TENANT_ID` | Yes | Entra tenant id |
+| `AAD_CLIENT_ID` | Yes | app registration client id |
+| `AAD_CLIENT_SECRET` | Yes | app registration secret |
+| `SHAREPOINT_HOSTNAME` | Yes | เช่น `buzzebees.sharepoint.com` |
+| `SHAREPOINT_SITE_PATH` | Yes | เช่น `/sites/ADOAuto-Approve` |
+| `SHAREPOINT_LIST_NAME` | No | default `ADO Auto-Approve Log` |
+| `SHAREPOINT_AUTO_CREATE_LOG_COLUMNS` | No | set `false` เพื่อปิด auto-create optional columns |
 
-Branch ที่ใช้งาน:
+### Teams / Notification
 
-| Branch | ใช้สำหรับ |
+| Variable | Required | Description |
+|---|---:|---|
+| `TEAMS_WEBHOOK_URL` | For notification | Teams webhook endpoint |
+| `TEAMS_EXCEPTION_NOTIFICATIONS` | No | set `false` เพื่อปิด exception alerts |
+| `DAILY_SUMMARY_TOKEN` | For daily summary | token ที่ Logic Apps ส่งมาใน header |
+
+### Webhook
+
+| Variable | Required | Description |
+|---|---:|---|
+| `WEBHOOK_USERNAME` | For webhook | basic auth username |
+| `WEBHOOK_PASSWORD` | For webhook | basic auth password |
+| `STAGING_BRANCH_REF` | No | default `refs/heads/staging` |
+
+### Dashboard Options
+
+| Variable | Required | Description |
+|---|---:|---|
+| `COMPLETED_PR_LOOKBACK_HOURS` | No | default `24` |
+| `COMPLETED_PR_DISPLAY_LIMIT` | No | default `10` |
+
+## Deployment
+
+ระบบ deploy ผ่าน GitHub Actions:
+
+```text
+.github/workflows/azure-static-web-apps.yml
+```
+
+Workflow deploy เมื่อ push เข้า:
+
+- `main`
+- `master` (รองรับไว้ แต่ปัจจุบันใช้ `main`)
+
+Azure Static Web Apps config:
+
+```text
+public/staticwebapp.config.json
+```
+
+Runtime:
+
+```json
+{
+  "platform": {
+    "apiRuntime": "node:22"
+  }
+}
+```
+
+## Branch Policy / Backup
+
+Branch ที่ใช้ปัจจุบัน:
+
+| Branch | Purpose |
 |---|---|
 | `main` | production/current stable version |
-| `Staging` | backup หรือ staging copy สำหรับทดสอบ/สำรอง |
+| `staging` | backup branch ล่าสุด ชี้ commit เดียวกับ `main` |
 
-ก่อน push ควรตรวจสอบ:
+หมายเหตุ:
 
-1. `git status`
-2. รายการไฟล์ที่แก้ไข
-3. diff ของไฟล์สำคัญ
-4. commit message
-5. GitHub Actions หลัง push
-6. หน้าเว็บหลัง deploy สำเร็จ
+- ไม่มี `Staging` ตัวพิมพ์ใหญ่แล้ว
+- ไม่มี `backup/pre-node22-20260602` แล้ว
+- หากต้อง backup สถานะล่าสุด ให้ push `main` ไป `staging`
+
+ตัวอย่าง:
+
+```powershell
+git push origin main:staging
+```
+
+## Local Validation
+
+ก่อน push ควรตรวจ:
+
+```powershell
+git status --short --branch
+node --check public\app.js
+node --check api\list-prs\index.js
+node --check api\approve-pr\index.js
+node --check api\reject-pr\index.js
+node --check api\logs\index.js
+node --check api\merge-lookup\index.js
+node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json','utf8')); console.log('json ok')"
+```
+
+หลัง push ควรตรวจ:
+
+- GitHub Actions conclusion = success
+- หน้า Dashboard โหลดได้
+- `/api/health` healthy หรือ warning ตาม config จริง
+- Audit Logs เรียงล่าสุดก่อน
+- Merge Lookup ค้น PR ตัวอย่างได้
 
 ## Acceptance Criteria
 
 ระบบควรผ่านเงื่อนไขต่อไปนี้:
 
-| หัวข้อ | เกณฑ์ผ่าน |
+| Area | Expected |
 |---|---|
-| Login | ผู้ใช้เข้าระบบด้วยบัญชีองค์กรได้ |
-| Load PR | Dashboard โหลดรายการ PR ได้และปุ่มกลับเป็น `เรียกดูข้อมูล` หลังโหลดเสร็จ |
-| PR ปกติ | มีปุ่ม Approve และ Reject |
-| MergeCode | แสดงเป็น Manual-only และไม่ approve ผ่านเว็บ |
-| Approval count | แสดงจำนวน required approval ถูกต้อง |
-| My Approval | แสดงว่าผู้ใช้ปัจจุบัน approve แล้วหรือยัง |
-| Waiting others | หากผู้ใช้ approve แล้วแต่ยังรอ required reviewer อื่น ต้องแสดงสถานะรอผู้อื่น |
-| SharePoint Log | เมื่อ approve/reject ผ่านเว็บ ต้องมี log |
-| Responsive layout | ตารางไม่ทับซ้อนเมื่อหน้าจอเล็ก และสามารถ scroll แนวนอนได้ |
-| Reviewer Modal | แสดงรายละเอียด reviewer โดยไม่กระทบตารางหลัก |
+| Login | ผู้ใช้ login ผ่าน Entra ID ได้ |
+| Role | ผู้ใช้ `IT Support Approve` เห็น action ที่ควรเห็น |
+| No role | ผู้ใช้ไม่มี role ไม่เห็น Approve / Reject |
+| Load PR | Dashboard โหลด PR ได้และปุ่มกลับเป็น `Refresh PR` |
+| Active PR Queue | แสดง PR ที่รอ approval ถูกต้อง |
+| My Approval | แสดง `You approved`, `Vote submitted`, หรือสถานะรออนุมัติถูกต้อง |
+| MergeCode | ไม่เปิด automation action และแสดง manual workflow |
+| Recently Completed | แสดง 10 รายการล่าสุดใน 24 ชั่วโมง และแยก result ถูกต้อง |
+| Build / Policy | แสดง Build Failed / Policy Failed ได้เมื่อมีข้อมูล |
+| SharePoint Log | action ผ่านเว็บมี log |
+| Audit Logs | ค้นหาได้และเรียงล่าสุดก่อน |
+| Daily Summary | ส่ง Teams เวลา 18:00 ผ่าน Logic Apps และไม่ duplicate |
+| Health | ตรวจ Backend, ADO, SharePoint, Teams, Daily Summary ได้ |
+| Merge Lookup | กรอก PR แล้วได้ CI/CD เมื่อมี mapping |
+
+## Troubleshooting
+
+### Dashboard ไม่โหลด PR
+
+ตรวจ:
+
+- `ADO_ORGANIZATION`
+- `ADO_PROJECT`
+- `ADO_PAT`
+- PAT หมดอายุหรือ scope ไม่พอ
+- target branch / reviewer group ถูกต้องหรือไม่
+
+### Approve / Reject ไม่ขึ้น
+
+ตรวจ:
+
+- ผู้ใช้มี role `it_support_approve` หรือไม่
+- PR เป็น MergeCode หรือไม่
+- ผู้ใช้ vote ไปแล้วหรือยัง
+- Static Web Apps role invitation / role assignment ถูกต้องหรือไม่
+
+### SharePoint Log ไม่ขึ้น
+
+ตรวจ:
+
+- `AAD_TENANT_ID`, `AAD_CLIENT_ID`, `AAD_CLIENT_SECRET`
+- Graph permission เช่น Sites.ReadWrite.All
+- `SHAREPOINT_HOSTNAME`, `SHAREPOINT_SITE_PATH`, `SHAREPOINT_LIST_NAME`
+- optional columns มีครบหรือ auto-create ถูกปิดอยู่หรือไม่
+
+### Audit Logs ไม่เรียงล่าสุดก่อน
+
+ระบบแก้ให้ใช้ `lastModifiedDateTime desc` แล้ว หากพบผิดปกติให้ตรวจ:
+
+- SharePoint list item modified time
+- API `/api/logs`
+- filter บนหน้าเว็บ
+- browser cache
+
+### Merge Lookup หาไม่ครบ
+
+แยกสาเหตุ:
+
+- ไม่มี build run บน target branch
+- detected CI ไม่มีใน `stg-ci-cd-map.json`
+- CSV mapping ยังไม่ได้เพิ่ม CI -> CD
+- เป็น branch pattern ใหม่ที่ต้องเพิ่ม rule เฉพาะ
+
+### Daily Summary ไม่ส่ง
+
+ตรวจ:
+
+- Logic Apps enabled หรือไม่
+- Schedule 18:00 Asia/Bangkok
+- `DAILY_SUMMARY_TOKEN`
+- `TEAMS_WEBHOOK_URL`
+- SharePoint duplicate `Event_Key`
+
+## Maintenance Workflow
+
+### เพิ่ม CI/CD mapping ใหม่
+
+1. เพิ่มข้อมูลใน CSV ต้นทาง
+2. regenerate `api/shared/stg-ci-cd-map.json`
+3. ทดสอบ PR ตัวอย่างบน `/merge.html`
+4. commit / push
+5. monitor production
+
+### เพิ่ม rule Merge เฉพาะ pattern
+
+แก้:
+
+```text
+api/shared/merge-pipeline-map.js
+```
+
+ใช้เมื่อ CSV mapping อย่างเดียวไม่พอ เช่น target branch pattern ไม่สามารถหา CI จาก build run ได้
+
+### ปรับ Attention Logic
+
+แก้:
+
+```text
+api/shared/attention.js
+```
+
+เพราะใช้ร่วมกันทั้ง Dashboard และ Daily Summary
+
+### Backup ล่าสุดไป staging
+
+```powershell
+git push origin main:staging
+git ls-remote --heads origin main staging
+```
 
 ## ข้อจำกัดและความเสี่ยง
 
-- Azure DevOps policy บางอย่างอาจซับซ้อนกว่าข้อมูล reviewer ที่ API ส่งกลับมา ต้องตรวจสอบเพิ่มเติมเมื่อมี policy ใหม่
-- งาน MergeCode ต้องทำ Manual เท่านั้น เพื่อลดความเสี่ยงจากการ merge ผิดขั้นตอน
-- หาก SharePoint Graph API ล้มเหลว action บน Azure DevOps อาจสำเร็จแต่ log ไม่ถูกบันทึก ต้องมี error handling ที่ชัดเจน
-- หาก Azure DevOps API เปลี่ยน response structure อาจต้องปรับ logic การอ่าน reviewer และ vote
-- PAT หรือ secret หมดอายุจะทำให้ backend เรียก Azure DevOps หรือ SharePoint ไม่ได้
+- MergeCode / MergeCodeProduction ต้องทำ manual บน Azure DevOps เพื่อความปลอดภัย
+- ถ้า ADO PAT หมดอายุ ระบบจะอ่าน PR / vote / build ไม่ได้
+- ถ้า Graph permission หรือ SharePoint config มีปัญหา action อาจสำเร็จแต่ log ไม่ครบ
+- Staging CI/CD mapping เป็น snapshot จาก CSV ต้อง regenerate เมื่อข้อมูลต้นทางเปลี่ยน
+- Daily Summary มี duplicate guard แต่ถ้ามีการเปลี่ยน `Event_Key` logic อาจทำให้ส่งซ้ำได้
+- Azure DevOps policy บางแบบอาจไม่สะท้อนใน PR statuses โดยตรง จึงมี fallback branch build สำหรับ MergeCode
 
-## แนวทางทดสอบ
+## Summary
 
-ควรทดสอบอย่างน้อยตามรายการนี้:
+ADO Auto-Approve เป็นระบบช่วยรวมงานอนุมัติ PR บน staging ให้ทีมเห็นในหน้าเดียว พร้อม action ที่ควบคุมสิทธิ์, audit trail บน SharePoint, notification เฉพาะเรื่องสำคัญ, daily summary และเครื่องมือค้นหา CI/CD สำหรับ PR ประเภท Merge
 
-1. เปิด Dashboard หลัง login
-2. กด `เรียกดูข้อมูล`
-3. ตรวจว่าปุ่มเปลี่ยนเป็น `กำลังโหลด...` ระหว่างโหลด
-4. ตรวจว่าหลังโหลดเสร็จปุ่มกลับเป็น `เรียกดูข้อมูล`
-5. ตรวจ PR ปกติว่ามี Approve/Reject
-6. ตรวจ PR MergeCode ว่าไม่มี automation approve และแสดง Manual in ADO
-7. ตรวจ PR ที่ผู้ใช้ approve แล้วแต่ยังรอ reviewer อื่น
-8. ตรวจ PR ที่มี reviewer reject
-9. เปิด Reviewer Modal
-10. กด Approve PR ทดสอบ
-11. ตรวจ SharePoint Log
-12. ตรวจ Azure DevOps ว่า vote เปลี่ยนถูกต้อง
-13. ลดขนาดหน้าจอและตรวจว่า layout ไม่ทับซ้อน
+หลักการสำคัญของระบบคือ:
 
-## แนวทางดูแลต่อ
-
-- เพิ่ม unit test สำหรับ logic การคำนวณ approval
-- เพิ่ม integration test สำหรับ SharePoint Log
-- เพิ่มหน้ารายงาน history จาก SharePoint
-- เพิ่ม filter ตาม repo, status หรือประเภท PR
-- เพิ่มระบบแจ้งเตือนเมื่อมี MergeCode PR รอ manual action
-- เพิ่ม monitoring สำหรับ backend error และ Graph API failure
-
-## สรุป
-
-ADO Auto-Approve เป็นระบบที่ช่วยให้ทีมเห็นภาพรวม PR ที่รออนุมัติบน staging ได้ชัดเจนขึ้น ลดงานซ้ำจากการเปิด Azure DevOps หลายหน้า และเพิ่ม audit trail ผ่าน SharePoint Log
-
-หลักการสำคัญของระบบคือ PR ปกติสามารถทำงานผ่าน Dashboard ได้ แต่ PR ที่เป็น MergeCode ต้องแสดงให้เห็นบน Dashboard เท่านั้น และต้องให้ผู้ใช้ไปดำเนินการบน Azure DevOps เองเพื่อความถูกต้องและปลอดภัยของกระบวนการ merge
+- PR ปกติทำผ่าน Dashboard ได้
+- PR MergeCode / MergeCodeProduction ต้องทำ manual บน Azure DevOps
+- ข้อมูล log และ health ต้องตรวจสอบย้อนหลังได้
+- notification ต้องลด noise และเน้นเหตุการณ์ที่ต้องสนใจ
+- backup ล่าสุดใช้ branch `staging` เพียง branch เดียว
