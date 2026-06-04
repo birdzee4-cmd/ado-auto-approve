@@ -1136,8 +1136,8 @@ function renderMergeLookup(data) {
       '</div>' +
       '<div class="merge-card ' + statusClass + '">' +
         '<div class="merge-card-label">' + escapeHtml(hasPossible ? 'Possible CI/CD' : 'Recommended CI/CD') + '</div>' +
-        '<h3>' + escapeHtml(hasPossible ? 'Please verify before use' : data.mapping && data.mapping.label || 'No mapping rule') + '</h3>' +
-        (hasPossible ? '<p class="merge-card-note">No confirmed mapping was found. This suggestion is inferred from repository name.</p>' : '') +
+        '<h3>' + escapeHtml(hasPossible ? 'Not confirmed - verify before use' : data.mapping && data.mapping.label || 'No mapping rule') + '</h3>' +
+        (hasPossible ? '<div class="merge-warning-note"><strong>⚠ Not a confirmed mapping</strong><span>This is only a suggestion from repository-name matching. Please verify CI/CD in Azure DevOps before using it.</span></div>' : '') +
         '<dl class="merge-definition-list">' +
           '<dt>CI</dt><dd>' + escapeHtml(recommendation.ciName || '-') + '</dd>' +
           '<dt>CD</dt><dd>' + escapeHtml(recommendation.cdName || '-') + '</dd>' +

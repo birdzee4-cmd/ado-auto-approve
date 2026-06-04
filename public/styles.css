@@ -1972,6 +1972,29 @@ body {
   line-height: 1.45;
 }
 
+.merge-warning-note {
+  display: grid;
+  gap: 4px;
+  margin: -4px 0 14px;
+  padding: 10px 12px;
+  background: #fff3c4;
+  border: 1px solid #f5a400;
+  border-left: 4px solid #d97706;
+  border-radius: 8px;
+  color: #7c2d12;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.merge-warning-note strong {
+  color: #9a3412;
+  font-size: 13px;
+}
+
+.merge-warning-note span {
+  color: #7c5d00;
+}
+
 .merge-card.merge-ok {
   border-left: 4px solid #22c55e;
 }
