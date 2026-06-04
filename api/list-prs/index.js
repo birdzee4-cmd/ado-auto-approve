@@ -568,8 +568,8 @@ async function getStatusSnapshot(context, adoClient, pr, repositoryId, isMergeCo
       ? policyResult.body.value
       : [];
     let buildRuns = [];
-    if (isMergeCodeTarget && !statuses.some(adoClient.isBuildStatus)) {
-      const buildsResult = await adoClient.getBuildsForBranch(repositoryId, pr.targetRefName, 10);
+    if (!statuses.some(adoClient.isBuildStatus)) {
+      const buildsResult = await getCachedBuildsForBranch(context, adoClient, repositoryId, pr.targetRefName);
       if (!buildsResult.ok && context && context.log && context.log.warn) {
         context.log.warn('Branch build lookup returned HTTP ' + buildsResult.status + ' for #' + pr.pullRequestId);
       }
@@ -584,6 +584,15 @@ async function getStatusSnapshot(context, adoClient, pr, repositoryId, isMergeCo
     }
     return adoClient.summarizeStatusSnapshot(pr, [], isMergeCodeTarget ? null : undefined);
   }
+}
+
+async function getCachedBuildsForBranch(context, adoClient, repositoryId, branchName) {
+  const key = String(repositoryId || '') + '|' + String(branchName || '').toLowerCase();
+  if (!context._branchBuildCache) context._branchBuildCache = {};
+  if (context._branchBuildCache[key]) return context._branchBuildCache[key];
+  const result = await adoClient.getBuildsForBranch(repositoryId, branchName, 20);
+  context._branchBuildCache[key] = result;
+  return result;
 }
 
 async function buildPrRow(context, pr, currentUser, org, project) {
