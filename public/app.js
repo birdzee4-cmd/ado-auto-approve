@@ -208,7 +208,7 @@ function closeModal(id) {
   if (m) m.hidden = true;
 }
 
-// ===== PR Activity =====
+// ===== Activity Page =====
 async function loadPrActivity() {
   if (!document.getElementById('completedSection')) return;
   setButtonLoading('btnRefreshActivity', true, 'Loading...');
