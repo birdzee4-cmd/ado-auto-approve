@@ -1168,6 +1168,64 @@ body {
   background: #fef3c7;
 }
 
+.approval-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 6px 10px;
+  border: 1px solid;
+  border-radius: 7px;
+  background: #ffffff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.approval-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(91, 69, 0, 0.12);
+}
+
+.approval-icon {
+  font-size: 12px;
+}
+
+.approval-ratio {
+  color: var(--bz-ink);
+}
+
+.approval-pending {
+  background: #fff8df;
+  border-color: #f5c85d;
+}
+
+.approval-pending .approval-status {
+  color: #a44500;
+}
+
+.approval-complete {
+  background: #ecfdf3;
+  border-color: #6ee7a5;
+}
+
+.approval-complete .approval-status {
+  color: #047857;
+}
+
+.approval-rejected {
+  background: #fff1f2;
+  border-color: #fca5a5;
+}
+
+.approval-rejected .approval-status {
+  color: #b91c1c;
+}
+
 .pr-table tbody tr.pr-draft {
   opacity: 0.65;
 }

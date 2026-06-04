@@ -618,9 +618,11 @@ function renderApprovalBadge(pr) {
   }
 
   const ratio = required > 0 ? approved + '/' + required : approved + '';
-  const label = icon + ' ' + ratio + ' ' + text;
   return '<button class="' + cls + '" onclick="openReviewersModal(' + pr.id + ')" title="คลิกดูรายชื่อ reviewers">' +
-    escapeHtml(label) + '</button>';
+    '<span class="approval-icon">' + escapeHtml(icon) + '</span>' +
+    '<span class="approval-ratio">' + escapeHtml(ratio) + '</span>' +
+    '<span class="approval-status">' + escapeHtml(text) + '</span>' +
+    '</button>';
 }
 
 // ===== Reviewers Modal =====
