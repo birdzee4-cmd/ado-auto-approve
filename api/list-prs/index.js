@@ -52,6 +52,7 @@ module.exports = async function (context, req) {
     const completedLookbackHours = Number(process.env.COMPLETED_PR_LOOKBACK_HOURS) || 24;
     const completedDisplayLimit = Math.min(Math.max(Number(process.env.COMPLETED_PR_DISPLAY_LIMIT) || 10, 1), 100);
     const approvedLookupLimit = Math.min(Math.max(Number(process.env.APPROVED_PR_LOOKUP_LIMIT) || 100, 1), 200);
+    const includeActivity = req.query && String(req.query.includeActivity || '').toLowerCase() === 'true';
     const branchBuildCache = {};
 
     const missing = [];
@@ -120,49 +121,61 @@ module.exports = async function (context, req) {
     }
     prs.sort(attentionUtil.sortByAttention);
 
-    let allCompletedPrs = [];
-    try {
-      const completedPath = '/' + encodeURIComponent(org) + '/' + encodeURIComponent(project) +
-        '/_apis/git/pullrequests?api-version=7.0' +
-        '&searchCriteria.status=completed' +
-        '&$top=100';
-      const completedResult = await callAdoApi('dev.azure.com', completedPath, pat);
-      if (completedResult.ok) {
-        const completedData = JSON.parse(completedResult.body);
-        allCompletedPrs = completedData.value || [];
-      } else {
-        context.log.warn('Completed PR lookup returned HTTP ' + completedResult.status);
-      }
-    } catch (e) {
-      context.log.warn('Completed PR lookup failed: ' + e.message);
-    }
-
-    const completedCutoff = Date.now() - completedLookbackHours * 60 * 60 * 1000;
-    const completedMatches = allCompletedPrs
-      .filter(pr => {
-        const targetRef = (pr.targetRefName || '').toLowerCase();
-        return targetRef.startsWith(stagingPrefix) || isMergeCodeBranch(targetRef);
-      })
-      .filter(pr => hasReviewerGroup(pr, reviewerGroup))
-      .filter(pr => {
-        const completedAt = Date.parse(pr.closedDate || pr.completionDate || pr.lastMergeCommit && pr.lastMergeCommit.committer && pr.lastMergeCommit.committer.date || pr.creationDate);
-        return Number.isFinite(completedAt) && completedAt >= completedCutoff;
-      });
     const completedPrs = [];
-    for (const pr of completedMatches.slice(0, completedDisplayLimit)) {
-      completedPrs.push(await buildPrRow(context, pr, currentUser, org, project, branchBuildCache));
+    if (includeActivity) {
+      let allCompletedPrs = [];
+      try {
+        const completedPath = '/' + encodeURIComponent(org) + '/' + encodeURIComponent(project) +
+          '/_apis/git/pullrequests?api-version=7.0' +
+          '&searchCriteria.status=completed' +
+          '&$top=100';
+        const completedResult = await callAdoApi('dev.azure.com', completedPath, pat);
+        if (completedResult.ok) {
+          const completedData = JSON.parse(completedResult.body);
+          allCompletedPrs = completedData.value || [];
+        } else {
+          context.log.warn('Completed PR lookup returned HTTP ' + completedResult.status);
+        }
+      } catch (e) {
+        context.log.warn('Completed PR lookup failed: ' + e.message);
+      }
+
+      const completedCutoff = Date.now() - completedLookbackHours * 60 * 60 * 1000;
+      const completedMatches = allCompletedPrs
+        .filter(pr => {
+          const targetRef = (pr.targetRefName || '').toLowerCase();
+          return targetRef.startsWith(stagingPrefix) || isMergeCodeBranch(targetRef);
+        })
+        .filter(pr => hasReviewerGroup(pr, reviewerGroup))
+        .filter(pr => {
+          const completedAt = Date.parse(pr.closedDate || pr.completionDate || pr.lastMergeCommit && pr.lastMergeCommit.committer && pr.lastMergeCommit.committer.date || pr.creationDate);
+          return Number.isFinite(completedAt) && completedAt >= completedCutoff;
+        });
+      for (const pr of completedMatches.slice(0, completedDisplayLimit)) {
+        completedPrs.push(await buildPrRow(context, pr, currentUser, org, project, branchBuildCache));
+      }
     }
 
-    const approvedLookup = await buildRecentlyApprovedRows(context, {
-      currentUser: currentUser,
-      org: org,
-      project: project,
-      stagingPrefix: stagingPrefix,
-      reviewerGroup: reviewerGroup,
-      lookbackHours: completedLookbackHours,
-      maxRows: approvedLookupLimit,
-      branchBuildCache: branchBuildCache
-    });
+    const approvedLookup = includeActivity
+      ? await buildRecentlyApprovedRows(context, {
+        currentUser: currentUser,
+        org: org,
+        project: project,
+        stagingPrefix: stagingPrefix,
+        reviewerGroup: reviewerGroup,
+        lookbackHours: completedLookbackHours,
+        maxRows: approvedLookupLimit,
+        branchBuildCache: branchBuildCache
+      })
+      : {
+        rows: [],
+        meta: {
+          ok: true,
+          source: 'Skipped',
+          skipped: true,
+          reason: 'Activity lookup is disabled for dashboard requests'
+        }
+      };
     const recentlyApprovedPrs = approvedLookup.rows;
 
     const activeNotificationResult = await syncExceptionNotifications(context, prs, { scope: 'active' });

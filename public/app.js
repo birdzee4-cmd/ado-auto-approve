@@ -48,6 +48,7 @@ window._currentUser = {
     await checkHealthStatus();
 
     bind('btnCheckPrs', checkPrs);
+    bind('btnRefreshActivity', loadPrActivity);
     bind('btnTestTeams', testTeams);
     bind('btnTestDailySummary', testDailySummary);
     bind('btnTestHealth', testHealth);
@@ -68,6 +69,7 @@ window._currentUser = {
     });
 
     if (document.getElementById('btnCheckPrs')) checkPrs();
+    if (document.getElementById('btnRefreshActivity')) loadPrActivity();
     if (document.getElementById('logTableBody')) {
       bindAuditLogFilters();
       loadAuditLogs();
@@ -204,6 +206,47 @@ function openModal(id) {
 function closeModal(id) {
   const m = document.getElementById(id);
   if (m) m.hidden = true;
+}
+
+// ===== PR Activity =====
+async function loadPrActivity() {
+  if (!document.getElementById('completedSection')) return;
+  setButtonLoading('btnRefreshActivity', true, 'Loading...');
+  showBox('activityResult', '<div class="test-result result-info">⏳ Loading PR activity...</div>');
+
+  try {
+    const r = await safeFetchJson('/api/list-prs?includeActivity=true');
+    if (r.parseError) {
+      showBox('activityResult', '<div class="test-result result-error">❌ Backend ตอบไม่ใช่ JSON (HTTP ' + r.status + ')</div>');
+      return;
+    }
+    if (!r.ok || !r.data || !r.data.ok) {
+      const d = r.data || {};
+      showBox('activityResult', '<div class="test-result result-error">❌ ' + escapeHtml(d.error || 'Unknown') +
+        '<br/><small>' + escapeHtml(d.hint || d.detail || '') + '</small></div>');
+      return;
+    }
+
+    const d = r.data;
+    saveLastSync(d);
+    showBox('activityResult',
+      '<div class="test-result result-success">✅ Loaded <strong>' +
+      escapeHtml(d.completedTotalMatched || 0) +
+      '</strong> approved PRs from the last ' +
+      escapeHtml(d.completedLookbackHours || 24) +
+      ' hours</div>'
+    );
+    renderCompletedPrTable(
+      d.completedPrs || [],
+      d.completedLookbackHours || 24,
+      d.completedTotalMatched,
+      d.completedDisplayLimit || 10
+    );
+  } catch (err) {
+    showBox('activityResult', '<div class="test-result result-error">❌ ' + escapeHtml(err.message) + '</div>');
+  } finally {
+    setButtonLoading('btnRefreshActivity', false);
+  }
 }
 
 // ===== Check PRs =====
@@ -1339,13 +1382,15 @@ function formatBuildRunState(build) {
 
 function saveLastSync(data) {
   try {
+    const previous = getLastSync() || {};
+    const activityIncluded = data && data.approvedLookback && data.approvedLookback.source !== 'Skipped';
     const payload = {
       at: data && data.fetchedAt || new Date().toISOString(),
       count: data && data.count,
       totalActive: data && data.totalActive,
-      completedCount: Array.isArray(data && data.completedPrs) ? data.completedPrs.length : 0,
-      completedTotalMatched: data && data.completedTotalMatched,
-      recentlyApprovedCount: data && data.completedTotalMatched,
+      completedCount: activityIncluded && Array.isArray(data && data.completedPrs) ? data.completedPrs.length : previous.completedCount,
+      completedTotalMatched: activityIncluded ? data && data.completedTotalMatched : previous.completedTotalMatched,
+      recentlyApprovedCount: activityIncluded ? data && data.completedTotalMatched : previous.recentlyApprovedCount,
       reviewerGroup: data && data.reviewerGroup,
       targetBranch: data && data.targetBranch
     };

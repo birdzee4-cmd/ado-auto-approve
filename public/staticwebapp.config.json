@@ -10,6 +10,8 @@
     { "route": "/dashboard", "rewrite": "/dashboard.html", "allowedRoles": ["authenticated"] },
     { "route": "/merge.html", "allowedRoles": ["authenticated"] },
     { "route": "/merge", "rewrite": "/merge.html", "allowedRoles": ["authenticated"] },
+    { "route": "/activity.html", "allowedRoles": ["authenticated"] },
+    { "route": "/activity", "rewrite": "/activity.html", "allowedRoles": ["authenticated"] },
     { "route": "/health.html", "allowedRoles": ["authenticated"] },
     { "route": "/health", "rewrite": "/health.html", "allowedRoles": ["authenticated"] },
     { "route": "/logs.html", "allowedRoles": ["authenticated"] },
