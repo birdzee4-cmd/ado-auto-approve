@@ -45,7 +45,9 @@ window._currentUser = {
       setText('userRole', 'Unable to load role');
     }
 
-    await checkHealthStatus();
+    if (document.getElementById('systemHealthGrid') || document.getElementById('systemHealthSummary')) {
+      await checkHealthStatus();
+    }
 
     bind('btnCheckPrs', checkPrs);
     bind('btnRefreshActivity', loadPrActivity);
@@ -280,7 +282,7 @@ async function checkPrs() {
       d.completedTotalMatched,
       d.completedDisplayLimit || 10
     );
-    checkHealthStatus();
+    if (document.getElementById('systemHealthSummary')) checkHealthStatus();
     document.getElementById('prTableContainer').hidden = false;
   } catch (err) {
     showBox('prResult', '<div class="test-result result-error">❌ ' + escapeHtml(err.message) + '</div>');
