@@ -288,9 +288,7 @@ async function getLogItemsSince(sinceIso, maxItems) {
   const token = await getAccessToken();
   const limit = Math.max(1, Math.min(parseInt(maxItems, 10) || 500, 1000));
   const pageSize = 100;
-  const filter = sinceIso ? `createdDateTime ge ${sinceIso}` : '';
-  let url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$orderby=createdDateTime desc&$top=${pageSize}`;
-  if (filter) url += `&$filter=${encodeURIComponent(filter)}`;
+  let url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$orderby=lastModifiedDateTime desc&$top=${pageSize}`;
   const headers = {
     'Authorization': 'Bearer ' + token,
     'Prefer': 'HonorNonIndexedQueriesWarningMayFailRandomly'
@@ -318,6 +316,7 @@ async function getLogItemsSince(sinceIso, maxItems) {
     status: lastStatus,
     body: {
       value: items,
+      since: sinceIso || '',
       fetched: items.length,
       truncated: items.length >= limit,
       lastResponse: lastBody

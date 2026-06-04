@@ -295,6 +295,7 @@ async function buildRecentlyApprovedRows(context, options) {
   const logs = result.body && Array.isArray(result.body.value) ? result.body.value : [];
   meta.checked = logs.length;
   const approvedByPr = new Map();
+  const sinceTime = Date.parse(since);
 
   for (const item of logs) {
     const fields = item && item.fields || {};
@@ -304,6 +305,8 @@ async function buildRecentlyApprovedRows(context, options) {
     if (!identityMatches(fields.User, identities)) continue;
 
     const createdAt = item.createdDateTime || item.lastModifiedDateTime || fields.Last_Checked_At || '';
+    const createdTime = Date.parse(createdAt);
+    if (Number.isFinite(sinceTime) && (!Number.isFinite(createdTime) || createdTime < sinceTime)) continue;
     const existing = approvedByPr.get(prId);
     if (!existing || compareDateDesc({ approvedAt: createdAt }, { approvedAt: existing.approvedAt }) < 0) {
       approvedByPr.set(prId, {
