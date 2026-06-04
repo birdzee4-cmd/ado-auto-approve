@@ -88,8 +88,11 @@
 
         <div id="completedSection" class="completed-section" hidden>
           <div class="completed-header">
-            <h3>Recently Completed</h3>
-            <span id="completedMeta" class="completed-meta"></span>
+            <h3>Recently Approved</h3>
+            <div class="completed-meta-wrap">
+              <span id="completedMeta" class="completed-meta"></span>
+              <div id="completedPager" class="completed-pager" hidden></div>
+            </div>
           </div>
           <div class="pr-table-wrap completed-table-wrap">
             <table class="pr-table completed-table">
@@ -101,7 +104,7 @@
                   <th>Branch</th>
                   <th>Result</th>
                   <th>Repo</th>
-                  <th>Completed</th>
+                  <th>Approved</th>
                   <th>Actions</th>
                 </tr>
               </thead>

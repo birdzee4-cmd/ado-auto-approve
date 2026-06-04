@@ -1300,6 +1300,51 @@ body {
   font-size: 12px;
 }
 
+.completed-meta-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.completed-pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pager-label {
+  color: #6b7280;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.btn-mini.btn-pager {
+  min-height: 28px;
+  padding: 5px 9px;
+  background: #ffffff;
+  border-color: #d6b24b;
+  color: #7c4a00;
+}
+
+.btn-mini.btn-pager:hover {
+  background: #fff8e1;
+  border-color: var(--bz-yellow);
+  color: #3f2d05;
+}
+
+.btn-mini.btn-pager:disabled,
+.btn-mini.btn-pager:disabled:hover {
+  cursor: not-allowed;
+  opacity: 0.48;
+  background: #f8fafc;
+  border-color: #d1d5db;
+  color: #64748b;
+  box-shadow: none;
+  transform: none;
+}
+
 .completed-table {
   min-width: 1280px;
 }

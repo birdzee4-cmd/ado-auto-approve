@@ -231,7 +231,12 @@ async function checkPrs() {
     const attention = d.attentionSummary || {};
     showBox('prResult', renderPrSummaryBanner(d, attention, mergeCodeCount));
     renderPrTable(d.prs);
-    renderCompletedPrTable(d.completedPrs || [], d.completedLookbackHours || 24, d.completedTotalMatched);
+    renderCompletedPrTable(
+      d.completedPrs || [],
+      d.completedLookbackHours || 24,
+      d.completedTotalMatched,
+      d.completedDisplayLimit || 10
+    );
     checkHealthStatus();
     document.getElementById('prTableContainer').hidden = false;
   } catch (err) {
@@ -318,42 +323,96 @@ function renderPrTable(prs) {
   }
 }
 
-function renderCompletedPrTable(prs, lookbackHours, totalMatched) {
+function renderCompletedPrTable(prs, lookbackHours, totalMatched, displayLimit) {
   const section = document.getElementById('completedSection');
   const meta = document.getElementById('completedMeta');
   const tbody = document.getElementById('completedTableBody');
+  const pager = document.getElementById('completedPager');
   if (!section || !meta || !tbody) return;
 
   if (!Array.isArray(prs) || prs.length === 0) {
     section.hidden = true;
     tbody.innerHTML = '';
+    if (pager) {
+      pager.hidden = true;
+      pager.innerHTML = '';
+    }
     return;
   }
 
   section.hidden = false;
-  const total = Number.isFinite(Number(totalMatched)) ? Number(totalMatched) : prs.length;
-  meta.textContent = total > prs.length
-    ? 'Last ' + lookbackHours + ' hours | showing ' + prs.length + ' of ' + total + ' completed PRs'
-    : 'Last ' + lookbackHours + ' hours | ' + prs.length + ' completed PRs';
+  window._recentlyApprovedRows = prs;
+  window._recentlyApprovedLookbackHours = lookbackHours;
+  window._recentlyApprovedDisplayLimit = Math.max(1, Number(displayLimit) || 10);
+  window._recentlyApprovedTotalMatched = Number.isFinite(Number(totalMatched)) ? Number(totalMatched) : prs.length;
+  window._recentlyApprovedPage = 0;
+  renderRecentlyApprovedPage();
+}
+
+function renderRecentlyApprovedPage() {
+  const section = document.getElementById('completedSection');
+  const meta = document.getElementById('completedMeta');
+  const tbody = document.getElementById('completedTableBody');
+  const pager = document.getElementById('completedPager');
+  const prs = Array.isArray(window._recentlyApprovedRows) ? window._recentlyApprovedRows : [];
+  const lookbackHours = window._recentlyApprovedLookbackHours || 24;
+  const limit = Math.max(1, Number(window._recentlyApprovedDisplayLimit) || 10);
+  const total = Number.isFinite(Number(window._recentlyApprovedTotalMatched))
+    ? Number(window._recentlyApprovedTotalMatched)
+    : prs.length;
+  if (!section || !meta || !tbody) return;
+  if (!prs.length) {
+    section.hidden = true;
+    tbody.innerHTML = '';
+    return;
+  }
+
+  const pageCount = Math.max(1, Math.ceil(prs.length / limit));
+  const page = Math.min(Math.max(Number(window._recentlyApprovedPage) || 0, 0), pageCount - 1);
+  window._recentlyApprovedPage = page;
+  const start = page * limit;
+  const end = Math.min(start + limit, prs.length);
+  const pageRows = prs.slice(start, end);
+  meta.textContent = 'Last ' + lookbackHours + ' hours | showing ' + (start + 1) + '-' + end + ' of ' + total + ' PRs approved';
+
+  if (pager) {
+    if (pageCount > 1) {
+      pager.hidden = false;
+      pager.innerHTML =
+        '<button class="btn-mini btn-pager" onclick="changeRecentlyApprovedPage(-1)"' + (page === 0 ? ' disabled' : '') + '>Previous</button>' +
+        '<span class="pager-label">Page ' + (page + 1) + ' of ' + pageCount + '</span>' +
+        '<button class="btn-mini btn-pager" onclick="changeRecentlyApprovedPage(1)"' + (page >= pageCount - 1 ? ' disabled' : '') + '>Next</button>';
+    } else {
+      pager.hidden = true;
+      pager.innerHTML = '';
+    }
+  }
+
   tbody.innerHTML = '';
 
-  for (const pr of prs) {
+  for (const pr of pageRows) {
     const tr = document.createElement('tr');
-    const statusBadge = renderCompletedStatusBadge(pr);
-    const completedAt = pr.closedDate || pr.creationDate;
+    const statusBadge = renderRecentlyApprovedStatusBadge(pr);
+    const approvedAt = pr.approvedAt || pr.closedDate || pr.creationDate;
     const actionsHtml = renderCompletedActions(pr);
     tr.innerHTML =
-      '<td class="pr-id-cell">' + renderPrIdInline(pr, 'completed') + '</td>' +
+      '<td class="pr-id-cell">' + renderPrIdInline(pr, 'approved') + '</td>' +
       '<td class="pr-title-cell"><span class="pr-title-text">' + escapeHtml(pr.title) + '</span></td>' +
       '<td class="pr-by-cell">' + escapeHtml(pr.createdBy || '-') + '</td>' +
       '<td class="pr-branch-cell">' + renderBranchCell(pr) + '</td>' +
       '<td class="pr-status-cell">' + statusBadge + '</td>' +
       '<td class="pr-repo-cell">' + escapeHtml(pr.repository || '-') + '</td>' +
-      '<td class="pr-created-cell">' + formatDate(completedAt) + '</td>' +
+      '<td class="pr-created-cell">' + formatDate(approvedAt) + '</td>' +
       '<td class="pr-actions-cell">' + actionsHtml + '</td>';
     tbody.appendChild(tr);
   }
 }
+
+window.changeRecentlyApprovedPage = function(delta) {
+  const page = Number(window._recentlyApprovedPage) || 0;
+  window._recentlyApprovedPage = page + delta;
+  renderRecentlyApprovedPage();
+};
 
 function renderPrSummaryCell(pr, draftBadge, mergeCodeBadge) {
   return '<div class="pr-summary">' +
@@ -379,13 +438,16 @@ function renderPrIdInline(pr, mode) {
 }
 
 function getPrStateMarker(pr, mode) {
-  if (mode === 'completed') {
+  if (mode === 'completed' || mode === 'approved') {
     const summary = getStatusSummaryText(pr);
     if (summary === 'Build Failed' || summary === 'Policy Failed') {
       return { icon: '❌', className: 'pr-state-failed', title: summary };
     }
     if (summary === 'Build Running' || summary === 'Policy Pending') {
       return { icon: '⏳', className: 'pr-state-pending', title: summary };
+    }
+    if (mode === 'approved' && String(pr.status || '').toLowerCase() === 'active') {
+      return { icon: '✅', className: 'pr-state-completed', title: 'Approved PR' };
     }
     if (String(pr.status || '').toLowerCase() === 'completed') {
       return { icon: '✅', className: 'pr-state-completed', title: 'Completed PR' };
@@ -628,6 +690,52 @@ function renderCompletedStatusBadge(pr) {
   return '<span class="' + cls + '" title="' + escapeHtml(title) + '">' +
     '<span class="status-main">' + icon + ' ' + escapeHtml(label) + '</span>' +
     '<span class="status-detail">' + escapeHtml(isFailed || isRunning ? 'PR completed' : supportingLabel) + '</span>' +
+    '</span>';
+}
+
+function renderRecentlyApprovedStatusBadge(pr) {
+  const s = pr.statusSnapshot || {};
+  const policyStatus = String(s.policyStatus || 'unknown').toLowerCase();
+  const mergeStatus = String(s.mergeStatus || pr.mergeStatus || '').toLowerCase();
+  const prStatus = String(pr.status || '').toLowerCase();
+  const isCompleted = prStatus === 'completed';
+  const isMerged = mergeStatus === 'succeeded' || mergeStatus === 'completed';
+  const supportingLabel = getStatusSummaryText(pr);
+  const isFailed = supportingLabel === 'Build Failed' || supportingLabel === 'Policy Failed';
+  const isRunning = supportingLabel === 'Build Running' || supportingLabel === 'Policy Pending';
+
+  let cls = 'status-snapshot status-snapshot-success';
+  let icon = '✅';
+  let label = 'Approved';
+  let detail = supportingLabel && supportingLabel !== 'No build status' ? supportingLabel : 'Waiting completion';
+
+  if (isFailed) {
+    cls = 'status-snapshot status-snapshot-failed';
+    icon = '❌';
+    label = supportingLabel;
+    detail = 'PR approved';
+  } else if (isRunning) {
+    cls = 'status-snapshot status-snapshot-pending';
+    icon = '⏳';
+    label = supportingLabel;
+    detail = 'PR approved';
+  } else if (isCompleted || isMerged) {
+    label = 'Completed';
+    detail = supportingLabel;
+  } else if (prStatus && prStatus !== 'active') {
+    cls = 'status-snapshot status-snapshot-muted';
+    icon = '○';
+    label = 'Closed';
+    detail = supportingLabel;
+  }
+
+  const policyLabel = policyStatus && policyStatus !== 'unknown'
+    ? 'Policy: ' + policyStatus
+    : 'Policy: unknown';
+  const title = label + ' | ' + supportingLabel + ' | ' + policyLabel;
+  return '<span class="' + cls + '" title="' + escapeHtml(title) + '">' +
+    '<span class="status-main">' + icon + ' ' + escapeHtml(label) + '</span>' +
+    '<span class="status-detail">' + escapeHtml(detail) + '</span>' +
     '</span>';
 }
 
@@ -1229,6 +1337,7 @@ function saveLastSync(data) {
       totalActive: data && data.totalActive,
       completedCount: Array.isArray(data && data.completedPrs) ? data.completedPrs.length : 0,
       completedTotalMatched: data && data.completedTotalMatched,
+      recentlyApprovedCount: data && data.completedTotalMatched,
       reviewerGroup: data && data.reviewerGroup,
       targetBranch: data && data.targetBranch
     };
@@ -1271,7 +1380,7 @@ function renderSystemHealth(data) {
     detail: lastSync && lastSync.at ? {
       pendingPrs: lastSync.count,
       totalActive: lastSync.totalActive,
-      completed: lastSync.completedTotalMatched || lastSync.completedCount,
+      approvedLast24h: lastSync.recentlyApprovedCount || lastSync.completedTotalMatched || lastSync.completedCount,
       reviewerGroup: lastSync.reviewerGroup
     } : {}
   }));

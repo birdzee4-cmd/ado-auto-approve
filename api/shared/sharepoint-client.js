@@ -282,6 +282,49 @@ async function getRecentLogItems(top) {
   return result;
 }
 
+async function getLogItemsSince(sinceIso, maxItems) {
+  const siteId = await getSiteId();
+  const listId = await getListId();
+  const token = await getAccessToken();
+  const limit = Math.max(1, Math.min(parseInt(maxItems, 10) || 500, 1000));
+  const pageSize = 100;
+  const filter = sinceIso ? `createdDateTime ge ${sinceIso}` : '';
+  let url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$orderby=createdDateTime desc&$top=${pageSize}`;
+  if (filter) url += `&$filter=${encodeURIComponent(filter)}`;
+  const headers = {
+    'Authorization': 'Bearer ' + token,
+    'Prefer': 'HonorNonIndexedQueriesWarningMayFailRandomly'
+  };
+  const items = [];
+  let lastStatus = 200;
+  let lastBody = null;
+
+  while (url && items.length < limit) {
+    const result = await httpRequest('GET', url, headers);
+    lastStatus = result.status;
+    lastBody = result.body;
+    if (!result.ok) return result;
+
+    const value = result.body && Array.isArray(result.body.value) ? result.body.value : [];
+    for (const item of value) {
+      if (items.length >= limit) break;
+      items.push(item);
+    }
+    url = result.body && result.body['@odata.nextLink'] ? result.body['@odata.nextLink'] : '';
+  }
+
+  return {
+    ok: true,
+    status: lastStatus,
+    body: {
+      value: items,
+      fetched: items.length,
+      truncated: items.length >= limit,
+      lastResponse: lastBody
+    }
+  };
+}
+
 /**
  * Helper: สร้าง log entry มาตรฐาน
  */
@@ -319,5 +362,6 @@ module.exports = {
   getLogForPR,
   getLogByEventKey,
   getRecentLogItems,
+  getLogItemsSince,
   buildLogFields
 };

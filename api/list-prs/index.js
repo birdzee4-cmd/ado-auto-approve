@@ -51,6 +51,7 @@ module.exports = async function (context, req) {
     const reviewerGroup = process.env.ADO_REVIEWER_GROUP || 'IT Support Approve';
     const completedLookbackHours = Number(process.env.COMPLETED_PR_LOOKBACK_HOURS) || 24;
     const completedDisplayLimit = Math.min(Math.max(Number(process.env.COMPLETED_PR_DISPLAY_LIMIT) || 10, 1), 100);
+    const approvedLookupLimit = Math.min(Math.max(Number(process.env.APPROVED_PR_LOOKUP_LIMIT) || 100, 1), 200);
 
     const missing = [];
     if (!org)     missing.push('ADO_ORGANIZATION');
@@ -151,6 +152,17 @@ module.exports = async function (context, req) {
       completedPrs.push(await buildPrRow(context, pr, currentUser, org, project));
     }
 
+    const approvedLookup = await buildRecentlyApprovedRows(context, {
+      currentUser: currentUser,
+      org: org,
+      project: project,
+      stagingPrefix: stagingPrefix,
+      reviewerGroup: reviewerGroup,
+      lookbackHours: completedLookbackHours,
+      maxRows: approvedLookupLimit
+    });
+    const recentlyApprovedPrs = approvedLookup.rows;
+
     const activeNotificationResult = await syncExceptionNotifications(context, prs, { scope: 'active' });
     const completedNotificationResult = await syncExceptionNotifications(context, completedPrs, { scope: 'recently-completed' });
     const syncResult = await syncExternalVoteLogs(context, prs.concat(completedPrs));
@@ -168,9 +180,10 @@ module.exports = async function (context, req) {
       fetchedAt: new Date().toISOString(),
       prs: prs,
       attentionSummary: attentionUtil.buildAttentionSummary(prs),
-      completedCount: completedPrs.length,
-      completedTotalMatched: completedMatches.length,
+      completedCount: recentlyApprovedPrs.length,
+      completedTotalMatched: recentlyApprovedPrs.length,
       completedDisplayLimit: completedDisplayLimit,
+      approvedLookback: approvedLookup.meta,
       exceptionNotifications: {
         ok: activeNotificationResult.ok && completedNotificationResult.ok,
         active: activeNotificationResult,
@@ -179,7 +192,7 @@ module.exports = async function (context, req) {
         sent: (activeNotificationResult.sent || 0) + (completedNotificationResult.sent || 0)
       },
       externalLogSync: syncResult,
-      completedPrs: completedPrs
+      completedPrs: recentlyApprovedPrs
     });
 
   } catch (err) {
@@ -235,6 +248,141 @@ function callAdoApi(hostname, path, pat) {
 
 function isMergeCodeBranch(refName) {
   return String(refName || '').toLowerCase().includes('mergecode');
+}
+
+async function buildRecentlyApprovedRows(context, options) {
+  const meta = {
+    ok: true,
+    source: 'SharePoint Log',
+    checked: 0,
+    matchedLogs: 0,
+    uniquePrs: 0,
+    skipped: 0
+  };
+  const currentUser = options.currentUser || {};
+  const identities = Array.isArray(currentUser.identities) ? currentUser.identities : [];
+  if (identities.length === 0) {
+    meta.ok = false;
+    meta.error = 'Current user identity is not available';
+    return { rows: [], meta: meta };
+  }
+
+  let sp;
+  try {
+    sp = require('../shared/sharepoint-client');
+  } catch (e) {
+    meta.ok = false;
+    meta.error = 'Failed to load sharepoint-client: ' + e.message;
+    return { rows: [], meta: meta };
+  }
+
+  const since = new Date(Date.now() - options.lookbackHours * 60 * 60 * 1000).toISOString();
+  let result;
+  try {
+    result = await sp.getLogItemsSince(since, Math.max(options.maxRows * 5, 100));
+  } catch (e) {
+    meta.ok = false;
+    meta.error = 'Failed to query approved logs: ' + e.message;
+    return { rows: [], meta: meta };
+  }
+
+  if (!result.ok) {
+    meta.ok = false;
+    meta.error = 'SharePoint returned ' + result.status;
+    return { rows: [], meta: meta };
+  }
+
+  const logs = result.body && Array.isArray(result.body.value) ? result.body.value : [];
+  meta.checked = logs.length;
+  const approvedByPr = new Map();
+
+  for (const item of logs) {
+    const fields = item && item.fields || {};
+    const prId = parseInt(fields.PR_ID, 10);
+    if (!Number.isFinite(prId) || prId <= 0) continue;
+    if (!isApprovedLogAction(fields.Action)) continue;
+    if (!identityMatches(fields.User, identities)) continue;
+
+    const createdAt = item.createdDateTime || item.lastModifiedDateTime || fields.Last_Checked_At || '';
+    const existing = approvedByPr.get(prId);
+    if (!existing || compareDateDesc({ approvedAt: createdAt }, { approvedAt: existing.approvedAt }) < 0) {
+      approvedByPr.set(prId, {
+        prId: prId,
+        approvedAt: createdAt,
+        action: fields.Action || '',
+        user: fields.User || '',
+        source: fields.Source || '',
+        logId: item.id || ''
+      });
+    }
+  }
+
+  const approvals = Array.from(approvedByPr.values())
+    .sort(compareDateDesc)
+    .slice(0, options.maxRows);
+  meta.matchedLogs = approvals.length;
+  meta.uniquePrs = approvals.length;
+
+  const rows = [];
+  for (const approvalLog of approvals) {
+    try {
+      const prResult = await ado.getPullRequest(approvalLog.prId);
+      if (!prResult.ok || !prResult.body) {
+        meta.skipped += 1;
+        continue;
+      }
+      const pr = prResult.body;
+      const targetRef = String(pr.targetRefName || '').toLowerCase();
+      if (!(targetRef.startsWith(options.stagingPrefix) || isMergeCodeBranch(targetRef))) {
+        meta.skipped += 1;
+        continue;
+      }
+      if (!hasReviewerGroup(pr, options.reviewerGroup)) {
+        meta.skipped += 1;
+        continue;
+      }
+      const row = await buildPrRow(context, pr, options.currentUser, options.org, options.project);
+      row.approvedAt = approvalLog.approvedAt;
+      row.approvedAction = approvalLog.action;
+      row.approvedSource = approvalLog.source;
+      rows.push(row);
+    } catch (e) {
+      meta.skipped += 1;
+      if (context && context.log && context.log.warn) {
+        context.log.warn('Failed to enrich approved PR #' + approvalLog.prId + ': ' + e.message);
+      }
+    }
+  }
+
+  rows.sort(compareApprovedRows);
+  return { rows: rows, meta: meta };
+}
+
+function isApprovedLogAction(action) {
+  const text = String(action || '').toLowerCase();
+  return text === 'approved' ||
+    text === 'external approved' ||
+    text === 'external approved with suggestions';
+}
+
+function identityMatches(value, identities) {
+  const normalized = normalizeIdentity(value);
+  if (!normalized) return false;
+  return identities.some(identity => identity === normalized);
+}
+
+function compareApprovedRows(a, b) {
+  return compareDateDesc(
+    { approvedAt: a && a.approvedAt || a && a.closedDate || a && a.creationDate },
+    { approvedAt: b && b.approvedAt || b && b.closedDate || b && b.creationDate }
+  );
+}
+
+function compareDateDesc(a, b) {
+  const timeB = Date.parse(b && b.approvedAt);
+  const timeA = Date.parse(a && a.approvedAt);
+  if (Number.isFinite(timeB) && Number.isFinite(timeA) && timeB !== timeA) return timeB - timeA;
+  return 0;
 }
 
 async function syncExternalVoteLogs(context, prRows) {
