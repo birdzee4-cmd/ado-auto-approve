@@ -2017,6 +2017,12 @@ body {
   height: 42px;
 }
 
+.merge-lookup-panel .primary-button {
+  justify-self: start;
+  min-width: 140px;
+  width: auto;
+}
+
 .merge-details {
   margin-top: 16px;
 }
@@ -2175,6 +2181,11 @@ body {
 @media (max-width: 700px) {
   .merge-lookup-panel {
     grid-template-columns: 1fr;
+  }
+
+  .merge-lookup-panel .primary-button {
+    justify-self: stretch;
+    width: 100%;
   }
 
   .merge-meta-grid {
