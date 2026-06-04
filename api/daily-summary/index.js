@@ -119,7 +119,7 @@ async function buildDailySummary(context, reportDate) {
   const criticalRows = attentionRows.filter(row => row.attention && Number(row.attention.rank) >= 4);
   const warningRows = attentionRows.filter(row => row.attention && Number(row.attention.rank) >= 2 && Number(row.attention.rank) < 4);
   const staleRows = attentionRows.filter(row => row.attention && row.attention.status === 'stale');
-  const completedRows = completedToday.map(pr => buildBasicRow(cfg, pr));
+  const abandonedRows = abandonedToday.map(pr => buildBasicRow(cfg, pr));
 
   return {
     dateLabel: range.dateLabel,
@@ -141,7 +141,7 @@ async function buildDailySummary(context, reportDate) {
     failedItems: failedRows.slice(0, 8),
     attentionItems: attentionRows.slice(0, 8),
     rejectedItems: rejectedRows.slice(0, 5),
-    completedItems: completedRows.slice(0, 5)
+    abandonedItems: abandonedRows.slice(0, 5)
   };
 }
 
@@ -276,9 +276,9 @@ function buildDailySummaryMessage(summary, testMode) {
   appendItems(lines, '❌ Rejected active PRs', summary.rejectedItems, item =>
     '#' + item.id + ' ' + item.repository + ' - approvals ' + item.approvals,
     true);
-  appendItems(lines, '✅ Recently completed today', summary.completedItems, item =>
+  appendItems(lines, '🟠 Abandoned today', summary.abandonedItems, item =>
     '#' + item.id + ' ' + item.repository + ' - ' + trimText(item.title, 80),
-    false);
+    true);
 
   lines.push('');
   lines.push('_Daily Summary notification is separate from Build/Policy exception alerts._');
