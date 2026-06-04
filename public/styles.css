@@ -1086,6 +1086,62 @@ body {
   word-break: normal;
 }
 
+.pr-id-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
+.pr-state-prefix {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid #f3d37b;
+  border-radius: 999px;
+  background: #fff8db;
+  color: #7c4a00;
+  font-size: 12px;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.pr-state-new,
+.pr-state-pending {
+  background: #fff8db;
+  border-color: #facc15;
+}
+
+.pr-state-warning {
+  background: #fff7ed;
+  border-color: #fb923c;
+}
+
+.pr-state-critical,
+.pr-state-failed {
+  background: #fff1f2;
+  border-color: #f87171;
+}
+
+.pr-state-completed {
+  background: #ecfdf5;
+  border-color: #4ade80;
+}
+
+.pr-state-manual {
+  background: #fffbeb;
+  border-color: #f59e0b;
+}
+
+.pr-state-muted {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #64748b;
+}
+
 .pr-title-cell {
   line-height: 1.35;
 }

@@ -343,7 +343,7 @@ function renderCompletedPrTable(prs, lookbackHours, totalMatched) {
     const completedAt = pr.closedDate || pr.creationDate;
     const actionsHtml = renderCompletedActions(pr);
     tr.innerHTML =
-      '<td class="pr-id-cell"><strong>#' + pr.id + '</strong></td>' +
+      '<td class="pr-id-cell">' + renderPrIdInline(pr, 'completed') + '</td>' +
       '<td class="pr-title-cell"><span class="pr-title-text">' + escapeHtml(pr.title) + '</span></td>' +
       '<td class="pr-by-cell">' + escapeHtml(pr.createdBy || '-') + '</td>' +
       '<td class="pr-branch-cell">' + renderBranchCell(pr) + '</td>' +
@@ -358,7 +358,7 @@ function renderCompletedPrTable(prs, lookbackHours, totalMatched) {
 function renderPrSummaryCell(pr, draftBadge, mergeCodeBadge) {
   return '<div class="pr-summary">' +
     '<div class="pr-summary-main">' +
-      '<strong class="pr-summary-id">#' + pr.id + '</strong>' +
+      renderPrIdInline(pr, 'active') +
       '<span class="pr-title-text">' + escapeHtml(pr.title) + '</span>' +
       (draftBadge || '') + (mergeCodeBadge || '') +
     '</div>' +
@@ -368,6 +368,56 @@ function renderPrSummaryCell(pr, draftBadge, mergeCodeBadge) {
       '<span>' + formatDate(pr.creationDate) + '</span>' +
     '</div>' +
   '</div>';
+}
+
+function renderPrIdInline(pr, mode) {
+  const marker = getPrStateMarker(pr, mode);
+  return '<span class="pr-id-wrap" title="' + escapeHtml(marker.title) + '">' +
+    '<span class="pr-state-prefix ' + marker.className + '" aria-label="' + escapeHtml(marker.title) + '">' + marker.icon + '</span>' +
+    '<strong class="pr-summary-id">#' + escapeHtml(pr.id) + '</strong>' +
+    '</span>';
+}
+
+function getPrStateMarker(pr, mode) {
+  if (mode === 'completed') {
+    const summary = getStatusSummaryText(pr);
+    if (summary === 'Build Failed' || summary === 'Policy Failed') {
+      return { icon: '❌', className: 'pr-state-failed', title: summary };
+    }
+    if (summary === 'Build Running' || summary === 'Policy Pending') {
+      return { icon: '⏳', className: 'pr-state-pending', title: summary };
+    }
+    if (String(pr.status || '').toLowerCase() === 'completed') {
+      return { icon: '✅', className: 'pr-state-completed', title: 'Completed PR' };
+    }
+    return { icon: '○', className: 'pr-state-muted', title: 'Closed PR' };
+  }
+
+  if (isMergeCodePr(pr)) {
+    return { icon: '🔒', className: 'pr-state-manual', title: 'Manual action required in Azure DevOps' };
+  }
+
+  const attention = pr.attention || {};
+  const attentionStatus = String(attention.status || '').toLowerCase();
+  if (attentionStatus === 'critical') {
+    return { icon: '🚨', className: 'pr-state-critical', title: attention.reason || 'Critical attention required' };
+  }
+  if (attentionStatus === 'warning' || attentionStatus === 'stale') {
+    return { icon: '⚠️', className: 'pr-state-warning', title: attention.reason || 'PR is waiting longer than expected' };
+  }
+
+  const myStatus = pr.myApproval && pr.myApproval.status ? String(pr.myApproval.status).toLowerCase() : '';
+  if (myStatus === 'approved' || myStatus === 'suggestions') {
+    return { icon: '✅', className: 'pr-state-completed', title: 'Your vote has been submitted' };
+  }
+  if (myStatus === 'rejected') {
+    return { icon: '❌', className: 'pr-state-failed', title: 'Your vote is rejected' };
+  }
+
+  if (attentionStatus === 'watch') {
+    return { icon: '⏳', className: 'pr-state-pending', title: attention.reason || 'Approval is pending' };
+  }
+  return { icon: '🆕', className: 'pr-state-new', title: 'New PR waiting approve' };
 }
 
 function renderActions(pr) {
