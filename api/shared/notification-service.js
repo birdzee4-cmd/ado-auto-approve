@@ -76,11 +76,11 @@ async function notifyOperationFailed(context, opts) {
 
 async function sendOnce(context, eventKey, logOptions, message) {
   try {
-    const history = await sp.getLogForPR(logOptions.prId);
-    const existing = history.ok && history.body && Array.isArray(history.body.value)
-      ? history.body.value.map(item => item.fields || {})
+    const existing = await sp.getLogByEventKey(eventKey);
+    const existingItems = existing.ok && existing.body && Array.isArray(existing.body.value)
+      ? existing.body.value
       : [];
-    if (existing.some(item => item.Event_Key === eventKey)) {
+    if (existingItems.length > 0) {
       return { skipped: true, reason: 'duplicate', eventKey: eventKey };
     }
 
