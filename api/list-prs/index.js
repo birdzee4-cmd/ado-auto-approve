@@ -151,7 +151,8 @@ module.exports = async function (context, req) {
       completedPrs.push(await buildPrRow(context, pr, currentUser, org, project));
     }
 
-    const notificationResult = await syncExceptionNotifications(context, prs);
+    const activeNotificationResult = await syncExceptionNotifications(context, prs, { scope: 'active' });
+    const completedNotificationResult = await syncExceptionNotifications(context, completedPrs, { scope: 'recently-completed' });
     const syncResult = await syncExternalVoteLogs(context, prs.concat(completedPrs));
 
     jsonResponse(200, {
@@ -170,7 +171,13 @@ module.exports = async function (context, req) {
       completedCount: completedPrs.length,
       completedTotalMatched: completedMatches.length,
       completedDisplayLimit: completedDisplayLimit,
-      exceptionNotifications: notificationResult,
+      exceptionNotifications: {
+        ok: activeNotificationResult.ok && completedNotificationResult.ok,
+        active: activeNotificationResult,
+        recentlyCompleted: completedNotificationResult,
+        checked: (activeNotificationResult.checked || 0) + (completedNotificationResult.checked || 0),
+        sent: (activeNotificationResult.sent || 0) + (completedNotificationResult.sent || 0)
+      },
       externalLogSync: syncResult,
       completedPrs: completedPrs
     });
@@ -313,7 +320,7 @@ async function syncExternalVoteLogs(context, prRows) {
   return { ok: errors.length === 0, checked: checked, logged: logged, errors: errors.slice(0, 5) };
 }
 
-async function syncExceptionNotifications(context, prRows) {
+async function syncExceptionNotifications(context, prRows, options) {
   const rows = Array.isArray(prRows) ? prRows.slice(0, 25) : [];
   if (!rows.length || process.env.TEAMS_EXCEPTION_NOTIFICATIONS === 'false') {
     return { ok: true, checked: 0, sent: 0, skipped: true };
@@ -333,7 +340,7 @@ async function syncExceptionNotifications(context, prRows) {
   for (const pr of rows) {
     try {
       checked += 1;
-      const result = await notifications.notifyPrIssueIfNeeded(context, pr);
+      const result = await notifications.notifyPrIssueIfNeeded(context, pr, options);
       if (result && result.ok) sent += 1;
       if (result && result.ok === false && result.error) errors.push('PR #' + pr.id + ': ' + result.error);
     } catch (e) {

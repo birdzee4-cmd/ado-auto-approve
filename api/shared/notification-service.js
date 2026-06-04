@@ -5,17 +5,19 @@ function isTeamsEnabled() {
   return !!process.env.TEAMS_WEBHOOK_URL && process.env.TEAMS_EXCEPTION_NOTIFICATIONS !== 'false';
 }
 
-async function notifyPrIssueIfNeeded(context, pr) {
+async function notifyPrIssueIfNeeded(context, pr, options) {
   if (!isTeamsEnabled() || !pr || !pr.id) {
     return { skipped: true, reason: 'disabled_or_missing_pr' };
   }
 
-  const issue = getPrIssue(pr);
+  const opts = options || {};
+  const scope = normalizeKey(opts.scope || 'active');
+  const issue = getPrIssue(pr, scope);
   if (!issue) {
     return { skipped: true, reason: 'no_exception' };
   }
 
-  const eventKey = 'teams:pr-issue:' + pr.id + ':' + issue.key;
+  const eventKey = 'teams:pr-issue:' + scope + ':' + pr.id + ':' + issue.key;
   return sendOnce(context, eventKey, {
     prId: pr.id,
     action: 'Notification Sent',
@@ -29,7 +31,7 @@ async function notifyPrIssueIfNeeded(context, pr) {
     eventKey: eventKey,
     statusSnapshot: pr.statusSnapshot,
     adoPrUrl: pr.url
-  }, buildPrIssueMessage(pr, issue));
+  }, buildPrIssueMessage(pr, issue, scope));
 }
 
 async function notifyRejected(context, opts) {
@@ -120,9 +122,12 @@ async function sendOnce(context, eventKey, logOptions, message) {
   }
 }
 
-function getPrIssue(pr) {
+function getPrIssue(pr, scope) {
   const approval = pr.approval || {};
-  if (approval.status !== 'complete') return null;
+  const isRecentlyCompleted = scope === 'recently-completed';
+  const prStatus = String(pr.status || '').toLowerCase();
+  if (!isRecentlyCompleted && approval.status !== 'complete') return null;
+  if (isRecentlyCompleted && prStatus !== 'completed') return null;
 
   const s = pr.statusSnapshot || {};
   const buildResult = String(s.buildResult || '').toLowerCase();
@@ -131,21 +136,29 @@ function getPrIssue(pr) {
   if (buildResult === 'failed' || buildResult === 'error') {
     return {
       key: 'build-' + buildResult,
-      title: 'Build failed after approvals completed',
-      message: 'Approvals are complete, but build result is ' + buildResult + '.'
+      title: isRecentlyCompleted
+        ? 'Build failed after PR completed'
+        : 'Build failed after approvals completed',
+      message: isRecentlyCompleted
+        ? 'PR is completed, but build result is ' + buildResult + '.'
+        : 'Approvals are complete, but build result is ' + buildResult + '.'
     };
   }
   if (policyStatus === 'failed') {
     return {
       key: 'policy-failed',
-      title: 'Policy failed after approvals completed',
-      message: 'Approvals are complete, but Azure DevOps policy evaluation failed.'
+      title: isRecentlyCompleted
+        ? 'Policy failed after PR completed'
+        : 'Policy failed after approvals completed',
+      message: isRecentlyCompleted
+        ? 'PR is completed, but Azure DevOps policy evaluation failed.'
+        : 'Approvals are complete, but Azure DevOps policy evaluation failed.'
     };
   }
   return null;
 }
 
-function buildPrIssueMessage(pr, issue) {
+function buildPrIssueMessage(pr, issue, scope) {
   const a = pr.approval || {};
   const s = pr.statusSnapshot || {};
   const lines = [
@@ -158,6 +171,7 @@ function buildPrIssueMessage(pr, issue) {
     '| **PR** | #' + pr.id + ' |',
     '| **Title** | ' + safe(pr.title) + ' |',
     '| **Repository** | ' + safe(pr.repository) + ' |',
+    '| **Scope** | ' + safe(scope === 'recently-completed' ? 'Recently Completed' : 'Active PR Queue') + ' |',
     '| **Approvals** | ' + (a.approvedCount || 0) + '/' + (a.requiredCount || 0) + ' |',
     '| **Build** | ' + safe([s.buildStatus, s.buildResult].filter(Boolean).join(' / ') || '-') + ' |',
     '| **Policy** | ' + safe(s.policyStatus || '-') + ' |'
