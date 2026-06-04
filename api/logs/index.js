@@ -98,7 +98,7 @@ function normalizeLogItem(item) {
     targetBranch: fields.Target_Branch || '',
     result: fields.Result || '',
     reason: fields.Reason || '',
-    source: fields.Source || 'Dashboard',
+    source: fields.Log_Source || fields.Source || 'Dashboard',
     eventKey: fields.Event_Key || '',
     build: buildText,
     buildStatus: fields.Build_Status || '',

@@ -1037,7 +1037,7 @@ window.openHistoryModal = async function(prId) {
         '<td>' + formatDate(it.createdAt) + '</td>' +
         '<td><span class="' + actionClass + '">' + escapeHtml(it.Action || '-') + '</span></td>' +
         '<td>' + escapeHtml(it.User || '-') + '</td>' +
-        '<td>' + escapeHtml(it.Source || 'Dashboard') + '</td>' +
+        '<td>' + escapeHtml(it.Log_Source || it.Source || 'Dashboard') + '</td>' +
         '<td>' + escapeHtml(it.Result || '-') + '</td>' +
         '<td>' + escapeHtml(buildText) + '</td>' +
         '<td>' + escapeHtml(it.Policy_Status || '-') + '</td>' +

@@ -34,7 +34,7 @@ const OPTIONAL_LOG_COLUMNS = [
   'Last_Checked_At',
   'ADO_Build_URL',
   'ADO_PR_URL',
-  'Source',
+  'Log_Source',
   'Event_Key'
 ];
 
@@ -185,8 +185,9 @@ async function ensureOptionalLogColumns() {
   const listId = await getListId();
   const token = await getAccessToken();
   const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/columns`;
+  let createdAny = false;
   for (const name of missing) {
-    await httpRequest('POST', url, {
+    const result = await httpRequest('POST', url, {
       'Authorization': 'Bearer ' + token,
       'Content-Type': 'application/json'
     }, {
@@ -194,9 +195,12 @@ async function ensureOptionalLogColumns() {
       displayName: name.replace(/_/g, ' '),
       text: {}
     });
+    if (result.ok) createdAny = true;
   }
-  cachedListColumns = null;
-  await getListColumns(true);
+  if (createdAny) {
+    cachedListColumns = null;
+    await getListColumns(true);
+  }
   optionalColumnsEnsured = true;
 }
 
@@ -253,6 +257,11 @@ async function getLogForPR(prId) {
  * Query items สำหรับ event key ที่ระบุ ใช้กัน notification ซ้ำ
  */
 async function getLogByEventKey(eventKey) {
+  await ensureOptionalLogColumns();
+  const columns = await getListColumns(false);
+  if (!columns.has('Event_Key')) {
+    return { ok: true, status: 200, body: { value: [], missingColumn: 'Event_Key' } };
+  }
   const siteId = await getSiteId();
   const listId = await getListId();
   const token = await getAccessToken();
@@ -338,7 +347,7 @@ function buildLogFields(opts) {
     Target_Branch: opts.targetBranch || '',
     Result: opts.result || 'Success',
     Reason: opts.reason || '',
-    Source: opts.source || 'Dashboard',
+    Log_Source: opts.source || 'Dashboard',
     Event_Key: opts.eventKey || '',
     Build_Status: opts.buildStatus || '',
     Build_Result: opts.buildResult || '',

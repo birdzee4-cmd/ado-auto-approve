@@ -153,7 +153,7 @@ function findLastNotification(logItems) {
     const action = String(fields.Action || '');
     const result = String(fields.Result || '');
     const reason = String(fields.Reason || '');
-    const source = String(fields.Source || '');
+    const source = String(fields.Log_Source || fields.Source || '');
     const text = [title, action, result, reason, source].join(' ').toLowerCase();
     const looksLikeNotification =
       action === 'Notification Sent' ||
@@ -167,7 +167,7 @@ function findLastNotification(logItems) {
       prId: fields.PR_ID || 0,
       result: fields.Result || '',
       reason: fields.Reason || '',
-      source: fields.Source || inferNotificationSource(text)
+      source: fields.Log_Source || fields.Source || inferNotificationSource(text)
     };
   }
   return null;

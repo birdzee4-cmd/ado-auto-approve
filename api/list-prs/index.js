@@ -329,7 +329,7 @@ async function buildRecentlyApprovedRows(context, options) {
         approvedAt: createdAt,
         action: fields.Action || '',
         user: fields.User || '',
-        source: fields.Source || '',
+        source: fields.Log_Source || fields.Source || '',
         logId: item.id || ''
       });
     }
