@@ -52,6 +52,7 @@ module.exports = async function (context, req) {
     const completedLookbackHours = Number(process.env.COMPLETED_PR_LOOKBACK_HOURS) || 24;
     const completedDisplayLimit = Math.min(Math.max(Number(process.env.COMPLETED_PR_DISPLAY_LIMIT) || 10, 1), 100);
     const approvedLookupLimit = Math.min(Math.max(Number(process.env.APPROVED_PR_LOOKUP_LIMIT) || 100, 1), 200);
+    const branchBuildCache = {};
 
     const missing = [];
     if (!org)     missing.push('ADO_ORGANIZATION');
@@ -115,7 +116,7 @@ module.exports = async function (context, req) {
     for (const pr of targetPrs
       .filter(pr => hasReviewerGroup(pr, reviewerGroup))
     ) {
-      prs.push(await buildPrRow(context, pr, currentUser, org, project));
+      prs.push(await buildPrRow(context, pr, currentUser, org, project, branchBuildCache));
     }
     prs.sort(attentionUtil.sortByAttention);
 
@@ -149,7 +150,7 @@ module.exports = async function (context, req) {
       });
     const completedPrs = [];
     for (const pr of completedMatches.slice(0, completedDisplayLimit)) {
-      completedPrs.push(await buildPrRow(context, pr, currentUser, org, project));
+      completedPrs.push(await buildPrRow(context, pr, currentUser, org, project, branchBuildCache));
     }
 
     const approvedLookup = await buildRecentlyApprovedRows(context, {
@@ -159,7 +160,8 @@ module.exports = async function (context, req) {
       stagingPrefix: stagingPrefix,
       reviewerGroup: reviewerGroup,
       lookbackHours: completedLookbackHours,
-      maxRows: approvedLookupLimit
+      maxRows: approvedLookupLimit,
+      branchBuildCache: branchBuildCache
     });
     const recentlyApprovedPrs = approvedLookup.rows;
 
@@ -344,7 +346,7 @@ async function buildRecentlyApprovedRows(context, options) {
         meta.skipped += 1;
         continue;
       }
-      const row = await buildPrRow(context, pr, options.currentUser, options.org, options.project);
+      const row = await buildPrRow(context, pr, options.currentUser, options.org, options.project, options.branchBuildCache);
       row.approvedAt = approvalLog.approvedAt;
       row.approvedAction = approvalLog.action;
       row.approvedSource = approvalLog.source;
@@ -551,7 +553,7 @@ function hasExistingVoteLog(existingLogs, event) {
   });
 }
 
-async function getStatusSnapshot(context, adoClient, pr, repositoryId, isMergeCodeTarget) {
+async function getStatusSnapshot(context, adoClient, pr, repositoryId, isMergeCodeTarget, branchBuildCache) {
   try {
     if (!repositoryId || !pr || !pr.pullRequestId) {
       return adoClient.summarizeStatusSnapshot(pr, [], isMergeCodeTarget ? null : undefined);
@@ -569,7 +571,7 @@ async function getStatusSnapshot(context, adoClient, pr, repositoryId, isMergeCo
       : [];
     let buildRuns = [];
     if (!statuses.some(adoClient.isBuildStatus)) {
-      const buildsResult = await getCachedBuildsForBranch(context, adoClient, repositoryId, pr.targetRefName);
+      const buildsResult = await getCachedBuildsForBranch(branchBuildCache, adoClient, repositoryId, pr.targetRefName);
       if (!buildsResult.ok && context && context.log && context.log.warn) {
         context.log.warn('Branch build lookup returned HTTP ' + buildsResult.status + ' for #' + pr.pullRequestId);
       }
@@ -586,22 +588,22 @@ async function getStatusSnapshot(context, adoClient, pr, repositoryId, isMergeCo
   }
 }
 
-async function getCachedBuildsForBranch(context, adoClient, repositoryId, branchName) {
+async function getCachedBuildsForBranch(cache, adoClient, repositoryId, branchName) {
   const key = String(repositoryId || '') + '|' + String(branchName || '').toLowerCase();
-  if (!context._branchBuildCache) context._branchBuildCache = {};
-  if (context._branchBuildCache[key]) return context._branchBuildCache[key];
+  const requestCache = cache || {};
+  if (requestCache[key]) return requestCache[key];
   const result = await adoClient.getBuildsForBranch(repositoryId, branchName, 20);
-  context._branchBuildCache[key] = result;
+  requestCache[key] = result;
   return result;
 }
 
-async function buildPrRow(context, pr, currentUser, org, project) {
+async function buildPrRow(context, pr, currentUser, org, project, branchBuildCache) {
   const reviewers = Array.isArray(pr.reviewers) ? pr.reviewers : [];
   const repositoryId = pr.repository && pr.repository.id;
   const isMergeCodeTarget = isMergeCodeBranch(pr.targetRefName);
   const approval = buildApprovalSummary(reviewers);
   const myApproval = buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTarget);
-  const statusSnapshot = await getStatusSnapshot(context, ado, pr, repositoryId, isMergeCodeTarget);
+  const statusSnapshot = await getStatusSnapshot(context, ado, pr, repositoryId, isMergeCodeTarget, branchBuildCache);
   const attention = attentionUtil.buildAttention(pr, approval, statusSnapshot, isMergeCodeTarget);
   return {
     id: pr.pullRequestId,
