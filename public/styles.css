@@ -1098,47 +1098,37 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  border: 1px solid #f3d37b;
-  border-radius: 999px;
-  background: #fff8db;
+  width: 16px;
+  min-width: 16px;
   color: #7c4a00;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1;
   flex: 0 0 auto;
 }
 
 .pr-state-new,
 .pr-state-pending {
-  background: #fff8db;
-  border-color: #facc15;
+  color: #b77900;
 }
 
 .pr-state-warning {
-  background: #fff7ed;
-  border-color: #fb923c;
+  color: #c2410c;
 }
 
 .pr-state-critical,
 .pr-state-failed {
-  background: #fff1f2;
-  border-color: #f87171;
+  color: #dc2626;
 }
 
 .pr-state-completed {
-  background: #ecfdf5;
-  border-color: #4ade80;
+  color: #059669;
 }
 
 .pr-state-manual {
-  background: #fffbeb;
-  border-color: #f59e0b;
+  color: #b45309;
 }
 
 .pr-state-muted {
-  background: #f8fafc;
-  border-color: #cbd5e1;
   color: #64748b;
 }
 
