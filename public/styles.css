@@ -1965,6 +1965,13 @@ body {
   text-transform: uppercase;
 }
 
+.merge-card-note {
+  margin: -6px 0 12px;
+  color: #7c5d00;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .merge-card.merge-ok {
   border-left: 4px solid #22c55e;
 }

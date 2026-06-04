@@ -55,6 +55,48 @@ function findStagingPipelineMappingByCi(ciName) {
   ) || null;
 }
 
+function normalizeForCandidate(value) {
+  return normalize(value).replace(/[^a-z0-9]+/g, '');
+}
+
+function buildCandidateTokens(pr) {
+  const repo = pr && pr.repository ? pr.repository.name : '';
+  const rawTokens = [
+    repo,
+    repo.replace(/^net[_\-.]?project[_\-.]?/i, ''),
+    repo.replace(/^node[_\-.]?project[_\-.]?/i, ''),
+    repo.replace(/^react[_\-.]?web[_\-.]?/i, '')
+  ];
+  return rawTokens
+    .map(normalizeForCandidate)
+    .filter(token => token && token.length >= 3);
+}
+
+function scoreStagingCandidate(item, tokens) {
+  const ci = normalizeForCandidate(item && item.ciName);
+  const cd = normalizeForCandidate(item && item.cdName);
+  if (!ci) return 0;
+  let score = 0;
+  for (const token of tokens) {
+    if (ci.includes(token)) score = Math.max(score, token.length + 20);
+    if (cd.includes(token)) score = Math.max(score, token.length + 10);
+  }
+  if (ci.includes('stg')) score += 3;
+  if (ci.includes('docker')) score += 2;
+  return score;
+}
+
+function findPossibleStagingPipelineMapping(pr) {
+  const tokens = buildCandidateTokens(pr);
+  if (!tokens.length) return null;
+  const candidates = (Array.isArray(STG_CI_CD_MAP) ? STG_CI_CD_MAP : [])
+    .map(item => ({ item, score: scoreStagingCandidate(item, tokens) }))
+    .filter(result => result.score > 0)
+    .sort((a, b) => b.score - a.score);
+  if (!candidates.length) return null;
+  return candidates[0].item;
+}
+
 function isMergePr(pr) {
   const source = normalize(pr && pr.sourceRefName);
   const target = normalize(pr && pr.targetRefName);
@@ -67,5 +109,6 @@ module.exports = {
   MERGE_PIPELINE_RULES,
   findMergePipelineRule,
   findStagingPipelineMappingByCi,
+  findPossibleStagingPipelineMapping,
   isMergePr
 };

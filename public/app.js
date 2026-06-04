@@ -1090,6 +1090,9 @@ function renderMergeLookup(data) {
   if (!details) return;
   const pr = data.pr || {};
   const recommended = data.recommended || {};
+  const possible = data.possible || {};
+  const recommendation = recommended.ciName ? recommended : possible;
+  const hasPossible = !recommended.ciName && !!possible.ciName;
   const detected = data.detected && data.detected.ci || null;
   const result = data.result || {};
   const statusClass = {
@@ -1097,6 +1100,7 @@ function renderMergeLookup(data) {
     mismatch: 'merge-warn',
     'mapped-only': 'merge-info',
     'detected-only': 'merge-info',
+    possible: 'merge-warn',
     'not-found': 'merge-warn'
   }[result.status] || 'merge-info';
 
@@ -1131,16 +1135,18 @@ function renderMergeLookup(data) {
         '<div class="merge-actions">' + prLink + '</div>' +
       '</div>' +
       '<div class="merge-card ' + statusClass + '">' +
-        '<div class="merge-card-label">Recommended CI/CD</div>' +
-        '<h3>' + escapeHtml(data.mapping && data.mapping.label || 'No mapping rule') + '</h3>' +
+        '<div class="merge-card-label">' + escapeHtml(hasPossible ? 'Possible CI/CD' : 'Recommended CI/CD') + '</div>' +
+        '<h3>' + escapeHtml(hasPossible ? 'Please verify before use' : data.mapping && data.mapping.label || 'No mapping rule') + '</h3>' +
+        (hasPossible ? '<p class="merge-card-note">No confirmed mapping was found. This suggestion is inferred from repository name.</p>' : '') +
         '<dl class="merge-definition-list">' +
-          '<dt>CI</dt><dd>' + escapeHtml(recommended.ciName || '-') + '</dd>' +
-          '<dt>CD</dt><dd>' + escapeHtml(recommended.cdName || '-') + '</dd>' +
-          '<dt>CI ID</dt><dd>' + escapeHtml(recommended.ciId || '-') + '</dd>' +
-          '<dt>CD ID</dt><dd>' + escapeHtml(recommended.cdId || '-') + '</dd>' +
-          '<dt>Source</dt><dd>' + escapeHtml(recommended.source || '-') + '</dd>' +
-          '<dt>Environment</dt><dd>' + escapeHtml(data.mapping && data.mapping.environment || '-') + '</dd>' +
-          '<dt>Confidence</dt><dd>' + escapeHtml(data.mapping && data.mapping.confidence || '-') + '</dd>' +
+          '<dt>CI</dt><dd>' + escapeHtml(recommendation.ciName || '-') + '</dd>' +
+          '<dt>CD</dt><dd>' + escapeHtml(recommendation.cdName || '-') + '</dd>' +
+          '<dt>CI ID</dt><dd>' + escapeHtml(recommendation.ciId || '-') + '</dd>' +
+          '<dt>CD ID</dt><dd>' + escapeHtml(recommendation.cdId || '-') + '</dd>' +
+          '<dt>Source</dt><dd>' + escapeHtml(recommendation.source || '-') + '</dd>' +
+          '<dt>Environment</dt><dd>' + escapeHtml(recommendation.environment || data.mapping && data.mapping.environment || '-') + '</dd>' +
+          '<dt>Confidence</dt><dd>' + escapeHtml(recommendation.confidence || data.mapping && data.mapping.confidence || '-') + '</dd>' +
+          (hasPossible ? '<dt>Reason</dt><dd>' + escapeHtml(possible.note || '-') + '</dd>' : '') +
         '</dl>' +
       '</div>' +
       '<div class="merge-card ' + statusClass + '">' +

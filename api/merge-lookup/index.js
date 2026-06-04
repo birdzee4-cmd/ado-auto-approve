@@ -1,5 +1,10 @@
 const ado = require('../shared/ado-client');
-const { findMergePipelineRule, findStagingPipelineMappingByCi, isMergePr } = require('../shared/merge-pipeline-map');
+const {
+  findMergePipelineRule,
+  findStagingPipelineMappingByCi,
+  findPossibleStagingPipelineMapping,
+  isMergePr
+} = require('../shared/merge-pipeline-map');
 
 function shortBranch(refName) {
   return String(refName || '').replace(/^refs\/heads\//i, '');
@@ -145,7 +150,26 @@ module.exports = async function (context, req) {
       confidence: 'high',
       note: 'Recommended by Staging CI/CD mapping CSV'
     } : null;
-    const status = classify(recommended, detectedBuild);
+    const possibleMapping = !recommended
+      ? findPossibleStagingPipelineMapping(pr)
+      : null;
+    const possible = possibleMapping ? {
+      source: 'repo-name-candidate',
+      ciName: possibleMapping.ciName || '',
+      cdName: possibleMapping.cdName || '',
+      ciId: possibleMapping.ciId || '',
+      ciFolder: possibleMapping.ciFolder || '',
+      cdId: possibleMapping.cdId || '',
+      cdPath: possibleMapping.cdPath || '',
+      environment: 'STG',
+      confidence: 'medium',
+      note: 'Possible CI/CD inferred from repository name. Please verify before use.'
+    } : null;
+    const status = recommended || detectedBuild
+      ? classify(recommended, detectedBuild)
+      : possible
+      ? 'possible'
+      : 'not-found';
     const webUrl = pr.repository && pr.repository.webUrl
       ? pr.repository.webUrl + '/pullrequest/' + pr.pullRequestId
       : (pr.url || '');
@@ -186,6 +210,7 @@ module.exports = async function (context, req) {
           matched: false
         },
         recommended,
+        possible,
         detected: {
           ci: detectedBuild,
           targetBuildCount: detectedTarget.count,
@@ -198,6 +223,7 @@ module.exports = async function (context, req) {
             mismatch: 'Recommended CI is different from detected build run',
             'mapped-only': 'Found mapping rule, but no relevant build run was detected yet',
             'detected-only': 'Detected a build run, but no mapping rule matched this PR',
+            possible: 'No confirmed mapping was found, but possible CI/CD was inferred',
             'not-found': 'No mapping rule or build run was found'
           }[status] || status
         }
