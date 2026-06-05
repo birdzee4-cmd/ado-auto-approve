@@ -218,7 +218,7 @@ body {
 
 .welcome-card h1 {
   color: #111827;
-  font-size: 28px;
+  font-size: 26px;
   line-height: 1.18;
   margin-bottom: 6px;
   font-weight: 800;
@@ -226,9 +226,10 @@ body {
 
 .welcome-card > p {
   color: #4a3b15;
-  margin-bottom: 24px;
-  line-height: 1.42;
-  max-width: 980px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  line-height: 1.36;
+  max-width: 760px;
 }
 
 .page-header {
