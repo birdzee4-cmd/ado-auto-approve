@@ -173,7 +173,7 @@ body {
 }
 
 .user-name {
-  color: #f6d56b;
+  color: var(--bz-yellow-strong);
   font-size: 14px;
   font-weight: 600;
 }
