@@ -236,7 +236,7 @@ async function loadPrActivity(page) {
     showBox('activityResult',
       '<div class="test-result result-success">✅ Loaded <strong>' +
       escapeHtml(d.completedTotalMatched || 0) +
-      '</strong> approved PRs from the last ' +
+      '</strong> approval log PRs from the last ' +
       escapeHtml(d.completedLookbackHours || 24) +
       ' hours</div>'
     );
@@ -383,13 +383,13 @@ function renderCompletedPrTable(prs, lookbackHours, totalMatched, displayLimit, 
   if (!Array.isArray(prs) || prs.length === 0) {
     section.hidden = false;
     const total = Number.isFinite(Number(totalMatched)) ? Number(totalMatched) : 0;
-    meta.textContent = 'Last ' + lookbackHours + ' hours | showing 0 of ' + total + ' PRs approved';
+    meta.textContent = 'Last ' + lookbackHours + ' hours by approval log | showing 0 of ' + total + ' PRs';
     tbody.innerHTML = '';
     if (pager) {
       pager.hidden = true;
       pager.innerHTML = '';
     }
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:22px;color:#9ca3af">— No approved PRs found in the last ' + escapeHtml(lookbackHours) + ' hours —</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:22px;color:#9ca3af">— No approval log PRs found in the last ' + escapeHtml(lookbackHours) + ' hours —</td></tr>';
     return;
   }
 
@@ -403,7 +403,7 @@ function renderCompletedPrTable(prs, lookbackHours, totalMatched, displayLimit, 
     const end = Math.min(start + prs.length, total);
     window._recentlyApprovedPage = page;
     window._recentlyApprovedServerPaged = true;
-    meta.textContent = 'Last ' + lookbackHours + ' hours | showing ' + (start + 1) + '-' + end + ' of ' + total + ' PRs approved';
+    meta.textContent = 'Last ' + lookbackHours + ' hours by approval log | showing ' + (start + 1) + '-' + end + ' of ' + total + ' PRs';
     if (pager) {
       if (pageCount > 1) {
         pager.hidden = false;
@@ -443,7 +443,7 @@ function renderRecentlyApprovedPage() {
   if (!section || !meta || !tbody) return;
   if (!prs.length) {
     section.hidden = false;
-    meta.textContent = 'Last ' + lookbackHours + ' hours | showing 0 of 0 PRs approved';
+    meta.textContent = 'Last ' + lookbackHours + ' hours by approval log | showing 0 of 0 PRs';
     tbody.innerHTML = '';
     if (pager) {
       pager.hidden = true;
@@ -458,7 +458,7 @@ function renderRecentlyApprovedPage() {
   const start = page * limit;
   const end = Math.min(start + limit, prs.length);
   const pageRows = prs.slice(start, end);
-  meta.textContent = 'Last ' + lookbackHours + ' hours | showing ' + (start + 1) + '-' + end + ' of ' + total + ' PRs approved';
+  meta.textContent = 'Last ' + lookbackHours + ' hours by approval log | showing ' + (start + 1) + '-' + end + ' of ' + total + ' PRs';
 
   if (pager) {
     if (pageCount > 1) {
