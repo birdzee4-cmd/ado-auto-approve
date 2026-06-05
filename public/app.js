@@ -211,13 +211,15 @@ function closeModal(id) {
 }
 
 // ===== Activity Page =====
-async function loadPrActivity() {
+async function loadPrActivity(page) {
   if (!document.getElementById('completedSection')) return;
+  const nextPage = Math.max(Number(page) || 0, 0);
+  window._recentlyApprovedPage = nextPage;
   setButtonLoading('btnRefreshActivity', true, 'Loading...');
   showBox('activityResult', '<div class="test-result result-info">⏳ Loading PR activity...</div>');
 
   try {
-    const r = await safeFetchJson('/api/list-prs?includeActivity=true');
+    const r = await safeFetchJson('/api/list-prs?includeActivity=true&activityPage=' + encodeURIComponent(nextPage) + '&activityPageSize=10');
     if (r.parseError) {
       showBox('activityResult', '<div class="test-result result-error">❌ Backend ตอบไม่ใช่ JSON (HTTP ' + r.status + ')</div>');
       return;
@@ -242,7 +244,8 @@ async function loadPrActivity() {
       d.completedPrs || [],
       d.completedLookbackHours || 24,
       d.completedTotalMatched,
-      d.completedDisplayLimit || 10
+      d.completedDisplayLimit || 10,
+      d.approvedLookback || {}
     );
   } catch (err) {
     showBox('activityResult', '<div class="test-result result-error">❌ ' + escapeHtml(err.message) + '</div>');
@@ -368,12 +371,14 @@ function renderPrTable(prs) {
   }
 }
 
-function renderCompletedPrTable(prs, lookbackHours, totalMatched, displayLimit) {
+function renderCompletedPrTable(prs, lookbackHours, totalMatched, displayLimit, pagingMeta) {
   const section = document.getElementById('completedSection');
   const meta = document.getElementById('completedMeta');
   const tbody = document.getElementById('completedTableBody');
   const pager = document.getElementById('completedPager');
   if (!section || !meta || !tbody) return;
+  pagingMeta = pagingMeta || {};
+  const isServerPaged = Number.isFinite(Number(pagingMeta.page)) && Number.isFinite(Number(pagingMeta.pageSize));
 
   if (!Array.isArray(prs) || prs.length === 0) {
     section.hidden = false;
@@ -389,6 +394,33 @@ function renderCompletedPrTable(prs, lookbackHours, totalMatched, displayLimit) 
   }
 
   section.hidden = false;
+  if (isServerPaged) {
+    const page = Math.max(Number(pagingMeta.page) || 0, 0);
+    const limit = Math.max(1, Number(pagingMeta.pageSize) || Number(displayLimit) || 10);
+    const total = Number.isFinite(Number(totalMatched)) ? Number(totalMatched) : prs.length;
+    const pageCount = Math.max(1, Math.ceil(total / limit));
+    const start = page * limit;
+    const end = Math.min(start + prs.length, total);
+    window._recentlyApprovedPage = page;
+    window._recentlyApprovedServerPaged = true;
+    meta.textContent = 'Last ' + lookbackHours + ' hours | showing ' + (start + 1) + '-' + end + ' of ' + total + ' PRs approved';
+    if (pager) {
+      if (pageCount > 1) {
+        pager.hidden = false;
+        pager.innerHTML =
+          '<button class="btn-mini btn-pager" onclick="changeRecentlyApprovedPage(-1)"' + (page === 0 ? ' disabled' : '') + '>Previous</button>' +
+          '<span class="pager-label">Page ' + (page + 1) + ' of ' + pageCount + '</span>' +
+          '<button class="btn-mini btn-pager" onclick="changeRecentlyApprovedPage(1)"' + (page >= pageCount - 1 ? ' disabled' : '') + '>Next</button>';
+      } else {
+        pager.hidden = true;
+        pager.innerHTML = '';
+      }
+    }
+    tbody.innerHTML = '';
+    renderRecentlyApprovedRows(tbody, prs);
+    return;
+  }
+  window._recentlyApprovedServerPaged = false;
   window._recentlyApprovedRows = prs;
   window._recentlyApprovedLookbackHours = lookbackHours;
   window._recentlyApprovedDisplayLimit = Math.max(1, Number(displayLimit) || 10);
@@ -442,8 +474,11 @@ function renderRecentlyApprovedPage() {
   }
 
   tbody.innerHTML = '';
+  renderRecentlyApprovedRows(tbody, pageRows);
+}
 
-  for (const pr of pageRows) {
+function renderRecentlyApprovedRows(tbody, rows) {
+  for (const pr of rows) {
     const tr = document.createElement('tr');
     const statusBadge = renderRecentlyApprovedStatusBadge(pr);
     const approvedAt = pr.approvedAt || pr.closedDate || pr.creationDate;
@@ -463,7 +498,12 @@ function renderRecentlyApprovedPage() {
 
 window.changeRecentlyApprovedPage = function(delta) {
   const page = Number(window._recentlyApprovedPage) || 0;
-  window._recentlyApprovedPage = page + delta;
+  const nextPage = Math.max(page + delta, 0);
+  if (window._recentlyApprovedServerPaged) {
+    loadPrActivity(nextPage);
+    return;
+  }
+  window._recentlyApprovedPage = nextPage;
   renderRecentlyApprovedPage();
 };
 

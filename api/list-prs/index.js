@@ -53,6 +53,8 @@ module.exports = async function (context, req) {
     const completedDisplayLimit = Math.min(Math.max(Number(process.env.COMPLETED_PR_DISPLAY_LIMIT) || 10, 1), 100);
     const approvedLookupLimit = Math.min(Math.max(Number(process.env.APPROVED_PR_LOOKUP_LIMIT) || 100, 1), 200);
     const includeActivity = req.query && String(req.query.includeActivity || '').toLowerCase() === 'true';
+    const activityPage = Math.max(Number(req.query && req.query.activityPage) || 0, 0);
+    const activityPageSize = Math.min(Math.max(Number(req.query && req.query.activityPageSize) || completedDisplayLimit, 1), 25);
     const branchBuildCache = {};
 
     const missing = [];
@@ -114,47 +116,16 @@ module.exports = async function (context, req) {
         return targetRef.startsWith(stagingPrefix) || isMergeCodeBranch(targetRef);
       });
     const prs = [];
-    for (const pr of targetPrs
-      .filter(pr => hasReviewerGroup(pr, reviewerGroup))
-    ) {
-      prs.push(await buildPrRow(context, pr, currentUser, org, project, branchBuildCache));
+    if (!includeActivity) {
+      for (const pr of targetPrs
+        .filter(pr => hasReviewerGroup(pr, reviewerGroup))
+      ) {
+        prs.push(await buildPrRow(context, pr, currentUser, org, project, branchBuildCache));
+      }
+      prs.sort(attentionUtil.sortByAttention);
     }
-    prs.sort(attentionUtil.sortByAttention);
 
     const completedPrs = [];
-    if (includeActivity) {
-      let allCompletedPrs = [];
-      try {
-        const completedPath = '/' + encodeURIComponent(org) + '/' + encodeURIComponent(project) +
-          '/_apis/git/pullrequests?api-version=7.0' +
-          '&searchCriteria.status=completed' +
-          '&$top=100';
-        const completedResult = await callAdoApi('dev.azure.com', completedPath, pat);
-        if (completedResult.ok) {
-          const completedData = JSON.parse(completedResult.body);
-          allCompletedPrs = completedData.value || [];
-        } else {
-          context.log.warn('Completed PR lookup returned HTTP ' + completedResult.status);
-        }
-      } catch (e) {
-        context.log.warn('Completed PR lookup failed: ' + e.message);
-      }
-
-      const completedCutoff = Date.now() - completedLookbackHours * 60 * 60 * 1000;
-      const completedMatches = allCompletedPrs
-        .filter(pr => {
-          const targetRef = (pr.targetRefName || '').toLowerCase();
-          return targetRef.startsWith(stagingPrefix) || isMergeCodeBranch(targetRef);
-        })
-        .filter(pr => hasReviewerGroup(pr, reviewerGroup))
-        .filter(pr => {
-          const completedAt = Date.parse(pr.closedDate || pr.completionDate || pr.lastMergeCommit && pr.lastMergeCommit.committer && pr.lastMergeCommit.committer.date || pr.creationDate);
-          return Number.isFinite(completedAt) && completedAt >= completedCutoff;
-        });
-      for (const pr of completedMatches.slice(0, completedDisplayLimit)) {
-        completedPrs.push(await buildPrRow(context, pr, currentUser, org, project, branchBuildCache));
-      }
-    }
 
     const approvedLookup = includeActivity
       ? await buildRecentlyApprovedRows(context, {
@@ -165,6 +136,8 @@ module.exports = async function (context, req) {
         reviewerGroup: reviewerGroup,
         lookbackHours: completedLookbackHours,
         maxRows: approvedLookupLimit,
+        page: activityPage,
+        pageSize: activityPageSize,
         branchBuildCache: branchBuildCache
       })
       : {
@@ -178,9 +151,15 @@ module.exports = async function (context, req) {
       };
     const recentlyApprovedPrs = approvedLookup.rows;
 
-    const activeNotificationResult = await syncExceptionNotifications(context, prs, { scope: 'active' });
-    const completedNotificationResult = await syncExceptionNotifications(context, completedPrs, { scope: 'recently-completed' });
-    const syncResult = await syncExternalVoteLogs(context, prs.concat(completedPrs));
+    const activeNotificationResult = includeActivity
+      ? { ok: true, checked: 0, sent: 0, skipped: true, reason: 'Skipped on activity page request' }
+      : await syncExceptionNotifications(context, prs, { scope: 'active' });
+    const completedNotificationResult = includeActivity
+      ? { ok: true, checked: 0, sent: 0, skipped: true, reason: 'Skipped on activity page request' }
+      : await syncExceptionNotifications(context, completedPrs, { scope: 'recently-completed' });
+    const syncResult = includeActivity
+      ? { ok: true, checked: 0, logged: 0, skipped: true, reason: 'Skipped on activity page request' }
+      : await syncExternalVoteLogs(context, prs.concat(completedPrs));
 
     jsonResponse(200, {
       ok: true,
@@ -196,8 +175,10 @@ module.exports = async function (context, req) {
       prs: prs,
       attentionSummary: attentionUtil.buildAttentionSummary(prs),
       completedCount: recentlyApprovedPrs.length,
-      completedTotalMatched: recentlyApprovedPrs.length,
-      completedDisplayLimit: completedDisplayLimit,
+      completedTotalMatched: approvedLookup.meta && Number.isFinite(Number(approvedLookup.meta.uniquePrs))
+        ? approvedLookup.meta.uniquePrs
+        : recentlyApprovedPrs.length,
+      completedDisplayLimit: includeActivity ? activityPageSize : completedDisplayLimit,
       approvedLookback: approvedLookup.meta,
       exceptionNotifications: {
         ok: activeNotificationResult.ok && completedNotificationResult.ok,
@@ -340,9 +321,15 @@ async function buildRecentlyApprovedRows(context, options) {
     .slice(0, options.maxRows);
   meta.matchedLogs = approvals.length;
   meta.uniquePrs = approvals.length;
+  meta.page = Math.max(Number(options.page) || 0, 0);
+  meta.pageSize = Math.min(Math.max(Number(options.pageSize) || 10, 1), 25);
+  meta.totalPages = Math.max(1, Math.ceil(meta.uniquePrs / meta.pageSize));
+
+  const pageStart = meta.page * meta.pageSize;
+  const pageApprovals = approvals.slice(pageStart, pageStart + meta.pageSize);
 
   const rows = [];
-  for (const approvalLog of approvals) {
+  for (const approvalLog of pageApprovals) {
     try {
       const prResult = await ado.getPullRequest(approvalLog.prId);
       if (!prResult.ok || !prResult.body) {
