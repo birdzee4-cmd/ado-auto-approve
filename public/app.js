@@ -236,7 +236,7 @@ async function loadPrActivity(page) {
     showBox('activityResult',
       '<div class="test-result result-success">✅ Loaded <strong>' +
       escapeHtml(d.completedTotalMatched || 0) +
-      '</strong> approval log PRs from the last ' +
+      '</strong> PRs from approval logs in the last ' +
       escapeHtml(d.completedLookbackHours || 24) +
       ' hours</div>'
     );

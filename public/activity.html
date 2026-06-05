@@ -31,7 +31,7 @@
       <div class="page-header">
         <div>
           <h1>Activity</h1>
-          <p>ตรวจสอบ PR ที่คุณอนุมัติในช่วง 24 ชั่วโมงล่าสุด พร้อมสถานะล่าสุดของ Build และ Policy</p>
+          <p>ตรวจสอบ approval log ที่เกี่ยวข้องกับคุณในช่วง 24 ชั่วโมงล่าสุด พร้อมสถานะ PR / Build / Policy ล่าสุด</p>
         </div>
         <button id="btnRefreshActivity" class="primary-button">
           <span>🔄</span>
@@ -43,7 +43,7 @@
 
       <div id="completedSection" class="completed-section" hidden>
         <div class="completed-header">
-          <h3>Recently Approved</h3>
+          <h3>Approval Log Activity</h3>
           <div class="completed-meta-wrap">
             <span id="completedMeta" class="completed-meta"></span>
             <div id="completedPager" class="completed-pager" hidden></div>
@@ -57,9 +57,9 @@
                 <th>Title</th>
                 <th>By</th>
                 <th>Branch</th>
-                <th>Result</th>
+                <th>Latest Status</th>
                 <th>Repo</th>
-                <th>Approved</th>
+                <th>Log Time</th>
                 <th>Actions</th>
               </tr>
             </thead>
