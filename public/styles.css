@@ -173,8 +173,9 @@ body {
 }
 
 .user-name {
-  color: #f9fafb;
+  color: #f6d56b;
   font-size: 14px;
+  font-weight: 600;
 }
 
 .logout-button {
