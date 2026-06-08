@@ -1004,7 +1004,7 @@ body {
 
 .pr-table {
   width: 100%;
-  min-width: 1440px;
+  min-width: 1590px;
   border-collapse: collapse;
   font-size: 13px;
   table-layout: fixed;
@@ -1012,29 +1012,29 @@ body {
 
 .pr-table th:nth-child(1),
 .pr-table td:nth-child(1) {
-  width: 360px;
+  width: 350px;
 }
 
 .pr-table th:nth-child(2),
-.pr-table td:nth-child(2) { width: 330px; }
+.pr-table td:nth-child(2) { width: 320px; }
 
 .pr-table th:nth-child(3),
-.pr-table td:nth-child(3) { width: 110px; }
+.pr-table td:nth-child(3) { width: 135px; }
 
 .pr-table th:nth-child(4),
-.pr-table td:nth-child(4) { width: 145px; }
+.pr-table td:nth-child(4) { width: 150px; }
 
 .pr-table th:nth-child(5),
 .pr-table td:nth-child(5) { width: 170px; }
 
 .pr-table th:nth-child(6),
-.pr-table td:nth-child(6) { width: 155px; }
+.pr-table td:nth-child(6) { width: 160px; }
 
 .pr-table th:nth-child(7),
-.pr-table td:nth-child(7) { width: 155px; }
+.pr-table td:nth-child(7) { width: 160px; }
 
 .pr-table th:nth-child(8),
-.pr-table td:nth-child(8) { width: 150px; }
+.pr-table td:nth-child(8) { width: 145px; }
 
 .completed-table {
   min-width: 1400px;
@@ -1239,19 +1239,26 @@ body {
 .approval-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
+  min-width: 116px;
   min-height: 30px;
-  padding: 6px 10px;
+  padding: 6px 8px;
   border: 1px solid;
   border-radius: 7px;
   background: #ffffff;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
   transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.approval-ratio,
+.approval-status {
+  white-space: nowrap;
 }
 
 .approval-badge:hover {
