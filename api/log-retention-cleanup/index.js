@@ -63,7 +63,7 @@ async function runRetentionCleanup(context, options) {
   const archivePath = buildArchivePath(options.archiveFolder, cutoff, new Date());
   const csv = buildCsv(rows);
 
-  if (options.dryRun || rows.length === 0) {
+  if (options.dryRun) {
     return {
       ok: true,
       dryRun: options.dryRun,
@@ -74,9 +74,28 @@ async function runRetentionCleanup(context, options) {
       archivePath: archivePath,
       archiveUploaded: false,
       deleted: 0,
-      message: options.dryRun
-        ? 'Dry run only. Send dryRun=false to archive and delete.'
-        : 'No old log items found.'
+      message: 'Dry run only. Send dryRun=false to archive and delete.'
+    };
+  }
+
+  if (rows.length === 0) {
+    await writeRetentionLog(context, {
+      result: 'OK',
+      reason: 'Archived 0 | Deleted 0 | Retention ' + options.retentionDays + ' days',
+      archivePath: archivePath,
+      deleted: 0
+    });
+    return {
+      ok: true,
+      dryRun: false,
+      retentionDays: options.retentionDays,
+      cutoff: cutoffIso,
+      matched: 0,
+      truncated: false,
+      archivePath: archivePath,
+      archiveUploaded: false,
+      deleted: 0,
+      message: 'No old log items found.'
     };
   }
 
