@@ -36,6 +36,9 @@ module.exports = async function (context, req) {
   const lastExceptionScan = sharePointResult.recentLogs
     ? findLastExceptionScan(sharePointResult.recentLogs)
     : null;
+  const lastRetentionCleanup = sharePointResult.recentLogs
+    ? findLastRetentionCleanup(sharePointResult.recentLogs)
+    : null;
 
   const rollup = checks.some(c => c.status === 'error')
     ? 'degraded'
@@ -55,6 +58,7 @@ module.exports = async function (context, req) {
       checks: checks,
       lastNotification: lastNotification,
       lastExceptionScan: lastExceptionScan,
+      lastRetentionCleanup: lastRetentionCleanup,
       schedule: {
         dailySummary: {
           enabled: !!process.env.DAILY_SUMMARY_TOKEN && !!process.env.TEAMS_WEBHOOK_URL,
@@ -95,7 +99,7 @@ async function checkSharePoint(context) {
     const sp = require('../shared/sharepoint-client');
     const siteId = await sp.getSiteId();
     const listId = await sp.getListId();
-    const recent = await sp.getRecentLogItems(100);
+    const recent = await sp.getRecentLogItems(200);
     const recentLogs = recent.ok && recent.body && Array.isArray(recent.body.value)
       ? recent.body.value
       : [];
@@ -201,6 +205,29 @@ function findLastExceptionScan(logItems) {
   return null;
 }
 
+function findLastRetentionCleanup(logItems) {
+  for (const item of logItems || []) {
+    const fields = item.fields || {};
+    const action = String(fields.Action || '');
+    const source = String(fields.Log_Source || fields.Source || '');
+    const title = String(fields.Title || '');
+    const text = [action, source, title].join(' ').toLowerCase();
+    if (action !== 'Log Retention Cleanup' && !text.includes('log retention cleanup')) continue;
+    const parsed = parseRetentionCleanupReason(fields.Reason || '');
+    return {
+      at: item.createdDateTime || fields.Last_Checked_At || item.lastModifiedDateTime || '',
+      result: fields.Result || '',
+      reason: fields.Reason || '',
+      source: source || 'Logic Apps Retention Cleanup',
+      archived: parsed.archived,
+      deleted: parsed.deleted,
+      retentionDays: parsed.retentionDays,
+      archivePath: parsed.archivePath
+    };
+  }
+  return null;
+}
+
 function parseExceptionScanReason(reason) {
   const text = String(reason || '');
   return {
@@ -212,11 +239,26 @@ function parseExceptionScanReason(reason) {
   };
 }
 
+function parseRetentionCleanupReason(reason) {
+  const text = String(reason || '');
+  return {
+    archived: matchNumber(text, /Archived\s+(\d+)/i),
+    deleted: matchNumber(text, /Deleted\s+(\d+)/i),
+    retentionDays: matchNumber(text, /Retention\s+(\d+)\s+days/i),
+    archivePath: matchText(text, /Archive:\s*(.+)$/i)
+  };
+}
+
 function matchNumber(text, pattern) {
   const match = String(text || '').match(pattern);
   if (!match) return undefined;
   const value = Number(match[1]);
   return Number.isFinite(value) ? value : undefined;
+}
+
+function matchText(text, pattern) {
+  const match = String(text || '').match(pattern);
+  return match ? String(match[1] || '').trim() : undefined;
 }
 
 function inferNotificationSource(text) {

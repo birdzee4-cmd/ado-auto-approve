@@ -1575,6 +1575,23 @@ function renderSystemHealth(data) {
     } : {}
   }));
 
+  const lastRetentionCleanup = data.lastRetentionCleanup || null;
+  const retentionCleanupStatus = getRetentionCleanupHealthStatus(lastRetentionCleanup);
+  cards.push(buildHealthCard({
+    key: 'last-retention-cleanup',
+    label: 'Last Retention Cleanup',
+    status: retentionCleanupStatus,
+    message: lastRetentionCleanup && lastRetentionCleanup.at
+      ? formatDate(lastRetentionCleanup.at)
+      : 'ยังไม่พบ retention cleanup log',
+    detail: lastRetentionCleanup ? {
+      result: lastRetentionCleanup.result,
+      archived: lastRetentionCleanup.archived,
+      deleted: lastRetentionCleanup.deleted,
+      retentionDays: lastRetentionCleanup.retentionDays
+    } : {}
+  }));
+
   const nextRun = data.schedule && data.schedule.dailySummary && data.schedule.dailySummary.nextRunAt;
   cards.push(buildHealthCard({
     key: 'next-summary',
@@ -1633,6 +1650,15 @@ function getExceptionScanHealthStatus(scan) {
   const reason = String(scan.reason || '').toLowerCase();
   if (result.includes('error') || reason.includes('error')) return 'error';
   if (result.includes('warn')) return 'warning';
+  return 'ok';
+}
+
+function getRetentionCleanupHealthStatus(cleanup) {
+  if (!cleanup || !cleanup.at) return 'warning';
+  const result = String(cleanup.result || '').toLowerCase();
+  const reason = String(cleanup.reason || '').toLowerCase();
+  if (result.includes('error') || result.includes('fail') || reason.includes('failed')) return 'error';
+  if (result.includes('warn') || reason.includes('delete errors')) return 'warning';
   return 'ok';
 }
 

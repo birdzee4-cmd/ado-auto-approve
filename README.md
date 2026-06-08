@@ -301,12 +301,15 @@ Checks หลัก:
 - Daily Summary: token และ scheduler พร้อม
 - Last Sync: เวลา refresh PR ล่าสุดจาก dashboard
 - Last Notification: notification ล่าสุดจาก SharePoint log
+- Last Exception Scan: exception scan ล่าสุดจาก SharePoint log
+- Last Retention Cleanup: retention cleanup ล่าสุดจาก SharePoint log
 - Next Summary: รอบส่งสรุปรายวันถัดไป
 
 Diagnostic Tools:
 
 - Test Teams Notification
 - Test Daily Summary
+- Scan Build/Policy Alerts
 - Test Backend Health
 
 ## Teams Notification
