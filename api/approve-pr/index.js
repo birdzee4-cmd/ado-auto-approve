@@ -8,8 +8,7 @@
  *   2. GET Branch Policies (เพื่อหา Release Notes policy ID)
  *   3. Set Auto-Complete (merge existing options + uncheck Release Notes)
  *   4. Vote = 10 (Approved)
- *   5. Add comment ระบุ user
- *   6. Log SharePoint
+ *   5. Log SharePoint
  */
 
 module.exports = async function (context, req) {
@@ -156,24 +155,7 @@ module.exports = async function (context, req) {
       return;
     }
 
-    // 5) Add comment ระบุ user
-    const time = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Bangkok', dateStyle: 'medium', timeStyle: 'short' });
-    const ignoreInfo = releaseNotesIgnoreIds.length > 0
-      ? '\nIgnored optional check(s): Release Notes (' + releaseNotesIgnoreIds.length + ' policy ID)'
-      : '\nNo "Release Notes" policy detected for this branch';
-    const commentText =
-      '✅ **Approved** by `' + userEmail + '` via ADO Auto-Approve System\n' +
-      'Timestamp: ' + time + ' (Bangkok)\n' +
-      'Auto-Complete: ' + (autoCompleteOk ? 'enabled (waits for branch policy)' : 'failed to set') +
-      ignoreInfo +
-      '\n_Note: transitionWorkItems = false (Work Items not touched)_';
-    try {
-      await ado.addComment(prId, repositoryId, commentText);
-    } catch (e) {
-      context.log.warn('addComment failed:', e.message);
-    }
-
-    // 6) Log SharePoint
+    // 5) Log SharePoint
     let logStatus = 'skipped';
     const resultText = (autoCompleteOk ? 'Success (auto-complete enabled' : 'Vote OK (auto-complete failed') +
       (releaseNotesIgnoreIds.length > 0 ? ', Release Notes ignored)' : ')');

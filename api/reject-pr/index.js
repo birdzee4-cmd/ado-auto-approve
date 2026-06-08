@@ -4,8 +4,7 @@
  * Body: { prId, repositoryId, reason }
  *
  * 1. Bot vote = -10 (Rejected)
- * 2. Add comment พร้อม reason + user
- * 3. Log SharePoint
+ * 2. Log SharePoint
  */
 
 module.exports = async function (context, req) {
@@ -111,18 +110,6 @@ module.exports = async function (context, req) {
         adoPrUrl: getPrUrl(pr)
       });
       return;
-    }
-
-    // Comment พร้อม reason
-    const time = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Bangkok', dateStyle: 'medium', timeStyle: 'short' });
-    const commentText =
-      `❌ **Rejected** by \`${userEmail}\` via ADO Auto-Approve System\n` +
-      `Timestamp: ${time} (Bangkok)\n` +
-      `**Reason:** ${reason}`;
-    try {
-      await ado.addComment(prId, repositoryId, commentText);
-    } catch (e) {
-      context.log.warn('addComment failed:', e.message);
     }
 
     // Log
