@@ -337,11 +337,11 @@ async function getLogItemsBefore(cutoffIso, maxItems) {
   const siteId = await getSiteId();
   const listId = await getListId();
   const token = await getAccessToken();
-  const cutoff = String(cutoffIso || '');
+  const cutoff = new Date(cutoffIso || Date.now()).toISOString();
   const limit = Math.max(1, Math.min(parseInt(maxItems, 10) || 500, 1000));
   const pageSize = 100;
-  const filter = `createdDateTime lt ${cutoff}`;
-  let url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$filter=${encodeURIComponent(filter)}&$orderby=createdDateTime asc&$top=${pageSize}`;
+  const filter = `fields/Created lt '${cutoff}'`;
+  let url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$filter=${encodeURIComponent(filter)}&$top=${pageSize}`;
   const headers = {
     'Authorization': 'Bearer ' + token,
     'Prefer': 'HonorNonIndexedQueriesWarningMayFailRandomly'
