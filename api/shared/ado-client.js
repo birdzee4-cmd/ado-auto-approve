@@ -204,9 +204,11 @@ function summarizeStatusSnapshot(pr, statuses, autoCompleteOk, policyEvaluations
   };
 
   const branchBuild = summarizeBuildRuns(pr, buildRuns);
-  const build = buildStatuses.length ? summarizeStates(buildStatuses) : branchBuild;
+  const statusBuild = buildStatuses.length ? summarizeStates(buildStatuses) : null;
+  const build = chooseBuildSummary(statusBuild, branchBuild);
   const policy = summarizePolicyEvaluations(evaluations, values);
   const buildWithUrl = buildStatuses.find(s => s && s.targetUrl);
+  const buildFromBranch = build === branchBuild;
 
   return {
     buildStatus: build.status,
@@ -220,13 +222,27 @@ function summarizeStatusSnapshot(pr, statuses, autoCompleteOk, policyEvaluations
       ? 'failed'
       : 'not_applicable',
     lastCheckedAt: new Date().toISOString(),
-    adoBuildUrl: buildWithUrl ? buildWithUrl.targetUrl : branchBuild.url,
+    adoBuildUrl: buildFromBranch ? branchBuild.url : (buildWithUrl ? buildWithUrl.targetUrl : branchBuild.url),
     statusCount: values.length,
-    buildStatusCount: buildStatuses.length || branchBuild.count,
-    buildStatusSource: buildStatuses.length ? 'pr-status' : branchBuild.source,
-    buildRunId: branchBuild.id,
+    buildStatusCount: buildFromBranch ? branchBuild.count : (buildStatuses.length || branchBuild.count),
+    buildStatusSource: buildFromBranch ? branchBuild.source : (buildStatuses.length ? 'pr-status' : branchBuild.source),
+    buildRunId: buildFromBranch ? branchBuild.id : '',
     policyEvaluationCount: evaluations.length
   };
+}
+
+function chooseBuildSummary(statusBuild, branchBuild) {
+  const status = statusBuild || null;
+  const branch = branchBuild || { status: 'no_status', result: 'unknown', url: '', count: 0, source: '', id: '' };
+  if (!status) return branch;
+
+  const statusResult = String(status.result || '').toLowerCase();
+  const branchResult = String(branch.result || '').toLowerCase();
+  if (branchResult === 'failed' || branchResult === 'error') return branch;
+  if (statusResult === 'failed' || statusResult === 'error') return status;
+  if ((branchResult === 'succeeded' || branchResult === 'success') &&
+      (statusResult === 'unknown' || statusResult === 'pending')) return branch;
+  return status;
 }
 
 function isBuildStatus(status) {

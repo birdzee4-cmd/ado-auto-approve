@@ -271,6 +271,25 @@ Diagnostic Tools:
 - rejected active PR
 - stale/critical attention ตาม logic ที่ระบบกำหนด
 
+ระบบมี endpoint แยกสำหรับ scan exception จาก SharePoint approval log โดยไม่ต้องพึ่งการโหลดหน้า Dashboard:
+
+```text
+POST /api/exception-scan
+```
+
+Header:
+
+```text
+x-exception-scan-token: <EXCEPTION_SCAN_TOKEN หรือ DAILY_SUMMARY_TOKEN>
+```
+
+หลักการทำงาน:
+
+- อ่าน approval logs ล่าสุดตามช่วงเวลาที่กำหนด
+- ดึง PR / Build / Policy ล่าสุดจาก Azure DevOps
+- ส่ง Teams เฉพาะ Build Failed หรือ Policy Failed
+- กันส่งซ้ำด้วย `Event_Key` ที่รวม PR, issue type และ build run id เมื่อมีข้อมูล
+
 สามารถปิดด้วย:
 
 ```text
@@ -354,7 +373,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | API | Method | Purpose |
 |---|---|---|
 | `/api/userinfo` | GET | คืน user, roles, permissions |
-| `/api/list-prs` | GET | ดึง Active PR Queue และ Recently Completed |
+| `/api/list-prs` | GET | ดึง Active PR Queue และ Activity lookup เมื่อส่ง `includeActivity=true` |
 | `/api/approve-pr` | POST | Approve PR ปกติ, set auto-complete, log SharePoint |
 | `/api/reject-pr` | POST | Reject PR ปกติ, log SharePoint |
 | `/api/pr-history/{prId}` | GET | อ่าน history ของ PR จาก SharePoint |
@@ -363,7 +382,9 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/merge-lookup` | GET | ค้นหา CI/CD ของ Merge PR |
 | `/api/test-notification` | POST | ทดสอบ Teams notification |
 | `/api/test-daily-summary` | POST | ทดสอบ Daily Summary |
+| `/api/test-exception-scan` | POST | ทดสอบ Build/Policy exception scan จากหน้า Health |
 | `/api/daily-summary` | POST | endpoint สำหรับ Logic Apps scheduler |
+| `/api/exception-scan` | POST | endpoint สำหรับสแกน Build/Policy failed จาก approval logs |
 | `/api/webhook` | POST | legacy/webhook notification endpoint |
 
 ## Important Shared Modules
@@ -445,6 +466,7 @@ api/shared/attention.js
 | `TEAMS_WEBHOOK_URL` | For notification | Teams webhook endpoint |
 | `TEAMS_EXCEPTION_NOTIFICATIONS` | No | set `false` เพื่อปิด exception alerts |
 | `DAILY_SUMMARY_TOKEN` | For daily summary | token ที่ Logic Apps ส่งมาใน header |
+| `EXCEPTION_SCAN_TOKEN` | No | token สำหรับ `/api/exception-scan`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
 
 ### Webhook
 

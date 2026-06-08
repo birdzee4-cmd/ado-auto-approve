@@ -53,6 +53,7 @@ window._currentUser = {
     bind('btnRefreshActivity', loadPrActivity);
     bind('btnTestTeams', testTeams);
     bind('btnTestDailySummary', testDailySummary);
+    bind('btnTestExceptionScan', testExceptionScan);
     bind('btnTestHealth', testHealth);
     bind('btnRefreshHealth', checkHealthStatus);
     bind('btnMergeLookup', checkMergeLookup);
@@ -1283,6 +1284,24 @@ async function testDailySummary() {
     }
   } catch (err) { showResult('❌ ' + err.message, 'error'); }
   finally { setButtonLoading('btnTestDailySummary', false); }
+}
+
+async function testExceptionScan() {
+  setButtonLoading('btnTestExceptionScan', true);
+  showResult('⏳ Scanning Build/Policy exceptions from approval logs...', 'info');
+  try {
+    const r = await safeFetchJson('/api/test-exception-scan', { method: 'POST' });
+    if (r.parseError) { showResult('❌ Response is not JSON (HTTP ' + r.status + ')', 'error'); return; }
+    if (r.ok && r.data && r.data.ok) {
+      showResult('✅ Exception scan completed | PRs ' + (r.data.checkedPrs || 0) +
+        ' | Alerts sent ' + (r.data.sent || 0) +
+        ' | Skipped ' + (r.data.skipped || 0), 'success');
+    } else {
+      const d = r.data || {};
+      showResult('❌ ' + (d.error || d.detail || 'Unknown'), 'error');
+    }
+  } catch (err) { showResult('❌ ' + err.message, 'error'); }
+  finally { setButtonLoading('btnTestExceptionScan', false); }
 }
 
 async function checkHealthStatus() {

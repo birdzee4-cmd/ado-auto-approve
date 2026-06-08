@@ -125,23 +125,29 @@ async function sendOnce(context, eventKey, logOptions, message) {
 function getPrIssue(pr, scope) {
   const approval = pr.approval || {};
   const isRecentlyCompleted = scope === 'recently-completed';
+  const isApprovalLogScan = scope === 'approval-log';
   const prStatus = String(pr.status || '').toLowerCase();
-  if (!isRecentlyCompleted && approval.status !== 'complete') return null;
+  if (!isRecentlyCompleted && !isApprovalLogScan && approval.status !== 'complete') return null;
   if (isRecentlyCompleted && prStatus !== 'completed') return null;
 
   const s = pr.statusSnapshot || {};
   const buildResult = String(s.buildResult || '').toLowerCase();
   const policyStatus = String(s.policyStatus || '').toLowerCase();
+  const buildRunId = normalizeKey(s.buildRunId || 'no-build-id');
 
   if (buildResult === 'failed' || buildResult === 'error') {
     return {
-      key: 'build-' + buildResult,
+      key: 'build-' + buildResult + '-' + buildRunId,
       title: isRecentlyCompleted
         ? 'Build failed after PR completed'
-        : 'Build failed after approvals completed',
+        : isApprovalLogScan
+          ? 'Build failed after PR approval'
+          : 'Build failed after approvals completed',
       message: isRecentlyCompleted
         ? 'PR is completed, but build result is ' + buildResult + '.'
-        : 'Approvals are complete, but build result is ' + buildResult + '.'
+        : isApprovalLogScan
+          ? 'PR has an approval log, and the latest build result is ' + buildResult + '.'
+          : 'Approvals are complete, but build result is ' + buildResult + '.'
     };
   }
   if (policyStatus === 'failed') {
@@ -149,10 +155,14 @@ function getPrIssue(pr, scope) {
       key: 'policy-failed',
       title: isRecentlyCompleted
         ? 'Policy failed after PR completed'
-        : 'Policy failed after approvals completed',
+        : isApprovalLogScan
+          ? 'Policy failed after PR approval'
+          : 'Policy failed after approvals completed',
       message: isRecentlyCompleted
         ? 'PR is completed, but Azure DevOps policy evaluation failed.'
-        : 'Approvals are complete, but Azure DevOps policy evaluation failed.'
+        : isApprovalLogScan
+          ? 'PR has an approval log, and Azure DevOps policy evaluation failed.'
+          : 'Approvals are complete, but Azure DevOps policy evaluation failed.'
     };
   }
   return null;
@@ -171,7 +181,7 @@ function buildPrIssueMessage(pr, issue, scope) {
     '| **PR** | #' + pr.id + ' |',
     '| **Title** | ' + safe(pr.title) + ' |',
     '| **Repository** | ' + safe(pr.repository) + ' |',
-    '| **Scope** | ' + safe(scope === 'recently-completed' ? 'Recently Completed' : 'Active PR Queue') + ' |',
+    '| **Scope** | ' + safe(scope === 'recently-completed' ? 'Recently Completed' : scope === 'approval-log' ? 'Approval Log Scan' : 'Active PR Queue') + ' |',
     '| **Approvals** | ' + (a.approvedCount || 0) + '/' + (a.requiredCount || 0) + ' |',
     '| **Build** | ' + safe([s.buildStatus, s.buildResult].filter(Boolean).join(' / ') || '-') + ' |',
     '| **Policy** | ' + safe(s.policyStatus || '-') + ' |'
