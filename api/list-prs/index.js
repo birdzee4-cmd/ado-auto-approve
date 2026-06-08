@@ -120,11 +120,17 @@ module.exports = async function (context, req) {
         return targetRef.startsWith(stagingPrefix) || isMergeCodeBranch(targetRef);
       });
     const prs = [];
+    const hiddenActionCompletePrs = [];
     if (!includeActivity) {
       for (const pr of targetPrs
         .filter(pr => hasReviewerGroup(pr, reviewerGroup))
       ) {
-        prs.push(await buildPrRow(context, pr, currentUser, org, project, branchBuildCache, releaseLookupCache, reviewerGroup));
+        const row = await buildPrRow(context, pr, currentUser, org, project, branchBuildCache, releaseLookupCache, reviewerGroup);
+        if (shouldShowActivePr(row)) {
+          prs.push(row);
+        } else {
+          hiddenActionCompletePrs.push(row);
+        }
       }
       prs.sort(attentionUtil.sortByAttention);
     }
@@ -173,6 +179,7 @@ module.exports = async function (context, req) {
       count: prs.length,
       totalActive: allActivePrs.length,
       totalTargetBranch: targetPrs.length,
+      hiddenActionCompleteCount: hiddenActionCompletePrs.length,
       organization: org,
       project: project,
       targetBranch: stagingPrefix,
@@ -699,6 +706,32 @@ async function buildPrRow(context, pr, currentUser, org, project, branchBuildCac
         '/_git/' + pr.repository.name + '/pullrequest/' + pr.pullRequestId
       : null
   };
+}
+
+function shouldShowActivePr(row) {
+  if (!row) return false;
+  if (row.isMergeCodeTarget) return true;
+
+  const approvalStatus = String(row.approval && row.approval.status || '').toLowerCase();
+  if (approvalStatus !== 'complete') return true;
+
+  const releaseStatus = String(row.releaseApproval && row.releaseApproval.status || '').toLowerCase();
+  if (releaseStatus === 'pending') return true;
+
+  const snapshot = row.statusSnapshot || {};
+  const buildResult = String(snapshot.buildResult || '').toLowerCase();
+  const buildStatus = String(snapshot.buildStatus || '').toLowerCase();
+  const policyStatus = String(snapshot.policyStatus || '').toLowerCase();
+  const mergeStatus = String(snapshot.mergeStatus || row.mergeStatus || '').toLowerCase();
+
+  if (buildResult === 'failed' || buildResult === 'error') return true;
+  if (buildResult === 'pending' || buildStatus === 'in_progress') return true;
+  if (policyStatus === 'failed' || policyStatus === 'rejected' || policyStatus === 'pending') return true;
+
+  const policyDone = policyStatus === 'approved';
+  const mergeReady = mergeStatus === 'succeeded' || mergeStatus === 'completed';
+
+  return !(policyDone || mergeReady);
 }
 
 async function getReleaseApprovalSnapshot(context, pr, statusSnapshot, releaseLookupCache, reviewerGroup) {
