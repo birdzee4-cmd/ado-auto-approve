@@ -344,7 +344,7 @@ function renderPrTable(prs) {
   window._prCache = {};
 
   if (prs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#9ca3af">— No PR waiting approve right now —</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#9ca3af">— No PR waiting approve right now —</td></tr>';
     return;
   }
 
@@ -357,6 +357,7 @@ function renderPrTable(prs) {
     const draftBadge = pr.isDraft ? ' <span class="pr-badge">DRAFT</span>' : '';
     const approvalBadge = renderApprovalBadge(pr);
     const statusBadge = renderStatusBadge(pr);
+    const releaseBadge = renderReleaseBadge(pr);
     const myApprovalBadge = renderMyApprovalBadge(pr);
     const attentionBadge = renderAttentionBadge(pr);
     const actionsHtml = renderActions(pr);
@@ -366,6 +367,7 @@ function renderPrTable(prs) {
       '<td class="pr-branch-cell">' + renderBranchCell(pr) + '</td>' +
       '<td class="pr-approval-cell">' + approvalBadge + '</td>' +
       '<td class="pr-status-cell">' + statusBadge + '</td>' +
+      '<td class="pr-release-cell">' + releaseBadge + '</td>' +
       '<td class="pr-attention-cell">' + attentionBadge + '</td>' +
       '<td class="pr-my-approval-cell">' + myApprovalBadge + '</td>' +
       '<td class="pr-actions-cell">' + actionsHtml + '</td>';
@@ -384,6 +386,7 @@ function renderPrTable(prs) {
       approval: pr.approval || {},
       myApproval: pr.myApproval || {},
       statusSnapshot: pr.statusSnapshot || {},
+      releaseApproval: pr.releaseApproval || {},
       attention: pr.attention || {},
       policyFetched: pr.policyFetched === true,
       isMergeCodeTarget: isMergeCodePr(pr)
@@ -762,6 +765,64 @@ function renderStatusBadge(pr) {
   return '<span class="' + cls + '" title="' + escapeHtml(title) + '">' + inner + '</span>';
 }
 
+function renderReleaseBadge(pr) {
+  const r = pr.releaseApproval || {};
+  const status = String(r.status || 'not_found').toLowerCase();
+  let cls = 'release-badge release-muted';
+  let icon = '○';
+  let label = r.label || 'No release yet';
+  let detail = r.environmentName || r.cdName || r.expectedCdName || r.detail || '';
+
+  if (status === 'pending') {
+    cls = 'release-badge release-pending';
+    icon = '⏳';
+    label = 'Release approval pending';
+  } else if (status === 'expected') {
+    cls = 'release-badge release-expected';
+    icon = '🔎';
+    label = 'Release expected';
+  } else if (status === 'approved' || status === 'succeeded') {
+    cls = 'release-badge release-ok';
+    icon = '✅';
+    label = status === 'succeeded' ? 'Deploy succeeded' : 'Release approved';
+  } else if (status === 'failed') {
+    cls = 'release-badge release-failed';
+    icon = '❌';
+    label = 'Deploy failed';
+  } else if (status === 'deploying' || status === 'waiting') {
+    cls = 'release-badge release-running';
+    icon = status === 'deploying' ? '🚀' : '⏳';
+    label = r.label || (status === 'deploying' ? 'Deploying' : 'Waiting release');
+  } else if (status === 'lookup_failed') {
+    cls = 'release-badge release-failed';
+    icon = '⚠️';
+    label = 'Release lookup failed';
+  }
+
+  const title = [
+    label,
+    r.releaseName,
+    r.releaseDefinitionName || r.cdName,
+    r.environmentName,
+    r.approver
+  ].filter(Boolean).join(' | ');
+  const openLink = r.releaseUrl
+    ? '<a class="release-link" href="' + escapeHtml(r.releaseUrl) + '" target="_blank" rel="noopener">Open Release</a>'
+    : '';
+  const canApprove = window._currentUser && window._currentUser.canApprovePrs === true;
+  const approveButton = status === 'pending' && r.approvalId && canApprove
+    ? '<button class="btn-mini btn-release" onclick="approveRelease(' + pr.id + ')">Approve Release</button>'
+    : '';
+
+  return '<div class="release-cell-stack">' +
+    '<span class="' + cls + '" title="' + escapeHtml(title) + '">' +
+      '<span class="release-main">' + icon + ' ' + escapeHtml(label) + '</span>' +
+      (detail ? '<span class="release-detail">' + escapeHtml(detail) + '</span>' : '') +
+    '</span>' +
+    (approveButton || openLink ? '<div class="release-actions">' + approveButton + openLink + '</div>' : '') +
+  '</div>';
+}
+
 function renderAttentionBadge(pr) {
   const a = pr.attention || {};
   const status = String(a.status || 'normal').toLowerCase();
@@ -1037,6 +1098,49 @@ async function doApprove() {
     setButtonLoading('btnConfirmApprove', false);
   }
 }
+
+window.approveRelease = async function(prId) {
+  const pr = (window._prCache || {})[prId];
+  const release = pr && pr.releaseApproval || {};
+  if (!pr || !release.approvalId) {
+    alert('ไม่พบ Release approval ที่สามารถอนุมัติได้');
+    return;
+  }
+
+  const title = 'Approve Release?\n\nPR #' + pr.id +
+    '\nRelease: ' + (release.releaseName || '-') +
+    '\nEnvironment: ' + (release.environmentName || '-') +
+    '\nCD: ' + (release.releaseDefinitionName || release.cdName || '-');
+  if (!confirm(title)) return;
+
+  try {
+    const r = await safeFetchJson('/api/approve-release', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prId: pr.id,
+        repository: pr.repository,
+        prTitle: pr.title,
+        releaseId: release.releaseId,
+        approvalId: release.approvalId,
+        releaseName: release.releaseName,
+        environmentName: release.environmentName,
+        releaseUrl: release.releaseUrl
+      })
+    });
+    if (r.parseError || !r.ok || !r.data || !r.data.ok) {
+      const d = r.data || {};
+      alert('❌ Approve Release ไม่สำเร็จ:\n' + (d.error || 'Unknown') + '\n\n' + (d.detail || d.hint || ''));
+      return;
+    }
+    alert('✅ Approve Release สำเร็จ!\n\nRelease: ' + (r.data.releaseName || release.releaseName || '-') +
+      '\nEnvironment: ' + (r.data.environmentName || release.environmentName || '-') +
+      '\nLog SharePoint: ' + (r.data.logStatus || '-'));
+    checkPrs();
+  } catch (err) {
+    alert('❌ Error: ' + err.message);
+  }
+};
 
 // ===== Reject Modal =====
 window.openRejectModal = function(prId, repositoryId) {

@@ -18,6 +18,7 @@
 const https = require('https');
 const ado = require('../shared/ado-client');
 const attentionUtil = require('../shared/attention');
+const mergePipelineMap = require('../shared/merge-pipeline-map');
 
 module.exports = async function (context, req) {
   function jsonResponse(status, payload) {
@@ -58,6 +59,7 @@ module.exports = async function (context, req) {
     const activityStatus = normalizeFilter(req.query && req.query.activityStatus);
     const activitySource = normalizeFilter(req.query && req.query.activitySource);
     const branchBuildCache = {};
+    const releaseLookupCache = {};
 
     const missing = [];
     if (!org)     missing.push('ADO_ORGANIZATION');
@@ -122,7 +124,7 @@ module.exports = async function (context, req) {
       for (const pr of targetPrs
         .filter(pr => hasReviewerGroup(pr, reviewerGroup))
       ) {
-        prs.push(await buildPrRow(context, pr, currentUser, org, project, branchBuildCache));
+        prs.push(await buildPrRow(context, pr, currentUser, org, project, branchBuildCache, releaseLookupCache, reviewerGroup));
       }
       prs.sort(attentionUtil.sortByAttention);
     }
@@ -142,7 +144,8 @@ module.exports = async function (context, req) {
         pageSize: activityPageSize,
         statusFilter: activityStatus,
         sourceFilter: activitySource,
-        branchBuildCache: branchBuildCache
+        branchBuildCache: branchBuildCache,
+        releaseLookupCache: releaseLookupCache
       })
       : {
         rows: [],
@@ -359,7 +362,7 @@ async function buildRecentlyApprovedRows(context, options) {
         meta.skipped += 1;
         continue;
       }
-      const row = await buildPrRow(context, pr, options.currentUser, options.org, options.project, options.branchBuildCache);
+      const row = await buildPrRow(context, pr, options.currentUser, options.org, options.project, options.branchBuildCache, options.releaseLookupCache, options.reviewerGroup);
       row.approvedAt = approvalLog.approvedAt;
       row.approvedAction = approvalLog.action;
       row.approvedSource = approvalLog.source;
@@ -660,13 +663,14 @@ async function getCachedBuildsForBranch(cache, adoClient, repositoryId, branchNa
   return result;
 }
 
-async function buildPrRow(context, pr, currentUser, org, project, branchBuildCache) {
+async function buildPrRow(context, pr, currentUser, org, project, branchBuildCache, releaseLookupCache, reviewerGroup) {
   const reviewers = Array.isArray(pr.reviewers) ? pr.reviewers : [];
   const repositoryId = pr.repository && pr.repository.id;
   const isMergeCodeTarget = isMergeCodeBranch(pr.targetRefName);
   const approval = buildApprovalSummary(reviewers);
   const myApproval = buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTarget);
   const statusSnapshot = await getStatusSnapshot(context, ado, pr, repositoryId, isMergeCodeTarget, branchBuildCache);
+  const releaseApproval = await getReleaseApprovalSnapshot(context, pr, statusSnapshot, releaseLookupCache, reviewerGroup);
   const attention = attentionUtil.buildAttention(pr, approval, statusSnapshot, isMergeCodeTarget);
   return {
     id: pr.pullRequestId,
@@ -685,6 +689,7 @@ async function buildPrRow(context, pr, currentUser, org, project, branchBuildCac
     approval: approval,
     myApproval: myApproval,
     statusSnapshot: statusSnapshot,
+    releaseApproval: releaseApproval,
     attention: attention,
     policyFetched: false,
     isMergeCodeTarget: isMergeCodeTarget,
@@ -693,6 +698,87 @@ async function buildPrRow(context, pr, currentUser, org, project, branchBuildCac
       ? 'https://dev.azure.com/' + org + '/' + project +
         '/_git/' + pr.repository.name + '/pullrequest/' + pr.pullRequestId
       : null
+  };
+}
+
+async function getReleaseApprovalSnapshot(context, pr, statusSnapshot, releaseLookupCache, reviewerGroup) {
+  const snapshot = statusSnapshot || {};
+  const buildId = getBuildIdFromSnapshot(snapshot);
+  const expected = getExpectedReleaseMapping(pr);
+  if (!buildId) {
+    if (expected && expected.cdName) {
+      return {
+        status: 'expected',
+        label: 'Release expected',
+        ciName: expected.ciName || '',
+        cdName: expected.cdName || '',
+        source: expected.source || 'mapping',
+        confidence: expected.confidence || 'possible'
+      };
+    }
+    return { status: 'not_found', label: 'No release yet' };
+  }
+
+  const cache = releaseLookupCache || {};
+  if (!cache[buildId]) {
+    cache[buildId] = ado.getLatestReleaseApprovalForBuild(buildId, reviewerGroup)
+      .catch(e => {
+        if (context && context.log && context.log.warn) {
+          context.log.warn('Release lookup failed for build ' + buildId + ': ' + e.message);
+        }
+        return { status: 'lookup_failed', label: 'Release lookup failed', detail: e.message };
+      });
+  }
+  const actual = await cache[buildId];
+  if (actual && actual.status && actual.status !== 'not_found') {
+    return Object.assign({}, actual, {
+      buildId: buildId,
+      expectedCiName: expected && expected.ciName || '',
+      expectedCdName: expected && expected.cdName || ''
+    });
+  }
+
+  if (expected && expected.cdName) {
+    return {
+      status: 'expected',
+      label: 'Release expected',
+      buildId: buildId,
+      ciName: expected.ciName || '',
+      cdName: expected.cdName || '',
+      source: expected.source || 'mapping',
+      confidence: expected.confidence || 'possible',
+      detail: actual && actual.detail || ''
+    };
+  }
+  return Object.assign({ buildId: buildId }, actual || { status: 'not_found', label: 'No release yet' });
+}
+
+function getBuildIdFromSnapshot(snapshot) {
+  if (snapshot && snapshot.buildRunId) return String(snapshot.buildRunId);
+  const url = String(snapshot && snapshot.adoBuildUrl || '');
+  const match = url.match(/[?&]buildId=(\d+)/i) || url.match(/\/build\/results\?buildId=(\d+)/i);
+  return match ? match[1] : '';
+}
+
+function getExpectedReleaseMapping(pr) {
+  const direct = mergePipelineMap.findMergePipelineRule(pr);
+  if (direct && direct.cd && direct.cd.name) {
+    return {
+      ciName: direct.ci && direct.ci.name || '',
+      cdName: direct.cd && direct.cd.name || '',
+      source: 'branch-rule',
+      confidence: direct.confidence || 'high'
+    };
+  }
+  const possible = mergePipelineMap.findPossibleStagingPipelineMapping(pr);
+  if (!possible) return null;
+  return {
+    ciName: possible.ciName || '',
+    cdName: possible.cdName || '',
+    ciId: possible.ciId || '',
+    cdId: possible.cdId || '',
+    source: possible.source || 'staging-csv',
+    confidence: possible.confidence || 'possible'
   };
 }
 

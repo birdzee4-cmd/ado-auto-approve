@@ -20,13 +20,21 @@ function getConfig() {
 }
 
 function adoRequest(method, path, body) {
+  return adoHostRequest('dev.azure.com', method, path, body);
+}
+
+function releaseRequest(method, path, body) {
+  return adoHostRequest('vsrm.dev.azure.com', method, path, body);
+}
+
+function adoHostRequest(hostname, method, path, body) {
   const { pat } = getConfig();
   const auth = 'Basic ' + Buffer.from(':' + pat).toString('base64');
   const data = body ? JSON.stringify(body) : null;
 
   return new Promise((resolve, reject) => {
     const options = {
-      hostname: 'dev.azure.com',
+      hostname: hostname,
       port: 443,
       path: path,
       method: method,
@@ -59,6 +67,157 @@ function adoRequest(method, path, body) {
     if (data) req.write(data);
     req.end();
   });
+}
+
+async function listReleasesByBuildId(buildId, top) {
+  const { org, project } = getConfig();
+  const params = [
+    'artifactVersionId=' + encodeURIComponent(String(buildId || '')),
+    '$top=' + encodeURIComponent(String(top || 5)),
+    'queryOrder=descending',
+    '$expand=environments,artifacts',
+    'api-version=7.1'
+  ].join('&');
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/releases?${params}`;
+  return releaseRequest('GET', path);
+}
+
+async function getRelease(releaseId) {
+  const { org, project } = getConfig();
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/releases/${encodeURIComponent(String(releaseId))}?api-version=7.1`;
+  return releaseRequest('GET', path);
+}
+
+async function approveReleaseApproval(approvalId, comments) {
+  const { org, project } = getConfig();
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/approvals/${encodeURIComponent(String(approvalId))}?api-version=7.1`;
+  return releaseRequest('PATCH', path, {
+    status: 'approved',
+    comments: comments || 'Approved from ADO Auto-Approve Dashboard'
+  });
+}
+
+async function getLatestReleaseApprovalForBuild(buildId, reviewerGroup) {
+  if (!buildId) return { status: 'not_found', label: 'No release yet' };
+  const listResult = await listReleasesByBuildId(buildId, 5);
+  if (!listResult.ok) {
+    return {
+      status: 'lookup_failed',
+      label: 'Release lookup failed',
+      detail: 'HTTP ' + listResult.status
+    };
+  }
+
+  const releases = listResult.body && Array.isArray(listResult.body.value)
+    ? listResult.body.value
+    : [];
+  if (!releases.length) {
+    return { status: 'not_found', label: 'No release yet', buildId: buildId };
+  }
+
+  for (const releaseSummary of releases) {
+    const releaseId = releaseSummary.id;
+    const detailResult = await getRelease(releaseId);
+    const release = detailResult.ok && detailResult.body ? detailResult.body : releaseSummary;
+    const summary = summarizeReleaseApproval(release, reviewerGroup);
+    if (summary.status !== 'not_found') return summary;
+  }
+
+  const first = releases[0];
+  return {
+    status: 'not_found',
+    label: 'Release found',
+    buildId: buildId,
+    releaseId: first.id,
+    releaseName: first.name || '',
+    releaseUrl: first._links && first._links.web && first._links.web.href || ''
+  };
+}
+
+function summarizeReleaseApproval(release, reviewerGroup) {
+  const environments = Array.isArray(release && release.environments) ? release.environments : [];
+  const groupText = String(reviewerGroup || '').toLowerCase();
+  let best = null;
+
+  for (const env of environments) {
+    const envStatus = String(env && env.status || '').toLowerCase();
+    const preApprovals = Array.isArray(env && env.preDeployApprovals) ? env.preDeployApprovals : [];
+    const approvals = preApprovals.filter(approval => approval && approval.isAutomated !== true);
+    const groupApprovals = approvals.filter(approval => {
+      if (!groupText) return true;
+      const approverName = approval.approver && approval.approver.displayName || '';
+      return String(approverName).toLowerCase().includes(groupText);
+    });
+    const scopedApprovals = groupApprovals.length ? groupApprovals : approvals;
+
+    const pending = scopedApprovals.find(approval => String(approval.status || '').toLowerCase() === 'pending');
+    if (pending) {
+      return buildReleaseApprovalSummary('pending', release, env, pending);
+    }
+
+    const approved = scopedApprovals.find(approval => String(approval.status || '').toLowerCase() === 'approved');
+    if (approved && !best) {
+      best = buildReleaseApprovalSummary(getReleaseEnvironmentStatus(envStatus), release, env, approved);
+    }
+
+    if (!best && envStatus) {
+      best = buildReleaseApprovalSummary(getReleaseEnvironmentStatus(envStatus), release, env, null);
+    }
+  }
+
+  return best || {
+    status: 'not_found',
+    label: 'No release approval',
+    releaseId: release && release.id,
+    releaseName: release && release.name || '',
+    releaseUrl: release && release._links && release._links.web && release._links.web.href || ''
+  };
+}
+
+function buildReleaseApprovalSummary(status, release, env, approval) {
+  const definitionName = release && release.releaseDefinition && release.releaseDefinition.name || '';
+  const releaseUrl = release && release._links && release._links.web && release._links.web.href ||
+    env && env.release && env.release._links && env.release._links.web && env.release._links.web.href ||
+    '';
+  return {
+    status: status,
+    label: getReleaseLabel(status),
+    releaseId: release && release.id,
+    releaseName: release && release.name || '',
+    releaseDefinitionId: release && release.releaseDefinition && release.releaseDefinition.id || '',
+    releaseDefinitionName: definitionName,
+    cdName: definitionName,
+    environmentId: env && env.id,
+    environmentName: env && env.name || '',
+    environmentStatus: env && env.status || '',
+    approvalId: approval && approval.id,
+    approvalStatus: approval && approval.status || '',
+    approver: approval && approval.approver && approval.approver.displayName || '',
+    approvedBy: approval && approval.approvedBy && approval.approvedBy.displayName || '',
+    createdOn: approval && approval.createdOn || '',
+    modifiedOn: approval && approval.modifiedOn || '',
+    releaseUrl: releaseUrl
+  };
+}
+
+function getReleaseEnvironmentStatus(envStatus) {
+  if (envStatus === 'succeeded') return 'succeeded';
+  if (envStatus === 'failed' || envStatus === 'canceled' || envStatus === 'rejected') return 'failed';
+  if (envStatus === 'inprogress' || envStatus === 'queued' || envStatus === 'scheduled') return 'deploying';
+  if (envStatus === 'notstarted') return 'waiting';
+  return envStatus || 'approved';
+}
+
+function getReleaseLabel(status) {
+  const labels = {
+    pending: 'Release approval pending',
+    approved: 'Release approved',
+    succeeded: 'Deploy succeeded',
+    failed: 'Deploy failed',
+    deploying: 'Deploying',
+    waiting: 'Waiting for release'
+  };
+  return labels[status] || 'Release detected';
 }
 
 /**
@@ -385,6 +544,7 @@ function hasReviewerGroup(pr, groupName) {
 module.exports = {
   getConfig,
   adoRequest,
+  releaseRequest,
   getPullRequest,
   getPullRequestStatuses,
   getBuildsForBranch,
@@ -399,5 +559,10 @@ module.exports = {
   findReleaseNotesPolicyIds,
   findMinimumApproverCount,
   isBuildStatus,
-  summarizeStatusSnapshot
+  summarizeStatusSnapshot,
+  listReleasesByBuildId,
+  getRelease,
+  approveReleaseApproval,
+  getLatestReleaseApprovalForBuild,
+  summarizeReleaseApproval
 };
