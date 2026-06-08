@@ -41,6 +41,27 @@
 
       <div id="activityResult" hidden></div>
 
+      <div class="activity-filter-panel">
+        <label class="filter-field">
+          <span>Latest Status</span>
+          <select id="activityFilterStatus">
+            <option value="">All statuses</option>
+            <option value="build-failed">Build Failed</option>
+            <option value="policy-pending">Policy Pending</option>
+            <option value="completed">Completed</option>
+            <option value="active-pending">Active / Pending</option>
+          </select>
+        </label>
+        <label class="filter-field">
+          <span>Approval Source</span>
+          <select id="activityFilterSource">
+            <option value="">All approval sources</option>
+            <option value="dashboard">Dashboard approved</option>
+            <option value="external">External approved</option>
+          </select>
+        </label>
+      </div>
+
       <div id="completedSection" class="completed-section" hidden>
         <div class="completed-header">
           <h3>Approval Log Activity</h3>

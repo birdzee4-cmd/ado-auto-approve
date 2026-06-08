@@ -72,7 +72,10 @@ window._currentUser = {
     });
 
     if (document.getElementById('btnCheckPrs')) checkPrs();
-    if (document.getElementById('btnRefreshActivity')) loadPrActivity();
+    if (document.getElementById('btnRefreshActivity')) {
+      bindActivityFilters();
+      loadPrActivity();
+    }
     if (document.getElementById('logTableBody')) {
       bindAuditLogFilters();
       loadAuditLogs();
@@ -220,7 +223,15 @@ async function loadPrActivity(page) {
   showBox('activityResult', '<div class="test-result result-info">⏳ Loading PR activity...</div>');
 
   try {
-    const r = await safeFetchJson('/api/list-prs?includeActivity=true&activityPage=' + encodeURIComponent(nextPage) + '&activityPageSize=10');
+    const params = new URLSearchParams();
+    params.set('includeActivity', 'true');
+    params.set('activityPage', String(nextPage));
+    params.set('activityPageSize', '10');
+    const statusFilter = (document.getElementById('activityFilterStatus') || {}).value || '';
+    const sourceFilter = (document.getElementById('activityFilterSource') || {}).value || '';
+    if (statusFilter) params.set('activityStatus', statusFilter);
+    if (sourceFilter) params.set('activitySource', sourceFilter);
+    const r = await safeFetchJson('/api/list-prs?' + params.toString());
     if (r.parseError) {
       showBox('activityResult', '<div class="test-result result-error">❌ Backend ตอบไม่ใช่ JSON (HTTP ' + r.status + ')</div>');
       return;
@@ -253,6 +264,15 @@ async function loadPrActivity(page) {
   } finally {
     setButtonLoading('btnRefreshActivity', false);
   }
+}
+
+function bindActivityFilters() {
+  ['activityFilterStatus', 'activityFilterSource'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.bound === 'true') return;
+    el.dataset.bound = 'true';
+    el.addEventListener('change', () => loadPrActivity(0));
+  });
 }
 
 // ===== Check PRs =====

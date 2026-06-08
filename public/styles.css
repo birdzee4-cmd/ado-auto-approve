@@ -278,6 +278,18 @@ body {
   min-height: 40px;
 }
 
+.activity-filter-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 260px));
+  gap: 12px;
+  align-items: end;
+  padding: 14px 16px;
+  margin: 12px 0 18px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(245, 164, 0, 0.24);
+  border-radius: 10px;
+}
+
 .filter-field {
   display: flex;
   flex-direction: column;
@@ -886,6 +898,9 @@ body {
     flex-direction: column;
   }
   .log-filter-panel {
+    grid-template-columns: 1fr;
+  }
+  .activity-filter-panel {
     grid-template-columns: 1fr;
   }
   .log-filter-actions {

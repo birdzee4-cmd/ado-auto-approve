@@ -170,7 +170,23 @@ function matchesAction(item, action) {
     item.policyStatus
   ].join(' ').toLowerCase();
   if (action === 'failed') return text.includes('fail') || text.includes('error');
-  if (action === 'external') return text.includes('external') || text.includes('azure devops sync');
+  if (action === 'build-failed') {
+    const buildText = [item.buildResult, item.buildStatus, item.build, item.result, item.reason].join(' ').toLowerCase();
+    return buildText.includes('failed') || buildText.includes('error');
+  }
+  if (action === 'policy-pending') {
+    return String(item.policyStatus || '').toLowerCase() === 'pending' ||
+      text.includes('policy pending') ||
+      text.includes('policy: pending');
+  }
+  if (action === 'dashboard-approved') {
+    return String(item.action || '').toLowerCase() === 'approved' &&
+      String(item.source || '').toLowerCase().includes('dashboard');
+  }
+  if (action === 'external-approved') {
+    return String(item.action || '').toLowerCase().includes('external approved') ||
+      String(item.source || '').toLowerCase().includes('azure devops sync');
+  }
   return String(item.action || '').toLowerCase().includes(action);
 }
 

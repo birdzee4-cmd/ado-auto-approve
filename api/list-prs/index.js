@@ -55,6 +55,8 @@ module.exports = async function (context, req) {
     const includeActivity = req.query && String(req.query.includeActivity || '').toLowerCase() === 'true';
     const activityPage = Math.max(Number(req.query && req.query.activityPage) || 0, 0);
     const activityPageSize = Math.min(Math.max(Number(req.query && req.query.activityPageSize) || completedDisplayLimit, 1), 25);
+    const activityStatus = normalizeFilter(req.query && req.query.activityStatus);
+    const activitySource = normalizeFilter(req.query && req.query.activitySource);
     const branchBuildCache = {};
 
     const missing = [];
@@ -138,6 +140,8 @@ module.exports = async function (context, req) {
         maxRows: approvedLookupLimit,
         page: activityPage,
         pageSize: activityPageSize,
+        statusFilter: activityStatus,
+        sourceFilter: activitySource,
         branchBuildCache: branchBuildCache
       })
       : {
@@ -180,6 +184,10 @@ module.exports = async function (context, req) {
         : recentlyApprovedPrs.length,
       completedDisplayLimit: includeActivity ? activityPageSize : completedDisplayLimit,
       approvedLookback: approvedLookup.meta,
+      activityFilters: {
+        status: activityStatus,
+        source: activitySource
+      },
       exceptionNotifications: {
         ok: activeNotificationResult.ok && completedNotificationResult.ok,
         active: activeNotificationResult,
@@ -318,15 +326,20 @@ async function buildRecentlyApprovedRows(context, options) {
 
   const approvals = Array.from(approvedByPr.values())
     .sort(compareDateDesc)
+    .filter(log => matchesActivitySource(log, options.sourceFilter))
     .slice(0, options.maxRows);
   meta.matchedLogs = approvals.length;
-  meta.uniquePrs = approvals.length;
   meta.page = Math.max(Number(options.page) || 0, 0);
   meta.pageSize = Math.min(Math.max(Number(options.pageSize) || 10, 1), 25);
-  meta.totalPages = Math.max(1, Math.ceil(meta.uniquePrs / meta.pageSize));
-
+  meta.filters = {
+    status: options.statusFilter || '',
+    source: options.sourceFilter || ''
+  };
+  meta.requiresFullEnrich = !!options.statusFilter;
   const pageStart = meta.page * meta.pageSize;
-  const pageApprovals = approvals.slice(pageStart, pageStart + meta.pageSize);
+  const pageApprovals = meta.requiresFullEnrich
+    ? approvals
+    : approvals.slice(pageStart, pageStart + meta.pageSize);
 
   const rows = [];
   for (const approvalLog of pageApprovals) {
@@ -350,7 +363,9 @@ async function buildRecentlyApprovedRows(context, options) {
       row.approvedAt = approvalLog.approvedAt;
       row.approvedAction = approvalLog.action;
       row.approvedSource = approvalLog.source;
-      rows.push(row);
+      if (matchesActivityStatus(row, options.statusFilter)) {
+        rows.push(row);
+      }
     } catch (e) {
       meta.skipped += 1;
       if (context && context.log && context.log.warn) {
@@ -360,7 +375,55 @@ async function buildRecentlyApprovedRows(context, options) {
   }
 
   rows.sort(compareApprovedRows);
-  return { rows: rows, meta: meta };
+  meta.uniquePrs = meta.requiresFullEnrich ? rows.length : approvals.length;
+  meta.totalPages = Math.max(1, Math.ceil(meta.uniquePrs / meta.pageSize));
+  const pageRows = meta.requiresFullEnrich
+    ? rows.slice(pageStart, pageStart + meta.pageSize)
+    : rows;
+  return { rows: pageRows, meta: meta };
+}
+
+function normalizeFilter(value) {
+  const text = String(value || '').trim().toLowerCase();
+  return text === 'all' ? '' : text;
+}
+
+function matchesActivitySource(log, sourceFilter) {
+  if (!sourceFilter) return true;
+  const action = String(log && log.action || '').toLowerCase();
+  const source = String(log && log.source || '').toLowerCase();
+  if (sourceFilter === 'dashboard') {
+    return action === 'approved' && (source.includes('dashboard') || !source);
+  }
+  if (sourceFilter === 'external') {
+    return action.includes('external') || source.includes('azure devops sync');
+  }
+  return source.includes(sourceFilter) || action.includes(sourceFilter);
+}
+
+function matchesActivityStatus(row, statusFilter) {
+  if (!statusFilter) return true;
+  const snapshot = row && row.statusSnapshot || {};
+  const buildResult = String(snapshot.buildResult || '').toLowerCase();
+  const buildStatus = String(snapshot.buildStatus || '').toLowerCase();
+  const policyStatus = String(snapshot.policyStatus || '').toLowerCase();
+  const prStatus = String(row && row.status || '').toLowerCase();
+  const mergeStatus = String(snapshot.mergeStatus || row && row.mergeStatus || '').toLowerCase();
+
+  if (statusFilter === 'build-failed') {
+    return buildResult === 'failed' || buildResult === 'error';
+  }
+  if (statusFilter === 'policy-pending') {
+    return policyStatus === 'pending';
+  }
+  if (statusFilter === 'completed') {
+    return prStatus === 'completed' || mergeStatus === 'succeeded' || mergeStatus === 'completed';
+  }
+  if (statusFilter === 'active-pending') {
+    return prStatus !== 'completed' &&
+      (policyStatus === 'pending' || buildStatus === 'in_progress' || buildResult === 'pending');
+  }
+  return true;
 }
 
 function isApprovedLogAction(action) {
