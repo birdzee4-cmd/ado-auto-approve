@@ -162,32 +162,46 @@ body {
 .nav-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
+  margin-left: auto;
 }
 
 .nav-logo {
-  width: 210px;
-  height: 40px;
+  width: 170px;
+  height: 36px;
   object-fit: contain;
   object-position: right center;
+  padding-left: 16px;
+  margin-left: 6px;
+  border-left: 1px solid rgba(245, 164, 0, 0.34);
 }
 
 .user-name {
   color: var(--bz-yellow-strong);
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 8px 10px;
+  border: 1px solid rgba(245, 164, 0, 0.24);
+  border-radius: 999px;
+  background: rgba(245, 164, 0, 0.08);
 }
 
 .logout-button {
   color: #111827;
   text-decoration: none;
-  font-size: 14px;
-  padding: 9px 16px;
+  font-size: 13px;
+  padding: 10px 16px;
   border: 1px solid var(--bz-yellow);
   border-radius: 6px;
   transition: all 0.2s;
   background: var(--bz-yellow);
   font-weight: 700;
+  line-height: 1;
 }
 
 .logout-button:hover {
@@ -888,8 +902,10 @@ body {
     margin-left: 0;
   }
   .nav-logo {
-    width: 150px;
-    height: 30px;
+    width: 132px;
+    height: 28px;
+    padding-left: 10px;
+    margin-left: 2px;
   }
   .user-name {
     display: none;
