@@ -482,6 +482,7 @@ function renderRecentlyApprovedRows(tbody, rows) {
   for (const pr of rows) {
     const tr = document.createElement('tr');
     const statusBadge = renderRecentlyApprovedStatusBadge(pr);
+    const logSourceBadge = renderApprovalLogSourceBadge(pr);
     const approvedAt = pr.approvedAt || pr.closedDate || pr.creationDate;
     const actionsHtml = renderCompletedActions(pr);
     tr.innerHTML =
@@ -490,11 +491,33 @@ function renderRecentlyApprovedRows(tbody, rows) {
       '<td class="pr-by-cell">' + escapeHtml(pr.createdBy || '-') + '</td>' +
       '<td class="pr-branch-cell">' + renderBranchCell(pr) + '</td>' +
       '<td class="pr-status-cell">' + statusBadge + '</td>' +
+      '<td class="pr-log-source-cell">' + logSourceBadge + '</td>' +
       '<td class="pr-repo-cell">' + escapeHtml(pr.repository || '-') + '</td>' +
       '<td class="pr-created-cell">' + formatDate(approvedAt) + '</td>' +
       '<td class="pr-actions-cell">' + actionsHtml + '</td>';
     tbody.appendChild(tr);
   }
+}
+
+function renderApprovalLogSourceBadge(pr) {
+  const action = String(pr && pr.approvedAction || '').trim() || 'Approved';
+  const source = String(pr && pr.approvedSource || '').trim() || 'Dashboard';
+  const actionKey = action.toLowerCase();
+  const sourceKey = source.toLowerCase();
+  let cls = 'log-source-badge log-source-dashboard';
+  let label = action;
+
+  if (actionKey.includes('external') || sourceKey.includes('azure devops')) {
+    cls = 'log-source-badge log-source-external';
+    label = action.replace(/^External\s+/i, 'External ');
+  } else if (sourceKey.includes('teams')) {
+    cls = 'log-source-badge log-source-notification';
+  }
+
+  return '<span class="' + cls + '" title="' + escapeHtml(action + ' · ' + source) + '">' +
+    '<span class="log-source-action">' + escapeHtml(label) + '</span>' +
+    '<span class="log-source-name">' + escapeHtml(source) + '</span>' +
+    '</span>';
 }
 
 window.changeRecentlyApprovedPage = function(delta) {
