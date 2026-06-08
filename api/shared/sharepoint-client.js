@@ -333,6 +333,121 @@ async function getLogItemsSince(sinceIso, maxItems) {
   };
 }
 
+async function getLogItemsBefore(cutoffIso, maxItems) {
+  const siteId = await getSiteId();
+  const listId = await getListId();
+  const token = await getAccessToken();
+  const cutoff = String(cutoffIso || '');
+  const limit = Math.max(1, Math.min(parseInt(maxItems, 10) || 500, 1000));
+  const pageSize = 100;
+  const filter = `createdDateTime lt ${cutoff}`;
+  let url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$filter=${encodeURIComponent(filter)}&$orderby=createdDateTime asc&$top=${pageSize}`;
+  const headers = {
+    'Authorization': 'Bearer ' + token,
+    'Prefer': 'HonorNonIndexedQueriesWarningMayFailRandomly'
+  };
+  const items = [];
+  let lastStatus = 200;
+  let lastBody = null;
+
+  while (url && items.length < limit) {
+    const result = await httpRequest('GET', url, headers);
+    lastStatus = result.status;
+    lastBody = result.body;
+    if (!result.ok) return result;
+
+    const value = result.body && Array.isArray(result.body.value) ? result.body.value : [];
+    for (const item of value) {
+      if (items.length >= limit) break;
+      items.push(item);
+    }
+    url = result.body && result.body['@odata.nextLink'] ? result.body['@odata.nextLink'] : '';
+  }
+
+  return {
+    ok: true,
+    status: lastStatus,
+    body: {
+      value: items,
+      cutoff: cutoffIso || '',
+      fetched: items.length,
+      truncated: items.length >= limit,
+      lastResponse: lastBody
+    }
+  };
+}
+
+async function deleteLogItem(itemId) {
+  const siteId = await getSiteId();
+  const listId = await getListId();
+  const token = await getAccessToken();
+  const safeItemId = encodeURIComponent(String(itemId || ''));
+  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items/${safeItemId}`;
+  return httpRequest('DELETE', url, { 'Authorization': 'Bearer ' + token });
+}
+
+async function uploadArchiveFile(filePath, content, contentType) {
+  const siteId = await getSiteId();
+  const token = await getAccessToken();
+  const normalizedPath = normalizeDrivePath(filePath);
+  const folderPath = normalizedPath.split('/').slice(0, -1).join('/');
+  if (folderPath) await ensureDriveFolderPath(folderPath);
+  const encodedPath = encodeDrivePath(normalizedPath);
+  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:/${encodedPath}:/content`;
+  return httpRequest('PUT', url, {
+    'Authorization': 'Bearer ' + token,
+    'Content-Type': contentType || 'text/plain; charset=utf-8'
+  }, content || '');
+}
+
+async function ensureDriveFolderPath(folderPath) {
+  const siteId = await getSiteId();
+  const token = await getAccessToken();
+  const segments = normalizeDrivePath(folderPath).split('/').filter(Boolean);
+  let current = '';
+  for (const segment of segments) {
+    const nextPath = current ? current + '/' + segment : segment;
+    const getUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:/${encodeDrivePath(nextPath)}:`;
+    const existing = await httpRequest('GET', getUrl, { 'Authorization': 'Bearer ' + token });
+    if (existing.ok) {
+      current = nextPath;
+      continue;
+    }
+
+    const parentUrl = current
+      ? `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:/${encodeDrivePath(current)}:/children`
+      : `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root/children`;
+    const created = await httpRequest('POST', parentUrl, {
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': 'application/json'
+    }, {
+      name: segment,
+      folder: {},
+      '@microsoft.graph.conflictBehavior': 'replace'
+    });
+    if (!created.ok) {
+      throw new Error('Failed to create SharePoint archive folder: HTTP ' + created.status);
+    }
+    current = nextPath;
+  }
+}
+
+function normalizeDrivePath(filePath) {
+  return String(filePath || '')
+    .replace(/\\/g, '/')
+    .split('/')
+    .map(part => part.trim())
+    .filter(Boolean)
+    .join('/');
+}
+
+function encodeDrivePath(filePath) {
+  return normalizeDrivePath(filePath)
+    .split('/')
+    .map(segment => encodeURIComponent(segment))
+    .join('/');
+}
+
 /**
  * Helper: สร้าง log entry มาตรฐาน
  */
@@ -371,5 +486,8 @@ module.exports = {
   getLogByEventKey,
   getRecentLogItems,
   getLogItemsSince,
+  getLogItemsBefore,
+  deleteLogItem,
+  uploadArchiveFile,
   buildLogFields
 };

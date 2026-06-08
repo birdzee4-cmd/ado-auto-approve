@@ -5,6 +5,7 @@
 Production URL:
 
 - Dashboard: https://mango-wave-09cff3700.7.azurestaticapps.net/dashboard.html
+- Activity: https://mango-wave-09cff3700.7.azurestaticapps.net/activity.html
 - Merge Lookup: https://mango-wave-09cff3700.7.azurestaticapps.net/merge.html
 - Audit Logs: https://mango-wave-09cff3700.7.azurestaticapps.net/logs.html
 - System Health: https://mango-wave-09cff3700.7.azurestaticapps.net/health.html
@@ -21,6 +22,7 @@ Production URL:
 - MergeCode / MergeCodeProduction ถูกแยกเป็น manual workflow บน Azure DevOps
 - Audit Logs อ่านจาก SharePoint และเรียงล่าสุดก่อน
 - Daily Summary ส่งผ่าน Azure Logic Apps Consumption เวลา 18:00 Asia/Bangkok
+- SharePoint Log Retention รองรับ archive/export ก่อน cleanup โดย default เก็บ 180 วัน
 - Branch backup ล่าสุดใช้ `staging` ตัวพิมพ์เล็กเท่านั้น
 
 ## วัตถุประสงค์
@@ -54,7 +56,8 @@ flowchart LR
 | Page | Path | Purpose |
 |---|---|---|
 | Login | `/` | Login ผ่าน Microsoft Entra ID |
-| Dashboard | `/dashboard.html` | ตรวจ PR ที่รออนุมัติ, Approve/Reject, Recently Completed, Health Summary |
+| Dashboard | `/dashboard.html` | ตรวจ PR ที่รออนุมัติ, Approve/Reject และ Active PR Queue |
+| Activity | `/activity.html` | ดู PR ที่ user approve ใน 24 ชั่วโมงล่าสุด พร้อม filter Build Failed / Policy Pending / source |
 | Merge Lookup | `/merge.html` | กรอก PR ID เพื่อหา CI/CD ของงาน Merge |
 | Audit Logs | `/logs.html` | ค้นหา SharePoint Log ตาม PR, action, source, keyword |
 | System Health | `/health.html` | ตรวจ Backend, ADO, SharePoint, Teams, Daily Summary, Last Sync/Notification |
@@ -184,7 +187,7 @@ api/shared/stg-ci-cd-map.json
 Filter ที่รองรับ:
 
 - PR ID เช่น `342997` หรือ `#342997`
-- Action เช่น Approved, Rejected, Notification, Failed, External
+- Action เช่น Approved, Dashboard approved, External approved, Rejected, Notification, Build Failed, Policy Pending, Failed / Error
 - Source เช่น Dashboard, Azure DevOps Sync, Teams
 - Keyword เช่น user, repo, title, result, reason
 - Limit: 50 หรือ 100
@@ -235,6 +238,54 @@ Column สำคัญที่ใช้:
 
 - `SHAREPOINT_AUTO_CREATE_LOG_COLUMNS=false` จะปิด auto-create optional columns
 - หาก Azure DevOps action สำเร็จแต่ SharePoint log ล้มเหลว ระบบจะแจ้ง error เพื่อให้ตรวจย้อนหลังได้
+
+### SharePoint Log Retention / Cleanup
+
+ระบบรองรับ retention policy สำหรับ SharePoint Log โดยแนวทางหลักคือเก็บข้อมูลใน List 180 วัน และ archive เป็น CSV ก่อน delete
+
+Endpoint:
+
+```text
+POST /api/log-retention-cleanup
+```
+
+Header:
+
+```text
+x-log-retention-token: <LOG_RETENTION_TOKEN หรือ DAILY_SUMMARY_TOKEN>
+```
+
+Body สำหรับ dry run:
+
+```json
+{
+  "dryRun": true,
+  "retentionDays": 180,
+  "maxItems": 500
+}
+```
+
+Body สำหรับ cleanup จริง:
+
+```json
+{
+  "dryRun": false,
+  "retentionDays": 180,
+  "maxItems": 500,
+  "deleteAfterArchive": true
+}
+```
+
+หลักการทำงาน:
+
+- Query SharePoint List เฉพาะ items ที่ `createdDateTime` เก่ากว่า cutoff
+- Export เป็น CSV พร้อม UTF-8 BOM เพื่อเปิดใน Excel ได้ง่าย
+- Upload เข้า SharePoint Document Library path ตามรูปแบบ `ADO AutoApprove Archive/YYYY/MM/...csv`
+- Delete list items เฉพาะเมื่อ upload archive สำเร็จ
+- บันทึก summary log กลับเข้า SharePoint ด้วย action `Log Retention Cleanup`
+- Default ของ endpoint คือ `dryRun=true` เพื่อป้องกันการลบโดยไม่ตั้งใจ
+
+แนะนำให้ Azure Logic Apps Consumption เรียก endpoint นี้เดือนละครั้ง เช่น วันที่ 1 เวลา 01:00 Asia/Bangkok
 
 ## System Health
 
@@ -344,6 +395,8 @@ Routes สำคัญ:
 | `/api/approve-pr` | `it_support_approve` |
 | `/api/reject-pr` | `it_support_approve` |
 | `/api/daily-summary` | `anonymous` + header token |
+| `/api/exception-scan` | `anonymous` + header token |
+| `/api/log-retention-cleanup` | `anonymous` + header token |
 | `/api/webhook` | `anonymous` + basic auth |
 
 Role display:
@@ -385,6 +438,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/test-exception-scan` | POST | ทดสอบ Build/Policy exception scan จากหน้า Health |
 | `/api/daily-summary` | POST | endpoint สำหรับ Logic Apps scheduler |
 | `/api/exception-scan` | POST | endpoint สำหรับสแกน Build/Policy failed จาก approval logs |
+| `/api/log-retention-cleanup` | POST | endpoint สำหรับ archive/export/delete SharePoint logs เก่ากว่า retention window |
 | `/api/webhook` | POST | legacy/webhook notification endpoint |
 
 ## Important Shared Modules
@@ -467,6 +521,10 @@ api/shared/attention.js
 | `TEAMS_EXCEPTION_NOTIFICATIONS` | No | set `false` เพื่อปิด exception alerts |
 | `DAILY_SUMMARY_TOKEN` | For daily summary | token ที่ Logic Apps ส่งมาใน header |
 | `EXCEPTION_SCAN_TOKEN` | No | token สำหรับ `/api/exception-scan`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
+| `LOG_RETENTION_TOKEN` | No | token สำหรับ `/api/log-retention-cleanup`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
+| `LOG_RETENTION_DAYS` | No | default `180` |
+| `LOG_RETENTION_BATCH_LIMIT` | No | default `500`, max `1000` |
+| `LOG_ARCHIVE_FOLDER` | No | default `ADO AutoApprove Archive` |
 
 ### Webhook
 
