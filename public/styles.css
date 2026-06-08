@@ -1004,7 +1004,7 @@ body {
 
 .pr-table {
   width: 100%;
-  min-width: 1590px;
+  min-width: 1695px;
   border-collapse: collapse;
   font-size: 13px;
   table-layout: fixed;
@@ -1012,29 +1012,29 @@ body {
 
 .pr-table th:nth-child(1),
 .pr-table td:nth-child(1) {
-  width: 350px;
+  width: 340px;
 }
 
 .pr-table th:nth-child(2),
-.pr-table td:nth-child(2) { width: 320px; }
+.pr-table td:nth-child(2) { width: 330px; }
 
 .pr-table th:nth-child(3),
-.pr-table td:nth-child(3) { width: 135px; }
+.pr-table td:nth-child(3) { width: 170px; }
 
 .pr-table th:nth-child(4),
-.pr-table td:nth-child(4) { width: 150px; }
+.pr-table td:nth-child(4) { width: 160px; }
 
 .pr-table th:nth-child(5),
-.pr-table td:nth-child(5) { width: 170px; }
+.pr-table td:nth-child(5) { width: 190px; }
 
 .pr-table th:nth-child(6),
-.pr-table td:nth-child(6) { width: 160px; }
+.pr-table td:nth-child(6) { width: 170px; }
 
 .pr-table th:nth-child(7),
-.pr-table td:nth-child(7) { width: 160px; }
+.pr-table td:nth-child(7) { width: 175px; }
 
 .pr-table th:nth-child(8),
-.pr-table td:nth-child(8) { width: 145px; }
+.pr-table td:nth-child(8) { width: 165px; }
 
 .completed-table {
   min-width: 1400px;
@@ -1223,6 +1223,12 @@ body {
   word-break: normal;
 }
 
+.pr-table th:nth-child(n+3),
+.pr-table td:nth-child(n+3) {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
 .pr-table tbody tr:hover {
   background: #fff9e8;
 }
@@ -1241,7 +1247,8 @@ body {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-width: 116px;
+  width: 128px;
+  max-width: 128px;
   min-height: 30px;
   padding: 6px 8px;
   border: 1px solid;
