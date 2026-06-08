@@ -1319,6 +1319,7 @@ async function testExceptionScan() {
       showResult('✅ Exception scan completed | PRs ' + (r.data.checkedPrs || 0) +
         ' | Alerts sent ' + (r.data.sent || 0) +
         ' | Skipped ' + (r.data.skipped || 0), 'success');
+      checkHealthStatus();
     } else {
       const d = r.data || {};
       showResult('❌ ' + (d.error || d.detail || 'Unknown'), 'error');
@@ -1537,6 +1538,23 @@ function renderSystemHealth(data) {
     } : {}
   }));
 
+  const lastExceptionScan = data.lastExceptionScan || null;
+  const exceptionScanStatus = getExceptionScanHealthStatus(lastExceptionScan);
+  cards.push(buildHealthCard({
+    key: 'last-exception-scan',
+    label: 'Last Exception Scan',
+    status: exceptionScanStatus,
+    message: lastExceptionScan && lastExceptionScan.at
+      ? formatDate(lastExceptionScan.at)
+      : 'ยังไม่พบ exception scan log',
+    detail: lastExceptionScan ? {
+      result: lastExceptionScan.result,
+      checkedPrs: lastExceptionScan.checkedPrs,
+      alertsSent: lastExceptionScan.sent,
+      skipped: lastExceptionScan.skipped
+    } : {}
+  }));
+
   const nextRun = data.schedule && data.schedule.dailySummary && data.schedule.dailySummary.nextRunAt;
   cards.push(buildHealthCard({
     key: 'next-summary',
@@ -1587,6 +1605,15 @@ function buildHealthSummary(data) {
       '<div class="status-detail-list">' + detail + '</div>' +
     '</div>' +
   '</div>';
+}
+
+function getExceptionScanHealthStatus(scan) {
+  if (!scan || !scan.at) return 'warning';
+  const result = String(scan.result || '').toLowerCase();
+  const reason = String(scan.reason || '').toLowerCase();
+  if (result.includes('error') || reason.includes('error')) return 'error';
+  if (result.includes('warn')) return 'warning';
+  return 'ok';
 }
 
 function buildHealthCard(item) {

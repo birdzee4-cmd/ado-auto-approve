@@ -56,13 +56,21 @@ async function scanExceptions(context, options) {
 
   const logsResult = await sp.getLogItemsSince(sinceIso, maxLogs);
   if (!logsResult.ok) {
-    return {
+    const failedResult = {
       ok: false,
       error: 'SharePoint log query failed: HTTP ' + logsResult.status,
       checkedLogs: 0,
       checkedPrs: 0,
-      sent: 0
+      sent: 0,
+      skipped: 0,
+      errors: ['SharePoint log query failed: HTTP ' + logsResult.status]
     };
+    await writeScanSummaryLog(context, failedResult, {
+      lookbackHours: lookbackHours,
+      maxLogs: maxLogs,
+      maxPrs: maxPrs
+    });
+    return failedResult;
   }
 
   const logs = logsResult.body && Array.isArray(logsResult.body.value) ? logsResult.body.value : [];
@@ -117,7 +125,7 @@ async function scanExceptions(context, options) {
     }
   }
 
-  return {
+  const result = {
     ok: errors.length === 0,
     source: 'Approval Log Exception Scan',
     lookbackHours: lookbackHours,
@@ -128,6 +136,48 @@ async function scanExceptions(context, options) {
     errors: errors.slice(0, 10),
     rows: rows
   };
+  await writeScanSummaryLog(context, result, {
+    lookbackHours: lookbackHours,
+    maxLogs: maxLogs,
+    maxPrs: maxPrs
+  });
+  return result;
+}
+
+async function writeScanSummaryLog(context, result, options) {
+  try {
+    const nowIso = new Date().toISOString();
+    const status = result && result.ok ? 'OK' : 'Warning';
+    const reasonParts = [
+      'Checked logs ' + (result && result.checkedLogs || 0),
+      'Checked PRs ' + (result && result.checkedPrs || 0),
+      'Alerts sent ' + (result && result.sent || 0),
+      'Skipped ' + (result && result.skipped || 0),
+      'Lookback ' + (options && options.lookbackHours || result && result.lookbackHours || 24) + 'h'
+    ];
+    const errors = Array.isArray(result && result.errors) ? result.errors.filter(Boolean) : [];
+    if (errors.length) {
+      reasonParts.push('Errors ' + errors.slice(0, 3).join(' | '));
+    }
+
+    await sp.addLogItem(sp.buildLogFields({
+      prId: 0,
+      action: 'Exception Scan',
+      user: 'System',
+      repository: 'System Health',
+      prTitle: 'Build/Policy Exception Scan',
+      targetBranch: process.env.ADO_TARGET_BRANCH || 'refs/heads/staging',
+      result: status,
+      reason: reasonParts.join(' | '),
+      source: 'Approval Log Exception Scan',
+      eventKey: 'exception-scan:' + nowIso,
+      lastCheckedAt: nowIso
+    }));
+  } catch (e) {
+    if (context && context.log && context.log.warn) {
+      context.log.warn('Exception scan summary log failed: ' + e.message);
+    }
+  }
 }
 
 function parseOptions(body) {

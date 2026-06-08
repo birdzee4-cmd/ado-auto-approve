@@ -33,6 +33,9 @@ module.exports = async function (context, req) {
   const lastNotification = sharePointResult.recentLogs
     ? findLastNotification(sharePointResult.recentLogs)
     : null;
+  const lastExceptionScan = sharePointResult.recentLogs
+    ? findLastExceptionScan(sharePointResult.recentLogs)
+    : null;
 
   const rollup = checks.some(c => c.status === 'error')
     ? 'degraded'
@@ -51,6 +54,7 @@ module.exports = async function (context, req) {
       version: '1.1.0',
       checks: checks,
       lastNotification: lastNotification,
+      lastExceptionScan: lastExceptionScan,
       schedule: {
         dailySummary: {
           enabled: !!process.env.DAILY_SUMMARY_TOKEN && !!process.env.TEAMS_WEBHOOK_URL,
@@ -91,7 +95,7 @@ async function checkSharePoint(context) {
     const sp = require('../shared/sharepoint-client');
     const siteId = await sp.getSiteId();
     const listId = await sp.getListId();
-    const recent = await sp.getRecentLogItems(80);
+    const recent = await sp.getRecentLogItems(100);
     const recentLogs = recent.ok && recent.body && Array.isArray(recent.body.value)
       ? recent.body.value
       : [];
@@ -171,6 +175,48 @@ function findLastNotification(logItems) {
     };
   }
   return null;
+}
+
+function findLastExceptionScan(logItems) {
+  for (const item of logItems || []) {
+    const fields = item.fields || {};
+    const action = String(fields.Action || '');
+    const source = String(fields.Log_Source || fields.Source || '');
+    const title = String(fields.Title || '');
+    const text = [action, source, title].join(' ').toLowerCase();
+    if (action !== 'Exception Scan' && !text.includes('exception scan')) continue;
+    const parsed = parseExceptionScanReason(fields.Reason || '');
+    return {
+      at: item.createdDateTime || fields.Last_Checked_At || item.lastModifiedDateTime || '',
+      result: fields.Result || '',
+      reason: fields.Reason || '',
+      source: source || 'Approval Log Exception Scan',
+      checkedLogs: parsed.checkedLogs,
+      checkedPrs: parsed.checkedPrs,
+      sent: parsed.sent,
+      skipped: parsed.skipped,
+      lookbackHours: parsed.lookbackHours
+    };
+  }
+  return null;
+}
+
+function parseExceptionScanReason(reason) {
+  const text = String(reason || '');
+  return {
+    checkedLogs: matchNumber(text, /Checked logs\s+(\d+)/i),
+    checkedPrs: matchNumber(text, /Checked PRs\s+(\d+)/i),
+    sent: matchNumber(text, /Alerts sent\s+(\d+)/i),
+    skipped: matchNumber(text, /Skipped\s+(\d+)/i),
+    lookbackHours: matchNumber(text, /Lookback\s+(\d+)h/i)
+  };
+}
+
+function matchNumber(text, pattern) {
+  const match = String(text || '').match(pattern);
+  if (!match) return undefined;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : undefined;
 }
 
 function inferNotificationSource(text) {
