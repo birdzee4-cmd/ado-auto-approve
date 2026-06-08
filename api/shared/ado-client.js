@@ -371,22 +371,6 @@ async function setAutoComplete(prId, repositoryId, botUserId, options) {
 }
 
 /**
- * Add comment ใน PR thread
- */
-async function addComment(prId, repositoryId, commentText) {
-  const { org, project } = getConfig();
-  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repositoryId}/pullRequests/${prId}/threads?api-version=7.0`;
-  return adoRequest('POST', path, {
-    comments: [{
-      parentCommentId: 0,
-      content: commentText,
-      commentType: 1
-    }],
-    status: 1
-  });
-}
-
-/**
  * ตรวจว่ามี group "IT Support Approve" (หรือชื่ออื่น) อยู่ใน reviewers ของ PR ไหม
  */
 function hasReviewerGroup(pr, groupName) {
@@ -410,7 +394,6 @@ module.exports = {
   approvePR,
   rejectPR,
   setAutoComplete,
-  addComment,
   hasReviewerGroup,
   getBranchPolicies,
   findReleaseNotesPolicyIds,
