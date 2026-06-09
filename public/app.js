@@ -413,7 +413,7 @@ function renderCompletedPrTable(prs, lookbackHours, totalMatched, displayLimit, 
       pager.hidden = true;
       pager.innerHTML = '';
     }
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:22px;color:#9ca3af">— No approval log PRs found in the last ' + escapeHtml(lookbackHours) + ' hours —</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:22px;color:#9ca3af">— No approval log PRs found in the last ' + escapeHtml(lookbackHours) + ' hours —</td></tr>';
     return;
   }
 
@@ -468,7 +468,7 @@ function renderRecentlyApprovedPage() {
   if (!prs.length) {
     section.hidden = false;
     meta.textContent = 'Last ' + lookbackHours + ' hours by approval log | showing 0 of 0 PRs';
-    tbody.innerHTML = '';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:22px;color:#9ca3af">— No approval log PRs found in the last ' + escapeHtml(lookbackHours) + ' hours —</td></tr>';
     if (pager) {
       pager.hidden = true;
       pager.innerHTML = '';
@@ -505,6 +505,7 @@ function renderRecentlyApprovedRows(tbody, rows) {
   for (const pr of rows) {
     const tr = document.createElement('tr');
     const statusBadge = renderRecentlyApprovedStatusBadge(pr);
+    const releaseBadge = renderReleaseBadge(pr, { showApproveAction: false });
     const logSourceBadge = renderApprovalLogSourceBadge(pr);
     const approvedAt = pr.approvedAt || pr.closedDate || pr.creationDate;
     const actionsHtml = renderCompletedActions(pr);
@@ -514,6 +515,7 @@ function renderRecentlyApprovedRows(tbody, rows) {
       '<td class="pr-by-cell">' + escapeHtml(pr.createdBy || '-') + '</td>' +
       '<td class="pr-branch-cell">' + renderBranchCell(pr) + '</td>' +
       '<td class="pr-status-cell">' + statusBadge + '</td>' +
+      '<td class="pr-release-cell">' + releaseBadge + '</td>' +
       '<td class="pr-log-source-cell">' + logSourceBadge + '</td>' +
       '<td class="pr-repo-cell">' + escapeHtml(pr.repository || '-') + '</td>' +
       '<td class="pr-created-cell">' + formatDate(approvedAt) + '</td>' +
@@ -765,7 +767,8 @@ function renderStatusBadge(pr) {
   return '<span class="' + cls + '" title="' + escapeHtml(title) + '">' + inner + '</span>';
 }
 
-function renderReleaseBadge(pr) {
+function renderReleaseBadge(pr, options) {
+  options = options || {};
   const r = pr.releaseApproval || {};
   const status = String(r.status || 'not_found').toLowerCase();
   let cls = 'release-badge release-muted';
@@ -810,7 +813,8 @@ function renderReleaseBadge(pr) {
     ? '<a class="release-link" href="' + escapeHtml(r.releaseUrl) + '" target="_blank" rel="noopener">Open Release</a>'
     : '';
   const canApprove = window._currentUser && window._currentUser.canApprovePrs === true;
-  const approveButton = status === 'pending' && r.approvalId && canApprove
+  const showApproveAction = options.showApproveAction !== false;
+  const approveButton = showApproveAction && status === 'pending' && r.approvalId && canApprove
     ? '<button class="btn-mini btn-release" onclick="approveRelease(' + pr.id + ')">Approve Release</button>'
     : '';
 
