@@ -18,8 +18,9 @@ Production URL:
 - Azure Functions runtime ใช้ Node.js 22
 - Authentication ใช้ Microsoft Entra ID ผ่าน Static Web Apps Auth
 - Authorization ของ action สำคัญใช้ role `it_support_approve`
-- Dashboard หลักเป็น read/action page สำหรับ PR ปกติ
+- Dashboard หลักเป็น read/action page สำหรับ Active PR Queue และ Release approval ที่รอ action
 - MergeCode / MergeCodeProduction ถูกแยกเป็น manual workflow บน Azure DevOps
+- Activity เป็นหน้าดู approval log ล่าสุด 24 ชั่วโมง พร้อม filter และ paging
 - Audit Logs อ่านจาก SharePoint และเรียงล่าสุดก่อน
 - Daily Summary ส่งผ่าน Azure Logic Apps Consumption เวลา 18:00 Asia/Bangkok
 - SharePoint Log Retention รองรับ archive/export ก่อน cleanup โดย default เก็บ 180 วัน
@@ -31,6 +32,7 @@ Production URL:
 - รวมรายการ PR ที่เกี่ยวข้องกับ `IT Support Approve` ไว้บน Dashboard เดียว
 - แสดงสถานะ Approval, Build, Policy และ Attention ให้เห็นเร็ว
 - ทำ Approve / Reject PR ปกติผ่านหน้าเว็บได้อย่างปลอดภัย
+- ตรวจ Release approval ที่ผูกกับ build run และกด Approve Release ได้เมื่อ Azure DevOps มี pending approval จริง
 - ซ่อน action เมื่อผู้ใช้ไม่มีสิทธิ์หรือ vote ไปแล้ว
 - บังคับงาน MergeCode / MergeCodeProduction ให้ทำ manual บน Azure DevOps
 - บันทึก audit trail ลง SharePoint Log
@@ -43,21 +45,28 @@ Production URL:
 ```mermaid
 flowchart LR
   User["User / IT Support"] --> SWA["Azure Static Web Apps"]
-  SWA --> Frontend["Static Frontend<br/>dashboard / logs / health / merge"]
+  SWA --> Frontend["Static Frontend<br/>dashboard / activity / logs / health / merge"]
   Frontend --> API["Azure Functions API<br/>Node.js 22"]
   API --> ADO["Azure DevOps REST API"]
+  API --> Release["Azure DevOps Release API"]
   API --> SP["SharePoint List<br/>ADO AutoApprove Log"]
   API --> Teams["Teams Webhook"]
   Logic["Azure Logic Apps<br/>18:00 Asia/Bangkok"] --> API
 ```
+
+## Documentation
+
+| Document | Purpose |
+|---|---|
+| `docs/approve-release-workflow.md` | แผนภาพและ guardrails ของ workflow Approve Release |
 
 ## Main Pages
 
 | Page | Path | Purpose |
 |---|---|---|
 | Login | `/` | Login ผ่าน Microsoft Entra ID |
-| Dashboard | `/dashboard.html` | ตรวจ PR ที่รออนุมัติ, Approve/Reject และ Active PR Queue |
-| Activity | `/activity.html` | ดู PR ที่ user approve ใน 24 ชั่วโมงล่าสุด พร้อม filter Build Failed / Policy Pending / source |
+| Dashboard | `/dashboard.html` | ตรวจ Active PR Queue, Approve/Reject PR, ดู Build/Policy/Release และกด Approve Release เมื่อมี pending approval |
+| Activity | `/activity.html` | ดู PR ที่ user approve หรือระบบ detect external approval ใน 24 ชั่วโมงล่าสุด พร้อม filter Build Failed / Policy Pending / source และ paging |
 | Merge Lookup | `/merge.html` | กรอก PR ID เพื่อหา CI/CD ของงาน Merge |
 | Audit Logs | `/logs.html` | ค้นหา SharePoint Log ตาม PR, action, source, keyword |
 | System Health | `/health.html` | ตรวจ Backend, ADO, SharePoint, Teams, Daily Summary, Last Sync/Notification |
@@ -70,7 +79,7 @@ flowchart LR
 - target branch เริ่มจาก `refs/heads/staging` หรือเป็น MergeCode target branch ที่ระบบรองรับ
 - reviewer group มี `IT Support Approve`
 - สถานะ active สำหรับ Active PR Queue
-- completed ภายในช่วงเวลาที่กำหนดสำหรับ Recently Completed
+- ซ่อน PR ที่ approval complete + policy/build ไม่มีปัญหา + ไม่มี release approval pending เพื่อไม่ให้ค้างใน Active Queue โดยไม่จำเป็น
 
 ข้อมูลที่แสดง:
 
@@ -78,9 +87,10 @@ flowchart LR
 - Branch: From / Into
 - Approvals: จำนวนที่ approve เทียบ required approval
 - Build / Policy: Build Success, Build Failed, Policy Pending, Policy Approved ฯลฯ
+- Release: Release expected, Release approval pending, Release approved, Deploying, Deploy succeeded, Deploy failed, No release yet
 - Attention: New, Waiting, Warning, Critical, Stale, Manual
 - My Approval: สถานะ vote ของผู้ใช้ปัจจุบัน
-- Actions: Approve, Reject, History, Open ADO ตามสิทธิ์และสถานะ
+- Actions: Approve, Reject, Approve Release, History, Open ADO / Open Release ตามสิทธิ์และสถานะ
 
 ### Active PR Queue
 
@@ -92,22 +102,48 @@ flowchart LR
 - ถ้าผู้ใช้ approve/reject ไปแล้ว จะแสดง `Vote submitted`
 - ถ้าเป็น MergeCode / MergeCodeProduction จะแสดง `Manual in Azure DevOps`
 - ถ้างานไม่ใช่ reviewer ของผู้ใช้ จะแสดงสถานะที่เหมาะสมและไม่เปิด action ที่ไม่ควรทำ
+- ถ้า PR approval complete แล้ว แต่มี `Release approval pending` จะยังอยู่ใน Active Queue เพื่อให้กด `Approve Release`
+- ถ้า PR approval/policy ครบแล้วและไม่มี release approval pending ระบบจะซ่อนออกจาก Active Queue
 
-### Recently Completed
+### Release Approval
 
-แสดง PR ที่จบภายในช่วงล่าสุด โดย default:
+ระบบตรวจ Classic Release ที่เกี่ยวข้องกับ Build ID ของ PR และแสดงสถานะในคอลัมน์ Release
+
+สถานะ Release ที่รองรับ:
+
+- `Release approval pending`: พบ pending approval จริงใน Azure DevOps และแสดงปุ่ม `Approve Release`
+- `Release expected`: คาดว่ามี CD จาก CI/CD mapping แต่ยังไม่พบ pending approval จริง จึงไม่เปิดปุ่ม approve
+- `Release approved`: release approval ถูก approve แล้ว
+- `Deploying`: release environment กำลัง run / queued / scheduled
+- `Deploy succeeded`: release environment deploy สำเร็จ
+- `Deploy failed`: release environment failed / canceled / rejected
+- `Waiting release`: release พบแล้วแต่ environment ยังไม่เริ่ม
+- `No release yet`: ยังไม่พบ release ที่ผูกกับ build
+- `Release lookup failed`: ระบบเช็ค release ไม่สำเร็จ
+
+Guardrail:
+
+- ปุ่ม `Approve Release` จะแสดงเฉพาะเมื่อ Azure DevOps แจ้งว่า release approval ยังเป็น `pending`
+- ก่อน approve ระบบ re-check release approval ล่าสุดอีกครั้ง
+- ระบบไม่ approve จาก mapping อย่างเดียว
+- เมื่อ approve สำเร็จ ระบบบันทึก SharePoint Log เป็น action `Release Approved`
+- เอกสาร workflow อยู่ที่ `docs/approve-release-workflow.md`
+
+### Activity
+
+หน้า `/activity.html` แสดง PR ที่ผู้ใช้ approve หรือระบบ detect external approval ในช่วงล่าสุด โดย default:
 
 - Lookback: 24 hours
-- Display limit: 10 items
+- Page size: 10 items
+- มี Previous / Next เพื่อดูรายการทั้งหมดในช่วง lookback
 
-สถานะใน Result แยกระหว่าง:
+ข้อมูลใน Activity:
 
-- `Completed`: PR จบ workflow แล้ว
-- `Build Failed`: PR completed แล้วแต่ build validation หรือ target branch build fail
-- `Policy Failed`: policy มีผล failed
-- `Policy Approved`: policy ผ่าน แต่ไม่มี build status โดยตรง
+- Latest Status: Completed, Build Failed, Policy Pending, Active / Pending
+- Approval Source: Dashboard approved หรือ External approved
+- Actions: History และ Open ADO
 
-สำหรับ MergeCode target branch ระบบมี fallback ไปตรวจ branch build run เพื่อไม่ให้แสดงผลผิดเป็น Completed ทั้งที่ build fail
+Activity ใช้ SharePoint approval log เป็นจุดตั้งต้น แล้ว enrich สถานะล่าสุดจาก Azure DevOps เพื่อให้เห็นผลจริงหลัง approve เช่น build fail, policy pending หรือ completed
 
 ## MergeCode / MergeCodeProduction Workflow
 
@@ -397,6 +433,7 @@ Routes สำคัญ:
 | `/api/pr-history/*` | `authenticated` |
 | `/api/approve-pr` | `it_support_approve` |
 | `/api/reject-pr` | `it_support_approve` |
+| `/api/approve-release` | `it_support_approve` |
 | `/api/daily-summary` | `anonymous` + header token |
 | `/api/exception-scan` | `anonymous` + header token |
 | `/api/log-retention-cleanup` | `anonymous` + header token |
@@ -432,6 +469,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/list-prs` | GET | ดึง Active PR Queue และ Activity lookup เมื่อส่ง `includeActivity=true` |
 | `/api/approve-pr` | POST | Approve PR ปกติ, set auto-complete, log SharePoint |
 | `/api/reject-pr` | POST | Reject PR ปกติ, log SharePoint |
+| `/api/approve-release` | POST | Approve Azure DevOps Classic Release pre-deploy approval ที่ยัง pending และ log SharePoint |
 | `/api/pr-history/{prId}` | GET | อ่าน history ของ PR จาก SharePoint |
 | `/api/logs` | GET | อ่าน audit logs จาก SharePoint |
 | `/api/health` | GET | ตรวจ system health |
@@ -492,7 +530,7 @@ api/shared/attention.js
 |---|---:|---|
 | `ADO_ORGANIZATION` | Yes | organization จาก `dev.azure.com/<org>` |
 | `ADO_PROJECT` | Yes | Azure DevOps project |
-| `ADO_PAT` | Yes | PAT สำหรับอ่าน PR, vote, policy, build |
+| `ADO_PAT` | Yes | PAT สำหรับอ่าน PR, vote, policy, build และ Classic Release approval |
 | `ADO_TARGET_BRANCH` | No | default `refs/heads/staging` |
 | `ADO_REVIEWER_GROUP` | No | default `IT Support Approve` |
 | `ADO_EXTERNAL_LOG_SYNC` | No | set `false` เพื่อปิด external vote sync log |
@@ -630,8 +668,9 @@ node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json'
 | Active PR Queue | แสดง PR ที่รอ approval ถูกต้อง |
 | My Approval | แสดง `You approved`, `Vote submitted`, หรือสถานะรออนุมัติถูกต้อง |
 | MergeCode | ไม่เปิด automation action และแสดง manual workflow |
-| Recently Completed | แสดง 10 รายการล่าสุดใน 24 ชั่วโมง และแยก result ถูกต้อง |
+| Activity | แสดง approval log ล่าสุด 24 ชั่วโมง, filter ได้, paging ได้ และปุ่ม History ใช้งานได้ |
 | Build / Policy | แสดง Build Failed / Policy Failed ได้เมื่อมีข้อมูล |
+| Release | แสดง Release expected / pending / approved / deploy status ได้ถูกต้อง และปุ่ม Approve Release แสดงเฉพาะ pending approval |
 | SharePoint Log | action ผ่านเว็บมี log |
 | Audit Logs | ค้นหาได้และเรียงล่าสุดก่อน |
 | Daily Summary | ส่ง Teams เวลา 18:00 ผ่าน Logic Apps และไม่ duplicate |
