@@ -505,7 +505,10 @@ function renderRecentlyApprovedRows(tbody, rows) {
   for (const pr of rows) {
     const tr = document.createElement('tr');
     const statusBadge = renderRecentlyApprovedStatusBadge(pr);
-    const releaseBadge = renderReleaseBadge(pr, { showApproveAction: false });
+    const releaseBadge = renderReleaseBadge(pr, {
+      showApproveAction: false,
+      summarizeExpectedWhenCompleted: true
+    });
     const logSourceBadge = renderApprovalLogSourceBadge(pr);
     const approvedAt = pr.approvedAt || pr.closedDate || pr.creationDate;
     const actionsHtml = renderCompletedActions(pr);
@@ -781,9 +784,16 @@ function renderReleaseBadge(pr, options) {
     icon = '⏳';
     label = 'Release approval pending';
   } else if (status === 'expected') {
-    cls = 'release-badge release-expected';
-    icon = '🔎';
-    label = 'Release expected';
+    if (options.summarizeExpectedWhenCompleted && isPrCompletedForReleaseSummary(pr)) {
+      cls = 'release-badge release-no-pending';
+      icon = '✅';
+      label = 'No release approval pending';
+      detail = detail ? 'Expected CD: ' + detail : 'PR completed';
+    } else {
+      cls = 'release-badge release-expected';
+      icon = '🔎';
+      label = 'Release expected';
+    }
   } else if (status === 'approved' || status === 'succeeded') {
     cls = 'release-badge release-ok';
     icon = '✅';
@@ -825,6 +835,21 @@ function renderReleaseBadge(pr, options) {
     '</span>' +
     (approveButton || openLink ? '<div class="release-actions">' + approveButton + openLink + '</div>' : '') +
   '</div>';
+}
+
+function isPrCompletedForReleaseSummary(pr) {
+  const status = String(pr && pr.status || '').toLowerCase();
+  const approvalStatus = String(pr && pr.approval && pr.approval.status || '').toLowerCase();
+  const snapshot = pr && pr.statusSnapshot || {};
+  const policyStatus = String(snapshot.policyStatus || '').toLowerCase();
+  const buildResult = String(snapshot.buildResult || '').toLowerCase();
+  const mergeStatus = String(snapshot.mergeStatus || pr && pr.mergeStatus || '').toLowerCase();
+
+  if (status === 'completed') return true;
+  if (buildResult === 'failed' || buildResult === 'error') return false;
+  if (policyStatus === 'failed' || policyStatus === 'rejected' || policyStatus === 'pending') return false;
+  if (approvalStatus === 'complete' && policyStatus === 'approved') return true;
+  return approvalStatus === 'complete' && (mergeStatus === 'succeeded' || mergeStatus === 'completed');
 }
 
 function renderAttentionBadge(pr) {

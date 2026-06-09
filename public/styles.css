@@ -1802,6 +1802,12 @@ body {
   color: #047857;
 }
 
+.release-no-pending {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
 .release-failed {
   border-color: #fecaca;
   background: #fef2f2;
