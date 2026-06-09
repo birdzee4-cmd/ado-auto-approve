@@ -139,6 +139,27 @@
     </div>
   </div>
 
+  <!-- ===== Approval Hold Modal ===== -->
+  <div id="approvalHoldModal" class="modal-backdrop" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3>⏸ Approval Hold</h3>
+        <button class="modal-close" data-close="approvalHoldModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>คุณกำลังจะพักการอนุมัติ PR ต่อไปนี้ชั่วคราว:</p>
+        <div class="modal-pr-info" id="holdPrInfo"></div>
+        <label class="modal-label">เหตุผลที่ Hold (จำเป็น):</label>
+        <textarea id="holdReason" class="modal-textarea" rows="4" placeholder="เช่น รอ owner ยืนยัน, รอ release window, ต้องตรวจ QA เพิ่ม..."></textarea>
+        <p class="modal-warning">⚠️ PR จะยังแสดงใน Dashboard แต่ปุ่ม Approve / Reject / Approve Release จะถูกปิดจนกว่าจะ Unlock</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" data-close="approvalHoldModal">ยกเลิก</button>
+        <button id="btnConfirmHold" class="btn-hold">⏸ Confirm Hold</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== Reviewers Detail Modal ===== -->
   <div id="reviewersModal" class="modal-backdrop" hidden>
     <div class="modal modal-wide">

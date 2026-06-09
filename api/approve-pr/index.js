@@ -97,6 +97,17 @@ module.exports = async function (context, req) {
       return;
     }
 
+    const holdState = await getApprovalHoldState(context, prId);
+    if (holdState.active) {
+      jsonResponse(423, {
+        ok: false,
+        error: 'PR is on Approval Hold',
+        detail: holdState.reason || 'Unlock this PR before approving from Dashboard',
+        hold: holdState
+      });
+      return;
+    }
+
     // 2) ดึง Branch Policies เพื่อหา Release Notes
     let releaseNotesIgnoreIds = [];
     let policiesFetched = false;
@@ -194,6 +205,17 @@ module.exports = async function (context, req) {
 
 function isMergeCodeBranch(refName) {
   return String(refName || '').toLowerCase().includes('mergecode');
+}
+
+async function getApprovalHoldState(context, prId) {
+  try {
+    const hold = require('../shared/approval-hold');
+    const result = await hold.getHoldState(prId);
+    return result.state || { active: false };
+  } catch (e) {
+    context.log.warn('Approval Hold check failed:', e.message);
+    return { active: false, error: e.message };
+  }
 }
 
 async function getStatusSnapshot(context, ado, pr, repositoryId, prId, autoCompleteOk) {

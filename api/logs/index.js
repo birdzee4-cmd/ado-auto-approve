@@ -187,6 +187,9 @@ function matchesAction(item, action) {
     return String(item.action || '').toLowerCase().includes('external approved') ||
       String(item.source || '').toLowerCase().includes('azure devops sync');
   }
+  if (action === 'approval-hold') {
+    return String(item.action || '').toLowerCase().includes('approval hold');
+  }
   return String(item.action || '').toLowerCase().includes(action);
 }
 

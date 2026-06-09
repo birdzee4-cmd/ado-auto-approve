@@ -19,6 +19,7 @@ const https = require('https');
 const ado = require('../shared/ado-client');
 const attentionUtil = require('../shared/attention');
 const mergePipelineMap = require('../shared/merge-pipeline-map');
+const approvalHold = require('../shared/approval-hold');
 
 module.exports = async function (context, req) {
   function jsonResponse(status, payload) {
@@ -122,10 +123,15 @@ module.exports = async function (context, req) {
     const prs = [];
     const hiddenActionCompletePrs = [];
     if (!includeActivity) {
+      const candidateRows = [];
       for (const pr of targetPrs
         .filter(pr => hasReviewerGroup(pr, reviewerGroup))
       ) {
         const row = await buildPrRow(context, pr, currentUser, org, project, branchBuildCache, releaseLookupCache, reviewerGroup);
+        candidateRows.push(row);
+      }
+      await attachApprovalHoldStates(context, candidateRows);
+      for (const row of candidateRows) {
         if (shouldShowActivePr(row)) {
           prs.push(row);
         } else {
@@ -710,6 +716,7 @@ async function buildPrRow(context, pr, currentUser, org, project, branchBuildCac
 
 function shouldShowActivePr(row) {
   if (!row) return false;
+  if (row.approvalHold && row.approvalHold.active) return true;
   if (row.isMergeCodeTarget) return true;
 
   const approvalStatus = String(row.approval && row.approval.status || '').toLowerCase();
@@ -732,6 +739,28 @@ function shouldShowActivePr(row) {
   const mergeReady = mergeStatus === 'succeeded' || mergeStatus === 'completed';
 
   return !(policyDone || mergeReady);
+}
+
+async function attachApprovalHoldStates(context, rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) return;
+  try {
+    const states = await approvalHold.getHoldStatesFromRecent(
+      list.map(row => row.id),
+      Number(process.env.APPROVAL_HOLD_LOOKBACK_DAYS) || 180,
+      Number(process.env.APPROVAL_HOLD_LOG_LOOKUP_LIMIT) || 1000
+    );
+    for (const row of list) {
+      row.approvalHold = states[row.id] || { active: false };
+    }
+  } catch (e) {
+    if (context && context.log && context.log.warn) {
+      context.log.warn('Approval Hold lookup skipped: ' + e.message);
+    }
+    for (const row of list) {
+      row.approvalHold = { active: false, error: e.message };
+    }
+  }
 }
 
 async function getReleaseApprovalSnapshot(context, pr, statusSnapshot, releaseLookupCache, reviewerGroup) {

@@ -61,6 +61,7 @@ window._currentUser = {
     bind('btnClearLogFilters', clearAuditLogFilters);
     bind('btnConfirmApprove', doApprove);
     bind('btnConfirmReject', doReject);
+    bind('btnConfirmHold', doHold);
 
     document.querySelectorAll('[data-close]').forEach(el => {
       el.addEventListener('click', () => closeModal(el.getAttribute('data-close')));
@@ -604,6 +605,10 @@ function getPrStateMarker(pr, mode) {
     return { icon: '🔒', className: 'pr-state-manual', title: 'Manual action required in Azure DevOps' };
   }
 
+  if (isApprovalHeld(pr)) {
+    return { icon: '⏸', className: 'pr-state-hold', title: getHoldReason(pr) || 'Approval is on hold' };
+  }
+
   const attention = pr.attention || {};
   const attentionStatus = String(attention.status || '').toLowerCase();
   if (attentionStatus === 'critical') {
@@ -646,6 +651,16 @@ function renderActions(pr) {
 
   if (!canApprovePrs) {
     return '<div class="action-cell">' +
+      (isApprovalHeld(pr) ? renderHoldStatus(pr) : '') +
+      '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
+      '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗</a>' +
+      '</div>';
+  }
+
+  if (isApprovalHeld(pr)) {
+    return '<div class="action-cell">' +
+      renderHoldStatus(pr) +
+      '<button class="btn-mini btn-unhold" onclick="releaseApprovalHold(' + pr.id + ')">Unlock</button>' +
       '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
       '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗</a>' +
       '</div>';
@@ -663,9 +678,25 @@ function renderActions(pr) {
   return '<div class="action-cell">' +
     '<button class="btn-mini btn-approve" onclick="openApproveModal(' + pr.id + ', \'' + pr.repositoryId + '\')">✅ Approve</button>' +
     '<button class="btn-mini btn-reject" onclick="openRejectModal(' + pr.id + ', \'' + pr.repositoryId + '\')">❌ Reject</button>' +
+    '<button class="btn-mini btn-hold-mini" onclick="openApprovalHoldModal(' + pr.id + ', \'' + pr.repositoryId + '\')">⏸ Hold</button>' +
     '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
     '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗</a>' +
     '</div>';
+}
+
+function isApprovalHeld(pr) {
+  return !!(pr && pr.approvalHold && pr.approvalHold.active);
+}
+
+function getHoldReason(pr) {
+  return pr && pr.approvalHold && pr.approvalHold.reason ? String(pr.approvalHold.reason) : '';
+}
+
+function renderHoldStatus(pr) {
+  const hold = pr && pr.approvalHold || {};
+  const reason = hold.reason ? '<span class="hold-detail">' + escapeHtml(hold.reason) + '</span>' : '';
+  return '<span class="hold-status" title="' + escapeHtml(hold.reason || 'Approval is on hold') + '">' +
+    '<span class="hold-label">⏸ On Hold</span>' + reason + '</span>';
 }
 
 function renderCompletedActions(pr) {
@@ -824,7 +855,7 @@ function renderReleaseBadge(pr, options) {
     : '';
   const canApprove = window._currentUser && window._currentUser.canApprovePrs === true;
   const showApproveAction = options.showApproveAction !== false;
-  const approveButton = showApproveAction && status === 'pending' && r.approvalId && canApprove
+  const approveButton = showApproveAction && !isApprovalHeld(pr) && status === 'pending' && r.approvalId && canApprove
     ? '<button class="btn-mini btn-release" onclick="approveRelease(' + pr.id + ')">Approve Release</button>'
     : '';
 
@@ -1074,8 +1105,7 @@ function voteStatusText(s) {
   return '<span style="color:#d97706">🟡 Pending (รอ approver เพิ่ม)</span>';
 }
 
-// ===== Approve Modal =====
-window.openApproveModal = function(prId, repositoryId) {
+function getPrFromTable(prId) {
   const rows = document.querySelectorAll('#prTableBody tr');
   let prData = null;
   rows.forEach(r => {
@@ -1084,7 +1114,17 @@ window.openApproveModal = function(prId, repositoryId) {
       if (p.id === prId) prData = p;
     }
   });
+  return prData;
+}
+
+// ===== Approve Modal =====
+window.openApproveModal = function(prId, repositoryId) {
+  const prData = getPrFromTable(prId);
   if (!prData) return;
+  if (isApprovalHeld(prData)) {
+    alert('⏸ PR นี้อยู่ใน Approval Hold\n\nReason: ' + (getHoldReason(prData) || '-'));
+    return;
+  }
   currentPrForAction = Object.assign({}, prData, { repositoryId });
 
   document.getElementById('approvePrInfo').innerHTML =
@@ -1131,6 +1171,10 @@ async function doApprove() {
 window.approveRelease = async function(prId) {
   const pr = (window._prCache || {})[prId];
   const release = pr && pr.releaseApproval || {};
+  if (isApprovalHeld(pr)) {
+    alert('⏸ PR นี้อยู่ใน Approval Hold\n\nReason: ' + (getHoldReason(pr) || '-') + '\n\nกรุณา Unlock ก่อน Approve Release');
+    return;
+  }
   if (!pr || !release.approvalId) {
     alert('ไม่พบ Release approval ที่สามารถอนุมัติได้');
     return;
@@ -1173,15 +1217,12 @@ window.approveRelease = async function(prId) {
 
 // ===== Reject Modal =====
 window.openRejectModal = function(prId, repositoryId) {
-  const rows = document.querySelectorAll('#prTableBody tr');
-  let prData = null;
-  rows.forEach(r => {
-    if (r.dataset.pr) {
-      const p = JSON.parse(r.dataset.pr);
-      if (p.id === prId) prData = p;
-    }
-  });
+  const prData = getPrFromTable(prId);
   if (!prData) return;
+  if (isApprovalHeld(prData)) {
+    alert('⏸ PR นี้อยู่ใน Approval Hold\n\nReason: ' + (getHoldReason(prData) || '-'));
+    return;
+  }
   currentPrForAction = Object.assign({}, prData, { repositoryId });
 
   document.getElementById('rejectPrInfo').innerHTML =
@@ -1225,6 +1266,88 @@ async function doReject() {
   }
 }
 
+window.openApprovalHoldModal = function(prId, repositoryId) {
+  const prData = getPrFromTable(prId);
+  if (!prData) return;
+  if (isApprovalHeld(prData)) {
+    alert('PR นี้อยู่ใน Approval Hold อยู่แล้ว');
+    return;
+  }
+  currentPrForAction = Object.assign({}, prData, { repositoryId });
+  document.getElementById('holdPrInfo').innerHTML =
+    '<div><strong>PR #' + prData.id + '</strong>: ' + escapeHtml(prData.title) + '</div>' +
+    '<div style="font-size:13px;color:#6b7280;margin-top:4px">' +
+    'Repo: <code>' + escapeHtml(prData.repository) + '</code> | ' +
+    '<code>' + escapeHtml(prData.sourceBranch) + '</code> → <code>' + escapeHtml(prData.targetBranch) + '</code></div>';
+  document.getElementById('holdReason').value = '';
+  openModal('approvalHoldModal');
+};
+
+async function doHold() {
+  if (!currentPrForAction) return;
+  const reason = document.getElementById('holdReason').value.trim();
+  if (reason.length < 3) {
+    alert('⚠️ กรุณาใส่เหตุผลที่ Hold (อย่างน้อย 3 ตัวอักษร)');
+    return;
+  }
+  setButtonLoading('btnConfirmHold', true, 'Holding...');
+  try {
+    const r = await safeFetchJson('/api/approval-hold', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prId: currentPrForAction.id,
+        action: 'hold',
+        reason: reason
+      })
+    });
+    if (r.parseError || !r.ok || !r.data || !r.data.ok) {
+      const d = r.data || {};
+      alert('❌ Hold ไม่สำเร็จ:\n' + (d.error || 'Unknown') + '\n\n' + (d.detail || d.hint || ''));
+      return;
+    }
+    alert('✅ Approval Hold สำเร็จ\n\nPR #' + r.data.prId + '\nLog SharePoint: ' + (r.data.logStatus || '-'));
+    closeModal('approvalHoldModal');
+    checkPrs();
+  } catch (err) {
+    alert('❌ Error: ' + err.message);
+  } finally {
+    setButtonLoading('btnConfirmHold', false);
+  }
+}
+
+window.releaseApprovalHold = async function(prId) {
+  const pr = (window._prCache || {})[prId] || getPrFromTable(prId);
+  if (!pr || !isApprovalHeld(pr)) {
+    alert('ไม่พบ Approval Hold ของ PR นี้');
+    return;
+  }
+  const ok = confirm('Unlock Approval Hold?\n\nPR #' + pr.id +
+    '\nReason: ' + (getHoldReason(pr) || '-') +
+    '\n\nหลัง Unlock จะกลับมากด Approve / Reject ได้ตามปกติ');
+  if (!ok) return;
+  try {
+    const r = await safeFetchJson('/api/approval-hold', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prId: pr.id,
+        action: 'release',
+        reason: 'Released from Dashboard'
+      })
+    });
+    if (r.parseError || !r.ok || !r.data || !r.data.ok) {
+      const d = r.data || {};
+      alert('❌ Unlock ไม่สำเร็จ:\n' + (d.error || 'Unknown') + '\n\n' + (d.detail || d.hint || ''));
+      return;
+    }
+    alert('✅ Unlock สำเร็จ\n\nPR #' + r.data.prId + '\nLog SharePoint: ' + (r.data.logStatus || '-'));
+    checkPrs();
+  } catch (err) {
+    alert('❌ Error: ' + err.message);
+  }
+};
+
 // ===== History Modal =====
 window.openHistoryModal = async function(prId) {
   document.getElementById('historyPrId').textContent = '#' + prId;
@@ -1250,7 +1373,8 @@ window.openHistoryModal = async function(prId) {
     for (const it of items) {
       const actionText = String(it.Action || '');
       const actionClass = actionText.includes('Approved') ? 'log-approved' :
-                          actionText.includes('Rejected') ? 'log-rejected' : 'log-failed';
+                          actionText.includes('Rejected') ? 'log-rejected' :
+                          actionText.includes('Hold') ? 'log-hold' : 'log-failed';
       const buildText = [it.Build_Status, it.Build_Result].filter(Boolean).join(' / ') || '-';
       html += '<tr>' +
         '<td>' + formatDate(it.createdAt) + '</td>' +

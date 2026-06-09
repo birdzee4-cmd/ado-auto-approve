@@ -22,6 +22,7 @@
     { "route": "/api/merge-lookup", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/approve-pr", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },
     { "route": "/api/approve-release", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },
+    { "route": "/api/approval-hold", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },
     { "route": "/api/reject-pr", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },
     { "route": "/api/pr-history/*", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/logs", "methods": ["GET"], "allowedRoles": ["authenticated"] },

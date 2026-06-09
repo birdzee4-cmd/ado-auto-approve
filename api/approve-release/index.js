@@ -38,6 +38,19 @@ module.exports = async function (context, req) {
       return;
     }
 
+    if (prId) {
+      const holdState = await getApprovalHoldState(context, prId);
+      if (holdState.active) {
+        jsonResponse(423, {
+          ok: false,
+          error: 'PR is on Approval Hold',
+          detail: holdState.reason || 'Unlock this PR before approving release from Dashboard',
+          hold: holdState
+        });
+        return;
+      }
+    }
+
     const ado = require('../shared/ado-client');
     const releaseResult = await ado.getRelease(releaseId);
     if (!releaseResult.ok || !releaseResult.body) {
@@ -136,5 +149,16 @@ async function logToSharePoint(context, opts) {
   } catch (e) {
     context.log.warn('SharePoint release log failed:', e.message);
     return { ok: false, status: 0, body: e.message };
+  }
+}
+
+async function getApprovalHoldState(context, prId) {
+  try {
+    const hold = require('../shared/approval-hold');
+    const result = await hold.getHoldState(prId);
+    return result.state || { active: false };
+  } catch (e) {
+    context.log.warn('Approval Hold check failed:', e.message);
+    return { active: false, error: e.message };
   }
 }

@@ -1184,6 +1184,10 @@ body {
   color: #b45309;
 }
 
+.pr-state-hold {
+  color: #ea580c;
+}
+
 .pr-state-muted {
   color: #64748b;
 }
@@ -1563,6 +1567,32 @@ body {
   font-size: 12px;
   font-weight: 700;
   line-height: 1.2;
+}
+
+.hold-status {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 30px;
+  max-width: 150px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #fed7aa;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.hold-label {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.hold-detail {
+  font-size: 11px;
+  opacity: 0.78;
+  overflow-wrap: anywhere;
 }
 
 .my-approval {
@@ -1947,6 +1977,19 @@ body {
   color: var(--bz-yellow);
 }
 
+.btn-mini.btn-hold-mini,
+.btn-mini.btn-unhold {
+  background: #fff7ed;
+  border-color: #fbbf24;
+  color: #92400e;
+}
+.btn-mini.btn-hold-mini:hover,
+.btn-mini.btn-unhold:hover {
+  background: #f59e0b;
+  border-color: #d97706;
+  color: #111827;
+}
+
 .btn-mini.btn-disabled,
 .btn-mini.btn-disabled:hover {
   pointer-events: none;
@@ -2192,7 +2235,7 @@ body {
   background: #fff9e8;
 }
 
-.btn-cancel, .btn-approve, .btn-reject {
+.btn-cancel, .btn-approve, .btn-reject, .btn-hold {
   padding: 10px 20px;
   border: none;
   border-radius: 8px;
@@ -2211,9 +2254,13 @@ body {
 .btn-reject { background: #dc2626; color: white; }
 .btn-reject:hover { background: #b91c1c; }
 
+.btn-hold { background: #f59e0b; color: #111827; }
+.btn-hold:hover { background: #d97706; color: #111827; }
+
 /* Log entry colors */
 .log-approved { color: #059669; font-weight: 600; }
 .log-rejected { color: #dc2626; font-weight: 600; }
+.log-hold     { color: #b45309; font-weight: 700; }
 .log-failed   { color: #d97706; font-weight: 600; }
 .log-neutral  { color: #374151; font-weight: 600; }
 /* ===== Merge Lookup ===== */
