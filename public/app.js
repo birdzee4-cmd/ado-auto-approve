@@ -5,6 +5,10 @@
 let currentPrForAction = null;
 window._prCache = {};
 window._activeTab = 'pr';
+try {
+  const savedTab = sessionStorage.getItem('activeDashboardTab');
+  if (savedTab === 'pr' || savedTab === 'release') window._activeTab = savedTab;
+} catch (e) {}
 let _allPrs = [];
 window._currentUser = {
   roles: [],
@@ -409,6 +413,9 @@ function renderPrTable(prs) {
 
 window.switchTab = function(tab) {
   window._activeTab = tab;
+  try {
+    sessionStorage.setItem('activeDashboardTab', tab);
+  } catch (e) {}
   updateTabVisibility();
 };
 

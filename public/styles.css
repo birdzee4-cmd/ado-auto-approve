@@ -1044,31 +1044,58 @@ body {
   table-layout: fixed;
 }
 
-.pr-table th:nth-child(1),
-.pr-table td:nth-child(1) {
-  width: 340px;
+/* Custom widths for PR Queue Table */
+.pr-queue-table {
+  min-width: 1440px;
 }
 
-.pr-table th:nth-child(2),
-.pr-table td:nth-child(2) { width: 330px; }
+.pr-queue-table th:nth-child(1),
+.pr-queue-table td:nth-child(1) {
+  width: 350px;
+}
 
-.pr-table th:nth-child(3),
-.pr-table td:nth-child(3) { width: 170px; }
+.pr-queue-table th:nth-child(2),
+.pr-queue-table td:nth-child(2) { width: 310px; }
 
-.pr-table th:nth-child(4),
-.pr-table td:nth-child(4) { width: 160px; }
+.pr-queue-table th:nth-child(3),
+.pr-queue-table td:nth-child(3) { width: 140px; }
 
-.pr-table th:nth-child(5),
-.pr-table td:nth-child(5) { width: 190px; }
+.pr-queue-table th:nth-child(4),
+.pr-queue-table td:nth-child(4) { width: 160px; }
 
-.pr-table th:nth-child(6),
-.pr-table td:nth-child(6) { width: 170px; }
+.pr-queue-table th:nth-child(5),
+.pr-queue-table td:nth-child(5) { width: 160px; }
 
-.pr-table th:nth-child(7),
-.pr-table td:nth-child(7) { width: 175px; }
+.pr-queue-table th:nth-child(6),
+.pr-queue-table td:nth-child(6) { width: 150px; }
 
-.pr-table th:nth-child(8),
-.pr-table td:nth-child(8) { width: 165px; }
+.pr-queue-table th:nth-child(7),
+.pr-queue-table td:nth-child(7) { width: 170px; }
+
+/* Custom widths for Release Queue Table */
+.release-queue-table {
+  min-width: 1440px;
+}
+
+.release-queue-table th:nth-child(1),
+.release-queue-table td:nth-child(1) {
+  width: 360px;
+}
+
+.release-queue-table th:nth-child(2),
+.release-queue-table td:nth-child(2) { width: 200px; }
+
+.release-queue-table th:nth-child(3),
+.release-queue-table td:nth-child(3) { width: 180px; }
+
+.release-queue-table th:nth-child(4),
+.release-queue-table td:nth-child(4) { width: 280px; }
+
+.release-queue-table th:nth-child(5),
+.release-queue-table td:nth-child(5) { width: 200px; }
+
+.release-queue-table th:nth-child(6),
+.release-queue-table td:nth-child(6) { width: 220px; }
 
 .completed-table {
   min-width: 1550px;
