@@ -2,6 +2,7 @@
 // แก้ไข: เปลี่ยนจาก exact match เป็น prefix match
 // รองรับ Staging/VN, Staging/api, staging, Staging ทุกรูปแบบ
 const { notifyTeams } = require('../shared/teams-notifier');
+const sp = require('../shared/sharepoint-client');
 
 module.exports = async function (context, req) {
     context.log('webhook: called');
@@ -46,16 +47,62 @@ module.exports = async function (context, req) {
     const isTargetStaging = targetRef.toLowerCase().startsWith(stagingPrefix);
     // -------------------
 
-    // เฉพาะ event ที่เกี่ยวกับ PR created / updated
+    // เฉพาะ event ที่เกี่ยวกับ PR created / updated / reviewersvoted
     const isRelevantEvent = (
         eventType === 'git.pullrequest.created' ||
-        eventType === 'git.pullrequest.updated'
+        eventType === 'git.pullrequest.updated' ||
+        eventType === 'git.pullrequest.reviewersvoted'
     );
 
     if (!isRelevantEvent || !isTargetStaging) {
         context.log(`webhook: ignored — isRelevantEvent=${isRelevantEvent}, isTargetStaging=${isTargetStaging}`);
         context.res = { status: 200, body: 'OK (ignored)' };
         return;
+    }
+
+    // --- บันทึก Log ลง SharePoint ---
+    try {
+        let action = 'Webhook Received';
+        let result = `Webhook event: ${eventType}`;
+        let userEmail = createdBy || 'System';
+
+        if (eventType === 'git.pullrequest.reviewersvoted') {
+            const reviewer = resourceData.reviewer || {};
+            userEmail = reviewer.uniqueName || reviewer.displayName || userEmail;
+            const vote = Number(resourceData.vote);
+            if (vote === 10) {
+                action = 'External Approved';
+                result = 'Approved in Azure DevOps';
+            } else if (vote === -10) {
+                action = 'External Rejected';
+                result = 'Rejected in Azure DevOps';
+            } else if (vote === -5) {
+                action = 'External Waiting Author';
+                result = 'Waiting for author in Azure DevOps';
+            } else {
+                action = 'Reviewers Voted';
+                result = `Voted (vote value: ${vote})`;
+            }
+        } else if (eventType === 'git.pullrequest.created') {
+            action = 'PR Created';
+            result = `New Pull Request created`;
+        } else if (eventType === 'git.pullrequest.updated') {
+            action = 'PR Updated';
+            result = `Pull Request updated`;
+        }
+
+        await sp.addLogItem(sp.buildLogFields({
+            prId:         String(prId),
+            action:       action,
+            user:         userEmail,
+            repository:   repoName,
+            prTitle:      prTitle,
+            targetBranch: targetRef,
+            result:       result
+        }));
+        context.log(`webhook: SharePoint log recorded successfully for action=${action}`);
+    } catch (err) {
+        context.log.warn('webhook: SharePoint log failed:', err.message);
     }
 
     // --- ส่งแจ้งเตือนเข้า Teams ---
