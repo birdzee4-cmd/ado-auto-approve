@@ -320,12 +320,37 @@ async function checkPrs() {
 }
 
 function renderPrSummaryBanner(d, attention, mergeCodeCount) {
+  const prs = d.prs || [];
+  let newCount = 0;
+  let holdCount = 0;
+  let votedCount = 0;
+  let releaseCount = 0;
+
+  for (const pr of prs) {
+    if (pr.releaseApproval && pr.releaseApproval.status === 'pending') {
+      releaseCount++;
+    } else if (isApprovalHeld(pr)) {
+      holdCount++;
+    } else {
+      const myStatus = pr.myApproval && pr.myApproval.status ? String(pr.myApproval.status).toLowerCase() : '';
+      if (['approved', 'suggestions', 'rejected', 'waiting-author'].includes(myStatus)) {
+        votedCount++;
+      } else {
+        newCount++;
+      }
+    }
+  }
+
+  const statusText = 'Status: New ' + newCount + ' | Hold ' + holdCount + ' | Voted ' + votedCount + ' | Release ' + releaseCount;
+
   const attentionText = 'Attention: Critical ' + (attention.critical || 0) +
     ' | Warning ' + (attention.warning || 0) +
     ' | Stale ' + (attention.stale || 0);
+
   const chips = [
     'Reviewer: ' + escapeHtml(d.reviewerGroup),
     'Fetched: ' + new Date(d.fetchedAt).toLocaleString('th-TH'),
+    statusText,
     attentionText
   ];
   if (mergeCodeCount > 0) {
