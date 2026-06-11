@@ -378,36 +378,56 @@ async function buildRecentlyApprovedRows(context, options) {
     ? approvals
     : approvals.slice(pageStart, pageStart + meta.pageSize);
 
+  const prObjectsMap = new Map();
   const rows = [];
-  for (const approvalLog of pageApprovals) {
-    try {
-      const prResult = await ado.getPullRequest(approvalLog.prId);
-      if (!prResult.ok || !prResult.body) {
+  const batchSize = 15;
+  for (let i = 0; i < pageApprovals.length; i += batchSize) {
+    const batch = pageApprovals.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(async (approvalLog) => {
+      try {
+        const prResult = await ado.getPullRequest(approvalLog.prId);
+        if (!prResult.ok || !prResult.body) {
+          meta.skipped += 1;
+          return null;
+        }
+        const pr = prResult.body;
+        const targetRef = String(pr.targetRefName || '').toLowerCase();
+        if (!(targetRef.startsWith(options.stagingPrefix) || isMergeCodeBranch(targetRef))) {
+          meta.skipped += 1;
+          return null;
+        }
+        if (!hasReviewerGroup(pr, options.reviewerGroup)) {
+          meta.skipped += 1;
+          return null;
+        }
+        prObjectsMap.set(pr.pullRequestId, pr);
+        const row = await buildPrRow(
+          context,
+          pr,
+          options.currentUser,
+          options.org,
+          options.project,
+          options.branchBuildCache,
+          options.releaseLookupCache,
+          options.reviewerGroup,
+          true // skipRelease = true
+        );
+        row.approvedAt = approvalLog.approvedAt;
+        row.approvedAction = approvalLog.action;
+        row.approvedSource = approvalLog.source;
+        if (matchesActivityStatus(row, options.statusFilter)) {
+          return row;
+        }
+      } catch (e) {
         meta.skipped += 1;
-        continue;
+        if (context && context.log && context.log.warn) {
+          context.log.warn('Failed to enrich approved PR #' + approvalLog.prId + ': ' + e.message);
+        }
       }
-      const pr = prResult.body;
-      const targetRef = String(pr.targetRefName || '').toLowerCase();
-      if (!(targetRef.startsWith(options.stagingPrefix) || isMergeCodeBranch(targetRef))) {
-        meta.skipped += 1;
-        continue;
-      }
-      if (!hasReviewerGroup(pr, options.reviewerGroup)) {
-        meta.skipped += 1;
-        continue;
-      }
-      const row = await buildPrRow(context, pr, options.currentUser, options.org, options.project, options.branchBuildCache, options.releaseLookupCache, options.reviewerGroup);
-      row.approvedAt = approvalLog.approvedAt;
-      row.approvedAction = approvalLog.action;
-      row.approvedSource = approvalLog.source;
-      if (matchesActivityStatus(row, options.statusFilter)) {
-        rows.push(row);
-      }
-    } catch (e) {
-      meta.skipped += 1;
-      if (context && context.log && context.log.warn) {
-        context.log.warn('Failed to enrich approved PR #' + approvalLog.prId + ': ' + e.message);
-      }
+      return null;
+    }));
+    for (const r of batchResults) {
+      if (r) rows.push(r);
     }
   }
 
@@ -417,6 +437,21 @@ async function buildRecentlyApprovedRows(context, options) {
   const pageRows = meta.requiresFullEnrich
     ? rows.slice(pageStart, pageStart + meta.pageSize)
     : rows;
+
+  // Enrich only the final pageRows with release approval snapshots in parallel!
+  await Promise.all(pageRows.map(async (row) => {
+    const pr = prObjectsMap.get(row.id);
+    if (pr) {
+      row.releaseApproval = await getReleaseApprovalSnapshot(
+        context,
+        pr,
+        row.statusSnapshot,
+        options.releaseLookupCache,
+        options.reviewerGroup
+      );
+    }
+  }));
+
   return { rows: pageRows, meta: meta };
 }
 
@@ -697,14 +732,16 @@ async function getCachedBuildsForBranch(cache, adoClient, repositoryId, branchNa
   return result;
 }
 
-async function buildPrRow(context, pr, currentUser, org, project, branchBuildCache, releaseLookupCache, reviewerGroup) {
+async function buildPrRow(context, pr, currentUser, org, project, branchBuildCache, releaseLookupCache, reviewerGroup, skipRelease = false) {
   const reviewers = Array.isArray(pr.reviewers) ? pr.reviewers : [];
   const repositoryId = pr.repository && pr.repository.id;
   const isMergeCodeTarget = isMergeCodeBranch(pr.targetRefName);
   const approval = buildApprovalSummary(reviewers);
   const myApproval = buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTarget);
   const statusSnapshot = await getStatusSnapshot(context, ado, pr, repositoryId, isMergeCodeTarget, branchBuildCache);
-  const releaseApproval = await getReleaseApprovalSnapshot(context, pr, statusSnapshot, releaseLookupCache, reviewerGroup);
+  const releaseApproval = skipRelease
+    ? { status: 'skipped', label: 'Release skipped' }
+    : await getReleaseApprovalSnapshot(context, pr, statusSnapshot, releaseLookupCache, reviewerGroup);
   const attention = attentionUtil.buildAttention(pr, approval, statusSnapshot, isMergeCodeTarget);
   return {
     id: pr.pullRequestId,
