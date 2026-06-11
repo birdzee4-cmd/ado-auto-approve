@@ -2257,10 +2257,10 @@ function updateModeButtonsUI(mode) {
       indicator.textContent = 'OFF';
     } else if (mode === 'dry-run') {
       indicator.classList.add('indicator-dryrun');
-      indicator.textContent = 'Dry-Run';
+      indicator.textContent = 'ACTIVE (Manual)';
     } else {
       indicator.classList.add('indicator-active');
-      indicator.textContent = 'ACTIVE';
+      indicator.textContent = 'ACTIVE (Auto-Approve)';
     }
   }
 
