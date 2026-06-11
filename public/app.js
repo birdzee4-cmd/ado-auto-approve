@@ -2340,7 +2340,7 @@ window.changeAutoMode = async function(mode) {
       startAutoPoller();
       startCountdown(data.expiryTime, data.enabledBy);
       
-      const label = mode === 'active' ? 'ACTIVE (อนุมัติจริง)' : 'Dry-Run (ทดสอบ)';
+      const label = mode === 'active' ? 'ACTIVE (Auto-Approve)' : 'ACTIVE (Manual)';
       writeToAutoConsole('เปิดใช้งานโหมด ' + label + ' สำเร็จ โดย ' + data.enabledBy, 'info');
       
       checkPrs(true);

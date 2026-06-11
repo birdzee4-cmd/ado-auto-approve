@@ -2804,6 +2804,12 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+#btnModeNormal.active {
+  background: #6b7280;
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(107, 114, 128, 0.2);
+}
+
 #btnModeActive.active {
   background: #22c55e;
   color: #ffffff;
