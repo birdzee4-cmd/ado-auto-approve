@@ -55,7 +55,12 @@ window._currentUser = {
       await checkHealthStatus();
     }
 
-    bind('btnCheckPrs', checkPrs);
+    bind('btnCheckPrs', async () => {
+      if (window._currentUser && window._currentUser.canApprovePrs === true) {
+        await changeAutoMode('normal');
+      }
+      await checkPrs(false);
+    });
     bind('btnRefreshActivity', loadPrActivity);
     bind('btnTestTeams', testTeams);
     bind('btnTestDailySummary', testDailySummary);
@@ -79,8 +84,16 @@ window._currentUser = {
     });
 
     if (document.getElementById('btnCheckPrs')) {
-      await checkPrs();
-      await initAutoApprove();
+      try {
+        await initAutoApprove();
+      } catch (e) {
+        console.error('Failed to init auto approve:', e);
+      }
+      try {
+        await checkPrs();
+      } catch (e) {
+        console.error('Failed to check PRs:', e);
+      }
     }
     if (document.getElementById('btnRefreshActivity')) {
       bindActivityFilters();
@@ -2215,26 +2228,31 @@ async function initAutoApprove() {
   panel.hidden = false;
 
   try {
-    const r = await safeFetchJson('/api/auto-approve-settings');
-    if (r.ok && r.data && r.data.ok) {
-      const settings = r.data;
-      window._autoMode = settings.autoMode || 'normal';
-      
-      updateModeButtonsUI(window._autoMode);
+    // Reset to OFF (normal) on load/refresh!
+    window._autoMode = 'normal';
+    updateModeButtonsUI('normal');
+    stopCountdown();
+    stopAutoPoller();
+    
+    // Reset sessionStorage stats
+    sessionStorage.removeItem('autoPrApprovedCount');
+    sessionStorage.removeItem('autoReleaseApprovedCount');
+    window._autoPrApprovedCount = 0;
+    window._autoReleaseApprovedCount = 0;
 
-      if (window._autoMode !== 'normal') {
-        if (window._autoMode === 'active') {
-          window._autoPrApprovedCount = parseInt(sessionStorage.getItem('autoPrApprovedCount'), 10) || 0;
-          window._autoReleaseApprovedCount = parseInt(sessionStorage.getItem('autoReleaseApprovedCount'), 10) || 0;
-          updateStatsUI();
-        }
-        
-        startAutoPoller();
-        startCountdown(settings.expiryTime, settings.enabledBy);
-      }
-    }
+    // Send update to backend to disable the mode on SharePoint too
+    await safeFetchJson('/api/auto-approve-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        autoMode: 'normal',
+        durationMinutes: 'end_of_day'
+      })
+    });
+    
+    writeToAutoConsole('Auto Approve Mode has been initialized to OFF.', 'info');
   } catch (e) {
-    writeToAutoConsole('Failed to initialize Auto settings: ' + e.message, 'error');
+    writeToAutoConsole('Failed to reset Auto settings on load: ' + e.message, 'error');
   }
 }
 
