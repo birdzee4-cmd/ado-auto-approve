@@ -2271,11 +2271,6 @@ function updateModeButtonsUI(mode) {
     }
   }
 
-  const durationGroup = document.getElementById('autoDurationGroup');
-  if (durationGroup) {
-    durationGroup.style.display = mode === 'normal' ? 'none' : 'flex';
-  }
-
   const consoleWrap = document.getElementById('autoConsoleWrap');
   if (consoleWrap) {
     consoleWrap.hidden = mode === 'normal';
@@ -2284,24 +2279,6 @@ function updateModeButtonsUI(mode) {
   const statsWrap = document.getElementById('autoSessionStats');
   if (statsWrap) {
     statsWrap.hidden = mode !== 'active';
-  }
-}
-
-window.selectDuration = function(duration) {
-  window._selectedDuration = duration;
-  
-  const buttons = ['60', 'end_of_day'];
-  buttons.forEach(b => {
-    const id = b === 'end_of_day' ? 'btnDurationEndDay' : 'btnDuration' + b;
-    const el = document.getElementById(id);
-    if (el) {
-      if (b === duration) el.classList.add('active');
-      else el.classList.remove('active');
-    }
-  });
-
-  if (window._autoMode && window._autoMode !== 'normal') {
-    changeAutoMode(window._autoMode);
   }
 }
 
@@ -2316,7 +2293,7 @@ window.changeAutoMode = async function(mode) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         autoMode: mode,
-        durationMinutes: window._selectedDuration || '60'
+        durationMinutes: 'end_of_day'
       })
     });
 
