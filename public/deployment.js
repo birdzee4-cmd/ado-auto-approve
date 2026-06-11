@@ -161,6 +161,7 @@ async function loadDeployments(isSilent) {
     }
 
     const d = r.data;
+    console.log('list-deployments debug:', d.debug);
     _allDeployments = d.deployments || [];
     _organization = d.organization || '';
     _project = d.project || '';

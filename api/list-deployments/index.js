@@ -51,12 +51,30 @@ module.exports = async function (context, req) {
       return;
     }
 
-    const branches = branchesResult.body && Array.isArray(branchesResult.body.value)
-      ? branchesResult.body.value
-      : [];
-    const tags = tagsResult.ok && tagsResult.body && Array.isArray(tagsResult.body.value)
-      ? tagsResult.body.value
-      : [];
+    let branches = [];
+    let tags = [];
+
+    let branchesBody = branchesResult.body;
+    if (typeof branchesBody === 'string') {
+      try {
+        branchesBody = JSON.parse(branchesBody);
+      } catch (e) {
+        context.log.error('Failed to parse branches body string:', e);
+      }
+    }
+    if (branchesBody && Array.isArray(branchesBody.value)) {
+      branches = branchesBody.value;
+    }
+
+    let tagsBody = tagsResult.ok ? tagsResult.body : null;
+    if (typeof tagsBody === 'string') {
+      try {
+        tagsBody = JSON.parse(tagsBody);
+      } catch (e) {}
+    }
+    if (tagsBody && Array.isArray(tagsBody.value)) {
+      tags = tagsBody.value;
+    }
 
     // Naming pattern: e.g. YYYYMMDD_HHMM_ProjectName_VC12.00_Git_8cf6116871132fdc8c6b0c9a7471a10e4f9314b4
     const deploymentRegex = /^refs\/heads\/(\d{8})_(\d{4})_(.+)$/;
@@ -140,6 +158,12 @@ module.exports = async function (context, req) {
       organization: org,
       project: project,
       count: deployments.length,
+      debug: {
+        totalBranchesFetched: branches.length,
+        branchesType: typeof branchesResult.body,
+        firstFiveBranches: branches.slice(0, 5).map(b => b.name),
+        tagsCount: tags.length
+      },
       deployments: deployments
     });
 
