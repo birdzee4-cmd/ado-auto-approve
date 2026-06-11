@@ -98,7 +98,8 @@ module.exports = async function (context, req) {
             repository:   repoName,
             prTitle:      prTitle,
             targetBranch: targetRef,
-            result:       result
+            result:       result,
+            source:       'Azure DevOps Webhook'
         }));
         context.log(`webhook: SharePoint log recorded successfully for action=${action}`);
     } catch (err) {
