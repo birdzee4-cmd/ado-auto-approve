@@ -2490,10 +2490,16 @@ async function evaluateAutoApprovals(prs) {
     const notVotedYet = pr.myApproval && pr.myApproval.status === 'not-approved';
     
     const snapshot = pr.statusSnapshot || {};
-    const buildSuccess = snapshot.buildResult === 'succeeded' || snapshot.buildStatus === 'succeeded';
-    const policyApproved = snapshot.policyStatus === 'approved';
+    const buildResult = String(snapshot.buildResult || 'unknown').toLowerCase();
+    const buildStatus = String(snapshot.buildStatus || 'unknown').toLowerCase();
+    
+    const hasBuild = buildResult && buildResult !== 'unknown' && buildResult !== 'no_status';
+    const buildSuccess = !hasBuild || buildResult === 'succeeded' || buildStatus === 'succeeded';
+    
+    const policyStatus = String(snapshot.policyStatus || 'unknown').toLowerCase();
+    const policyOk = policyStatus === 'approved' || policyStatus === 'pending';
 
-    return isStaging && !isDraft && !isMergeCode && !hasHold && notVotedYet && buildSuccess && policyApproved;
+    return isStaging && !isDraft && !isMergeCode && !hasHold && notVotedYet && buildSuccess && policyOk;
   });
 
   const eligibleReleases = list.filter(pr => {
@@ -2527,6 +2533,10 @@ async function evaluateAutoApprovals(prs) {
   }
 
   if (window._autoMode === 'active') {
+    if (eligiblePrs.length === 0 && eligibleReleases.length === 0) {
+      writeToAutoConsole('ผลสแกน: ไม่พบ PR หรือ Release ที่รออนุมัติและผ่านเกณฑ์การตรวจสอบ', 'info');
+      return;
+    }
     for (const pr of eligiblePrs) {
       if (window._processingAutoApprovals[pr.id]) continue;
       window._processingAutoApprovals[pr.id] = true;
