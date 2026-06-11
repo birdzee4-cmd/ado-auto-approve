@@ -150,7 +150,12 @@ module.exports = async function (context, req) {
 
           context.log('Building virtual release row for approval ID:', app.id);
           const vRow = await buildVirtualReleaseRow(context, app, pat, org, project);
-          prs.push(vRow);
+          const targetRef = (vRow.targetBranch || '').toLowerCase();
+          if (targetRef.startsWith(stagingPrefix) || isMergeCodeBranch(targetRef)) {
+            prs.push(vRow);
+          } else {
+            context.log('Filtered out virtual release row with non-staging branch:', vRow.targetBranch);
+          }
         }
       } catch (e) {
         context.log.warn('Failed to merge direct pending release approvals:', e.message);
