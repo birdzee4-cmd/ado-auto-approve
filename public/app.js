@@ -2239,15 +2239,22 @@ async function initAutoApprove() {
 }
 
 function updateModeButtonsUI(mode) {
-  const modes = ['normal', 'dry-run', 'active'];
-  modes.forEach(m => {
-    const id = 'btnMode' + m.charAt(0).toUpperCase() + m.slice(1);
-    const el = document.getElementById(id);
-    if (el) {
-      if (m === mode) el.classList.add('active');
-      else el.classList.remove('active');
-    }
-  });
+  const btnNormal = document.getElementById('btnModeNormal');
+  const btnDryRun = document.getElementById('btnModeDryRun');
+  const btnActive = document.getElementById('btnModeActive');
+  
+  if (btnNormal) {
+    if (mode === 'normal') btnNormal.classList.add('active');
+    else btnNormal.classList.remove('active');
+  }
+  if (btnDryRun) {
+    if (mode === 'dry-run') btnDryRun.classList.add('active');
+    else btnDryRun.classList.remove('active');
+  }
+  if (btnActive) {
+    if (mode === 'active') btnActive.classList.add('active');
+    else btnActive.classList.remove('active');
+  }
 
   const indicator = document.getElementById('autoStatusIndicator');
   if (indicator) {
@@ -2283,7 +2290,7 @@ function updateModeButtonsUI(mode) {
 window.selectDuration = function(duration) {
   window._selectedDuration = duration;
   
-  const buttons = ['60', '120', 'end_of_day'];
+  const buttons = ['60', 'end_of_day'];
   buttons.forEach(b => {
     const id = b === 'end_of_day' ? 'btnDurationEndDay' : 'btnDuration' + b;
     const el = document.getElementById(id);
