@@ -53,7 +53,7 @@ module.exports = async function (context, req) {
     }
 
     // 3) Resolve Repository
-    const repoName = process.env.ADO_REPOSITORY || 'Net';
+    const repoName = body.repositoryName || process.env.ADO_REPOSITORY || 'Net';
     let repositoryId;
     try {
       repositoryId = await ado.getRepositoryIdByName(repoName);

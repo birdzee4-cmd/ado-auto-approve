@@ -247,11 +247,11 @@ function renderTable(deployments) {
 
     const formattedTime = formatDateThai(d.timestamp);
     const shortSha = d.commitSha.substring(0, 8);
-    const commitUrl = _organization && _project && _repository
-      ? `https://dev.azure.com/${_organization}/${_project}/_git/${_repository}/commit/${d.commitSha}`
+    const commitUrl = _organization && _project && d.repositoryName
+      ? `https://dev.azure.com/${_organization}/${_project}/_git/${d.repositoryName}/commit/${d.commitSha}`
       : null;
-    const branchUrl = _organization && _project && _repository
-      ? `https://dev.azure.com/${_organization}/${_project}/_git/${_repository}?version=GB${encodeURIComponent(d.branchName)}`
+    const branchUrl = _organization && _project && d.repositoryName
+      ? `https://dev.azure.com/${_organization}/${_project}/_git/${d.repositoryName}?version=GB${encodeURIComponent(d.branchName)}`
       : null;
 
     // Render tag status badge
@@ -268,7 +268,7 @@ function renderTable(deployments) {
       actionBtnHtml = `<button class="btn-mini btn-mini-tag" disabled title="Commit นี้ผ่านการทำ Tag แล้ว">🏷️ Tagged</button>`;
     } else {
       if (canApprove) {
-        actionBtnHtml = `<button class="btn-mini btn-mini-tag" onclick="openTagConfirmModal('${escapeHtml(d.commitSha)}', '${escapeHtml(d.projectName)}', '${escapeHtml(d.version)}')">🏷️ Create Tag</button>`;
+        actionBtnHtml = `<button class="btn-mini btn-mini-tag" onclick="openTagConfirmModal('${escapeHtml(d.commitSha)}', '${escapeHtml(d.projectName)}', '${escapeHtml(d.version)}', '${escapeHtml(d.repositoryName)}')">🏷️ Create Tag</button>`;
       } else {
         actionBtnHtml = `<button class="btn-mini btn-mini-tag" disabled title="คุณไม่มีสิทธิ์ในการสร้าง Tag (ต้องมี Role: it_support_approve)">🏷️ Create Tag</button>`;
       }
@@ -284,7 +284,10 @@ function renderTable(deployments) {
 
     tr.innerHTML = `
       <td><strong>${formattedTime}</strong></td>
-      <td><span class="whitelabel-badge">${escapeHtml(d.projectName)}</span></td>
+      <td>
+        <span class="whitelabel-badge">${escapeHtml(d.projectName)}</span>
+        <div style="font-size: 10px; color: #6b7280; margin-top: 4px;">Repo: ${escapeHtml(d.repositoryName)}</div>
+      </td>
       <td><span class="version-badge">${escapeHtml(d.version)}</span></td>
       <td>${commitLinkHtml}</td>
       <td>
@@ -309,8 +312,8 @@ function renderTable(deployments) {
 }
 
 // ===== Modals & Tag Creation logic =====
-window.openTagConfirmModal = function(commitSha, projectName, version) {
-  _selectedDeployment = { commitSha, projectName, version };
+window.openTagConfirmModal = function(commitSha, projectName, version, repositoryName) {
+  _selectedDeployment = { commitSha, projectName, version, repositoryName };
 
   setText('modalWhitelabelName', projectName);
   setText('modalVersion', version);
@@ -353,7 +356,8 @@ async function doCreateTag() {
       },
       body: JSON.stringify({
         commitSha: _selectedDeployment.commitSha,
-        tagName: tagName
+        tagName: tagName,
+        repositoryName: _selectedDeployment.repositoryName
       })
     });
 
