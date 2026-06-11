@@ -2730,6 +2730,10 @@ body {
   color: #4b5563;
 }
 
+.auto-session-stats[hidden] {
+  display: none !important;
+}
+
 .stat-badge {
   padding: 2px 8px;
   border-radius: 4px;
@@ -2922,4 +2926,8 @@ body {
   font-style: italic;
   text-align: center;
   padding-top: 35px;
+}
+
+[hidden] {
+  display: none !important;
 }
