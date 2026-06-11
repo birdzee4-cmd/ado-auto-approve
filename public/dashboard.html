@@ -64,6 +64,20 @@
         </div>
 
         <div id="prResult" hidden></div>
+
+        <!-- Tab Switcher -->
+        <div class="tab-container" id="dashboardTabs" hidden>
+          <button id="tabPrQueue" class="tab-button active" onclick="switchTab('pr')">
+            <span>PR Queue</span>
+            <span class="tab-badge" id="prQueueBadge">0</span>
+          </button>
+          <button id="tabReleaseQueue" class="tab-button" onclick="switchTab('release')">
+            <span>Release Queue</span>
+            <span class="tab-badge" id="releaseQueueBadge">0</span>
+          </button>
+        </div>
+
+        <!-- PR Queue Table Container -->
         <div id="prTableContainer" hidden>
           <div class="table-section-header">
             <h3 class="table-title">Active PR Queue</h3>
@@ -75,15 +89,37 @@
                 <tr>
                   <th>Pull Request</th>
                   <th>Branch</th>
-                  <th>Approvals</th>
+                  <th>Reviewers</th>
                   <th>Build / Policy</th>
-                  <th>Release</th>
                   <th>Attention</th>
                   <th>My Approval</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="prTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Release Queue Table Container -->
+        <div id="releaseTableContainer" hidden>
+          <div class="table-section-header">
+            <h3 class="table-title">Release Queue</h3>
+            <span class="pr-meta" id="releaseMeta"></span>
+          </div>
+          <div class="pr-table-wrap">
+            <table class="pr-table">
+              <thead>
+                <tr>
+                  <th>Pull Request</th>
+                  <th>Target Branch</th>
+                  <th>Build ID/URL</th>
+                  <th>Release Definition</th>
+                  <th>Environment Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="releaseTableBody"></tbody>
             </table>
           </div>
         </div>

@@ -4,6 +4,8 @@
 
 let currentPrForAction = null;
 window._prCache = {};
+window._activeTab = 'pr';
+let _allPrs = [];
 window._currentUser = {
   roles: [],
   requiredRole: 'it_support_approve',
@@ -280,7 +282,9 @@ function bindActivityFilters() {
 async function checkPrs() {
   if (!document.getElementById('prTableContainer')) return;
   setButtonLoading('btnCheckPrs', true, 'Loading...');
-  document.getElementById('prTableContainer').hidden = true;
+  if (document.getElementById('prTableContainer')) document.getElementById('prTableContainer').hidden = true;
+  if (document.getElementById('releaseTableContainer')) document.getElementById('releaseTableContainer').hidden = true;
+  if (document.getElementById('dashboardTabs')) document.getElementById('dashboardTabs').hidden = true;
   showBox('prResult', '<div class="test-result result-info">⏳ Calling ADO API...</div>');
 
   try {
@@ -308,7 +312,6 @@ async function checkPrs() {
       d.completedDisplayLimit || 10
     );
     if (document.getElementById('systemHealthSummary')) checkHealthStatus();
-    document.getElementById('prTableContainer').hidden = false;
   } catch (err) {
     showBox('prResult', '<div class="test-result result-error">❌ ' + escapeHtml(err.message) + '</div>');
   } finally {
@@ -339,46 +342,11 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
 }
 
 function renderPrTable(prs) {
-  document.getElementById('prMeta').textContent = prs.length + ' items';
-  const tbody = document.getElementById('prTableBody');
-  tbody.innerHTML = '';
+  _allPrs = prs || [];
   window._prCache = {};
 
-  if (prs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#9ca3af">— No PR waiting approve right now —</td></tr>';
-    return;
-  }
-
-  for (const pr of prs) {
-    const tr = document.createElement('tr');
-    if (pr.isDraft) tr.classList.add('pr-draft');
-    if (isMergeCodePr(pr)) tr.classList.add('pr-mergecode');
-
-    const mergeCodeBadge = isMergeCodePr(pr) ? ' <span class="pr-badge pr-badge-manual">MERGECODE MANUAL</span>' : '';
-    const draftBadge = pr.isDraft ? ' <span class="pr-badge">DRAFT</span>' : '';
-    const approvalBadge = renderApprovalBadge(pr);
-    const statusBadge = renderStatusBadge(pr);
-    const releaseBadge = renderReleaseBadge(pr);
-    const myApprovalBadge = renderMyApprovalBadge(pr);
-    const attentionBadge = renderAttentionBadge(pr);
-    const actionsHtml = renderActions(pr);
-
-    tr.innerHTML =
-      '<td class="pr-summary-cell">' + renderPrSummaryCell(pr, draftBadge, mergeCodeBadge) + '</td>' +
-      '<td class="pr-branch-cell">' + renderBranchCell(pr) + '</td>' +
-      '<td class="pr-approval-cell">' + approvalBadge + '</td>' +
-      '<td class="pr-status-cell">' + statusBadge + '</td>' +
-      '<td class="pr-release-cell">' + releaseBadge + '</td>' +
-      '<td class="pr-attention-cell">' + attentionBadge + '</td>' +
-      '<td class="pr-my-approval-cell">' + myApprovalBadge + '</td>' +
-      '<td class="pr-actions-cell">' + actionsHtml + '</td>';
-
-    tr.dataset.pr = JSON.stringify({
-      id: pr.id, title: pr.title, repository: pr.repository,
-      sourceBranch: shortBranch(pr.sourceBranch), targetBranch: shortBranch(pr.targetBranch),
-      createdBy: pr.createdBy, repositoryId: pr.repositoryId
-    });
-
+  // Populate cache first
+  for (const pr of _allPrs) {
     window._prCache[pr.id] = {
       id: pr.id,
       title: pr.title,
@@ -392,8 +360,224 @@ function renderPrTable(prs) {
       policyFetched: pr.policyFetched === true,
       isMergeCodeTarget: isMergeCodePr(pr)
     };
+  }
+
+  // Split PRs into PR Queue and Release Queue
+  const prQueue = _allPrs.filter(pr => !(pr.releaseApproval && pr.releaseApproval.status === 'pending'));
+  const releaseQueue = _allPrs.filter(pr => pr.releaseApproval && pr.releaseApproval.status === 'pending');
+
+  // Update Badges
+  setText('prQueueBadge', prQueue.length);
+  setText('releaseQueueBadge', releaseQueue.length);
+
+  // Show tabs container
+  const tabsContainer = document.getElementById('dashboardTabs');
+  if (tabsContainer) tabsContainer.hidden = false;
+
+  // Render both tables
+  renderPrQueueTable(prQueue);
+  renderReleaseQueueTable(releaseQueue);
+
+  // Show/Hide active table container
+  updateTabVisibility();
+}
+
+window.switchTab = function(tab) {
+  window._activeTab = tab;
+  updateTabVisibility();
+};
+
+function updateTabVisibility() {
+  const activeTab = window._activeTab || 'pr';
+
+  const tabPr = document.getElementById('tabPrQueue');
+  const tabRelease = document.getElementById('tabReleaseQueue');
+
+  if (tabPr && tabRelease) {
+    if (activeTab === 'pr') {
+      tabPr.classList.add('active');
+      tabRelease.classList.remove('active');
+    } else {
+      tabPr.classList.remove('active');
+      tabRelease.classList.add('active');
+    }
+  }
+
+  const prContainer = document.getElementById('prTableContainer');
+  const releaseContainer = document.getElementById('releaseTableContainer');
+
+  if (prContainer && releaseContainer) {
+    if (activeTab === 'pr') {
+      prContainer.hidden = false;
+      releaseContainer.hidden = true;
+    } else {
+      prContainer.hidden = true;
+      releaseContainer.hidden = false;
+    }
+  }
+}
+
+function renderPrQueueTable(prs) {
+  document.getElementById('prMeta').textContent = prs.length + ' items';
+  const tbody = document.getElementById('prTableBody');
+  tbody.innerHTML = '';
+
+  if (prs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#9ca3af">— No PR waiting code approval right now —</td></tr>';
+    return;
+  }
+
+  for (const pr of prs) {
+    const tr = document.createElement('tr');
+    if (pr.isDraft) tr.classList.add('pr-draft');
+    if (isMergeCodePr(pr)) tr.classList.add('pr-mergecode');
+
+    const mergeCodeBadge = isMergeCodePr(pr) ? ' <span class="pr-badge pr-badge-manual">MERGECODE MANUAL</span>' : '';
+    const draftBadge = pr.isDraft ? ' <span class="pr-badge">DRAFT</span>' : '';
+    const approvalBadge = renderApprovalBadge(pr);
+    const statusBadge = renderStatusBadge(pr);
+    const myApprovalBadge = renderMyApprovalBadge(pr);
+    const attentionBadge = renderAttentionBadge(pr);
+    const actionsHtml = renderActions(pr);
+
+    tr.innerHTML =
+      '<td class="pr-summary-cell">' + renderPrSummaryCell(pr, draftBadge, mergeCodeBadge) + '</td>' +
+      '<td class="pr-branch-cell">' + renderBranchCell(pr) + '</td>' +
+      '<td class="pr-approval-cell">' + approvalBadge + '</td>' +
+      '<td class="pr-status-cell">' + statusBadge + '</td>' +
+      '<td class="pr-attention-cell">' + attentionBadge + '</td>' +
+      '<td class="pr-my-approval-cell">' + myApprovalBadge + '</td>' +
+      '<td class="pr-actions-cell">' + actionsHtml + '</td>';
+
+    tr.dataset.pr = JSON.stringify({
+      id: pr.id, title: pr.title, repository: pr.repository,
+      sourceBranch: shortBranch(pr.sourceBranch), targetBranch: shortBranch(pr.targetBranch),
+      createdBy: pr.createdBy, repositoryId: pr.repositoryId
+    });
+
     tbody.appendChild(tr);
   }
+}
+
+function renderReleaseQueueTable(prs) {
+  document.getElementById('releaseMeta').textContent = prs.length + ' items';
+  const tbody = document.getElementById('releaseTableBody');
+  tbody.innerHTML = '';
+
+  if (prs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#9ca3af">— No PR waiting release approval right now —</td></tr>';
+    return;
+  }
+
+  for (const pr of prs) {
+    const tr = document.createElement('tr');
+    if (pr.isDraft) tr.classList.add('pr-draft');
+    if (isMergeCodePr(pr)) tr.classList.add('pr-mergecode');
+
+    const mergeCodeBadge = isMergeCodePr(pr) ? ' <span class="pr-badge pr-badge-manual">MERGECODE MANUAL</span>' : '';
+    const draftBadge = pr.isDraft ? ' <span class="pr-badge">DRAFT</span>' : '';
+    const targetBranchHtml = renderTargetBranchCell(pr);
+    const statusBadge = renderStatusBadge(pr);
+    const releaseDefinitionHtml = renderReleaseDefinitionCell(pr);
+    const envStatusHtml = renderEnvironmentStatusCell(pr);
+    const actionsHtml = renderReleaseActions(pr);
+
+    tr.innerHTML =
+      '<td class="pr-summary-cell">' + renderPrSummaryCell(pr, draftBadge, mergeCodeBadge) + '</td>' +
+      '<td class="pr-branch-cell">' + targetBranchHtml + '</td>' +
+      '<td class="pr-status-cell">' + statusBadge + '</td>' +
+      '<td class="pr-release-def-cell">' + releaseDefinitionHtml + '</td>' +
+      '<td class="pr-env-status-cell">' + envStatusHtml + '</td>' +
+      '<td class="pr-actions-cell">' + actionsHtml + '</td>';
+
+    tr.dataset.pr = JSON.stringify({
+      id: pr.id, title: pr.title, repository: pr.repository,
+      sourceBranch: shortBranch(pr.sourceBranch), targetBranch: shortBranch(pr.targetBranch),
+      createdBy: pr.createdBy, repositoryId: pr.repositoryId
+    });
+
+    tbody.appendChild(tr);
+  }
+}
+
+function renderTargetBranchCell(pr) {
+  const targetFull = shortBranch(pr.targetBranch);
+  return '<div class="branch-stack">' +
+    '<div class="branch-line branch-into">' +
+      '<code title="' + escapeHtml(pr.targetBranch) + '">' + escapeHtml(targetFull) + '</code>' +
+    '</div>' +
+  '</div>';
+}
+
+function renderReleaseDefinitionCell(pr) {
+  const r = pr.releaseApproval || {};
+  const defName = r.releaseDefinitionName || r.cdName || r.expectedCdName || '-';
+  return '<span class="release-definition-name" title="' + escapeHtml(defName) + '">' + escapeHtml(defName) + '</span>';
+}
+
+function renderEnvironmentStatusCell(pr) {
+  const r = pr.releaseApproval || {};
+  const status = String(r.status || 'not_found').toLowerCase();
+  let cls = 'release-badge release-muted';
+  let icon = '○';
+  let label = r.label || 'No release yet';
+  let envName = r.environmentName || '';
+
+  if (status === 'pending') {
+    cls = 'release-badge release-pending';
+    icon = '⏳';
+    label = 'Approval pending';
+  } else if (status === 'expected') {
+    cls = 'release-badge release-expected';
+    icon = '🔎';
+    label = 'Expected';
+  } else if (status === 'approved' || status === 'succeeded') {
+    cls = 'release-badge release-ok';
+    icon = '✅';
+    label = status === 'succeeded' ? 'Succeeded' : 'Approved';
+  } else if (status === 'failed') {
+    cls = 'release-badge release-failed';
+    icon = '❌';
+    label = 'Failed';
+  } else if (status === 'deploying' || status === 'waiting') {
+    cls = 'release-badge release-running';
+    icon = status === 'deploying' ? '🚀' : '⏳';
+    label = r.label || (status === 'deploying' ? 'Deploying' : 'Waiting');
+  } else if (status === 'lookup_failed') {
+    cls = 'release-badge release-failed';
+    icon = '⚠️';
+    label = 'Lookup failed';
+  }
+
+  return '<div class="release-env-status">' +
+    '<span class="' + cls + '" title="' + escapeHtml(label) + '">' +
+      '<span class="release-main">' + icon + ' ' + escapeHtml(label) + '</span>' +
+      (envName ? '<span class="release-detail">' + escapeHtml(envName) + '</span>' : '') +
+    '</span>' +
+  '</div>';
+}
+
+function renderReleaseActions(pr) {
+  const r = pr.releaseApproval || {};
+  const status = String(r.status || 'not_found').toLowerCase();
+  const openUrl = pr.url ? escapeHtml(pr.url) : '#';
+  const openAttrs = pr.url ? ' target="_blank" rel="noopener"' : ' aria-disabled="true" tabindex="-1"';
+  const openClass = pr.url ? 'btn-mini btn-open' : 'btn-mini btn-open btn-disabled';
+  const releaseUrl = r.releaseUrl ? escapeHtml(r.releaseUrl) : '#';
+  const releaseAttrs = r.releaseUrl ? ' target="_blank" rel="noopener"' : ' aria-disabled="true" tabindex="-1"';
+  const releaseClass = r.releaseUrl ? 'btn-mini btn-release-link' : 'btn-mini btn-release-link btn-disabled';
+
+  const canApprove = window._currentUser && window._currentUser.canApprovePrs === true;
+  const approveButton = !isApprovalHeld(pr) && status === 'pending' && r.approvalId && canApprove
+    ? '<button class="btn-mini btn-release" onclick="approveRelease(' + pr.id + ')">Approve Release</button>'
+    : '';
+
+  return '<div class="action-cell">' +
+    approveButton +
+    (r.releaseUrl ? '<a class="' + releaseClass + '" href="' + releaseUrl + '"' + releaseAttrs + '>🚀 Release</a>' : '') +
+    '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
+    '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗</a>' +
+    '</div>';
 }
 
 function renderCompletedPrTable(prs, lookbackHours, totalMatched, displayLimit, pagingMeta) {
@@ -1106,7 +1290,7 @@ function voteStatusText(s) {
 }
 
 function getPrFromTable(prId) {
-  const rows = document.querySelectorAll('#prTableBody tr');
+  const rows = document.querySelectorAll('#prTableBody tr, #releaseTableBody tr');
   let prData = null;
   rows.forEach(r => {
     if (r.dataset.pr) {
