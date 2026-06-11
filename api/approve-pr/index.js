@@ -167,13 +167,15 @@ module.exports = async function (context, req) {
     }
 
     // 5) Log SharePoint
+    const autoApproved = body && body.autoApproved === true;
+    const actionName = autoApproved ? 'Auto Approved' : 'Approved';
     let logStatus = 'skipped';
     const resultText = (autoCompleteOk ? 'Success (auto-complete enabled' : 'Vote OK (auto-complete failed') +
       (releaseNotesIgnoreIds.length > 0 ? ', Release Notes ignored)' : ')');
     const statusSnapshot = await getStatusSnapshot(context, ado, pr, repositoryId, prId, autoCompleteOk);
     try {
       const logResult = await logToSharePoint(context, {
-        prId, action: 'Approved', user: userEmail, repository: pr.repository.name,
+        prId, action: actionName, user: userEmail, repository: pr.repository.name,
         prTitle: pr.title, targetBranch: pr.targetRefName,
         result: resultText,
         adoPrUrl: getPrUrl(pr),

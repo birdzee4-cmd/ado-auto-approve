@@ -78,7 +78,10 @@ window._currentUser = {
       });
     });
 
-    if (document.getElementById('btnCheckPrs')) checkPrs();
+    if (document.getElementById('btnCheckPrs')) {
+      await checkPrs();
+      await initAutoApprove();
+    }
     if (document.getElementById('btnRefreshActivity')) {
       bindActivityFilters();
       loadPrActivity();
@@ -283,24 +286,28 @@ function bindActivityFilters() {
 }
 
 // ===== Check PRs =====
-async function checkPrs() {
+async function checkPrs(isSilent) {
   if (!document.getElementById('prTableContainer')) return;
-  setButtonLoading('btnCheckPrs', true, 'Loading...');
-  if (document.getElementById('prTableContainer')) document.getElementById('prTableContainer').hidden = true;
-  if (document.getElementById('releaseTableContainer')) document.getElementById('releaseTableContainer').hidden = true;
-  if (document.getElementById('dashboardTabs')) document.getElementById('dashboardTabs').hidden = true;
-  showBox('prResult', '<div class="test-result result-info">⏳ Calling ADO API...</div>');
+  if (!isSilent) {
+    setButtonLoading('btnCheckPrs', true, 'Loading...');
+    if (document.getElementById('prTableContainer')) document.getElementById('prTableContainer').hidden = true;
+    if (document.getElementById('releaseTableContainer')) document.getElementById('releaseTableContainer').hidden = true;
+    if (document.getElementById('dashboardTabs')) document.getElementById('dashboardTabs').hidden = true;
+    showBox('prResult', '<div class="test-result result-info">⏳ Calling ADO API...</div>');
+  }
 
   try {
     const r = await safeFetchJson('/api/list-prs');
     if (r.parseError) {
-      showBox('prResult', '<div class="test-result result-error">❌ Backend ตอบไม่ใช่ JSON (HTTP ' + r.status + ')</div>');
+      if (!isSilent) showBox('prResult', '<div class="test-result result-error">❌ Backend ตอบไม่ใช่ JSON (HTTP ' + r.status + ')</div>');
       return;
     }
     if (!r.ok || !r.data || !r.data.ok) {
       const d = r.data || {};
-      showBox('prResult', '<div class="test-result result-error">❌ ' + escapeHtml(d.error || 'Unknown') +
-        '<br/><small>' + escapeHtml(d.hint || d.detail || '') + '</small></div>');
+      if (!isSilent) {
+        showBox('prResult', '<div class="test-result result-error">❌ ' + escapeHtml(d.error || 'Unknown') +
+          '<br/><small>' + escapeHtml(d.hint || d.detail || '') + '</small></div>');
+      }
       return;
     }
     const d = r.data;
@@ -309,6 +316,12 @@ async function checkPrs() {
     const attention = d.attentionSummary || {};
     showBox('prResult', renderPrSummaryBanner(d, attention, mergeCodeCount));
     renderPrTable(d.prs);
+    
+    // Evaluate and execute auto-approvals if settings are active
+    if (window._autoMode && window._autoMode !== 'normal') {
+      await evaluateAutoApprovals(d.prs);
+    }
+
     renderCompletedPrTable(
       d.completedPrs || [],
       d.completedLookbackHours || 24,
@@ -317,9 +330,11 @@ async function checkPrs() {
     );
     if (document.getElementById('systemHealthSummary')) checkHealthStatus();
   } catch (err) {
-    showBox('prResult', '<div class="test-result result-error">❌ ' + escapeHtml(err.message) + '</div>');
+    if (!isSilent) showBox('prResult', '<div class="test-result result-error">❌ ' + escapeHtml(err.message) + '</div>');
   } finally {
-    resetCheckPrsButton();
+    if (!isSilent) {
+      resetCheckPrsButton();
+    }
   }
 }
 
@@ -2174,4 +2189,415 @@ function humanizeKey(key) {
     .replace(/([a-z])([A-Z])/g, '$1 $2')
     .replace(/[_-]+/g, ' ')
     .replace(/\b\w/g, ch => ch.toUpperCase());
+}
+
+// ============================================
+// Guarded Auto Approve Frontend Controller
+// ============================================
+window._autoMode = 'normal';
+window._selectedDuration = '60';
+window._autoPollerInterval = null;
+window._autoCountdownInterval = null;
+window._autoPrApprovedCount = 0;
+window._autoReleaseApprovedCount = 0;
+window._processingAutoApprovals = {};
+
+async function initAutoApprove() {
+  const panel = document.getElementById('autoApprovePanel');
+  if (!panel) return;
+
+  const canApprove = window._currentUser && window._currentUser.canApprovePrs === true;
+  if (!canApprove) {
+    panel.hidden = true;
+    return;
+  }
+
+  panel.hidden = false;
+
+  try {
+    const r = await safeFetchJson('/api/auto-approve-settings');
+    if (r.ok && r.data && r.data.ok) {
+      const settings = r.data;
+      window._autoMode = settings.autoMode || 'normal';
+      
+      updateModeButtonsUI(window._autoMode);
+
+      if (window._autoMode !== 'normal') {
+        if (window._autoMode === 'active') {
+          window._autoPrApprovedCount = parseInt(sessionStorage.getItem('autoPrApprovedCount'), 10) || 0;
+          window._autoReleaseApprovedCount = parseInt(sessionStorage.getItem('autoReleaseApprovedCount'), 10) || 0;
+          updateStatsUI();
+        }
+        
+        startAutoPoller();
+        startCountdown(settings.expiryTime, settings.enabledBy);
+      }
+    }
+  } catch (e) {
+    writeToAutoConsole('Failed to initialize Auto settings: ' + e.message, 'error');
+  }
+}
+
+function updateModeButtonsUI(mode) {
+  const modes = ['normal', 'dry-run', 'active'];
+  modes.forEach(m => {
+    const id = 'btnMode' + m.charAt(0).toUpperCase() + m.slice(1);
+    const el = document.getElementById(id);
+    if (el) {
+      if (m === mode) el.classList.add('active');
+      else el.classList.remove('active');
+    }
+  });
+
+  const indicator = document.getElementById('autoStatusIndicator');
+  if (indicator) {
+    indicator.className = 'auto-status-indicator';
+    if (mode === 'normal') {
+      indicator.classList.add('indicator-normal');
+      indicator.textContent = 'OFF';
+    } else if (mode === 'dry-run') {
+      indicator.classList.add('indicator-dryrun');
+      indicator.textContent = 'Dry-Run';
+    } else {
+      indicator.classList.add('indicator-active');
+      indicator.textContent = 'ACTIVE';
+    }
+  }
+
+  const durationGroup = document.getElementById('autoDurationGroup');
+  if (durationGroup) {
+    durationGroup.style.display = mode === 'normal' ? 'none' : 'flex';
+  }
+
+  const consoleWrap = document.getElementById('autoConsoleWrap');
+  if (consoleWrap) {
+    consoleWrap.hidden = mode === 'normal';
+  }
+
+  const statsWrap = document.getElementById('autoSessionStats');
+  if (statsWrap) {
+    statsWrap.hidden = mode !== 'active';
+  }
+}
+
+window.selectDuration = function(duration) {
+  window._selectedDuration = duration;
+  
+  const buttons = ['60', '120', 'end_of_day'];
+  buttons.forEach(b => {
+    const id = b === 'end_of_day' ? 'btnDurationEndDay' : 'btnDuration' + b;
+    const el = document.getElementById(id);
+    if (el) {
+      if (b === duration) el.classList.add('active');
+      else el.classList.remove('active');
+    }
+  });
+
+  if (window._autoMode && window._autoMode !== 'normal') {
+    changeAutoMode(window._autoMode);
+  }
+}
+
+window.changeAutoMode = async function(mode) {
+  const prevMode = window._autoMode;
+  window._autoMode = mode;
+  updateModeButtonsUI(mode);
+
+  try {
+    const r = await safeFetchJson('/api/auto-approve-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        autoMode: mode,
+        durationMinutes: window._selectedDuration || '60'
+      })
+    });
+
+    if (!r.ok || !r.data || !r.data.ok) {
+      const d = r.data || {};
+      throw new Error(d.error || 'Failed to update backend settings');
+    }
+
+    const data = r.data;
+    if (mode === 'normal') {
+      stopAutoPoller();
+      stopCountdown();
+      writeToAutoConsole('Auto Approve Mode has been disabled.', 'info');
+      
+      sessionStorage.removeItem('autoPrApprovedCount');
+      sessionStorage.removeItem('autoReleaseApprovedCount');
+      window._autoPrApprovedCount = 0;
+      window._autoReleaseApprovedCount = 0;
+    } else {
+      if (mode === 'active') {
+        window._autoPrApprovedCount = 0;
+        window._autoReleaseApprovedCount = 0;
+        sessionStorage.setItem('autoPrApprovedCount', 0);
+        sessionStorage.setItem('autoReleaseApprovedCount', 0);
+        updateStatsUI();
+      }
+      
+      startAutoPoller();
+      startCountdown(data.expiryTime, data.enabledBy);
+      
+      const label = mode === 'active' ? 'ACTIVE (อนุมัติจริง)' : 'Dry-Run (ทดสอบ)';
+      writeToAutoConsole('เปิดใช้งานโหมด ' + label + ' สำเร็จ โดย ' + data.enabledBy, 'info');
+      
+      checkPrs(true);
+    }
+  } catch (e) {
+    window._autoMode = prevMode;
+    updateModeButtonsUI(prevMode);
+    alert('❌ ตั้งค่าไม่สำเร็จ: ' + e.message);
+    writeToAutoConsole('Error setting auto mode: ' + e.message, 'error');
+  }
+}
+
+function startAutoPoller() {
+  stopAutoPoller();
+  window._autoPollerInterval = setInterval(() => {
+    writeToAutoConsole('Running automatic scan...', 'info');
+    checkPrs(true);
+  }, 60000);
+}
+
+function stopAutoPoller() {
+  if (window._autoPollerInterval) {
+    clearInterval(window._autoPollerInterval);
+    window._autoPollerInterval = null;
+  }
+}
+
+function startCountdown(expiryIso, userEmail) {
+  stopCountdown();
+  const wrap = document.getElementById('autoCountdownWrap');
+  if (!wrap) return;
+
+  wrap.hidden = false;
+  const timerEl = document.getElementById('autoCountdownTimer');
+  const userEl = document.getElementById('autoCountdownUser');
+  if (userEl) userEl.textContent = 'Enabled by: ' + (userEmail || 'Unknown');
+
+  const expiryTime = new Date(expiryIso).getTime();
+
+  function updateTimer() {
+    const now = new Date().getTime();
+    const diff = expiryTime - now;
+
+    if (diff <= 0) {
+      stopCountdown();
+      timerEl.textContent = '00:00';
+      writeToAutoConsole('โหมด Auto Approve หมดระยะเวลาควบคุมแล้ว', 'error');
+      handleAutoExpiry();
+      return;
+    }
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    const pad = (num) => String(num).padStart(2, '0');
+    
+    if (hours > 0) {
+      timerEl.textContent = pad(hours) + ':' + pad(minutes) + ':' + pad(seconds);
+    } else {
+      timerEl.textContent = pad(minutes) + ':' + pad(seconds);
+    }
+  }
+
+  updateTimer();
+  window._autoCountdownInterval = setInterval(updateTimer, 1000);
+}
+
+function stopCountdown() {
+  if (window._autoCountdownInterval) {
+    clearInterval(window._autoCountdownInterval);
+    window._autoCountdownInterval = null;
+  }
+  const wrap = document.getElementById('autoCountdownWrap');
+  if (wrap) wrap.hidden = true;
+}
+
+async function handleAutoExpiry() {
+  window._autoMode = 'normal';
+  updateModeButtonsUI('normal');
+  stopAutoPoller();
+  stopCountdown();
+  
+  sessionStorage.removeItem('autoPrApprovedCount');
+  sessionStorage.removeItem('autoReleaseApprovedCount');
+  window._autoPrApprovedCount = 0;
+  window._autoReleaseApprovedCount = 0;
+
+  alert('🧡 โหมด Auto Approve หมดระยะเวลาการควบคุม และสลับกลับเข้าสู่โหมดปกติ (Manual) แล้ว');
+  checkPrs(false);
+}
+
+function updateStatsUI() {
+  const prEl = document.getElementById('autoPrCount');
+  const relEl = document.getElementById('autoReleaseCount');
+  if (prEl) prEl.textContent = window._autoPrApprovedCount;
+  if (relEl) relEl.textContent = window._autoReleaseApprovedCount;
+}
+
+function writeToAutoConsole(message, type) {
+  const consoleLog = document.getElementById('autoConsoleLog');
+  if (!consoleLog) return;
+
+  const placeholder = consoleLog.querySelector('.console-placeholder');
+  if (placeholder) placeholder.remove();
+
+  const now = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const entry = document.createElement('div');
+  entry.className = 'console-entry';
+  
+  if (type === 'active') {
+    entry.className += ' entry-active';
+    entry.textContent = `[${now}] 🟢 [Active] ${message}`;
+  } else if (type === 'dryrun') {
+    entry.className += ' entry-dryrun';
+    entry.textContent = `[${now}] 🟡 [Dry-Run] ${message}`;
+  } else if (type === 'error') {
+    entry.className += ' entry-error';
+    entry.textContent = `[${now}] 🔴 [Error] ${message}`;
+  } else {
+    entry.textContent = `[${now}] 🔵 [Info] ${message}`;
+  }
+
+  consoleLog.appendChild(entry);
+  consoleLog.scrollTop = consoleLog.scrollHeight;
+}
+
+window.clearAutoConsole = function() {
+  const consoleLog = document.getElementById('autoConsoleLog');
+  if (!consoleLog) return;
+  consoleLog.innerHTML = '<div class="console-placeholder">ไม่มีประวัติการสแกนในเซสชันนี้</div>';
+}
+
+async function evaluateAutoApprovals(prs) {
+  if (!window._autoMode || window._autoMode === 'normal') return;
+  const list = Array.isArray(prs) ? prs : [];
+
+  const eligiblePrs = list.filter(pr => {
+    if (typeof pr.id === 'string' && pr.id.startsWith('R')) return false;
+    
+    const targetRef = String(pr.targetBranch || '').toLowerCase();
+    const isStaging = targetRef.startsWith('refs/heads/staging');
+    
+    const isDraft = pr.isDraft === true;
+    const isMergeCode = pr.isMergeCodeTarget === true;
+    const hasHold = pr.approvalHold && pr.approvalHold.active === true;
+    const notVotedYet = pr.myApproval && pr.myApproval.status === 'not-approved';
+    
+    const snapshot = pr.statusSnapshot || {};
+    const buildSuccess = snapshot.buildResult === 'succeeded' || snapshot.buildStatus === 'succeeded';
+    const policyApproved = snapshot.policyStatus === 'approved';
+
+    return isStaging && !isDraft && !isMergeCode && !hasHold && notVotedYet && buildSuccess && policyApproved;
+  });
+
+  const eligibleReleases = list.filter(pr => {
+    const r = pr.releaseApproval || {};
+    const hasPendingRelease = r.status === 'pending' && r.approvalId;
+    if (!hasPendingRelease) return false;
+
+    const definitionName = String(r.releaseDefinitionName || r.cdName || '').toLowerCase().trim();
+    if (!definitionName.startsWith('stg')) return false;
+
+    const hasHold = pr.approvalHold && pr.approvalHold.active === true;
+    return !hasHold;
+  });
+
+  if (window._autoMode === 'dry-run') {
+    if (eligiblePrs.length === 0 && eligibleReleases.length === 0) {
+      writeToAutoConsole('ผลสแกน: ไม่พบ PR หรือ Release ที่รออนุมัติและผ่านเกณฑ์การตรวจสอบ', 'info');
+      return;
+    }
+    
+    eligiblePrs.forEach(pr => {
+      writeToAutoConsole(`PR #${pr.id} - ผ่านเกณฑ์การตรวจวิเคราะห์ (พร้อมส่ง Approve PR)`, 'dryrun');
+    });
+    
+    eligibleReleases.forEach(pr => {
+      const r = pr.releaseApproval || {};
+      const idLabel = typeof pr.id === 'string' && pr.id.startsWith('R') ? 'Virtual Release ' + pr.id : 'PR #' + pr.id;
+      writeToAutoConsole(`${idLabel} (Release: ${r.releaseName}) - ผ่านเกณฑ์การตรวจวิเคราะห์ (พร้อมส่ง Approve Release)`, 'dryrun');
+    });
+    return;
+  }
+
+  if (window._autoMode === 'active') {
+    for (const pr of eligiblePrs) {
+      if (window._processingAutoApprovals[pr.id]) continue;
+      window._processingAutoApprovals[pr.id] = true;
+      
+      writeToAutoConsole(`กำลังดำเนินการอนุมัติ PR #${pr.id} อัตโนมัติ...`, 'info');
+      try {
+        const response = await safeFetchJson('/api/approve-pr', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prId: pr.id,
+            repositoryId: pr.repositoryId,
+            autoApproved: true
+          })
+        });
+
+        if (response.ok && response.data && response.data.ok) {
+          window._autoPrApprovedCount += 1;
+          sessionStorage.setItem('autoPrApprovedCount', window._autoPrApprovedCount);
+          updateStatsUI();
+          writeToAutoConsole(`PR #${pr.id} - อนุมัติสำเร็จ! (Auto-Complete: ${response.data.autoComplete ? 'เปิดใช้งาน' : 'ข้าม'})`, 'active');
+        } else {
+          const d = response.data || {};
+          writeToAutoConsole(`PR #${pr.id} - อนุมัติไม่สำเร็จ: ${d.error || 'Unknown error'}`, 'error');
+        }
+      } catch (e) {
+        writeToAutoConsole(`PR #${pr.id} - Exception: ${e.message}`, 'error');
+      } finally {
+        delete window._processingAutoApprovals[pr.id];
+      }
+    }
+
+    for (const pr of eligibleReleases) {
+      const r = pr.releaseApproval || {};
+      const lockKey = 'rel_' + r.approvalId;
+      if (window._processingAutoApprovals[lockKey]) continue;
+      window._processingAutoApprovals[lockKey] = true;
+
+      const idLabel = typeof pr.id === 'string' && pr.id.startsWith('R') ? 'Virtual Release ' + pr.id : 'PR #' + pr.id;
+      writeToAutoConsole(`กำลังดำเนินการอนุมัติ Release อัตโนมัติ สำหรับ ${idLabel} (Release ID: ${r.releaseId})...`, 'info');
+      
+      try {
+        const response = await safeFetchJson('/api/approve-release', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prId: typeof pr.id === 'string' && pr.id.startsWith('R') ? 0 : parseInt(pr.id, 10),
+            repository: pr.repository || '',
+            prTitle: pr.title || '',
+            releaseId: r.releaseId,
+            approvalId: r.approvalId,
+            releaseName: r.releaseName,
+            environmentName: r.environmentName,
+            releaseUrl: r.releaseUrl
+          })
+        });
+
+        if (response.ok && response.data && response.data.ok) {
+          window._autoReleaseApprovedCount += 1;
+          sessionStorage.setItem('autoReleaseApprovedCount', window._autoReleaseApprovedCount);
+          updateStatsUI();
+          writeToAutoConsole(`${idLabel} (Release: ${r.releaseName}) - อนุมัติและปล่อย Release สำเร็จ!`, 'active');
+        } else {
+          const d = response.data || {};
+          writeToAutoConsole(`${idLabel} (Release: ${r.releaseName}) - อนุมัติปล่อย Release ไม่สำเร็จ: ${d.error || 'Unknown error'}`, 'error');
+        }
+      } catch (e) {
+        writeToAutoConsole(`${idLabel} (Release: ${r.releaseName}) - Exception: ${e.message}`, 'error');
+      } finally {
+        delete window._processingAutoApprovals[lockKey];
+      }
+    }
+  }
 }
