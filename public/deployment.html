@@ -245,7 +245,7 @@
           <strong id="statTotalDeployments">-</strong>
         </div>
         <div class="deploy-stat-card">
-          <span>จำนวน Whitelabel ทั้งหมด</span>
+          <span>จำนวนโปรเจกต์ทั้งหมด</span>
           <strong id="statTotalWhitelabels">-</strong>
         </div>
         <div class="deploy-stat-card">
@@ -258,13 +258,13 @@
       <div class="deploy-filter-panel">
         <label class="filter-field">
           <span>ค้นหา Whitelabel / โปรเจกต์</span>
-          <input id="deploySearchKeyword" type="search" placeholder="พิมพ์ชื่อ Whitelabel เช่น GDH, Allianz..." />
+          <input id="deploySearchKeyword" type="search" placeholder="พิมพ์ชื่อโปรเจกต์ หรือ Whitelabel..." />
         </label>
         <label class="filter-field">
           <span>สถานะ Git Tag</span>
           <select id="deployFilterTagStatus">
-            <option value="all">ทั้งหมด (All)</option>
-            <option value="untagged" selected>ยังไม่ได้ทำ Tag (Untagged)</option>
+            <option value="all" selected>ทั้งหมด (All)</option>
+            <option value="untagged">ยังไม่ได้ทำ Tag (Untagged)</option>
             <option value="tagged">ทำ Tag แล้ว (Tagged)</option>
           </select>
         </label>
@@ -308,7 +308,7 @@
         <p>คุณกำลังจะสร้าง <strong style="color:#10b981">Git Tag</strong> ย้อนหลังสำหรับ Commit นี้:</p>
         
         <div class="modal-pr-info" style="margin-bottom: 16px;">
-          <div style="margin-bottom: 6px;"><strong>Whitelabel:</strong> <span id="modalWhitelabelName">-</span></div>
+          <div style="margin-bottom: 6px;"><strong>โปรเจกต์:</strong> <span id="modalWhitelabelName">-</span></div>
           <div style="margin-bottom: 6px;"><strong>Version:</strong> <span id="modalVersion">-</span></div>
           <div style="margin-bottom: 6px;"><strong>Commit SHA:</strong> <code style="background:#f3f4f6; padding: 2px 6px; border-radius: 4px;" id="modalCommitSha">-</code></div>
         </div>
