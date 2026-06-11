@@ -18,6 +18,9 @@ module.exports = async function (context, req) {
       return;
     }
 
+    // 1.5) Load ADO Config
+    const { org, project } = ado.getConfig();
+
     // 2) Resolve Repository
     const repoName = process.env.ADO_REPOSITORY || 'Net';
     let repositoryId;

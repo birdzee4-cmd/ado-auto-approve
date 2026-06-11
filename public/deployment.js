@@ -154,8 +154,9 @@ async function loadDeployments(isSilent) {
 
     if (!r.ok || !r.data || !r.data.ok) {
       const errDetail = r.data && r.data.error ? r.data.error : 'Unknown error';
+      const errDetailMsg = r.data && r.data.detail ? `<br/><small style="color: #dc2626; font-weight: bold;">Detail: ${escapeHtml(r.data.detail)}</small>` : '';
       const hint = r.data && r.data.hint ? `<br/><small>${r.data.hint}</small>` : '';
-      showBox('deploymentResult', `❌ ${escapeHtml(errDetail)}${hint}`, 'error');
+      showBox('deploymentResult', `❌ ${escapeHtml(errDetail)}${errDetailMsg}${hint}`, 'error');
       return;
     }
 
