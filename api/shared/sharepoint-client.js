@@ -475,125 +475,47 @@ function buildLogFields(opts) {
   };
 }
 
-let cachedSettingsListId = null;
-let settingsColumnsEnsured = false;
-const SETTINGS_COLUMNS = ['AutoMode', 'ExpiryTime', 'EnabledBy'];
-
-async function getSettingsListId() {
-  if (cachedSettingsListId) return cachedSettingsListId;
-  const siteId = await getSiteId();
-  const token = await getAccessToken();
-  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists?$select=id,displayName,name`;
-  const result = await httpRequest('GET', url, { 'Authorization': 'Bearer ' + token });
-  if (!result.ok) {
-    throw new Error('Failed to list SharePoint lists for settings: HTTP ' + result.status);
-  }
-  const settingsListName = 'ADO Auto-Approve Settings';
-  let list = (result.body.value || []).find(l =>
-    l.displayName === settingsListName || l.name === settingsListName
-  );
-  
-  if (!list) {
-    const createUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists`;
-    const createResult = await httpRequest('POST', createUrl, {
-      'Authorization': 'Bearer ' + token,
-      'Content-Type': 'application/json'
-    }, {
-      displayName: settingsListName,
-      columns: [
-        { name: 'AutoMode', text: {} },
-        { name: 'ExpiryTime', text: {} },
-        { name: 'EnabledBy', text: {} }
-      ]
-    });
-    if (!createResult.ok) {
-      throw new Error('Failed to create SharePoint Settings List: HTTP ' + createResult.status);
-    }
-    list = createResult.body;
-  }
-  
-  cachedSettingsListId = list.id;
-  return cachedSettingsListId;
-}
-
-async function ensureSettingsColumns() {
-  if (settingsColumnsEnsured) return;
-  const siteId = await getSiteId();
-  const listId = await getSettingsListId();
-  const token = await getAccessToken();
-  
-  const getColUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/columns?$select=name`;
-  const colResult = await httpRequest('GET', getColUrl, { 'Authorization': 'Bearer ' + token });
-  if (!colResult.ok) {
-    throw new Error('Failed to list settings columns: HTTP ' + colResult.status);
-  }
-  const columns = new Set((colResult.body.value || []).map(c => c.name));
-  const missing = SETTINGS_COLUMNS.filter(name => !columns.has(name));
-  
-  const postColUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/columns`;
-  for (const name of missing) {
-    await httpRequest('POST', postColUrl, {
-      'Authorization': 'Bearer ' + token,
-      'Content-Type': 'application/json'
-    }, {
-      name: name,
-      displayName: name,
-      text: {}
-    });
-  }
-  settingsColumnsEnsured = true;
-}
-
 async function getAutoApproveSettings() {
-  const siteId = await getSiteId();
-  const listId = await getSettingsListId();
-  await ensureSettingsColumns();
-  const token = await getAccessToken();
-  
-  const filter = "fields/Title eq 'AutoApproveState'";
-  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$filter=${encodeURIComponent(filter)}&$top=1`;
-  const result = await httpRequest('GET', url, {
-    'Authorization': 'Bearer ' + token,
-    'Prefer': 'HonorNonIndexedQueriesWarningMayFailRandomly'
-  });
-  
-  if (!result.ok) {
+  try {
+    const result = await getLogByEventKey('settings:auto-approve');
+    if (!result.ok) {
+      return { autoMode: 'normal', expiryTime: '', enabledBy: '' };
+    }
+    const items = result.body && result.body.value || [];
+    if (items.length === 0) {
+      return { autoMode: 'normal', expiryTime: '', enabledBy: '' };
+    }
+    const fields = items[0].fields || {};
+    return {
+      autoMode: fields.Result || 'normal',
+      expiryTime: fields.Reason || '',
+      enabledBy: fields.User || ''
+    };
+  } catch (e) {
     return { autoMode: 'normal', expiryTime: '', enabledBy: '' };
   }
-  
-  const items = result.body && result.body.value || [];
-  if (items.length === 0) {
-    return { autoMode: 'normal', expiryTime: '', enabledBy: '' };
-  }
-  
-  const fields = items[0].fields || {};
-  return {
-    autoMode: fields.AutoMode || 'normal',
-    expiryTime: fields.ExpiryTime || '',
-    enabledBy: fields.EnabledBy || ''
-  };
 }
 
 async function updateAutoApproveSettings(mode, expiryIso, userEmail) {
   const siteId = await getSiteId();
-  const listId = await getSettingsListId();
-  await ensureSettingsColumns();
+  const listId = await getListId();
   const token = await getAccessToken();
   
-  const filter = "fields/Title eq 'AutoApproveState'";
-  const checkUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$filter=${encodeURIComponent(filter)}&$top=1`;
-  const checkResult = await httpRequest('GET', checkUrl, {
-    'Authorization': 'Bearer ' + token,
-    'Prefer': 'HonorNonIndexedQueriesWarningMayFailRandomly'
-  });
-  
+  const checkResult = await getLogByEventKey('settings:auto-approve');
   const items = checkResult.ok && checkResult.body && checkResult.body.value || [];
+  
   const fields = {
-    Title: 'AutoApproveState',
-    AutoMode: mode || 'normal',
-    ExpiryTime: expiryIso || '',
-    EnabledBy: userEmail || ''
+    Title: 'Auto Approve Settings',
+    PR_ID: 0,
+    Action: 'Setting:AutoApprove',
+    User: userEmail || '',
+    Result: mode || 'normal',
+    Reason: expiryIso || '',
+    Log_Source: 'Settings',
+    Event_Key: 'settings:auto-approve'
   };
+  
+  const listFields = await filterFieldsForList(fields);
   
   if (items.length > 0) {
     const itemId = items[0].id;
@@ -601,13 +523,13 @@ async function updateAutoApproveSettings(mode, expiryIso, userEmail) {
     return await httpRequest('PATCH', updateUrl, {
       'Authorization': 'Bearer ' + token,
       'Content-Type': 'application/json'
-    }, fields);
+    }, listFields);
   } else {
     const createUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items`;
     return await httpRequest('POST', createUrl, {
       'Authorization': 'Bearer ' + token,
       'Content-Type': 'application/json'
-    }, { fields });
+    }, { fields: listFields });
   }
 }
 
