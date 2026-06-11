@@ -1331,7 +1331,7 @@ function getPrFromTable(prId) {
   rows.forEach(r => {
     if (r.dataset.pr) {
       const p = JSON.parse(r.dataset.pr);
-      if (p.id === prId) prData = p;
+      if (String(p.id) === String(prId)) prData = p;
     }
   });
   return prData;
