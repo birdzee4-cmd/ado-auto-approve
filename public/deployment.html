@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Deployments & Tagging - ADO Auto-Approve</title>
+  <title>Git Tag Hub - ADO Auto-Approve</title>
   <link rel="stylesheet" href="/styles.css" />
   <style>
     .deploy-stat-grid {
@@ -79,6 +79,14 @@
     .deploy-table th:nth-child(6) { width: 140px; } /* Tag Status */
     .deploy-table th:nth-child(7) { width: auto; }  /* Actions */
     
+    .all-repos-table th:nth-child(1) { width: 45px; text-align: center; } /* Checkbox */
+    .all-repos-table th:nth-child(2) { width: 220px; } /* Repo Name */
+    .all-repos-table th:nth-child(3) { width: 280px; } /* Branch Name */
+    .all-repos-table th:nth-child(4) { width: 130px; } /* Commit SHA */
+    .all-repos-table th:nth-child(5) { width: 280px; } /* Target Tag Name */
+    .all-repos-table th:nth-child(6) { width: 150px; } /* Tag Status */
+    .all-repos-table th:nth-child(7) { width: auto; }  /* Actions */
+
     .whitelabel-badge {
       display: inline-block;
       font-size: 11px;
@@ -190,6 +198,138 @@
       border-color: #f5a400;
       box-shadow: 0 0 0 3px rgba(245, 164, 0, 0.15);
     }
+
+    /* Tab styles */
+    .tab-container {
+      display: flex;
+      border-bottom: 2px solid #ead8a8;
+      margin-bottom: 24px;
+      gap: 8px;
+    }
+    .tab-button {
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #6b5b33;
+      background: transparent;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+    .tab-button:hover {
+      color: #f5a400;
+    }
+    .tab-button.active {
+      color: #111827;
+      border-bottom-color: #f5a400;
+      background: rgba(245, 164, 0, 0.04);
+    }
+
+    /* Floating action bar for bulk operations */
+    .floating-bulk-panel {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #080a0a;
+      color: #ffffff;
+      padding: 14px 24px;
+      border-radius: 10px;
+      box-shadow: 0 12px 36px rgba(8, 10, 10, 0.28);
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      z-index: 100;
+      border: 1px solid #ead8a8;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      opacity: 0;
+      transform: translate(-50%, 20px);
+      pointer-events: none;
+    }
+    .floating-bulk-panel.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+      pointer-events: auto;
+    }
+    .floating-bulk-panel span {
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .floating-bulk-panel span strong {
+      color: #f5a400;
+    }
+
+    /* Bulk logs & progress bar */
+    .progress-bar-outer {
+      width: 100%;
+      background: #e5e7eb;
+      height: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 12px 0 6px 0;
+    }
+    .progress-bar-inner {
+      height: 100%;
+      background: #10b981;
+      width: 0%;
+      transition: width 0.2s ease;
+    }
+    .bulk-log-container {
+      background: #1b1d1f;
+      color: #f3f4f6;
+      font-family: monospace;
+      font-size: 11px;
+      padding: 12px;
+      border-radius: 6px;
+      max-height: 200px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 12px;
+      text-align: left;
+    }
+    .bulk-log-row {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid #2e3032;
+      padding-bottom: 2px;
+    }
+    .bulk-log-row:last-child {
+      border-bottom: none;
+    }
+    .bulk-log-ok { color: #34d399; font-weight: bold; }
+    .bulk-log-err { color: #f87171; font-weight: bold; }
+
+    .tag-input {
+      height: 32px;
+      padding: 4px 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 12px;
+      width: 100%;
+      font-family: monospace;
+    }
+    .tag-input:focus {
+      outline: none;
+      border-color: #f5a400;
+    }
+
+    .info-hint-box {
+      background: #fdfaf2;
+      border: 1px solid #ead8a8;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #6b5b33;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
     @media (max-width: 768px) {
       .deploy-stat-grid {
         grid-template-columns: 1fr;
@@ -227,75 +367,155 @@
     <div class="welcome-card deploy-page">
       <div class="page-header">
         <div>
-          <h1>ประวัติการขึ้นระบบ & จัดการ Git Tag ย้อนหลัง</h1>
-          <p>ตรวจสอบรายละเอียดของ Release Branch แต่ละตัวที่ถูกขึ้นระบบ พร้อมความสามารถในการระบุ Tag ลงใน Git ย้อนหลัง</p>
+          <h1>Git Tag Hub (ศูนย์จัดการและสร้าง Git Tag)</h1>
+          <p>ตรวจสอบ ติดตามสถานะ และจัดการสร้าง Git Tag ย้อนหลังได้ทั้งรายตัวหรือทำแบบกลุ่ม (Bulk Tag) สำหรับทุก Repository และทุก Branch</p>
         </div>
-        <button id="btnRefreshDeployments" class="primary-button">
-          <span>🔄</span>
-          <span>Refresh Data</span>
-        </button>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="tab-container">
+        <button id="tabDeployments" class="tab-button active">📋 ประวัติการขึ้นระบบ (Deployments)</button>
+        <button id="tabAllRepos" class="tab-button">📂 จัดการทุก Repository & Branch</button>
       </div>
 
       <div id="deploymentResult" hidden></div>
 
-      <!-- Statistics Grid -->
-      <div class="deploy-stat-grid">
-        <div class="deploy-stat-card">
-          <span>จำนวนการขึ้นระบบทั้งหมด</span>
-          <strong id="statTotalDeployments">-</strong>
+      <!-- ==================== TAB 1: DEPLOYMENTS HISTORY ==================== -->
+      <div id="sectionDeployments">
+        <!-- Statistics Grid -->
+        <div class="deploy-stat-grid">
+          <div class="deploy-stat-card">
+            <span>จำนวนการขึ้นระบบทั้งหมด</span>
+            <strong id="statTotalDeployments">-</strong>
+          </div>
+          <div class="deploy-stat-card">
+            <span>จำนวนโปรเจกต์ทั้งหมด</span>
+            <strong id="statTotalWhitelabels">-</strong>
+          </div>
+          <div class="deploy-stat-card">
+            <span>การทำ Tag สะสม (Tagged / Untagged)</span>
+            <strong id="statTaggedRatio">-</strong>
+          </div>
         </div>
-        <div class="deploy-stat-card">
-          <span>จำนวนโปรเจกต์ทั้งหมด</span>
-          <strong id="statTotalWhitelabels">-</strong>
+
+        <!-- Filters Panel -->
+        <div class="deploy-filter-panel">
+          <label class="filter-field">
+            <span>ค้นหา Whitelabel / โปรเจกต์</span>
+            <input id="deploySearchKeyword" type="search" placeholder="พิมพ์ชื่อโปรเจกต์ หรือ Whitelabel..." />
+          </label>
+          <label class="filter-field">
+            <span>สถานะ Git Tag</span>
+            <select id="deployFilterTagStatus">
+              <option value="all" selected>ทั้งหมด (All)</option>
+              <option value="untagged">ยังไม่ได้ทำ Tag (Untagged)</option>
+              <option value="tagged">ทำ Tag แล้ว (Tagged)</option>
+            </select>
+          </label>
+          <div style="display:flex; gap: 8px;">
+            <button id="btnSearchDeployments" class="primary-button" style="height: 40px;">Search</button>
+            <button id="btnRefreshDeployments" class="secondary-button" style="height: 40px;">
+              <span>🔄 Refresh Scan</span>
+            </button>
+          </div>
         </div>
-        <div class="deploy-stat-card">
-          <span>การทำ Tag สะสม (Tagged / Untagged)</span>
-          <strong id="statTaggedRatio">-</strong>
+
+        <!-- Deployments Table -->
+        <div class="pr-table-wrap">
+          <table class="pr-table deploy-table">
+            <thead>
+              <tr>
+                <th>วันที่ขึ้นระบบ (Time)</th>
+                <th>Whitelabel / โปรเจกต์</th>
+                <th>เวอร์ชัน (Version)</th>
+                <th>Git Commit</th>
+                <th>ชื่อสาขา (Branch)</th>
+                <th>สถานะ Git Tag</th>
+                <th>จัดการ (Actions)</th>
+              </tr>
+            </thead>
+            <tbody id="deploymentTableBody">
+              <tr>
+                <td colspan="7" style="text-align:center;padding:24px;color:#9ca3af">⏳ กำลังโหลดข้อมูลประวัติการขึ้นระบบ...</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <!-- Filters Panel -->
-      <div class="deploy-filter-panel">
-        <label class="filter-field">
-          <span>ค้นหา Whitelabel / โปรเจกต์</span>
-          <input id="deploySearchKeyword" type="search" placeholder="พิมพ์ชื่อโปรเจกต์ หรือ Whitelabel..." />
-        </label>
-        <label class="filter-field">
-          <span>สถานะ Git Tag</span>
-          <select id="deployFilterTagStatus">
-            <option value="all" selected>ทั้งหมด (All)</option>
-            <option value="untagged">ยังไม่ได้ทำ Tag (Untagged)</option>
-            <option value="tagged">ทำ Tag แล้ว (Tagged)</option>
-          </select>
-        </label>
-        <div style="display:flex; gap: 8px;">
-          <button id="btnSearchDeployments" class="primary-button" style="height: 40px;">Search</button>
+      <!-- ==================== TAB 2: ALL REPOS & BRANCHES HUB ==================== -->
+      <div id="sectionAllRepos" hidden>
+        <div class="info-hint-box">
+          <span>💡</span>
+          <span>กรุณาพิมพ์เลือก Repository ด้านล่างเพื่อโหลดสาขา (Branches) ทั้งหมดขึ้นมาจัดการอย่างรวดเร็วและปลอดภัย</span>
+        </div>
+
+        <!-- Filters Panel for Repo Browser -->
+        <div class="deploy-filter-panel" style="grid-template-columns: 2.2fr 1.2fr 1.2fr 1.2fr auto; gap: 12px;">
+          <label class="filter-field">
+            <span>เลือก Repository (1,100+ คลัง)</span>
+            <input id="repoSearchInput" type="text" list="repoList" placeholder="🔍 พิมพ์เพื่อค้นหาคลังเก็บโค้ด..." style="font-weight:bold;" />
+            <datalist id="repoList"></datalist>
+          </label>
+          <label class="filter-field">
+            <span>กรองชื่อสาขา (Branch Name)</span>
+            <input id="repoBranchSearchInput" type="search" placeholder="เช่น staging, main, dev..." />
+          </label>
+          <label class="filter-field">
+            <span>กรองสถานะ Tag</span>
+            <select id="repoTagFilter">
+              <option value="all" selected>ทั้งหมด (All)</option>
+              <option value="untagged">ยังไม่มี Tag (Untagged)</option>
+              <option value="tagged">มี Tag แล้ว (Tagged)</option>
+            </select>
+          </label>
+          <label class="filter-field">
+            <span>รูปแบบตั้งชื่อ Tag แนะนำ</span>
+            <input id="repoTagTemplateInput" type="text" value="{repo}_{branch}" placeholder="เช่น {repo}_{branch}" />
+          </label>
+          <div style="display:flex; align-items:flex-end;">
+            <button id="btnApplyTemplate" class="secondary-button" style="height: 40px; border-color:#d1d5db; font-size:12px;" title="รีเซ็ตชื่อ Tag แนะนำตามแทมเพลตด้านซ้าย">
+              นำแทมเพลตไปใช้
+            </button>
+          </div>
+        </div>
+
+        <!-- Branches Table -->
+        <div class="pr-table-wrap">
+          <table class="pr-table all-repos-table">
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="selectAllRefs" style="cursor:pointer; width:16px; height:16px;" /></th>
+                <th>Repository (คลังเก็บ)</th>
+                <th>ชื่อสาขา (Branch)</th>
+                <th>Git Commit</th>
+                <th>ชื่อ Git Tag แนะนำ (แก้ไขได้)</th>
+                <th>สถานะ Git Tag</th>
+                <th>จัดการ (Actions)</th>
+              </tr>
+            </thead>
+            <tbody id="allReposTableBody">
+              <tr>
+                <td colspan="7" style="text-align:center;padding:32px;color:#9ca3af">🔍 เลือก Repository ด้านบนเพื่อดึงข้อมูลรายชื่อสาขา</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <!-- Deployments Table -->
-      <div class="pr-table-wrap">
-        <table class="pr-table deploy-table">
-          <thead>
-            <tr>
-              <th>วันที่ขึ้นระบบ (Time)</th>
-              <th>Whitelabel / โปรเจกต์</th>
-              <th>เวอร์ชัน (Version)</th>
-              <th>Git Commit</th>
-              <th>ชื่อสาขา (Branch)</th>
-              <th>สถานะ Git Tag</th>
-              <th>จัดการ (Actions)</th>
-            </tr>
-          </thead>
-          <tbody id="deploymentTableBody">
-            <tr>
-              <td colspan="7" style="text-align:center;padding:24px;color:#9ca3af">⏳ กำลังโหลดข้อมูลประวัติการขึ้นระบบ...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
     </div>
   </main>
+
+  <!-- ===== FLOATING BULK ACTIONS PANEL ===== -->
+  <div id="floatingBulkPanel" class="floating-bulk-panel">
+    <span>เลือกไว้ <strong id="bulkSelectedCount">0</strong> รายการ</span>
+    <button id="btnBulkTag" class="primary-button" style="background:#10b981; border-color:#059669; padding: 10px 18px; font-size: 13px;">
+      🏷️ สร้าง Git Tag ทั้งหมดที่เลือกไว้ (Bulk Create)
+    </button>
+    <button id="btnCancelBulkSelect" class="secondary-button" style="border-color:#4b5563; background:transparent; color:#ffffff; padding:10px 14px; font-size:13px;">
+      ยกเลิกเลือก
+    </button>
+  </div>
 
   <!-- ===== Create Tag Confirm Modal ===== -->
   <div id="confirmTagModal" class="modal-backdrop" hidden>
@@ -308,8 +528,8 @@
         <p>คุณกำลังจะสร้าง <strong style="color:#10b981">Git Tag</strong> ย้อนหลังสำหรับ Commit นี้:</p>
         
         <div class="modal-pr-info" style="margin-bottom: 16px;">
-          <div style="margin-bottom: 6px;"><strong>โปรเจกต์:</strong> <span id="modalWhitelabelName">-</span></div>
-          <div style="margin-bottom: 6px;"><strong>Version:</strong> <span id="modalVersion">-</span></div>
+          <div style="margin-bottom: 6px;"><strong>โปรเจกต์ / Repository:</strong> <span id="modalWhitelabelName">-</span></div>
+          <div style="margin-bottom: 6px;"><strong>Version / Branch:</strong> <span id="modalVersion">-</span></div>
           <div style="margin-bottom: 6px;"><strong>Commit SHA:</strong> <code style="background:#f3f4f6; padding: 2px 6px; border-radius: 4px;" id="modalCommitSha">-</code></div>
         </div>
 
@@ -329,6 +549,34 @@
       <div class="modal-actions">
         <button class="btn-cancel" data-close="confirmTagModal">ยกเลิก</button>
         <button id="btnConfirmCreateTag" class="btn-approve" style="background:#10b981; border-color:#059669;">🏷️ ยืนยันการสร้าง Tag</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Bulk Progress Modal ===== -->
+  <div id="bulkProgressModal" class="modal-backdrop" hidden>
+    <div class="modal" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3>🏷️ กำลังสร้าง Git Tags แบบกลุ่ม (Bulk Tagging)</h3>
+        <button id="btnProgressClose" class="modal-close" style="display:none;">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>ระบบกำลังดำเนินการสร้าง Git Tag ทีละรายการ ข้อมูลการดำเนินการจะปรากฏด้านล่าง:</p>
+        
+        <div class="progress-bar-outer">
+          <div id="bulkProgressBar" class="progress-bar-inner"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:bold; color:#4b5563;">
+          <span id="bulkProgressText">กำลังประมวลผล: 0 / 0 รายการ</span>
+          <span id="bulkProgressPercentage">0%</span>
+        </div>
+
+        <div id="bulkProgressLog" class="bulk-log-container">
+          <!-- Real-time logs go here -->
+        </div>
+      </div>
+      <div class="modal-actions" style="justify-content: flex-end;">
+        <button id="btnBulkProgressDone" class="btn-approve" style="background:#10b981; border-color:#059669; display:none;">เสร็จสิ้น</button>
       </div>
     </div>
   </div>

@@ -1,6 +1,50 @@
 const auth = require('../shared/auth');
 const ado = require('../shared/ado-client');
 
+// Global cache variables persisting as long as SWA function container is kept warm
+let _deploymentsCache = null;
+let _cacheTimestamp = 0;
+const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes cache TTL
+
+/**
+ * Helper to process all repositories and load their branches with a concurrency limit.
+ * This prevents socket exhaustion and HTTP rate limit errors from ADO.
+ */
+async function listRefsThrottled(repositories, concurrency = 45) {
+  const results = [];
+  const queue = [...repositories];
+  
+  async function worker() {
+    while (queue.length > 0) {
+      const repo = queue.shift();
+      if (!repo) continue;
+      try {
+        const branchesRes = await ado.listGitRefs(repo.id, 'heads/');
+        if (branchesRes.ok) {
+          let branchesBody = branchesRes.body;
+          if (typeof branchesBody === 'string') {
+            try { branchesBody = JSON.parse(branchesBody); } catch (e) {}
+          }
+          const value = branchesBody && Array.isArray(branchesBody.value) ? branchesBody.value : [];
+          results.push({ repoName: repo.name, repoId: repo.id, branches: value });
+        } else {
+          results.push({ repoName: repo.name, repoId: repo.id, branches: [], error: `HTTP ${branchesRes.status}` });
+        }
+      } catch (e) {
+        results.push({ repoName: repo.name, repoId: repo.id, branches: [], error: e.message });
+      }
+    }
+  }
+
+  const workers = [];
+  const poolSize = Math.min(concurrency, repositories.length);
+  for (let i = 0; i < poolSize; i++) {
+    workers.push(worker());
+  }
+  await Promise.all(workers);
+  return results;
+}
+
 module.exports = async function (context, req) {
   function jsonResponse(status, payload) {
     context.res = {
@@ -11,17 +55,32 @@ module.exports = async function (context, req) {
   }
 
   try {
-    // 1) Auth Check
-    const authResult = auth.requireRole(context, req);
+    // 1) Auth Check (Requires authenticated user)
+    const authResult = auth.requireRole(context, req, 'authenticated');
     if (!authResult.ok) {
       jsonResponse(authResult.status, authResult.body);
       return;
     }
 
-    // 1.5) Load ADO Config
     const { org, project } = ado.getConfig();
+    const isRefreshRequested = req.query.refresh === 'true';
+    const now = Date.now();
 
-    // 2) Fetch All Repositories in the project
+    // 2) Serve from Memory Cache if valid and not force-refreshed
+    if (_deploymentsCache && (now - _cacheTimestamp < CACHE_DURATION_MS) && !isRefreshRequested) {
+      context.log('Serving list-deployments response from memory cache');
+      jsonResponse(200, {
+        ok: true,
+        count: _deploymentsCache.length,
+        organization: org,
+        project: project,
+        cachedAt: new Date(_cacheTimestamp).toISOString(),
+        deployments: _deploymentsCache
+      });
+      return;
+    }
+
+    // 3) Fetch All Repositories in the project
     const reposPath = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories?api-version=7.0`;
     const reposResult = await ado.adoRequest('GET', reposPath);
 
@@ -36,26 +95,8 @@ module.exports = async function (context, req) {
 
     const repositories = reposResult.body.value;
 
-    // 3) Fetch Branches for All Repositories in Parallel
-    const repoBranchesResults = await Promise.all(
-      repositories.map(async (repo) => {
-        try {
-          const branchesRes = await ado.listGitRefs(repo.id, 'heads/');
-          if (!branchesRes.ok) {
-            return { repoName: repo.name, repoId: repo.id, branches: [], error: `HTTP ${branchesRes.status}` };
-          }
-          
-          let branchesBody = branchesRes.body;
-          if (typeof branchesBody === 'string') {
-            try { branchesBody = JSON.parse(branchesBody); } catch (e) {}
-          }
-          const value = branchesBody && Array.isArray(branchesBody.value) ? branchesBody.value : [];
-          return { repoName: repo.name, repoId: repo.id, branches: value };
-        } catch (e) {
-          return { repoName: repo.name, repoId: repo.id, branches: [], error: e.message };
-        }
-      })
-    );
+    // 4) Fetch Branches for All Repositories with Concurrency Throttling (Capped at 40 parallel tasks)
+    const repoBranchesResults = await listRefsThrottled(repositories, 40);
 
     // Filter branches matching pattern and find active repositories
     const deploymentRegex = /^refs\/heads\/(\d{8})_(\d{4})_(.+)$/;
@@ -63,8 +104,9 @@ module.exports = async function (context, req) {
     const rawDeployments = [];
 
     for (const repoRes of repoBranchesResults) {
+      if (!repoRes || !Array.isArray(repoRes.branches)) continue;
       for (const branch of repoRes.branches) {
-        if (branch.name.match(deploymentRegex)) {
+        if (branch && branch.name && branch.name.match(deploymentRegex)) {
           activeRepoIds.add(repoRes.repoId);
           rawDeployments.push({
             repoName: repoRes.repoName,
@@ -75,7 +117,7 @@ module.exports = async function (context, req) {
       }
     }
 
-    // 4) Fetch Tags for Active Repositories in Parallel
+    // 5) Fetch Tags for Active Repositories in Parallel (Only for repos with deployment branches)
     const activeRepoIdsArray = Array.from(activeRepoIds);
     const repoTagsResults = await Promise.all(
       activeRepoIdsArray.map(async (repoId) => {
@@ -97,16 +139,20 @@ module.exports = async function (context, req) {
 
     const tagsMap = new Map();
     for (const tagsRes of repoTagsResults) {
-      tagsMap.set(tagsRes.repoId, tagsRes.tags);
+      if (tagsRes) {
+        tagsMap.set(tagsRes.repoId, tagsRes.tags || []);
+      }
     }
 
-    // 5) Parse Deployments and Match Tags
+    // 6) Parse Deployments and Match Tags (With safe references check)
     const deployments = [];
 
     for (const rawDep of rawDeployments) {
       const branch = rawDep.branch;
+      if (!branch || !branch.name) continue;
+
       const match = branch.name.match(deploymentRegex);
-      if (!match) continue; // safety check
+      if (!match) continue; 
 
       const [, dateStr, timeStr, rest] = match;
       const formattedDate = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
@@ -138,13 +184,14 @@ module.exports = async function (context, req) {
         projectName = rest;
       }
 
-      // Find matching tag in the specific repository
+      // Find matching tag in the specific repository (Safe properties resolution)
       const repoTags = tagsMap.get(rawDep.repoId) || [];
       const matchedTag = repoTags.find(tag => {
+        if (!tag) return false;
         const isSameSha = tag.objectId === commitSha;
         if (isSameSha) return true;
         
-        if (version !== 'N/A') {
+        if (version !== 'N/A' && typeof tag.name === 'string') {
           const tagName = tag.name.replace(/^refs\/tags\//, '').toLowerCase();
           const searchVersion = version.toLowerCase();
           const isVersionMatch = tagName === searchVersion ||
@@ -167,13 +214,17 @@ module.exports = async function (context, req) {
         version: version,
         commitSha: commitSha,
         isTagged: !!matchedTag,
-        tagName: matchedTag ? matchedTag.name.replace(/^refs\/tags\//, '') : null,
+        tagName: (matchedTag && typeof matchedTag.name === 'string') ? matchedTag.name.replace(/^refs\/tags\//, '') : null,
         tagCommitSha: matchedTag ? matchedTag.objectId : null
       });
     }
 
     // Sort by Date & Time descending
     deployments.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+
+    // Update global cache
+    _deploymentsCache = deployments;
+    _cacheTimestamp = now;
 
     jsonResponse(200, {
       ok: true,
@@ -182,10 +233,9 @@ module.exports = async function (context, req) {
       project: project,
       debug: {
         totalRepositories: repositories.length,
-        repositories: repositories.map(r => r.name),
         activeRepositoriesCount: activeRepoIds.size,
         totalRawDeployments: rawDeployments.length,
-        repoBranchCounts: repoBranchesResults.map(r => ({ name: r.repoName, branches: r.branches.length, error: r.error }))
+        servedFromCache: false
       },
       deployments: deployments
     });
