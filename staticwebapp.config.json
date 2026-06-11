@@ -8,6 +8,10 @@
   "routes": [
     { "route": "/dashboard.html", "allowedRoles": ["authenticated"] },
     { "route": "/dashboard", "rewrite": "/dashboard.html", "allowedRoles": ["authenticated"] },
+    { "route": "/deployment.html", "allowedRoles": ["authenticated"] },
+    { "route": "/deployment", "rewrite": "/deployment.html", "allowedRoles": ["authenticated"] },
+    { "route": "/api/list-deployments", "methods": ["GET"], "allowedRoles": ["authenticated"] },
+    { "route": "/api/create-tag", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },
     { "route": "/api/userinfo", "allowedRoles": ["authenticated"] },
     { "route": "/api/health", "allowedRoles": ["anonymous"] },
     { "route": "/api/list-prs", "methods": ["GET"], "allowedRoles": ["authenticated"] },
