@@ -218,9 +218,7 @@ function collectApprovalLogs(items, sinceIso) {
 
 function isApprovedLogAction(action) {
   const text = String(action || '').toLowerCase();
-  return text === 'approved' ||
-    text === 'external approved' ||
-    text === 'external approved with suggestions';
+  return text.includes('approved');
 }
 
 async function buildNotificationPr(context, cfg, pr, log, branchBuildCache) {

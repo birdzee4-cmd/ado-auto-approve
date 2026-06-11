@@ -500,9 +500,7 @@ function matchesActivityStatus(row, statusFilter) {
 
 function isApprovedLogAction(action) {
   const text = String(action || '').toLowerCase();
-  return text === 'approved' ||
-    text === 'external approved' ||
-    text === 'external approved with suggestions';
+  return text.includes('approved');
 }
 
 function identityMatches(value, identities) {
