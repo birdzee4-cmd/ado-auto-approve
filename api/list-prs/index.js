@@ -139,6 +139,22 @@ module.exports = async function (context, req) {
         }
       }
       prs.sort(attentionUtil.sortByAttention);
+
+      // Fetch all direct pending release approvals for the reviewer group
+      try {
+        const directApprovals = await ado.getPendingReleaseApprovals(reviewerGroup);
+        context.log('Fetched direct pending release approvals:', directApprovals.length);
+        for (const app of directApprovals) {
+          const alreadyMapped = prs.some(p => p.releaseApproval && String(p.releaseApproval.approvalId) === String(app.id));
+          if (alreadyMapped) continue;
+
+          context.log('Building virtual release row for approval ID:', app.id);
+          const vRow = await buildVirtualReleaseRow(context, app, pat, org, project);
+          prs.push(vRow);
+        }
+      } catch (e) {
+        context.log.warn('Failed to merge direct pending release approvals:', e.message);
+      }
     }
 
     const completedPrs = [];
@@ -813,6 +829,132 @@ async function getReleaseApprovalSnapshot(context, pr, statusSnapshot, releaseLo
     };
   }
   return Object.assign({ buildId: buildId }, actual || { status: 'not_found', label: 'No release yet' });
+}
+
+async function buildVirtualReleaseRow(context, approval, pat, org, project) {
+  const releaseId = approval.release.id;
+  const releaseName = approval.release.name;
+  const definitionName = approval.releaseDefinition.name;
+  const envName = approval.releaseEnvironment.name;
+  const envId = approval.releaseEnvironment.id;
+  const approvalId = approval.id;
+
+  let buildId = null;
+  let branchName = null;
+  let repoName = null;
+  let repoId = null;
+  let createdBy = 'System';
+
+  try {
+    const relResult = await callAdoApi('vsrm.dev.azure.com', `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/releases/${releaseId}?api-version=7.1`, pat);
+    if (relResult.ok && relResult.body) {
+      const rel = JSON.parse(relResult.body);
+      createdBy = rel.createdBy && rel.createdBy.displayName || createdBy;
+      if (Array.isArray(rel.artifacts) && rel.artifacts.length > 0) {
+        const art = rel.artifacts[0];
+        const ref = art.definitionReference;
+        if (ref) {
+          buildId = ref.version && ref.version.id || null;
+          branchName = ref.branch && ref.branch.name || null;
+          repoName = ref.repository && ref.repository.name || null;
+          repoId = ref.repository && ref.repository.id || null;
+        }
+      }
+    }
+  } catch (e) {
+    context.log.warn('Failed to fetch full release details for R' + releaseId + ': ' + e.message);
+  }
+
+  let prId = null;
+  let prTitle = null;
+  let prCreator = null;
+  let prUrl = null;
+
+  if (buildId) {
+    try {
+      const buildResult = await callAdoApi('dev.azure.com', `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds/${buildId}?api-version=6.0`, pat);
+      if (buildResult.ok && buildResult.body) {
+        const build = JSON.parse(buildResult.body);
+        if (build.triggerInfo && build.triggerInfo['pr.number']) {
+          prId = build.triggerInfo['pr.number'];
+        }
+      }
+    } catch (e) {
+      context.log.warn('Failed to fetch build details for ' + buildId + ': ' + e.message);
+    }
+  }
+
+  let prFetched = false;
+  if (prId) {
+    try {
+      const prResult = await callAdoApi('dev.azure.com', `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/pullrequests/${prId}?api-version=7.0`, pat);
+      if (prResult.ok && prResult.body) {
+        const pr = JSON.parse(prResult.body);
+        prTitle = pr.title;
+        prCreator = pr.createdBy && pr.createdBy.displayName;
+        repoName = pr.repository && pr.repository.name || repoName;
+        repoId = pr.repository && pr.repository.id || repoId;
+        branchName = pr.targetRefName || branchName;
+        prUrl = 'https://dev.azure.com/' + org + '/' + project + '/_git/' + repoName + '/pullrequest/' + prId;
+        prFetched = true;
+      }
+    } catch (e) {
+      context.log.warn('Failed to fetch pull request ' + prId + ': ' + e.message);
+    }
+  }
+
+  const rowId = prId ? parseInt(prId, 10) : 'R' + releaseId;
+  const title = prTitle || releaseName;
+  const creator = prCreator || createdBy;
+  const releaseUrl = 'https://dev.azure.com/' + org + '/' + project + '/_releaseProgress?_a=release-pipeline-progress&releaseId=' + releaseId;
+
+  const snapshot = {
+    buildStatus: 'completed',
+    buildResult: 'succeeded',
+    policyStatus: 'approved',
+    mergeStatus: 'succeeded',
+    adoBuildUrl: buildId ? 'https://dev.azure.com/' + org + '/' + project + '/_build/results?buildId=' + buildId : ''
+  };
+
+  const releaseApproval = {
+    status: 'pending',
+    label: 'Release approval pending',
+    releaseId: releaseId,
+    releaseName: releaseName,
+    releaseDefinitionId: approval.releaseDefinition.id,
+    releaseDefinitionName: definitionName,
+    cdName: definitionName,
+    environmentId: envId,
+    environmentName: envName,
+    approvalId: approvalId,
+    approver: approval.approver && approval.approver.displayName || '',
+    releaseUrl: releaseUrl
+  };
+
+  return {
+    id: rowId,
+    title: title,
+    createdBy: creator,
+    sourceBranch: null,
+    targetBranch: branchName || 'refs/heads/staging',
+    repository: repoName || '-',
+    repositoryId: repoId || '',
+    status: prFetched ? 'completed' : 'active',
+    isDraft: false,
+    creationDate: approval.createdOn,
+    closedDate: approval.createdOn,
+    mergeStatus: 'succeeded',
+    reviewers: [],
+    approval: { status: 'complete', approvedCount: 0, requiredCount: 0 },
+    myApproval: { status: 'not-reviewer', label: '—' },
+    statusSnapshot: snapshot,
+    releaseApproval: releaseApproval,
+    attention: { status: 'normal', label: 'Release Pending' },
+    policyFetched: false,
+    isMergeCodeTarget: false,
+    actionMode: 'auto-approve',
+    url: prUrl || releaseUrl
+  };
 }
 
 function getBuildIdFromSnapshot(snapshot) {

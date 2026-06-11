@@ -601,13 +601,13 @@ function renderReleaseActions(pr) {
 
   const canApprove = window._currentUser && window._currentUser.canApprovePrs === true;
   const approveButton = !isApprovalHeld(pr) && status === 'pending' && r.approvalId && canApprove
-    ? '<button class="btn-mini btn-release" onclick="approveRelease(' + pr.id + ')">Approve Release</button>'
+    ? '<button class="btn-mini btn-release" onclick="approveRelease(\'' + pr.id + '\')">Approve Release</button>'
     : '';
 
   return '<div class="action-cell">' +
     approveButton +
     (r.releaseUrl ? '<a class="' + releaseClass + '" href="' + releaseUrl + '"' + releaseAttrs + '>🚀 Release</a>' : '') +
-    '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
+    '<button class="btn-mini btn-history" onclick="openHistoryModal(\'' + pr.id + '\')">📜</button>' +
     '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗</a>' +
     '</div>';
 }
@@ -793,13 +793,17 @@ function renderPrSummaryCell(pr, draftBadge, mergeCodeBadge) {
 
 function renderPrIdInline(pr, mode) {
   const marker = getPrStateMarker(pr, mode);
+  const idText = pr.id ? (typeof pr.id === 'string' && pr.id.startsWith('R') ? pr.id : '#' + pr.id) : '🚀 Release';
   return '<span class="pr-id-wrap" title="' + escapeHtml(marker.title) + '">' +
     '<span class="pr-state-prefix ' + marker.className + '" aria-label="' + escapeHtml(marker.title) + '">' + marker.icon + '</span>' +
-    '<strong class="pr-summary-id">#' + escapeHtml(pr.id) + '</strong>' +
+    '<strong class="pr-summary-id">' + escapeHtml(idText) + '</strong>' +
     '</span>';
 }
 
 function getPrStateMarker(pr, mode) {
+  if (pr && typeof pr.id === 'string' && pr.id.startsWith('R')) {
+    return { icon: '🚀', className: 'pr-state-pending', title: 'Pending Release Approval' };
+  }
   if (mode === 'completed' || mode === 'approved') {
     const summary = getStatusSummaryText(pr);
     if (summary === 'Build Failed' || summary === 'Policy Failed') {
@@ -860,7 +864,7 @@ function renderActions(pr) {
   if (isMergeCodePr(pr)) {
     return '<div class="action-cell">' +
       '<span class="manual-action-note">Manual in Azure DevOps</span>' +
-      '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
+      '<button class="btn-mini btn-history" onclick="openHistoryModal(\'' + pr.id + '\')">📜</button>' +
       '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗 Open ADO</a>' +
       '</div>';
   }
@@ -868,7 +872,7 @@ function renderActions(pr) {
   if (!canApprovePrs) {
     return '<div class="action-cell">' +
       (isApprovalHeld(pr) ? renderHoldStatus(pr) : '') +
-      '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
+      '<button class="btn-mini btn-history" onclick="openHistoryModal(\'' + pr.id + '\')">📜</button>' +
       '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗</a>' +
       '</div>';
   }
@@ -876,8 +880,8 @@ function renderActions(pr) {
   if (isApprovalHeld(pr)) {
     return '<div class="action-cell">' +
       renderHoldStatus(pr) +
-      '<button class="btn-mini btn-unhold" onclick="releaseApprovalHold(' + pr.id + ')">Unlock</button>' +
-      '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
+      '<button class="btn-mini btn-unhold" onclick="releaseApprovalHold(\'' + pr.id + '\')">Unlock</button>' +
+      '<button class="btn-mini btn-history" onclick="openHistoryModal(\'' + pr.id + '\')">📜</button>' +
       '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗</a>' +
       '</div>';
   }
@@ -886,16 +890,16 @@ function renderActions(pr) {
   if (['approved', 'suggestions', 'rejected', 'waiting-author'].includes(myStatus)) {
     return '<div class="action-cell">' +
       '<span class="action-note">Vote submitted</span>' +
-      '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
+      '<button class="btn-mini btn-history" onclick="openHistoryModal(\'' + pr.id + '\')">📜</button>' +
       '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗</a>' +
       '</div>';
   }
 
   return '<div class="action-cell">' +
-    '<button class="btn-mini btn-approve" onclick="openApproveModal(' + pr.id + ', \'' + pr.repositoryId + '\')">✅ Approve</button>' +
-    '<button class="btn-mini btn-reject" onclick="openRejectModal(' + pr.id + ', \'' + pr.repositoryId + '\')">❌ Reject</button>' +
-    '<button class="btn-mini btn-hold-mini" onclick="openApprovalHoldModal(' + pr.id + ', \'' + pr.repositoryId + '\')">⏸ Hold</button>' +
-    '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
+    '<button class="btn-mini btn-approve" onclick="openApproveModal(\'' + pr.id + '\', \'' + pr.repositoryId + '\')">✅ Approve</button>' +
+    '<button class="btn-mini btn-reject" onclick="openRejectModal(\'' + pr.id + '\', \'' + pr.repositoryId + '\')">❌ Reject</button>' +
+    '<button class="btn-mini btn-hold-mini" onclick="openApprovalHoldModal(\'' + pr.id + '\', \'' + pr.repositoryId + '\')">⏸ Hold</button>' +
+    '<button class="btn-mini btn-history" onclick="openHistoryModal(\'' + pr.id + '\')">📜</button>' +
     '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗</a>' +
     '</div>';
 }
@@ -920,7 +924,7 @@ function renderCompletedActions(pr) {
   const openAttrs = pr.url ? ' target="_blank" rel="noopener"' : ' aria-disabled="true" tabindex="-1"';
   const openClass = pr.url ? 'btn-mini btn-open' : 'btn-mini btn-open btn-disabled';
   return '<div class="action-cell">' +
-    '<button class="btn-mini btn-history" onclick="openHistoryModal(' + pr.id + ')">📜</button>' +
+    '<button class="btn-mini btn-history" onclick="openHistoryModal(\'' + pr.id + '\')">📜</button>' +
     '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗</a>' +
     '</div>';
 }
@@ -1072,7 +1076,7 @@ function renderReleaseBadge(pr, options) {
   const canApprove = window._currentUser && window._currentUser.canApprovePrs === true;
   const showApproveAction = options.showApproveAction !== false;
   const approveButton = showApproveAction && !isApprovalHeld(pr) && status === 'pending' && r.approvalId && canApprove
-    ? '<button class="btn-mini btn-release" onclick="approveRelease(' + pr.id + ')">Approve Release</button>'
+    ? '<button class="btn-mini btn-release" onclick="approveRelease(\'' + pr.id + '\')">Approve Release</button>'
     : '';
 
   return '<div class="release-cell-stack">' +
@@ -1250,7 +1254,7 @@ function renderApprovalBadge(pr) {
   }
 
   const ratio = required > 0 ? approved + '/' + required : approved + '';
-  return '<button class="' + cls + '" onclick="openReviewersModal(' + pr.id + ')" title="คลิกดูรายชื่อ reviewers">' +
+  return '<button class="' + cls + '" onclick="openReviewersModal(\'' + pr.id + '\')" title="คลิกดูรายชื่อ reviewers">' +
     '<span class="approval-icon">' + escapeHtml(icon) + '</span>' +
     '<span class="approval-ratio">' + escapeHtml(ratio) + '</span>' +
     '<span class="approval-status">' + escapeHtml(text) + '</span>' +
@@ -1396,7 +1400,8 @@ window.approveRelease = async function(prId) {
     return;
   }
 
-  const title = 'Approve Release?\n\nPR #' + pr.id +
+  const idLabel = typeof pr.id === 'string' && pr.id.startsWith('R') ? 'Virtual Release ' + pr.id : 'PR #' + pr.id;
+  const title = 'Approve Release?\n\n' + idLabel +
     '\nRelease: ' + (release.releaseName || '-') +
     '\nEnvironment: ' + (release.environmentName || '-') +
     '\nCD: ' + (release.releaseDefinitionName || release.cdName || '-');

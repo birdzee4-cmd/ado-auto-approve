@@ -541,6 +541,30 @@ function hasReviewerGroup(pr, groupName) {
   );
 }
 
+async function getPendingReleaseApprovals(reviewerGroup) {
+  const { org, project } = getConfig();
+  const params = [
+    'status=pending',
+    'type=preDeploy',
+    'api-version=7.1'
+  ].join('&');
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/approvals?${params}`;
+  const result = await releaseRequest('GET', path);
+  if (!result.ok || !result.body || !Array.isArray(result.body.value)) {
+    return [];
+  }
+
+  const approvals = result.body.value;
+  if (reviewerGroup) {
+    const groupText = String(reviewerGroup).toLowerCase().trim();
+    return approvals.filter(app => {
+      const name = app.approver && app.approver.displayName || '';
+      return name.toLowerCase().includes(groupText);
+    });
+  }
+  return approvals;
+}
+
 module.exports = {
   getConfig,
   adoRequest,
@@ -564,5 +588,6 @@ module.exports = {
   getRelease,
   approveReleaseApproval,
   getLatestReleaseApprovalForBuild,
-  summarizeReleaseApproval
+  summarizeReleaseApproval,
+  getPendingReleaseApprovals
 };
