@@ -2423,6 +2423,10 @@ function stopCountdown() {
   }
   const wrap = document.getElementById('autoCountdownWrap');
   if (wrap) wrap.hidden = true;
+  const timerEl = document.getElementById('autoCountdownTimer');
+  if (timerEl) timerEl.textContent = '00:00';
+  const userEl = document.getElementById('autoCountdownUser');
+  if (userEl) userEl.textContent = '';
 }
 
 async function handleAutoExpiry() {

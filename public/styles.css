@@ -2831,6 +2831,10 @@ body {
   padding-left: 20px;
 }
 
+.auto-countdown-wrap[hidden] {
+  display: none !important;
+}
+
 .countdown-label {
   font-size: 11px;
   font-weight: 700;
