@@ -931,9 +931,10 @@ html.dark .skeleton {
 }
 
 html.dark .login-card {
-  background: #1f2937;
-  border-color: rgba(245, 164, 0, 0.45);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  background: linear-gradient(135deg, #121316 0%, #050507 100%);
+  border: 1px solid rgba(245, 164, 0, 0.35);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 30px rgba(245, 164, 0, 0.08);
+  backdrop-filter: blur(12px);
 }
 
 .logo {
