@@ -162,7 +162,7 @@ module.exports = async function (context, req) {
       }
     }
 
-    const completedPrs = recentlyApprovedPrs;
+
 
     const approvedLookup = includeActivity
       ? await buildRecentlyApprovedRows(context, {
@@ -190,6 +190,7 @@ module.exports = async function (context, req) {
         }
       };
     const recentlyApprovedPrs = approvedLookup.rows;
+    const completedPrs = recentlyApprovedPrs;
 
     const activeNotificationResult = includeActivity
       ? { ok: true, checked: 0, sent: 0, skipped: true, reason: 'Skipped on activity page request' }
