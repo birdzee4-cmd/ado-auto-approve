@@ -2,22 +2,39 @@
   "$schema": "https://json.schemastore.org/staticwebapp.config.json",
 
   "platform": {
-    "apiRuntime": "node:18"
+    "apiRuntime": "node:22"
   },
 
   "routes": [
     { "route": "/dashboard.html", "allowedRoles": ["authenticated"] },
     { "route": "/dashboard", "rewrite": "/dashboard.html", "allowedRoles": ["authenticated"] },
-    { "route": "/api/list-repositories", "methods": ["GET"], "allowedRoles": ["authenticated"] },
-    { "route": "/api/list-repo-refs", "methods": ["GET"], "allowedRoles": ["authenticated"] },
-    { "route": "/api/create-tag", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },
+    { "route": "/merge.html", "allowedRoles": ["authenticated"] },
+    { "route": "/merge", "rewrite": "/merge.html", "allowedRoles": ["authenticated"] },
+    { "route": "/activity.html", "allowedRoles": ["authenticated"] },
+    { "route": "/activity", "rewrite": "/activity.html", "allowedRoles": ["authenticated"] },
+    { "route": "/health.html", "allowedRoles": ["authenticated"] },
+    { "route": "/health", "rewrite": "/health.html", "allowedRoles": ["authenticated"] },
+    { "route": "/logs.html", "allowedRoles": ["authenticated"] },
+    { "route": "/logs", "rewrite": "/logs.html", "allowedRoles": ["authenticated"] },
     { "route": "/api/userinfo", "allowedRoles": ["authenticated"] },
     { "route": "/api/health", "allowedRoles": ["anonymous"] },
     { "route": "/api/list-prs", "methods": ["GET"], "allowedRoles": ["authenticated"] },
+    { "route": "/api/merge-lookup", "methods": ["GET"], "allowedRoles": ["authenticated"] },
+    { "route": "/api/list-repositories", "methods": ["GET"], "allowedRoles": ["authenticated"] },
+    { "route": "/api/list-repo-refs", "methods": ["GET"], "allowedRoles": ["authenticated"] },
+    { "route": "/api/create-tag", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },
     { "route": "/api/approve-pr", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },
+    { "route": "/api/approve-release", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },
+    { "route": "/api/approval-hold", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },
     { "route": "/api/reject-pr", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },
     { "route": "/api/pr-history/*", "methods": ["GET"], "allowedRoles": ["authenticated"] },
+    { "route": "/api/logs", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/test-notification", "methods": ["POST"], "allowedRoles": ["authenticated"] },
+    { "route": "/api/test-daily-summary", "methods": ["POST"], "allowedRoles": ["authenticated"] },
+    { "route": "/api/test-exception-scan", "methods": ["POST"], "allowedRoles": ["authenticated"] },
+    { "route": "/api/daily-summary", "methods": ["POST"], "allowedRoles": ["anonymous"] },
+    { "route": "/api/exception-scan", "methods": ["POST"], "allowedRoles": ["anonymous"] },
+    { "route": "/api/log-retention-cleanup", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/webhook", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/.auth/login/github", "statusCode": 404 },
     { "route": "/.auth/login/twitter", "statusCode": 404 }
