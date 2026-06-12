@@ -24,7 +24,7 @@ window._currentUser = {
   canApprovePrs: false
 };
 
-export async function initPage() {
+async function initPage() {
   // Inject theme toggle button immediately when DOM binds
   initThemeToggle();
   try {
