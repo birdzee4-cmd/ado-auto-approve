@@ -446,7 +446,7 @@ function renderReleaseBadge(pr, options) {
     label = 'Lookup failed';
   }
 
-  const openLink = pr.url ? '<a class="btn-mini btn-open" href="' + escapeHtml(pr.url) + '" target="_blank" rel="noopener" title="Open ADO PR">🔗</a>' : '';
+  const openLink = !options.hideOpenLink && pr.url ? '<a class="btn-mini btn-open" href="' + escapeHtml(pr.url) + '" target="_blank" rel="noopener" title="Open ADO PR">🔗</a>' : '';
   const approveButton = options.showApproveAction && !isApprovalHeld(pr) && status === 'pending' && r.approvalId && window._currentUser && window._currentUser.canApprovePrs === true
     ? '<button class="btn-mini btn-release" onclick="approveRelease(\'' + pr.id + '\')">Approve Release</button>'
     : '';
@@ -573,7 +573,8 @@ function renderRecentlyApprovedRows(tbody, rows) {
     const statusBadge = renderRecentlyApprovedStatusBadge(pr);
     const releaseBadge = renderReleaseBadge(pr, {
       showApproveAction: false,
-      summarizeExpectedWhenCompleted: true
+      summarizeExpectedWhenCompleted: true,
+      hideOpenLink: true
     });
     const logSourceBadge = renderApprovalLogSourceBadge(pr);
     const approvedAt = pr.approvedAt || pr.closedDate || pr.creationDate;
