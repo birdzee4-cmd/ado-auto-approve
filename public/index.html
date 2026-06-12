@@ -4,14 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BUZZEBEES - Innovating the Digital Frontier</title>
-  <meta name="description" content="BUZZEBEES Software House - Connecting the World through premium Web, Mobile App, IoT, and Cloud solutions." />
+  <meta name="description" content="BUZZEBEES Software House - Connecting the World." />
   <link rel="stylesheet" href="/core.css" />
-  <style>
-    /* Section specific overlays */
-    .hero-overlay {
-      background: linear-gradient(180deg, rgba(8, 10, 10, 0.4) 0%, #0b0c10 100%);
-    }
-  </style>
 </head>
 <body>
 
@@ -20,30 +14,23 @@
     <div class="nav-left">
       <img src="/assets/buzzebees-icon.png" alt="BUZZEBEES" class="nav-icon" />
       <span class="brand">BUZZEBEES</span>
-      <div class="nav-links">
-        <a href="#services" class="nav-link">Services</a>
-        <a href="#data" class="nav-link">Data Success</a>
-        <a href="#clients" class="nav-link">Clients</a>
-        <a href="#contact" class="nav-link">Contact</a>
-      </div>
     </div>
     <div class="nav-right">
       <span id="authStatusText" class="user-name" style="display: none; border-color: var(--bz-yellow);">Checking status...</span>
-      <a href="/.auth/login/aad?post_login_redirect_uri=/dashboard.html" id="navPortalBtn" class="logout-button btn-3d" style="padding: 8px 20px; font-size: 13px; box-shadow: 0 3px 0 #b37700;">
+      <a href="//.auth/login/aad?post_login_redirect_uri=/dashboard.html" id="navPortalBtn" class="logout-button btn-3d" style="padding: 8px 20px; font-size: 13px; box-shadow: 0 3px 0 #b37700;">
         Portal Sign In
       </a>
     </div>
   </nav>
 
   <!-- Hero Section with Parallax and Halftone Pattern -->
-  <header class="parallax-section halftone-bg" style="background-image: linear-gradient(rgba(8,10,10,0.85), rgba(8,10,10,0.85)), url('/assets/buzzebees-banner.png');">
+  <header class="parallax-section halftone-bg" style="background-image: linear-gradient(rgba(8,10,10,0.85), rgba(8,10,10,0.85)), url('/assets/buzzebees-banner.png'); min-height: 100vh;">
     <div class="hero-container">
       <img src="/assets/buzzebees-icon.png" alt="BUZZEBEES Logo" class="hero-logo-img" />
       <h1 class="hero-headline">BUZZEBEES: INNOVATING THE DIGITAL FRONTIER</h1>
       <p class="hero-tagline">CONNECTING THE WORLD</p>
       <div style="margin-top: 24px;">
-        <a href="#services" class="btn-3d" style="margin-right: 16px;">Explore Services</a>
-        <a href="/.auth/login/aad?post_login_redirect_uri=/dashboard.html" id="heroPortalBtn" class="btn-3d" style="background: transparent; color: #fff; border: 2px solid var(--bz-yellow); box-shadow: none;">Launch ADO Portal</a>
+        <a href="/.auth/login/aad?post_login_redirect_uri=/dashboard.html" id="heroPortalBtn" class="btn-3d">Launch ADO Portal</a>
       </div>
     </div>
   </header>
@@ -64,75 +51,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Services Section with faint Repeating Logo Background -->
-  <section id="services" class="services-section logo-pattern-bg">
-    <div class="section-title-wrap">
-      <h2 class="section-title">Our Services</h2>
-    </div>
-    
-    <div class="services-grid">
-      <!-- Web Development -->
-      <div class="service-card">
-        <div class="service-icon">🌐</div>
-        <h3>Web Development</h3>
-        <p>Premium architectural design, responsive interfaces, and progressive applications built on React, Next.js, and static technologies tailored for high traffic operations.</p>
-      </div>
-      <!-- Mobile App Development -->
-      <div class="service-card">
-        <div class="service-icon">📱</div>
-        <h3>Mobile App Development</h3>
-        <p>Native-performance cross-platform iOS and Android mobile engineering utilizing Flutter and React Native integrated with robust background push logic.</p>
-      </div>
-      <!-- IoT Solutions -->
-      <div class="service-card">
-        <div class="service-icon">⚙️</div>
-        <h3>IoT Solutions</h3>
-        <p>Embedded systems design, low-latency telemetry collection, and real-time remote hardware control pipelines for industrial and residential applications.</p>
-      </div>
-      <!-- Cloud Services -->
-      <div class="service-card">
-        <div class="service-icon">☁️</div>
-        <h3>Cloud Services</h3>
-        <p>Robust serverless design, scalable Kubernetes clusters, Automated CI/CD workflows, Azure/AWS cloud management, and ironclad security policies.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Data-Driven Success Section -->
-  <section id="data" class="data-success-section halftone-bg">
-    <div class="data-container">
-      <div class="data-text-content">
-        <h2 class="section-title" style="text-align: left; display: block; margin-bottom: 24px;">Data-Driven Success</h2>
-        <h3>Analytics & System Metrics</h3>
-        <p>At BUZZEBEES, we measure our success through real-time data analysis. Our automated deployment pipelines, active client transactions, and IoT telemetry streams are monitored with high-fidelity analytics to ensure peak uptime and operational excellence.</p>
-        
-        <div class="data-stats-row">
-          <div class="data-stat-box">
-            <div class="data-stat-number" id="statPrs">342+</div>
-            <div class="data-stat-label">PRs Auto-Approved</div>
-          </div>
-          <div class="data-stat-box">
-            <div class="data-stat-number" id="statBuilds">99.98%</div>
-            <div class="data-stat-label">Build Success Rate</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="data-chart-card">
-        <div class="chart-header">
-          <div class="chart-title">System Performance History</div>
-          <div class="chart-filters">
-            <button class="chart-filter-btn active" onclick="switchMetric('approvals')">Approvals</button>
-            <button class="chart-filter-btn" onclick="switchMetric('response_time')">Response Time</button>
-          </div>
-        </div>
-        <div class="canvas-container">
-          <canvas id="performanceChart" width="600" height="280"></canvas>
-        </div>
-      </div>
-    </div>
-  </section>
 
   <!-- Clients Carousel Section -->
   <section id="clients" class="client-carousel-section">
@@ -158,61 +76,15 @@
     </div>
   </section>
 
-  <!-- Contact Section -->
-  <section id="contact" class="contact-section halftone-bg">
-    <div class="section-title-wrap">
-      <h2 class="section-title">Contact Us</h2>
-    </div>
-    
-    <div class="contact-card">
-      <form id="contactForm" onsubmit="handleContactSubmit(event)">
-        <div class="form-group">
-          <label class="form-label" for="contactName">Name</label>
-          <input type="text" id="contactName" class="form-input" placeholder="Your full name" required />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="contactEmail">Email Address</label>
-          <input type="email" id="contactEmail" class="form-input" placeholder="name@company.com" required />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="contactMessage">Message</label>
-          <textarea id="contactMessage" class="form-textarea" rows="5" placeholder="Tell us about your project or inquiry..." required></textarea>
-        </div>
-        <div style="text-align: center;">
-          <button type="submit" class="btn-3d" style="width: 100%;">Send Message</button>
-        </div>
-      </form>
-      <div id="contactSuccess" style="display: none; color: var(--bz-yellow); text-align: center; margin-top: 20px; font-weight: 600;">
-        ✓ Thank you! Your message has been sent successfully. We will contact you soon.
-      </div>
-    </div>
-  </section>
-
   <!-- Footer -->
   <footer class="landing-footer">
     <div class="footer-grid">
-      <div class="footer-brand">
+      <div class="footer-brand" style="grid-column: span 3;">
         <h4>
           <img src="/assets/buzzebees-icon.png" alt="BUZZEBEES" class="footer-logo" />
           BUZZEBEES
         </h4>
         <p>Innovating the digital frontier. Connecting the world with robust technology, loyalty software solutions, and automated engineering pipelines.</p>
-      </div>
-      <div class="footer-links-col">
-        <h5>Solutions</h5>
-        <ul class="footer-links">
-          <li><a href="#services">Web & Mobile Apps</a></li>
-          <li><a href="#services">IoT Telemetry</a></li>
-          <li><a href="#services">Cloud Pipelines</a></li>
-        </ul>
-      </div>
-      <div class="footer-links-col">
-        <h5>Resources</h5>
-        <ul class="footer-links">
-          <li><a href="/dashboard.html">ADO Portal</a></li>
-          <li><a href="/health.html">System Health</a></li>
-          <li><a href="/logs.html">Audit History</a></li>
-        </ul>
       </div>
     </div>
     <div class="footer-bottom">
@@ -246,7 +118,6 @@
     const mascotQuotes = [
       "Welcome to BUZZEBEES! Let's build something beautiful.",
       "Need to check active pull requests? Sign in to the portal at the top right!",
-      "Hover over our Services to see the animations in action!",
       "Our automated deployment pipelines run 24/7 with zero downtime.",
       "Connecting the world starts with solid software engineering!"
     ];
@@ -274,123 +145,10 @@
       }, 2000);
     }
 
-    // Auto trigger mascot welcoming speech after 3 seconds
+    // Auto trigger mascot welcoming speech after 2 seconds
     setTimeout(() => {
       triggerMascotSpeech();
     }, 2000);
-
-    // Dynamic Chart rendering
-    const canvas = document.getElementById('performanceChart');
-    const ctx = canvas.getContext('2d');
-
-    const chartData = {
-      approvals: {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-        values: [45, 80, 110, 190, 260, 342],
-        color: '#f5a400'
-      },
-      response_time: {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-        values: [120, 95, 80, 55, 42, 30],
-        color: '#ffb000'
-      }
-    };
-
-    let activeMetric = 'approvals';
-
-    function drawChart() {
-      const data = chartData[activeMetric];
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      const padding = 40;
-      const graphHeight = canvas.height - padding * 2;
-      const graphWidth = canvas.width - padding * 2;
-
-      // Draw grid lines
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-      ctx.lineWidth = 1;
-      for (let i = 0; i <= 4; i++) {
-        const y = padding + (graphHeight / 4) * i;
-        ctx.beginPath();
-        ctx.moveTo(padding, y);
-        ctx.lineTo(canvas.width - padding, y);
-        ctx.stroke();
-      }
-
-      // Draw labels & points
-      const maxVal = Math.max(...data.values) * 1.1;
-      const points = [];
-
-      ctx.fillStyle = '#718096';
-      ctx.font = '11px sans-serif';
-      ctx.textAlign = 'center';
-
-      data.labels.forEach((label, idx) => {
-        const x = padding + (graphWidth / (data.labels.length - 1)) * idx;
-        const val = data.values[idx];
-        const y = canvas.height - padding - (val / maxVal) * graphHeight;
-        points.push({ x, y, val });
-
-        // Draw label text
-        ctx.fillText(label, x, canvas.height - padding + 18);
-      });
-
-      // Draw area under curve
-      ctx.fillStyle = activeMetric === 'approvals' ? 'rgba(245, 164, 0, 0.15)' : 'rgba(255, 176, 0, 0.15)';
-      ctx.beginPath();
-      ctx.moveTo(points[0].x, canvas.height - padding);
-      points.forEach(pt => ctx.lineTo(pt.x, pt.y));
-      ctx.lineTo(points[points.length - 1].x, canvas.height - padding);
-      ctx.closePath();
-      ctx.fill();
-
-      // Draw line
-      ctx.strokeStyle = data.color;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      points.forEach((pt, idx) => {
-        if (idx === 0) ctx.moveTo(pt.x, pt.y);
-        else ctx.lineTo(pt.x, pt.y);
-      });
-      ctx.stroke();
-
-      // Draw glowing dots
-      points.forEach(pt => {
-        ctx.fillStyle = '#fff';
-        ctx.strokeStyle = data.color;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        // Draw value badge
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 10px sans-serif';
-        ctx.fillText(pt.val + (activeMetric === 'response_time' ? 's' : ''), pt.x, pt.y - 10);
-      });
-    }
-
-    function switchMetric(metric) {
-      activeMetric = metric;
-      document.querySelectorAll('.chart-filter-btn').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.innerText.toLowerCase().includes(metric.replace('_', ' '))) {
-          btn.classList.add('active');
-        }
-      });
-      drawChart();
-    }
-
-    // Initial draw
-    drawChart();
-
-    // Contact form submit handling
-    function handleContactSubmit(event) {
-      event.preventDefault();
-      document.getElementById('contactForm').style.display = 'none';
-      document.getElementById('contactSuccess').style.display = 'block';
-    }
   </script>
 </body>
 </html>
