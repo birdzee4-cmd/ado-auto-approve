@@ -6,7 +6,7 @@
 
 ## 🌐 1. มาตรฐาน JavaScript ฝั่ง Frontend (Browser)
 
-ไฟล์ JavaScript ฝั่ง Frontend ถูกเก็บหลักๆ อยู่ที่ [public/app.js](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/app.js) มีข้อกำหนดดังต่อไปนี้:
+ไฟล์ JavaScript ฝั่ง Frontend ถูกแยกออกตามหน้าที่การทำงาน (เช่น [public/core.js](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/core.js), [public/dashboard.js](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/dashboard.js)) มีข้อกำหนดดังต่อไปนี้:
 
 *   **Vanilla JS (ES2017+):** เขียนด้วย JavaScript มาตรฐาน ไม่ใช้เฟรมเวิร์กอย่าง React, Vue, Angular หรือไลบรารีดั้งเดิมอย่าง jQuery
 *   **Asynchronous Operations:** การดึงข้อมูลจาก API ต้องใช้คำสั่ง `fetch` ร่วมกับ `async/await` ห้ามบล็อกการเรนเดอร์ของเบราว์เซอร์

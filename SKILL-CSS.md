@@ -6,7 +6,7 @@
 
 ## 🎨 1. แนวทางการออกแบบและโทนสี (Visual Design Standard)
 
-*   **Vanilla CSS Only:** สไตล์ทั้งหมดเขียนขึ้นด้วยมือใน [styles.css](file:///d:/Github/ado-auto-approve/ado-auto-approve/styles.css) ห้ามใช้เฟรมเวิร์กอย่าง TailwindCSS หรือ Bootstrap เด็ดขาด
+*   **Vanilla CSS Only:** สไตล์ทั้งหมดเขียนขึ้นด้วยมือแยกตามเพจการใช้งานจริง (เช่น [core.css](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/core.css), [dashboard.css](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/dashboard.css)) ห้ามใช้เฟรมเวิร์กอย่าง TailwindCSS หรือ Bootstrap เด็ดขาด
 *   **Curated Palette (HSL):** หลีกเลี่ยงการใช้สีสว่างจัดที่เป็น default (เช่น `red`, `blue`, `green` ตรงๆ) ให้ใช้ระบบสี HSL ในการไล่โทนสีเพื่อให้ดูเป็นมืออาชีพ เช่น:
     *   *สีหลัก (Primary):* โทนสีน้ำเงิน/ครามไล่เฉด
     *   *สถานะอันตราย (Danger/Critical):* สีแดงอ่อนเฉดหม่น (Soft Red)
