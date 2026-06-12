@@ -29,8 +29,29 @@
       <img src="/assets/buzzebees-icon.png" alt="BUZZEBEES Logo" class="hero-logo-img" />
       <h1 class="hero-headline">BUZZEBEES: INNOVATING THE DIGITAL FRONTIER</h1>
       <p class="hero-tagline">CONNECTING THE WORLD</p>
-      <div style="margin-top: 24px;">
-        <a href="/.auth/login/aad?post_login_redirect_uri=/dashboard.html" id="heroPortalBtn" class="btn-3d">Launch ADO Portal</a>
+      
+      <!-- Login Card Container -->
+      <div class="login-card" style="margin: 40px auto 0; text-align: center; max-width: 420px; border: 1px solid rgba(245, 164, 0, 0.3);">
+        <div class="logo">
+          <img src="/assets/buzzebees-icon.png" alt="BUZZEBEES" class="login-logo" />
+        </div>
+        <h1 style="font-size: 28px; font-weight: 700; margin-bottom: 12px;">ADO Auto-Approve</h1>
+        <p class="subtitle" style="margin-bottom: 32px; line-height: 1.6;">ระบบอนุมัติ Pull Request อัตโนมัติ<br/>สำหรับ Staging Branch</p>
+
+        <a href="/.auth/login/aad?post_login_redirect_uri=/dashboard.html" class="login-button" id="heroPortalBtn">
+          <svg id="microsoftIcon" width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0; margin-right: 8px;">
+            <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+            <rect x="10" y="1" width="9" height="9" fill="#7FBA00"/>
+            <rect x="1" y="10" width="9" height="9" fill="#00A4EF"/>
+            <rect x="10" y="10" width="9" height="9" fill="#FFB900"/>
+          </svg>
+          <span id="loginBtnText">Sign in with Microsoft 365</span>
+        </a>
+
+        <p class="footer-note" style="margin-top: 24px; font-size: 12px; line-height: 1.6;">
+          เฉพาะผู้ที่ได้รับอนุญาตเท่านั้น<br/>
+          Authorized users only
+        </p>
       </div>
     </div>
   </header>
@@ -108,8 +129,13 @@
           portalBtn.href = '/dashboard.html';
 
           const heroBtn = document.getElementById('heroPortalBtn');
-          heroBtn.innerText = 'Go to Dashboard';
-          heroBtn.href = '/dashboard.html';
+          if (heroBtn) {
+            heroBtn.href = '/dashboard.html';
+            const btnText = document.getElementById('loginBtnText');
+            if (btnText) btnText.innerText = 'Go to Dashboard';
+            const msIcon = document.getElementById('microsoftIcon');
+            if (msIcon) msIcon.style.display = 'none';
+          }
         }
       })
       .catch(() => {});
