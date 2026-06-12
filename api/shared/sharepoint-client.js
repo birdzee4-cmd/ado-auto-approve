@@ -297,6 +297,7 @@ async function getLogItemsSince(sinceIso, maxItems) {
   const token = await getAccessToken();
   const limit = Math.max(1, Math.min(parseInt(maxItems, 10) || 500, 1000));
   const pageSize = 100;
+  const sinceTime = sinceIso ? Date.parse(sinceIso) : 0;
   let url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$orderby=lastModifiedDateTime desc&$top=${pageSize}`;
   const headers = {
     'Authorization': 'Bearer ' + token,
@@ -305,8 +306,9 @@ async function getLogItemsSince(sinceIso, maxItems) {
   const items = [];
   let lastStatus = 200;
   let lastBody = null;
+  let foundOlder = false;
 
-  while (url && items.length < limit) {
+  while (url && items.length < limit && !foundOlder) {
     const result = await httpRequest('GET', url, headers);
     lastStatus = result.status;
     lastBody = result.body;
@@ -315,6 +317,14 @@ async function getLogItemsSince(sinceIso, maxItems) {
     const value = result.body && Array.isArray(result.body.value) ? result.body.value : [];
     for (const item of value) {
       if (items.length >= limit) break;
+
+      const createdAt = item.createdDateTime || item.lastModifiedDateTime || (item.fields && item.fields.Last_Checked_At) || '';
+      const createdTime = Date.parse(createdAt);
+      if (sinceTime && Number.isFinite(createdTime) && createdTime < sinceTime) {
+        foundOlder = true;
+        break;
+      }
+
       items.push(item);
     }
     url = result.body && result.body['@odata.nextLink'] ? result.body['@odata.nextLink'] : '';

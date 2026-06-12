@@ -162,7 +162,7 @@ module.exports = async function (context, req) {
       }
     }
 
-    const completedPrs = [];
+    const completedPrs = recentlyApprovedPrs;
 
     const approvedLookup = includeActivity
       ? await buildRecentlyApprovedRows(context, {
