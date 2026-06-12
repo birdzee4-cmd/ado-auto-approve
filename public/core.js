@@ -5,10 +5,7 @@
 // Run theme check immediately to avoid Flash of Unstyled Content (FOUC)
 (function applyTheme() {
   try {
-    const currentTheme = localStorage.getItem('theme') || 'dark';
-    if (currentTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    }
+    document.documentElement.classList.add('dark');
   } catch (e) {}
 })();
 
@@ -25,8 +22,6 @@ window._currentUser = {
 };
 
 async function initPage() {
-  // Inject theme toggle button immediately when DOM binds
-  initThemeToggle();
   try {
     const authResp = await fetch('/.auth/me');
     const authData = await authResp.json();
@@ -117,36 +112,7 @@ function showBox(id, html, type) {
 }
 
 function initThemeToggle() {
-  try {
-    const currentTheme = localStorage.getItem('theme') || 'dark';
-    const navRight = document.querySelector('.nav-right');
-    if (!navRight) return;
-
-    if (document.getElementById('themeToggle')) return;
-
-    const toggleBtn = document.createElement('button');
-    toggleBtn.id = 'themeToggle';
-    toggleBtn.className = 'theme-toggle-btn';
-    toggleBtn.type = 'button';
-    toggleBtn.innerHTML = currentTheme === 'dark' ? '☀️' : '🌙';
-    toggleBtn.title = currentTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode';
-
-    const logoutBtn = navRight.querySelector('.logout-button');
-    if (logoutBtn) {
-      navRight.insertBefore(toggleBtn, logoutBtn);
-    } else {
-      navRight.appendChild(toggleBtn);
-    }
-
-    toggleBtn.addEventListener('click', () => {
-      const isDark = document.documentElement.classList.toggle('dark');
-      localStorage.setItem('theme', isDark ? 'dark' : 'light');
-      toggleBtn.innerHTML = isDark ? '☀️' : '🌙';
-      toggleBtn.title = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
-    });
-  } catch (e) {
-    console.error('Failed to init theme toggle:', e);
-  }
+  // Theme toggle removed, dark mode is now permanent
 }
 
 function renderSkeletonRows(columnsCount, rowsCount) {
