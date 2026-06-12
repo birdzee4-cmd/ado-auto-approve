@@ -111,47 +111,5 @@
 
   <script type="module" src="/activity.js"></script>
 
-  <!-- Mascot Container -->
-  <div class="mascot-container" id="mascotContainer">
-    <div class="mascot-speech-bubble" id="mascotBubble">
-      Hello! I'm here to guide you through the completed actions history.
-    </div>
-    <div class="mascot-robot" id="mascotRobot" onclick="triggerMascotSpeech()">
-      <div class="robot-face" id="robotFace">
-        <div class="robot-ears"></div>
-        <div class="robot-eyes">
-          <div class="robot-eye left"></div>
-          <div class="robot-eye right"></div>
-        </div>
-        <div class="robot-mouth"></div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    const mascotQuotes = [
-      "Here is the completed PRs activity history feed.",
-      "Check here to verify if auto-approver successfully approved a PR in the past.",
-      "You can search or filter completed logs by branch name, user, or date range."
-    ];
-    let quoteIndex = 0;
-
-    function triggerMascotSpeech() {
-      const bubble = document.getElementById('mascotBubble');
-      const face = document.getElementById('robotFace');
-      
-      face.classList.add('winking');
-      face.classList.add('talking');
-      
-      bubble.innerText = mascotQuotes[quoteIndex];
-      bubble.classList.add('active');
-      
-      quoteIndex = (quoteIndex + 1) % mascotQuotes.length;
-
-      setTimeout(() => { face.classList.remove('winking'); }, 500);
-      setTimeout(() => { face.classList.remove('talking'); }, 2000);
-    }
-    setTimeout(() => { triggerMascotSpeech(); }, 2000);
-  </script>
 </body>
 </html>

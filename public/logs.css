@@ -1,11 +1,36 @@
+/* ==========================================================================
+   ADO Auto-Approve - Audit Logs Styles (Premium Dark Redesign)
+   ========================================================================== */
+
+@keyframes rowFadeIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ===== Audit Table Container ===== */
 .audit-table-wrap {
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  background: rgba(12, 13, 16, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(180deg, rgba(10, 12, 18, 0.97) 0%, rgba(6, 8, 12, 0.98) 100%);
+  border: 1px solid rgba(245, 164, 0, 0.12);
+  border-radius: 16px;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  position: relative;
+}
+
+/* Top golden accent border */
+.audit-table-wrap::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 5%;
+  right: 5%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245, 164, 0, 0.5), transparent);
+  pointer-events: none;
 }
 
 .audit-table {
@@ -17,29 +42,44 @@
 }
 
 .audit-table thead {
-  background: rgba(28, 29, 34, 0.95);
-  color: var(--bz-yellow);
+  background: linear-gradient(90deg, rgba(20, 22, 30, 0.98) 0%, rgba(14, 16, 22, 0.98) 100%);
 }
 
-.audit-table th,
-.audit-table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  text-align: left;
-  vertical-align: top;
-  overflow-wrap: anywhere;
+.audit-table thead tr {
+  border-bottom: 1px solid rgba(245, 164, 0, 0.2);
 }
 
 .audit-table th {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   white-space: nowrap;
+  color: var(--bz-yellow);
+  padding: 13px 12px;
+  text-align: left;
+}
+
+.audit-table td {
+  padding: 11px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  color: #d1d5db;
+  transition: background 0.15s;
+}
+
+.audit-table tbody tr {
+  transition: background 0.15s, transform 0.15s;
 }
 
 .audit-table tbody tr:hover {
-  background: #fff9e8;
+  background: rgba(245, 164, 0, 0.05);
+}
+
+.audit-table tbody tr:hover td {
+  color: #f3f4f6;
 }
 
 .audit-table th:nth-child(1),
@@ -66,7 +106,7 @@
 .audit-repo {
   display: block;
   font-weight: 700;
-  color: #1f2937;
+  color: #f9fafb;
 }
 
 .audit-table small {
@@ -78,83 +118,7 @@
 
 .empty-cell {
   text-align: center;
-  padding: 28px !important;
-  color: #9ca3af;
+  padding: 36px !important;
+  color: #4b5563;
+  font-style: italic;
 }
-
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
-  margin-bottom: 40px;
-  padding: 24px;
-  background: rgba(20, 22, 28, 0.85);
-  border-radius: 8px;
-  border: 1px solid rgba(245, 164, 0, 0.18);
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.4);
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.info-label {
-  font-size: 12px;
-  text-transform: uppercase;
-  color: #6b7280;
-  letter-spacing: 0.5px;
-}
-
-.info-value {
-  font-size: 15px;
-  color: #1f2937;
-  font-weight: 500;
-  word-break: break-all;
-}
-
-/* ===== Dark Mode Overrides ===== */
-html.dark .audit-table-wrap {
-  background: rgba(12, 13, 16, 0.9);
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.4);
-}
-
-html.dark .audit-table thead {
-  background: rgba(28, 29, 34, 0.95);
-  color: var(--bz-yellow);
-}
-
-html.dark .audit-table td {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  color: #e2e8f0;
-}
-
-html.dark .audit-table tbody tr:hover {
-  background: rgba(245, 164, 0, 0.05);
-}
-
-html.dark .audit-repo {
-  color: #fff;
-}
-
-html.dark .audit-table small {
-  color: #a0aec0;
-}
-
-html.dark .info-grid {
-  background: rgba(20, 22, 28, 0.85);
-  border-color: rgba(245, 164, 0, 0.18);
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.4);
-}
-
-html.dark .info-label {
-  color: #718096;
-}
-
-html.dark .info-value {
-  color: #fff;
-}
-
-

@@ -20,18 +20,85 @@
   --bz-orange-glow: rgba(245, 164, 0, 0.4);
 }
 
+@keyframes ambientDrift1 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.18; }
+  33% { transform: translate(60px, -80px) scale(1.15); opacity: 0.28; }
+  66% { transform: translate(-40px, 50px) scale(0.9); opacity: 0.12; }
+}
+@keyframes ambientDrift2 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.12; }
+  50% { transform: translate(-70px, 60px) scale(1.2); opacity: 0.22; }
+}
+@keyframes scanLine {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+@keyframes gridPulse {
+  0%, 100% { opacity: 0.03; }
+  50% { opacity: 0.07; }
+}
+
 body {
   font-family: 'Outfit', 'Segoe UI', Tahoma, 'Sarabun', sans-serif;
-  background: #080a0a;
+  background: #06080a;
   color: var(--bz-text-dark);
   min-height: 100vh;
   overflow-x: hidden;
+  position: relative;
 }
 
-/* Halftone dotted pattern overlay */
+/* Ambient glow orbs — rendered via body pseudo-elements on each page's wrapper */
+body::before {
+  content: '';
+  position: fixed;
+  top: -20%;
+  left: -10%;
+  width: 55vw;
+  height: 55vw;
+  background: radial-gradient(ellipse at center, rgba(245, 164, 0, 0.13) 0%, transparent 65%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  animation: ambientDrift1 18s ease-in-out infinite;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  bottom: -15%;
+  right: -10%;
+  width: 45vw;
+  height: 45vw;
+  background: radial-gradient(ellipse at center, rgba(245, 164, 0, 0.09) 0%, transparent 65%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  animation: ambientDrift2 24s ease-in-out infinite;
+}
+
+/* Halftone dotted pattern overlay — richer and layered */
 .halftone-bg {
-  background-image: radial-gradient(rgba(245, 164, 0, 0.12) 1.5px, transparent 1.5px);
-  background-size: 24px 24px;
+  background-image:
+    radial-gradient(rgba(245, 164, 0, 0.09) 1px, transparent 1px),
+    radial-gradient(rgba(245, 164, 0, 0.04) 1.5px, transparent 1.5px);
+  background-size: 20px 20px, 60px 60px;
+  background-position: 0 0, 10px 10px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Fine grid lines overlay on halftone pages */
+.halftone-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(245, 164, 0, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(245, 164, 0, 0.04) 1px, transparent 1px);
+  background-size: 80px 80px;
+  pointer-events: none;
+  z-index: 0;
+  animation: gridPulse 6s ease-in-out infinite;
 }
 
 /* Faint repeating pattern derived from Buzzebees logo shape */
