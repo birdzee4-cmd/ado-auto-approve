@@ -27,7 +27,35 @@ function releaseRequest(method, path, body) {
   return adoHostRequest('vsrm.dev.azure.com', method, path, body);
 }
 
+async function executeWithRetry(requestFn, maxRetries = 3, initialDelay = 500) {
+  let attempt = 0;
+  while (true) {
+    try {
+      const result = await requestFn();
+      if (!result.ok && (result.status === 429 || result.status >= 500) && attempt < maxRetries) {
+        attempt++;
+        const delay = initialDelay * Math.pow(2, attempt - 1);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      return result;
+    } catch (error) {
+      if (attempt < maxRetries) {
+        attempt++;
+        const delay = initialDelay * Math.pow(2, attempt - 1);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
 function adoHostRequest(hostname, method, path, body) {
+  return executeWithRetry(() => makeSingleAdoHostRequest(hostname, method, path, body));
+}
+
+function makeSingleAdoHostRequest(hostname, method, path, body) {
   const { pat } = getConfig();
   const auth = 'Basic ' + Buffer.from(':' + pat).toString('base64');
   const data = body ? JSON.stringify(body) : null;
@@ -68,6 +96,7 @@ function adoHostRequest(hostname, method, path, body) {
     req.end();
   });
 }
+
 
 async function listReleasesByBuildId(buildId, top) {
   const { org, project } = getConfig();

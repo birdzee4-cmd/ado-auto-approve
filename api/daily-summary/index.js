@@ -107,8 +107,11 @@ async function buildDailySummary(context, reportDate) {
 
   const statusTargets = activeNow.concat(completedToday).slice(0, 80);
   const rows = [];
-  for (const pr of statusTargets) {
-    rows.push(await buildPrSummaryRow(context, ado, cfg, pr));
+  const batchSize = 15;
+  for (let i = 0; i < statusTargets.length; i += batchSize) {
+    const batch = statusTargets.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(pr => buildPrSummaryRow(context, ado, cfg, pr)));
+    rows.push(...batchResults);
   }
 
   const failedRows = rows.filter(row => row.issueType === 'build_failed' || row.issueType === 'policy_failed');

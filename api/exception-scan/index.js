@@ -80,49 +80,53 @@ async function scanExceptions(context, options) {
   let sent = 0;
   let skipped = 0;
 
-  for (const log of approvalLogs) {
-    try {
-      const prResult = await ado.getPullRequest(log.prId);
-      if (!prResult.ok || !prResult.body) {
-        skipped += 1;
-        errors.push('PR #' + log.prId + ': ADO returned HTTP ' + prResult.status);
-        continue;
-      }
+  const batchSize = 15;
+  for (let i = 0; i < approvalLogs.length; i += batchSize) {
+    const batch = approvalLogs.slice(i, i + batchSize);
+    await Promise.all(batch.map(async (log) => {
+      try {
+        const prResult = await ado.getPullRequest(log.prId);
+        if (!prResult.ok || !prResult.body) {
+          skipped += 1;
+          errors.push('PR #' + log.prId + ': ADO returned HTTP ' + prResult.status);
+          return;
+        }
 
-      const pr = prResult.body;
-      const targetRef = String(pr.targetRefName || '').toLowerCase();
-      if (!(targetRef.startsWith(targetPrefix) || isMergeCodeBranch(targetRef))) {
-        skipped += 1;
-        continue;
-      }
-      if (!ado.hasReviewerGroup(pr, reviewerGroup)) {
-        skipped += 1;
-        continue;
-      }
+        const pr = prResult.body;
+        const targetRef = String(pr.targetRefName || '').toLowerCase();
+        if (!(targetRef.startsWith(targetPrefix) || isMergeCodeBranch(targetRef))) {
+          skipped += 1;
+          return;
+        }
+        if (!ado.hasReviewerGroup(pr, reviewerGroup)) {
+          skipped += 1;
+          return;
+        }
 
-      const row = await buildNotificationPr(context, cfg, pr, log, branchBuildCache);
-      const notifyResult = await notifications.notifyPrIssueIfNeeded(context, row, { scope: 'approval-log' });
-      if (notifyResult && notifyResult.ok) sent += 1;
-      else skipped += 1;
+        const row = await buildNotificationPr(context, cfg, pr, log, branchBuildCache);
+        const notifyResult = await notifications.notifyPrIssueIfNeeded(context, row, { scope: 'approval-log' });
+        if (notifyResult && notifyResult.ok) sent += 1;
+        else skipped += 1;
 
-      rows.push({
-        prId: row.id,
-        title: row.title,
-        repository: row.repository,
-        status: row.status,
-        buildStatus: row.statusSnapshot && row.statusSnapshot.buildStatus,
-        buildResult: row.statusSnapshot && row.statusSnapshot.buildResult,
-        buildRunId: row.statusSnapshot && row.statusSnapshot.buildRunId,
-        policyStatus: row.statusSnapshot && row.statusSnapshot.policyStatus,
-        notification: notifyResult
-      });
-    } catch (e) {
-      skipped += 1;
-      errors.push('PR #' + log.prId + ': ' + e.message);
-      if (context && context.log && context.log.warn) {
-        context.log.warn('Exception scan skipped PR #' + log.prId + ': ' + e.message);
+        rows.push({
+          prId: row.id,
+          title: row.title,
+          repository: row.repository,
+          status: row.status,
+          buildStatus: row.statusSnapshot && row.statusSnapshot.buildStatus,
+          buildResult: row.statusSnapshot && row.statusSnapshot.buildResult,
+          buildRunId: row.statusSnapshot && row.statusSnapshot.buildRunId,
+          policyStatus: row.statusSnapshot && row.statusSnapshot.policyStatus,
+          notification: notifyResult
+        });
+      } catch (e) {
+        skipped += 1;
+        errors.push('PR #' + log.prId + ': ' + e.message);
+        if (context && context.log && context.log.warn) {
+          context.log.warn('Exception scan skipped PR #' + log.prId + ': ' + e.message);
+        }
       }
-    }
+    }));
   }
 
   const result = {

@@ -57,7 +57,35 @@ function getConfig() {
 /**
  * HTTPS helper
  */
+async function executeWithRetry(requestFn, maxRetries = 3, initialDelay = 500) {
+  let attempt = 0;
+  while (true) {
+    try {
+      const result = await requestFn();
+      if (!result.ok && (result.status === 429 || result.status >= 500) && attempt < maxRetries) {
+        attempt++;
+        const delay = initialDelay * Math.pow(2, attempt - 1);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      return result;
+    } catch (error) {
+      if (attempt < maxRetries) {
+        attempt++;
+        const delay = initialDelay * Math.pow(2, attempt - 1);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
 function httpRequest(method, url, headers, body) {
+  return executeWithRetry(() => makeSingleHttpRequest(method, url, headers, body));
+}
+
+function makeSingleHttpRequest(method, url, headers, body) {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
     const data = body ? (typeof body === 'string' ? body : JSON.stringify(body)) : null;
@@ -92,6 +120,7 @@ function httpRequest(method, url, headers, body) {
     req.end();
   });
 }
+
 
 /**
  * ขอ access token จาก Entra ID (Client Credentials Flow)
