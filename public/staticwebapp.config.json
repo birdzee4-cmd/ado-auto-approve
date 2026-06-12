@@ -8,8 +8,6 @@
   "routes": [
     { "route": "/dashboard.html", "allowedRoles": ["authenticated"] },
     { "route": "/dashboard", "rewrite": "/dashboard.html", "allowedRoles": ["authenticated"] },
-    { "route": "/deployment.html", "allowedRoles": ["authenticated"] },
-    { "route": "/deployment", "rewrite": "/deployment.html", "allowedRoles": ["authenticated"] },
     { "route": "/merge.html", "allowedRoles": ["authenticated"] },
     { "route": "/merge", "rewrite": "/merge.html", "allowedRoles": ["authenticated"] },
     { "route": "/activity.html", "allowedRoles": ["authenticated"] },
@@ -22,7 +20,6 @@
     { "route": "/api/health", "allowedRoles": ["anonymous"] },
     { "route": "/api/list-prs", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/merge-lookup", "methods": ["GET"], "allowedRoles": ["authenticated"] },
-    { "route": "/api/list-deployments", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/list-repositories", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/list-repo-refs", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/create-tag", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },

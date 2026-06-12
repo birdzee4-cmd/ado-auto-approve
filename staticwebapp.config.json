@@ -8,9 +8,6 @@
   "routes": [
     { "route": "/dashboard.html", "allowedRoles": ["authenticated"] },
     { "route": "/dashboard", "rewrite": "/dashboard.html", "allowedRoles": ["authenticated"] },
-    { "route": "/deployment.html", "allowedRoles": ["authenticated"] },
-    { "route": "/deployment", "rewrite": "/deployment.html", "allowedRoles": ["authenticated"] },
-    { "route": "/api/list-deployments", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/list-repositories", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/list-repo-refs", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/create-tag", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },
