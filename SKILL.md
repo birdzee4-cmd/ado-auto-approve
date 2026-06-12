@@ -39,7 +39,12 @@
 
 ```powershell
 # 1. ตรวจสอบ syntax ของ JavaScript ฝั่ง Client และ Serverless API
-node --check public\app.js
+node --check public\core.js
+node --check public\dashboard.js
+node --check public\activity.js
+node --check public\logs.js
+node --check public\health.js
+node --check public\merge.js
 node --check api\list-prs\index.js
 node --check api\approve-pr\index.js
 node --check api\reject-pr\index.js
@@ -47,5 +52,7 @@ node --check api\logs\index.js
 node --check api\merge-lookup\index.js
 
 # 2. ตรวจสอบ syntax ไฟล์ config ของ Azure Static Web App
-node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json','utf8')); console.log('SWA config JSON: OK')"
+node -e "JSON.parse(require('fs').readFileSync('staticwebapp.config.json','utf8')); console.log('SWA root config JSON: OK')"
+node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json','utf8')); console.log('SWA public config JSON: OK')"
 ```
+
