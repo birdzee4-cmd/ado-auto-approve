@@ -50,7 +50,7 @@
 }
 
 .welcome-card > p {
-  color: #5c4d2d;
+  color: #4b5563;
   margin-bottom: 24px;
   font-size: 14.5px;
   line-height: 1.5;
@@ -142,7 +142,7 @@
 }
 
 .page-header p {
-  color: #4a3b15;
+  color: #4b5563;
   line-height: 1.65;
 }
 
@@ -199,7 +199,7 @@
 }
 
 .filter-field span {
-  color: #6b5b33;
+  color: #4b5563;
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
@@ -243,7 +243,7 @@
 
 .log-stat-card span {
   display: block;
-  color: #6b5b33;
+  color: #6b7280;
   font-size: 12px;
   font-weight: 700;
   margin-bottom: 4px;
@@ -1513,7 +1513,7 @@
   font-family: inherit;
   font-size: 14px;
   font-weight: 700;
-  color: #6b5b33;
+  color: #5b626a;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -1548,7 +1548,7 @@
 }
 
 .tab-badge {
-  background: #6b5b33;
+  background: #6b7280;
   color: #ffffff;
   font-size: 11px;
   font-weight: 700;
