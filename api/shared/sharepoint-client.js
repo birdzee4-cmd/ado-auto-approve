@@ -337,7 +337,7 @@ async function getLogItemsSince(sinceIso, maxItems) {
   let lastBody = null;
   let foundOlder = false;
 
-  while (url && items.length < limit && !foundOlder) {
+  while (url && items.length < limit) {
     const result = await httpRequest('GET', url, headers);
     lastStatus = result.status;
     lastBody = result.body;
@@ -350,8 +350,7 @@ async function getLogItemsSince(sinceIso, maxItems) {
       const createdAt = item.createdDateTime || item.lastModifiedDateTime || (item.fields && item.fields.Last_Checked_At) || '';
       const createdTime = Date.parse(createdAt);
       if (sinceTime && Number.isFinite(createdTime) && createdTime < sinceTime) {
-        foundOlder = true;
-        break;
+        continue;
       }
 
       items.push(item);
