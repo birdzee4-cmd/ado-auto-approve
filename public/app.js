@@ -1841,11 +1841,23 @@ async function testExceptionScan() {
   try {
     const r = await safeFetchJson('/api/test-exception-scan', { method: 'POST' });
     if (r.parseError) { showResult('❌ Response is not JSON (HTTP ' + r.status + ')', 'error'); return; }
-    if (r.ok && r.data && r.data.ok) {
-      showResult('✅ Exception scan completed | PRs ' + (r.data.checkedPrs || 0) +
-        ' | Alerts sent ' + (r.data.sent || 0) +
-        ' | Skipped ' + (r.data.skipped || 0), 'success');
-      checkHealthStatus();
+    if (r.ok && r.data) {
+      const d = r.data;
+      if (d.ok) {
+        showResult('✅ Exception scan completed | PRs ' + (d.checkedPrs || 0) +
+          ' | Alerts sent ' + (d.sent || 0) +
+          ' | Skipped ' + (d.skipped || 0), 'success');
+        checkHealthStatus();
+      } else if (Array.isArray(d.errors) && d.errors.length > 0) {
+        showResult('⚠️ Scan completed with warnings | PRs ' + (d.checkedPrs || 0) +
+          ' | Alerts sent ' + (d.sent || 0) +
+          ' | Skipped ' + (d.skipped || 0) +
+          '<br><small style="display:block;margin-top:4px;max-height:100px;overflow-y:auto;text-align:left;">' +
+          escapeHtml(d.errors.join(' | ')) + '</small>', 'warning');
+        checkHealthStatus();
+      } else {
+        showResult('❌ ' + (d.error || d.detail || 'Unknown'), 'error');
+      }
     } else {
       const d = r.data || {};
       showResult('❌ ' + (d.error || d.detail || 'Unknown'), 'error');
