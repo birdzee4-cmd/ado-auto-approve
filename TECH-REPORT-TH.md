@@ -45,8 +45,12 @@
 │  │  - logs.html (Audit Logs Search UI)                      │   │
 │  │  - health.html (System Health UI)                        │   │
 │  │  - 403.html (Forbidden page)                             │   │
-│  │  - app.js (Vanilla JS frontend logic)                    │   │
-│  │  - styles.css (Vanilla CSS styling)                      │   │
+│  │  - core.css / core.js (Basic styles & shared utilities)    │   │
+│  │  - dashboard.css / dashboard.js (Dashboard module)          │   │
+│  │  - activity.css / activity.js (Activity History module)      │   │
+│  │  - merge.css / merge.js (Merge Lookup module)              │   │
+│  │  - logs.css / logs.js (Audit Logs module)                  │   │
+│  │  - health.css / health.js (System Health module)            │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │  Built-in Authentication (Microsoft Entra ID)            │   │
@@ -188,8 +192,12 @@ ado-auto-approve/
 │   ├── [logs.html](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/logs.html)                    หน้าสำหรับค้นหาและตรวจสอบประวัติการทำรายการย้อนหลัง
 │   ├── [health.html](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/health.html)                  หน้าตรวจสอบสุขภาพระบบภายนอกและการทำงานของ API
 │   ├── [403.html](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/403.html)                     หน้าแจ้งเตือนไม่มีสิทธิ์ใช้งานระบบ (Forbidden)
-│   ├── [styles.css](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/styles.css)                   Custom CSS สำหรับตกแต่ง UI ในระบบ (ขนาด ~3,000 บรรทัด)
-│   ├── [app.js](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/app.js)                       Vanilla JavaScript จัดการ Dynamic UI และเชื่อมต่อ APIs
+│   ├── [core.css](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/core.css) / [core.js](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/core.js)            สไตล์พื้นฐานและฟังก์ชันบริการหลัก (safeFetch, modals, theme)
+│   ├── [dashboard.css](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/dashboard.css) / [dashboard.js](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/dashboard.js)   สไตล์และคอนโทรลเลอร์สำหรับหน้า Dashboard อนุมัติ PR/Release
+│   ├── [activity.css](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/activity.css) / [activity.js](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/activity.js)      สไตล์และคอนโทรลเลอร์สำหรับหน้าแสดงประวัติกิจกรรมย้อนหลัง
+│   ├── [merge.css](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/merge.css) / [merge.js](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/merge.js)            สไตล์และคอนโทรลเลอร์สำหรับหน้าค้นหา/วิเคราะห์ Merge Pipeline
+│   ├── [logs.css](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/logs.css) / [logs.js](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/logs.js)               สไตล์และคอนโทรลเลอร์สำหรับหน้าค้นหา SharePoint Audit Logs
+│   ├── [health.css](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/health.css) / [health.js](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/health.js)            สไตล์และคอนโทรลเลอร์สำหรับหน้าประเมินและตรวจสอบ System Health
 │   └── assets/                      โฟลเดอร์เก็บรูปภาพไอคอนและแบนเนอร์
 │       ├── [buzzebees-banner.png](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/assets/buzzebees-banner.png)
 │       ├── [buzzebees-icon.png](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/assets/buzzebees-icon.png)
