@@ -2,6 +2,16 @@
 // ADO Auto-Approve - Dashboard Script (Phase 3.1)
 // ============================================
 
+// Run theme check immediately to avoid Flash of Unstyled Content (FOUC)
+(function applyTheme() {
+  try {
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    if (currentTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    }
+  } catch (e) {}
+})();
+
 let currentPrForAction = null;
 window._prCache = {};
 window._activeTab = 'pr';
@@ -17,6 +27,8 @@ window._currentUser = {
 };
 
 (async function init() {
+  // Inject theme toggle button immediately when DOM binds
+  initThemeToggle();
   try {
     const authResp = await fetch('/.auth/me');
     const authData = await authResp.json();
@@ -149,6 +161,52 @@ function showBox(id, html, type) {
   box.className = type ? 'test-result result-' + type : '';
   box.innerHTML = html;
 }
+
+function initThemeToggle() {
+  try {
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    const navRight = document.querySelector('.nav-right');
+    if (!navRight) return;
+
+    if (document.getElementById('themeToggle')) return;
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.id = 'themeToggle';
+    toggleBtn.className = 'theme-toggle-btn';
+    toggleBtn.type = 'button';
+    toggleBtn.innerHTML = currentTheme === 'dark' ? '☀️' : '🌙';
+    toggleBtn.title = currentTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+
+    const logoutBtn = navRight.querySelector('.logout-button');
+    if (logoutBtn) {
+      navRight.insertBefore(toggleBtn, logoutBtn);
+    } else {
+      navRight.appendChild(toggleBtn);
+    }
+
+    toggleBtn.addEventListener('click', () => {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      toggleBtn.innerHTML = isDark ? '☀️' : '🌙';
+      toggleBtn.title = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+    });
+  } catch (e) {
+    console.error('Failed to init theme toggle:', e);
+  }
+}
+
+function renderSkeletonRows(columnsCount, rowsCount) {
+  let rowsHtml = '';
+  for (let r = 0; r < rowsCount; r++) {
+    rowsHtml += '<tr>';
+    for (let c = 0; c < columnsCount; c++) {
+      const randomWidth = 40 + Math.floor(Math.random() * 50);
+      rowsHtml += `<td><div class="skeleton skeleton-text" style="width: ${randomWidth}%; margin: 6px 0;"></div></td>`;
+    }
+    rowsHtml += '</tr>';
+  }
+  return rowsHtml;
+}
 function showResult(message, type) {
   showBox('testResult', message, type || 'info');
 }
@@ -243,6 +301,10 @@ async function loadPrActivity(page) {
   const nextPage = Math.max(Number(page) || 0, 0);
   window._recentlyApprovedPage = nextPage;
   setButtonLoading('btnRefreshActivity', true, 'Loading...');
+  
+  const tbody = document.getElementById('completedTableBody');
+  if (tbody) tbody.innerHTML = renderSkeletonRows(10, 5);
+  
   showBox('activityResult', '<div class="test-result result-info">⏳ Loading PR activity...</div>');
 
   try {
@@ -303,9 +365,16 @@ async function checkPrs(isSilent) {
   if (!document.getElementById('prTableContainer')) return;
   if (!isSilent) {
     setButtonLoading('btnCheckPrs', true, 'Loading...');
-    if (document.getElementById('prTableContainer')) document.getElementById('prTableContainer').hidden = true;
-    if (document.getElementById('releaseTableContainer')) document.getElementById('releaseTableContainer').hidden = true;
-    if (document.getElementById('dashboardTabs')) document.getElementById('dashboardTabs').hidden = true;
+    
+    const prTbody = document.getElementById('prTableBody');
+    const relTbody = document.getElementById('releaseTableBody');
+    if (prTbody) prTbody.innerHTML = renderSkeletonRows(7, 4);
+    if (relTbody) relTbody.innerHTML = renderSkeletonRows(6, 2);
+    
+    if (document.getElementById('prTableContainer')) document.getElementById('prTableContainer').hidden = false;
+    if (document.getElementById('releaseTableContainer')) document.getElementById('releaseTableContainer').hidden = false;
+    if (document.getElementById('dashboardTabs')) document.getElementById('dashboardTabs').hidden = false;
+    
     showBox('prResult', '<div class="test-result result-info">⏳ Calling ADO API...</div>');
   }
 
@@ -1650,6 +1719,9 @@ async function loadAuditLogs() {
   if (!document.getElementById('logTableBody')) return;
   setButtonLoading('btnSearchLogs', true, 'Searching...');
   showBox('logResult', '⏳ Loading SharePoint log...', 'info');
+  
+  const tbody = document.getElementById('logTableBody');
+  if (tbody) tbody.innerHTML = renderSkeletonRows(10, 5);
 
   try {
     const params = new URLSearchParams();
