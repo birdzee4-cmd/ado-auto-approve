@@ -190,4 +190,61 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== Dark Mode Overrides ===== */
+html.dark .merge-lookup-panel {
+  background: rgba(20, 22, 28, 0.85);
+  border-color: rgba(245, 164, 0, 0.22);
+}
+
+html.dark .merge-card {
+  background: rgba(28, 29, 34, 0.75);
+  border-color: rgba(245, 164, 0, 0.18);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+}
+
+html.dark .merge-card h2,
+html.dark .merge-card h3 {
+  color: #ffffff;
+}
+
+html.dark .merge-card-label {
+  color: var(--bz-yellow);
+}
+
+html.dark .merge-card-note {
+  color: #a0aec0;
+}
+
+html.dark .merge-meta-grid span,
+html.dark .merge-branch-stack span,
+html.dark .merge-definition-list dt {
+  color: #718096;
+}
+
+html.dark .merge-meta-grid strong,
+html.dark .merge-definition-list dd {
+  color: #ffffff;
+}
+
+html.dark .merge-branch-stack code {
+  background: rgba(245, 164, 0, 0.15);
+  color: #fff;
+}
+
+html.dark .merge-warning-note {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.2);
+  border-left-color: #d97706;
+  color: #ffedd5;
+}
+
+html.dark .merge-warning-note strong {
+  color: #fed7aa;
+}
+
+html.dark .merge-warning-note span {
+  color: #a0aec0;
+}
+
 

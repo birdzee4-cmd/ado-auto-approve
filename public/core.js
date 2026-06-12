@@ -5,7 +5,7 @@
 // Run theme check immediately to avoid Flash of Unstyled Content (FOUC)
 (function applyTheme() {
   try {
-    const currentTheme = localStorage.getItem('theme') || 'light';
+    const currentTheme = localStorage.getItem('theme') || 'dark';
     if (currentTheme === 'dark') {
       document.documentElement.classList.add('dark');
     }
@@ -118,7 +118,7 @@ function showBox(id, html, type) {
 
 function initThemeToggle() {
   try {
-    const currentTheme = localStorage.getItem('theme') || 'light';
+    const currentTheme = localStorage.getItem('theme') || 'dark';
     const navRight = document.querySelector('.nav-right');
     if (!navRight) return;
 

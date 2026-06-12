@@ -113,4 +113,48 @@
   font-weight: 500;
   word-break: break-all;
 }
+
+/* ===== Dark Mode Overrides ===== */
+html.dark .audit-table-wrap {
+  background: rgba(12, 13, 16, 0.9);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.4);
+}
+
+html.dark .audit-table thead {
+  background: rgba(28, 29, 34, 0.95);
+  color: var(--bz-yellow);
+}
+
+html.dark .audit-table td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+}
+
+html.dark .audit-table tbody tr:hover {
+  background: rgba(245, 164, 0, 0.05);
+}
+
+html.dark .audit-repo {
+  color: #fff;
+}
+
+html.dark .audit-table small {
+  color: #a0aec0;
+}
+
+html.dark .info-grid {
+  background: rgba(20, 22, 28, 0.85);
+  border-color: rgba(245, 164, 0, 0.18);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.4);
+}
+
+html.dark .info-label {
+  color: #718096;
+}
+
+html.dark .info-value {
+  color: #fff;
+}
+
 

@@ -2008,4 +2008,120 @@ html.dark .auto-approve-panel:hover {
 html.dark .auto-console-log {
   border-color: rgba(245, 164, 0, 0.25);
 }
+
+/* ==========================================================================
+   Dark-Glass Premium Themes Overrides
+   ========================================================================== */
+html.dark body {
+  background: #080a0a;
+  color: #f3f4f6;
+}
+
+html.dark .welcome-card {
+  background: linear-gradient(135deg, rgba(20, 22, 28, 0.95) 0%, rgba(12, 13, 16, 0.9) 100%);
+  border: 1px solid rgba(245, 164, 0, 0.25);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(245, 164, 0, 0.05);
+}
+
+html.dark .welcome-card h1 {
+  background: linear-gradient(90deg, #ffffff 0%, var(--bz-yellow) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+html.dark .welcome-card > p {
+  color: #a0aec0;
+}
+
+html.dark .info-item {
+  background: rgba(28, 29, 34, 0.7);
+  border: 1px solid rgba(245, 164, 0, 0.18);
+  border-left: 4px solid var(--bz-yellow);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+html.dark .info-item:hover {
+  background: rgba(40, 42, 50, 0.9);
+  border-color: var(--bz-yellow);
+  box-shadow: 0 8px 24px rgba(245, 164, 0, 0.2);
+}
+
+html.dark .info-label {
+  color: #718096;
+}
+
+html.dark .info-value {
+  color: #ffffff;
+}
+
+html.dark .pr-section {
+  background: rgba(20, 22, 28, 0.85);
+  border-color: rgba(245, 164, 0, 0.18);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.4);
+}
+
+html.dark .pr-section h2 {
+  color: #ffffff;
+}
+
+html.dark .section-desc {
+  color: #718096;
+}
+
+html.dark .pr-table-wrap {
+  background: rgba(12, 13, 16, 0.9);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+html.dark .pr-table th {
+  background: rgba(28, 29, 34, 0.9);
+  color: #a0aec0;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.05);
+}
+
+html.dark .pr-table td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+}
+
+html.dark .pr-table tbody tr {
+  background: transparent;
+}
+
+html.dark .pr-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.01);
+}
+
+/* Status colors remain the same visually but with slight text adjustments */
+html.dark .my-approval-approved,
+html.dark .attention-ready,
+html.dark .attention-normal {
+  background: rgba(22, 101, 52, 0.2) !important;
+  border-color: #15803d !important;
+  color: #86efac !important;
+}
+
+html.dark .my-approval-pending,
+html.dark .attention-watch,
+html.dark .my-approval-manual {
+  background: rgba(146, 64, 14, 0.2) !important;
+  border-color: #b45309 !important;
+  color: #fde68a !important;
+}
+
+html.dark .my-approval-rejected,
+html.dark .attention-critical {
+  background: rgba(153, 27, 27, 0.2) !important;
+  border-color: #b91c1c !important;
+  color: #fecaca !important;
+}
+
+html.dark .my-approval-warning,
+html.dark .attention-warning,
+html.dark .attention-stale {
+  background: rgba(154, 52, 18, 0.2) !important;
+  border-color: #c2410c !important;
+  color: #fed7aa !important;
+}
+
 
