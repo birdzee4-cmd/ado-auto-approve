@@ -1942,4 +1942,70 @@
   text-align: center;
   padding-top: 35px;
 }
+
+/* ===== PREMIUM UI/UX POLISH FOR DASHBOARD ===== */
+
+/* 1. Interactive Table Rows */
+.pr-table tbody tr {
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+.pr-table tbody tr:hover {
+  background: rgba(245, 164, 0, 0.05) !important;
+  box-shadow: inset 3px 0 0 var(--bz-yellow);
+}
+html.dark .pr-table tbody tr:hover {
+  background: rgba(245, 164, 0, 0.08) !important;
+  box-shadow: inset 3px 0 0 var(--bz-yellow);
+}
+
+/* 2. Interactive Badges & Chips */
+.attention-badge, .my-approval, .status-snapshot, .release-badge, .log-source-badge, .approval-badge {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.attention-badge:hover, .my-approval:hover, .status-snapshot:hover, .release-badge:hover, .log-source-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+}
+html.dark .attention-badge:hover, 
+html.dark .my-approval:hover, 
+html.dark .status-snapshot:hover, 
+html.dark .release-badge:hover, 
+html.dark .log-source-badge:hover {
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+}
+
+/* 3. Auto-Approve Panel Polish */
+.auto-approve-panel {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(245, 164, 0, 0.22);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(91, 69, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.auto-approve-panel:hover {
+  border-color: rgba(245, 164, 0, 0.35);
+  box-shadow: 0 16px 40px rgba(91, 69, 0, 0.08);
+}
+html.dark .auto-approve-panel {
+  background: rgba(31, 41, 55, 0.75);
+  border-color: rgba(245, 164, 0, 0.25);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+html.dark .auto-approve-panel:hover {
+  border-color: rgba(245, 164, 0, 0.45);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* 4. Cyberpunk Auto-Console Log */
+.auto-console-log {
+  background: linear-gradient(135deg, #090d16 0%, #05070c 100%);
+  border: 1px solid rgba(245, 164, 0, 0.15);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8), 0 4px 10px rgba(0, 0, 0, 0.1);
+  color: #38bdf8;
+}
+html.dark .auto-console-log {
+  border-color: rgba(245, 164, 0, 0.25);
+}
 
