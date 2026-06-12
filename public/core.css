@@ -44,16 +44,17 @@ body {
 
 /* ===== Navbar ===== */
 .navbar {
-  background: var(--bz-ink);
-  padding: 12px 28px;
-  box-shadow: 0 14px 32px rgba(8, 10, 10, 0.18);
+  background: rgba(18, 19, 22, 0.96);
+  backdrop-filter: blur(12px);
+  padding: 14px 28px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(245, 164, 0, 0.05);
   display: flex;
   justify-content: space-between;
   align-items: center;
   position: sticky;
   top: 0;
   z-index: 20;
-  border-bottom: 4px solid var(--bz-yellow);
+  border-bottom: 2px solid rgba(245, 164, 0, 0.45);
 }
 
 .nav-left {
@@ -65,56 +66,60 @@ body {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: 12px;
+  gap: 8px;
+  margin-left: 16px;
 }
 
 .nav-link {
-  color: #f9fafb;
+  color: #a0aec0;
   text-decoration: none;
   font-size: 13px;
-  font-weight: 700;
-  padding: 8px 11px;
+  font-weight: 600;
+  padding: 8px 14px;
   border-radius: 6px;
   border: 1px solid transparent;
-  transition: all 0.2s;
+  transition: all 0.25s ease;
 }
 
 .nav-link:hover,
 .nav-link-active {
-  color: #111827;
+  color: #000000;
   background: var(--bz-yellow);
   border-color: var(--bz-yellow);
+  box-shadow: 0 0 15px rgba(245, 164, 0, 0.35);
+  font-weight: 700;
 }
 
 .nav-icon {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(245, 164, 0, 0.4));
 }
 
 .brand {
-  font-weight: 700;
-  font-size: 18px;
+  font-weight: 800;
+  font-size: 19px;
   color: #ffffff;
-  letter-spacing: 0;
+  letter-spacing: 1px;
+  text-shadow: 0 0 12px rgba(245, 164, 0, 0.4);
 }
 
 .nav-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   margin-left: auto;
 }
 
 .nav-logo {
-  width: 170px;
-  height: 36px;
+  width: 150px;
+  height: 32px;
   object-fit: contain;
   object-position: right center;
   padding-left: 16px;
   margin-left: 6px;
-  border-left: 1px solid rgba(245, 164, 0, 0.34);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .user-name {
@@ -126,28 +131,32 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding: 8px 10px;
-  border: 1px solid rgba(245, 164, 0, 0.24);
+  padding: 8px 14px;
+  border: 1px solid rgba(245, 164, 0, 0.35);
   border-radius: 999px;
   background: rgba(245, 164, 0, 0.08);
+  box-shadow: inset 0 0 8px rgba(245, 164, 0, 0.1);
 }
 
 .logout-button {
   color: #111827;
   text-decoration: none;
   font-size: 13px;
-  padding: 10px 16px;
+  padding: 8px 16px;
   border: 1px solid var(--bz-yellow);
   border-radius: 6px;
   transition: all 0.2s;
   background: var(--bz-yellow);
   font-weight: 700;
   line-height: 1;
+  box-shadow: 0 4px 12px rgba(245, 164, 0, 0.2);
 }
 
 .logout-button:hover {
   background: #ffffff;
   color: #111827;
+  border-color: #ffffff;
+  box-shadow: 0 4px 15px rgba(255, 255, 255, 0.3);
 }
 
 

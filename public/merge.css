@@ -6,8 +6,8 @@
   align-items: end;
   margin: 22px 0 16px;
   padding: 16px;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(245, 164, 0, 0.32);
+  background: rgba(20, 22, 28, 0.85);
+  border: 1px solid rgba(245, 164, 0, 0.22);
   border-radius: 10px;
 }
 
@@ -32,16 +32,16 @@
 }
 
 .merge-card {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(245, 164, 0, 0.34);
+  background: rgba(28, 29, 34, 0.75);
+  border: 1px solid rgba(245, 164, 0, 0.18);
   border-radius: 10px;
   padding: 16px;
-  box-shadow: 0 10px 24px rgba(91, 69, 0, 0.08);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
 }
 
 .merge-card h2,
 .merge-card h3 {
-  color: #111827;
+  color: #ffffff;
   font-size: 18px;
   line-height: 1.35;
   margin: 6px 0 14px;

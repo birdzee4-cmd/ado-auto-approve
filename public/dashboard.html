@@ -27,7 +27,7 @@
     </div>
   </nav>
 
-  <main class="dashboard">
+  <main class="dashboard halftone-bg">
     <div class="welcome-card">
       <h1>ระบบ Approve PR — Staging</h1>
       <p>ระบบ Dashboard สำหรับตรวจสอบและอนุมัติ Pull Request บน Azure DevOps<br>โดยออกแบบให้ผู้ใช้งานกลุ่ม IT Support Approve สามารถเห็นงาน PR ที่รออนุมัติได้จากหน้าเว็บเดียว<br>พร้อมบันทึกผลการดำเนินการลง SharePoint Log, ตรวจสถานะ Build / Run Policy<br>แจ้งเตือน Teams เฉพาะเหตุการณ์สำคัญ, ส่ง Daily Summary สรุปรายวัน<br>และมีหน้า Merge Lookup สำหรับช่วยตรวจสอบ CI/CD ของงานประเภท Merge</p>
@@ -287,5 +287,49 @@
   </div>
 
   <script type="module" src="/dashboard.js"></script>
+
+  <!-- Mascot Container -->
+  <div class="mascot-container" id="mascotContainer">
+    <div class="mascot-speech-bubble" id="mascotBubble">
+      Hello! I'm here to help you manage your pull requests.
+    </div>
+    <div class="mascot-robot" id="mascotRobot" onclick="triggerMascotSpeech()">
+      <div class="robot-face" id="robotFace">
+        <div class="robot-ears"></div>
+        <div class="robot-eyes">
+          <div class="robot-eye left"></div>
+          <div class="robot-eye right"></div>
+        </div>
+        <div class="robot-mouth"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const mascotQuotes = [
+      "Here is the active Pull Request queue. Refresh to see new PRs!",
+      "IT Support Approve group has exclusive rights to approve these PRs.",
+      "Click on Reviewers column to see who is assigned to a PR!",
+      "You can toggle Guarded Auto-Approve Mode if you have Admin rights."
+    ];
+    let quoteIndex = 0;
+
+    function triggerMascotSpeech() {
+      const bubble = document.getElementById('mascotBubble');
+      const face = document.getElementById('robotFace');
+      
+      face.classList.add('winking');
+      face.classList.add('talking');
+      
+      bubble.innerText = mascotQuotes[quoteIndex];
+      bubble.classList.add('active');
+      
+      quoteIndex = (quoteIndex + 1) % mascotQuotes.length;
+
+      setTimeout(() => { face.classList.remove('winking'); }, 500);
+      setTimeout(() => { face.classList.remove('talking'); }, 2000);
+    }
+    setTimeout(() => { triggerMascotSpeech(); }, 2000);
+  </script>
 </body>
 </html>

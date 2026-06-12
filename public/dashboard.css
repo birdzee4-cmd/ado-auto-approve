@@ -10,17 +10,17 @@
 .welcome-card {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 250, 240, 0.95) 100%);
+  background: linear-gradient(135deg, rgba(20, 22, 28, 0.96) 0%, rgba(10, 11, 14, 0.96) 100%);
   border-radius: 16px;
   padding: 28px 32px;
-  box-shadow: 0 20px 50px rgba(245, 164, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.02);
-  border: 1px solid rgba(245, 164, 0, 0.22);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(245, 164, 0, 0.08);
+  border: 1px solid rgba(245, 164, 0, 0.35);
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .welcome-card:hover {
-  border-color: rgba(245, 164, 0, 0.35);
-  box-shadow: 0 24px 60px rgba(245, 164, 0, 0.14), 0 6px 18px rgba(0, 0, 0, 0.03);
+  border-color: var(--bz-yellow);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(245, 164, 0, 0.15);
 }
 
 .welcome-card::before {
@@ -76,21 +76,21 @@
   align-items: center;
   gap: 16px;
   padding: 16px 20px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(245, 164, 0, 0.15);
+  background: rgba(28, 29, 34, 0.7);
+  border: 1px solid rgba(245, 164, 0, 0.2);
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(91, 69, 0, 0.03);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border-left: 4px solid #f5a400;
+  border-left: 4px solid var(--bz-yellow);
 }
 
 .info-item:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 24px rgba(245, 164, 0, 0.12);
-  border-color: rgba(245, 164, 0, 0.3);
-  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 8px 24px rgba(245, 164, 0, 0.2);
+  border-color: var(--bz-yellow);
+  background: rgba(40, 42, 50, 0.9);
 }
 
 .info-icon {
@@ -419,10 +419,10 @@
 .pr-section {
   margin: 40px 0;
   padding: 24px;
-  background: rgba(255, 251, 235, 0.94);
+  background: rgba(20, 22, 28, 0.85);
   border-radius: 12px;
-  border: 1px solid var(--bz-line);
-  box-shadow: 0 16px 34px rgba(91, 69, 0, 0.10);
+  border: 1px solid rgba(245, 164, 0, 0.22);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.4);
 }
 
 .pr-header {
@@ -436,7 +436,7 @@
 
 .pr-section h2 {
   font-size: 18px;
-  color: var(--bz-ink);
+  color: #ffffff;
   margin-bottom: 4px;
 }
 
@@ -493,12 +493,12 @@
 }
 
 .pr-table-wrap {
-  background: white;
+  background: rgba(12, 13, 16, 0.9);
   border-radius: 8px;
   overflow-x: auto;
-  border: 1px solid #ead8a8;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   -webkit-overflow-scrolling: touch;
-  box-shadow: 0 10px 22px rgba(91, 69, 0, 0.06);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.4);
 }
 
 .pr-table {
@@ -600,14 +600,14 @@
 .completed-table td:nth-child(11) { width: auto; }
 
 .pr-table thead {
-  background: var(--bz-ink);
-  color: #ffcf54;
+  background: rgba(28, 29, 34, 0.95);
+  color: var(--bz-yellow);
 }
 
 .pr-table th {
   padding: 10px 12px;
   text-align: left;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -615,12 +615,13 @@
 
 .pr-table td {
   padding: 10px 12px;
-  border-bottom: 1px solid #f5ecd2;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   vertical-align: top;
   min-width: 0;
   overflow: hidden;
   overflow-wrap: anywhere;
   word-break: break-word;
+  color: #e2e8f0;
 }
 
 .pr-table th {

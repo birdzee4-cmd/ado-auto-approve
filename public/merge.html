@@ -28,7 +28,7 @@
     </div>
   </nav>
 
-  <main class="dashboard">
+  <main class="dashboard halftone-bg">
     <div class="welcome-card merge-page">
       <div class="page-header">
         <div>
@@ -57,5 +57,48 @@
   </main>
 
   <script type="module" src="/merge.js"></script>
+
+  <!-- Mascot Container -->
+  <div class="mascot-container" id="mascotContainer">
+    <div class="mascot-speech-bubble" id="mascotBubble">
+      Hello! I'm here to help you trace and verify PR merges.
+    </div>
+    <div class="mascot-robot" id="mascotRobot" onclick="triggerMascotSpeech()">
+      <div class="robot-face" id="robotFace">
+        <div class="robot-ears"></div>
+        <div class="robot-eyes">
+          <div class="robot-eye left"></div>
+          <div class="robot-eye right"></div>
+        </div>
+        <div class="robot-mouth"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const mascotQuotes = [
+      "Enter any Azure DevOps Pull Request ID to trace its source branch, merge details, and active CI/CD pipelines.",
+      "This helps verify that your code successfully merges to staging or release branches.",
+      "If you see any issues, review the pipeline branch configurations."
+    ];
+    let quoteIndex = 0;
+
+    function triggerMascotSpeech() {
+      const bubble = document.getElementById('mascotBubble');
+      const face = document.getElementById('robotFace');
+      
+      face.classList.add('winking');
+      face.classList.add('talking');
+      
+      bubble.innerText = mascotQuotes[quoteIndex];
+      bubble.classList.add('active');
+      
+      quoteIndex = (quoteIndex + 1) % mascotQuotes.length;
+
+      setTimeout(() => { face.classList.remove('winking'); }, 500);
+      setTimeout(() => { face.classList.remove('talking'); }, 2000);
+    }
+    setTimeout(() => { triggerMascotSpeech(); }, 2000);
+  </script>
 </body>
 </html>
