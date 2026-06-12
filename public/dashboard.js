@@ -7,7 +7,8 @@ import {
   renderApprovalLogSourceBadge, renderCompletedActions,
   isPrCompletedForReleaseSummary, getStatusSummaryText,
   renderRecentlyApprovedStatusBadge, renderRecentlyApprovedRows,
-  renderCompletedPrTable, initPage, checkHealthStatus
+  renderCompletedPrTable, initPage, checkHealthStatus,
+  openModal, closeModal
 } from './core.js';
 
 let currentPrForAction = null;
