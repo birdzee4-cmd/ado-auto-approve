@@ -1,0 +1,193 @@
+/* ===== Merge Lookup ===== */
+.merge-lookup-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 420px) auto;
+  gap: 12px;
+  align-items: end;
+  margin: 22px 0 16px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(245, 164, 0, 0.32);
+  border-radius: 10px;
+}
+
+.merge-pr-field input {
+  height: 42px;
+}
+
+.merge-lookup-panel .primary-button {
+  justify-self: start;
+  min-width: 140px;
+  width: auto;
+}
+
+.merge-details {
+  margin-top: 16px;
+}
+
+.merge-result-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.3fr) minmax(260px, 0.85fr) minmax(260px, 0.85fr);
+  gap: 14px;
+}
+
+.merge-card {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(245, 164, 0, 0.34);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 10px 24px rgba(91, 69, 0, 0.08);
+}
+
+.merge-card h2,
+.merge-card h3 {
+  color: #111827;
+  font-size: 18px;
+  line-height: 1.35;
+  margin: 6px 0 14px;
+  letter-spacing: 0;
+}
+
+.merge-card h3 {
+  font-size: 16px;
+}
+
+.merge-card-label {
+  color: #7c5d00;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.merge-card-note {
+  margin: -6px 0 12px;
+  color: #7c5d00;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.merge-warning-note {
+  display: grid;
+  gap: 4px;
+  margin: -4px 0 14px;
+  padding: 10px 12px;
+  background: #fff3c4;
+  border: 1px solid #f5a400;
+  border-left: 4px solid #d97706;
+  border-radius: 8px;
+  color: #7c2d12;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.merge-warning-note strong {
+  color: #9a3412;
+  font-size: 13px;
+}
+
+.merge-warning-note span {
+  color: #7c5d00;
+}
+
+.merge-card.merge-ok {
+  border-left: 4px solid #22c55e;
+}
+
+.merge-card.merge-warn {
+  border-left: 4px solid #f59e0b;
+}
+
+.merge-card.merge-info {
+  border-left: 4px solid #3b82f6;
+}
+
+.merge-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.merge-meta-grid span,
+.merge-branch-stack span,
+.merge-definition-list dt {
+  display: block;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+
+.merge-meta-grid strong,
+.merge-definition-list dd {
+  color: #111827;
+  font-size: 13px;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.merge-branch-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.merge-branch-stack code {
+  display: block;
+  padding: 7px 9px;
+  background: #fff2b8;
+  border-radius: 5px;
+  color: #1f2937;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.merge-definition-list {
+  display: grid;
+  gap: 10px;
+}
+
+.merge-definition-list dd {
+  margin: 0;
+}
+
+.merge-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.merge-small-link {
+  min-height: 34px;
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+.result-warning {
+  background: #fff7ed;
+  color: #92400e;
+  border-left-color: #f59e0b;
+}
+
+@media (max-width: 1100px) {
+  .merge-result-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .merge-lookup-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .merge-lookup-panel .primary-button {
+    justify-self: stretch;
+    width: 100%;
+  }
+
+  .merge-meta-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
