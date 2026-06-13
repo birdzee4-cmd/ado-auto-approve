@@ -2317,4 +2317,68 @@ h1, h2, h3, h4, h5, h6 {
   color: #c2410c !important;
 }
 
+/* Custom panel and card overrides for light theme consistency */
+.log-filter-panel,
+.activity-filter-panel,
+.test-section {
+  background: rgba(255, 255, 255, 0.75) !important;
+  border: 1px solid rgba(230, 190, 100, 0.35) !important;
+  box-shadow: 0 15px 35px rgba(220, 180, 100, 0.08), 0 5px 15px rgba(0, 0, 0, 0.02) !important;
+  color: #374151 !important;
+}
+
+.log-filter-panel input,
+.log-filter-panel select,
+.activity-filter-panel input,
+.activity-filter-panel select {
+  background: #ffffff !important;
+  color: #1f2937 !important;
+  border: 1px solid rgba(230, 190, 100, 0.4) !important;
+}
+
+.log-filter-panel span,
+.activity-filter-panel span {
+  color: #7c6a52 !important;
+}
+
+.log-stat-card {
+  background: rgba(255, 255, 255, 0.8) !important;
+  border: 1px solid rgba(230, 190, 100, 0.3) !important;
+  box-shadow: 0 8px 20px rgba(220, 180, 100, 0.05) !important;
+}
+
+.log-stat-card span {
+  color: #855800 !important;
+}
+
+.log-stat-card strong {
+  color: #2c2512 !important;
+}
+
+/* health.html Diagnostic Tools specific overrides */
+.test-section h2 {
+  background: linear-gradient(135deg, #7c4a00 0%, #d97706 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+.action-button {
+  background: rgba(255, 255, 255, 0.8) !important;
+  border: 1px solid rgba(230, 190, 100, 0.3) !important;
+  box-shadow: 0 6px 18px rgba(220, 180, 100, 0.05) !important;
+}
+
+.action-button:hover {
+  border-color: rgba(245, 164, 0, 0.5) !important;
+  box-shadow: 0 10px 25px rgba(245, 164, 0, 0.12) !important;
+}
+
+.btn-title {
+  color: #3b2806 !important;
+}
+
+.btn-desc {
+  color: #7c6a52 !important;
+}
+
 
