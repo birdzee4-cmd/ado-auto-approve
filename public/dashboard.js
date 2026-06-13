@@ -101,26 +101,8 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
   const fetchedStr = new Date(d.fetchedAt).toLocaleString('th-TH');
 
   let cardsHtml = '';
-  
-  // 1. Reviewer Card
-  cardsHtml += '<div class="summary-card">' +
-    '<span class="card-icon">👥</span>' +
-    '<div class="card-body">' +
-      '<span class="card-label">Reviewer</span>' +
-      '<strong class="card-value">' + escapeHtml(d.reviewerGroup) + '</strong>' +
-    '</div>' +
-  '</div>';
 
-  // 2. Fetched Card
-  cardsHtml += '<div class="summary-card">' +
-    '<span class="card-icon">🕒</span>' +
-    '<div class="card-body">' +
-      '<span class="card-label">Fetched</span>' +
-      '<strong class="card-value">' + fetchedStr + '</strong>' +
-    '</div>' +
-  '</div>';
-
-  // 3. Status Card
+  // 1. Status Card (First)
   cardsHtml += '<div class="summary-card">' +
     '<span class="card-icon">📊</span>' +
     '<div class="card-body">' +
@@ -134,7 +116,7 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
     '</div>' +
   '</div>';
 
-  // 4. Attention Card
+  // 2. Attention Card (Second)
   cardsHtml += '<div class="summary-card">' +
     '<span class="card-icon">⚠️</span>' +
     '<div class="card-body">' +
@@ -144,6 +126,15 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
         '<span class="status-badge-custom badge-orange">Warning <strong>' + (attention.warning || 0) + '</strong></span>' +
         '<span class="status-badge-custom badge-slate">Stale <strong>' + (attention.stale || 0) + '</strong></span>' +
       '</div>' +
+    '</div>' +
+  '</div>';
+
+  // 3. Fetched Card (Third)
+  cardsHtml += '<div class="summary-card">' +
+    '<span class="card-icon">🕒</span>' +
+    '<div class="card-body">' +
+      '<span class="card-label">Fetched</span>' +
+      '<strong class="card-value">' + fetchedStr + '</strong>' +
     '</div>' +
   '</div>';
 
@@ -157,6 +148,7 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
       '</div>' +
     '</div>';
   }
+
 
   return '<div class="test-result result-success pr-summary-banner">' +
     '<div class="summary-main-line">✅ Found <strong>' + d.count + '</strong> PR waiting approve</div>' +
