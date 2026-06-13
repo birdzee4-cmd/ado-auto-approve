@@ -66,11 +66,56 @@
 }
 
 .welcome-card > p {
-  color: #6b4c1a;
+  color: #4a300a !important; /* Slightly darker brown for better contrast */
   margin-bottom: 24px;
   font-size: 14.5px;
-  line-height: 1.6;
-  max-width: 820px;
+  line-height: 1.8;
+  max-width: 900px;
+}
+
+.welcome-card-highlight {
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+  display: inline-block;
+  margin: 2px 1px;
+  font-size: 13.5px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.welcome-card-highlight.blue {
+  background: rgba(30, 64, 175, 0.08);
+  color: #1d4ed8;
+  border: 1px solid rgba(30, 64, 175, 0.15);
+}
+.welcome-card-highlight.gold {
+  background: rgba(217, 119, 6, 0.08);
+  color: #b45309;
+  border: 1px solid rgba(217, 119, 6, 0.18);
+}
+.welcome-card-highlight.green {
+  background: rgba(4, 120, 87, 0.08);
+  color: #047857;
+  border: 1px solid rgba(4, 120, 87, 0.18);
+}
+.welcome-card-highlight.red {
+  background: rgba(185, 28, 28, 0.08);
+  color: #b91c1c;
+  border: 1px solid rgba(185, 28, 28, 0.18);
+}
+.welcome-card-highlight.orange {
+  background: rgba(217, 119, 6, 0.08);
+  color: #c2410c;
+  border: 1px solid rgba(217, 119, 6, 0.18);
+}
+.welcome-card-highlight.indigo {
+  background: rgba(79, 70, 229, 0.08);
+  color: #4f46e5;
+  border: 1px solid rgba(79, 70, 229, 0.15);
+}
+.welcome-card-highlight.purple {
+  background: rgba(109, 40, 217, 0.08);
+  color: #6d28d9;
+  border: 1px solid rgba(109, 40, 217, 0.15);
 }
 
 /* ===== Info Grid & User Info Cards ===== */
@@ -2063,7 +2108,44 @@ html.dark .welcome-card h1 {
 }
 
 html.dark .welcome-card > p {
-  color: #a0aec0;
+  color: #ebd7b0; /* Warm beige for readability */
+}
+
+/* Dark mode overrides for welcome card highlights */
+html.dark .welcome-card-highlight.blue {
+  background: rgba(96, 165, 250, 0.15);
+  color: #93c5fd;
+  border-color: rgba(96, 165, 250, 0.25);
+}
+html.dark .welcome-card-highlight.gold {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.25);
+}
+html.dark .welcome-card-highlight.green {
+  background: rgba(52, 211, 153, 0.15);
+  color: #6ee7b7;
+  border-color: rgba(52, 211, 153, 0.25);
+}
+html.dark .welcome-card-highlight.red {
+  background: rgba(248, 113, 113, 0.15);
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.25);
+}
+html.dark .welcome-card-highlight.orange {
+  background: rgba(251, 146, 60, 0.15);
+  color: #fdba74;
+  border-color: rgba(251, 146, 60, 0.25);
+}
+html.dark .welcome-card-highlight.indigo {
+  background: rgba(129, 140, 248, 0.15);
+  color: #c7d2fe;
+  border-color: rgba(129, 140, 248, 0.25);
+}
+html.dark .welcome-card-highlight.purple {
+  background: rgba(167, 139, 250, 0.15);
+  color: #ddd6fe;
+  border-color: rgba(167, 139, 250, 0.25);
 }
 
 html.dark .info-item {
@@ -2176,7 +2258,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .welcome-card > p {
-  color: #6b4c1a !important;
+  color: #4a300a !important;
 }
 
 .info-label {
@@ -2380,5 +2462,193 @@ h1, h2, h3, h4, h5, h6 {
 .btn-desc {
   color: #7c6a52 !important;
 }
+
+/* ===== PR Summary Banner & Cards Layout ===== */
+.pr-summary-banner {
+  padding: 24px !important;
+  border-radius: 16px !important;
+  margin-bottom: 24px;
+}
+.summary-main-line {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: #3b2806;
+}
+html.dark .summary-main-line {
+  color: #ffffff;
+}
+.summary-sub-line {
+  font-size: 13px;
+  opacity: 0.85;
+  margin-bottom: 18px;
+  color: #5c4b37;
+}
+html.dark .summary-sub-line {
+  color: #9ca3af;
+}
+.summary-cards-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  width: 100%;
+  margin-top: 12px;
+}
+.summary-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(245, 164, 0, 0.25);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(180, 130, 0, 0.06);
+  transition: all 0.3s ease;
+}
+.summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(180, 130, 0, 0.12);
+  border-color: rgba(245, 164, 0, 0.45);
+}
+.card-icon {
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(245, 164, 0, 0.08);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  text-align: left;
+}
+.card-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #855800;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  line-height: 1;
+}
+.card-value {
+  font-size: 13.5px;
+  color: #2c2512;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+/* Badge colors */
+.status-badge-custom {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+.status-badge-custom strong {
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.badge-blue {
+  background: rgba(59, 130, 246, 0.09) !important;
+  color: #1d4ed8 !important;
+  border: 1px solid rgba(59, 130, 246, 0.25) !important;
+}
+.badge-orange {
+  background: rgba(245, 158, 11, 0.09) !important;
+  color: #c2410c !important;
+  border: 1px solid rgba(245, 158, 11, 0.25) !important;
+}
+.badge-green {
+  background: rgba(16, 185, 129, 0.09) !important;
+  color: #047857 !important;
+  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+}
+.badge-purple {
+  background: rgba(139, 92, 246, 0.09) !important;
+  color: #6d28d9 !important;
+  border: 1px solid rgba(139, 92, 246, 0.25) !important;
+}
+.badge-red {
+  background: rgba(239, 68, 68, 0.09) !important;
+  color: #b91c1c !important;
+  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+}
+.badge-slate {
+  background: rgba(100, 116, 139, 0.09) !important;
+  color: #475569 !important;
+  border: 1px solid rgba(100, 116, 139, 0.25) !important;
+}
+
+.text-amber {
+  color: #b45309 !important;
+}
+
+/* Dark mode overrides */
+html.dark .summary-card {
+  background: rgba(20, 22, 28, 0.85) !important;
+  border: 1px solid rgba(245, 164, 0, 0.2) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+html.dark .summary-card:hover {
+  border-color: rgba(245, 164, 0, 0.45) !important;
+  box-shadow: 0 8px 24px rgba(245, 164, 0, 0.15) !important;
+}
+html.dark .card-label {
+  color: #a0aec0 !important;
+}
+html.dark .card-value {
+  color: #f3f4f6 !important;
+}
+html.dark .badge-blue {
+  background: rgba(59, 130, 246, 0.15) !important;
+  color: #93c5fd !important;
+  border-color: rgba(59, 130, 246, 0.25) !important;
+}
+html.dark .badge-orange {
+  background: rgba(245, 158, 11, 0.15) !important;
+  color: #fcd34d !important;
+  border-color: rgba(245, 158, 11, 0.25) !important;
+}
+html.dark .badge-green {
+  background: rgba(52, 211, 153, 0.15) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(52, 211, 153, 0.25) !important;
+}
+html.dark .badge-purple {
+  background: rgba(167, 139, 250, 0.15) !important;
+  color: #c084fc !important;
+  border-color: rgba(167, 139, 250, 0.25) !important;
+}
+html.dark .badge-red {
+  background: rgba(248, 113, 113, 0.15) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(248, 113, 113, 0.25) !important;
+}
+html.dark .badge-slate {
+  background: rgba(148, 163, 184, 0.15) !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(148, 163, 184, 0.25) !important;
+}
+
 
 

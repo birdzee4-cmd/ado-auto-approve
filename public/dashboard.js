@@ -98,30 +98,75 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
     }
   }
 
-  const statusText = 'Status: New ' + newCount + ' | Hold ' + holdCount + ' | Voted ' + votedCount + ' | Release ' + releaseCount;
+  const fetchedStr = new Date(d.fetchedAt).toLocaleString('th-TH');
 
-  const attentionText = 'Attention: Critical ' + (attention.critical || 0) +
-    ' | Warning ' + (attention.warning || 0) +
-    ' | Stale ' + (attention.stale || 0);
+  let cardsHtml = '';
+  
+  // 1. Reviewer Card
+  cardsHtml += '<div class="summary-card">' +
+    '<span class="card-icon">👥</span>' +
+    '<div class="card-body">' +
+      '<span class="card-label">Reviewer</span>' +
+      '<strong class="card-value">' + escapeHtml(d.reviewerGroup) + '</strong>' +
+    '</div>' +
+  '</div>';
 
-  const chips = [
-    'Reviewer: ' + escapeHtml(d.reviewerGroup),
-    'Fetched: ' + new Date(d.fetchedAt).toLocaleString('th-TH'),
-    statusText,
-    attentionText
-  ];
+  // 2. Fetched Card
+  cardsHtml += '<div class="summary-card">' +
+    '<span class="card-icon">🕒</span>' +
+    '<div class="card-body">' +
+      '<span class="card-label">Fetched</span>' +
+      '<strong class="card-value">' + fetchedStr + '</strong>' +
+    '</div>' +
+  '</div>';
+
+  // 3. Status Card
+  cardsHtml += '<div class="summary-card">' +
+    '<span class="card-icon">📊</span>' +
+    '<div class="card-body">' +
+      '<span class="card-label">Status</span>' +
+      '<div class="card-badges">' +
+        '<span class="status-badge-custom badge-blue">New <strong>' + newCount + '</strong></span>' +
+        '<span class="status-badge-custom badge-orange">Hold <strong>' + holdCount + '</strong></span>' +
+        '<span class="status-badge-custom badge-green">Voted <strong>' + votedCount + '</strong></span>' +
+        '<span class="status-badge-custom badge-purple">Release <strong>' + releaseCount + '</strong></span>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
+  // 4. Attention Card
+  cardsHtml += '<div class="summary-card">' +
+    '<span class="card-icon">⚠️</span>' +
+    '<div class="card-body">' +
+      '<span class="card-label">Attention</span>' +
+      '<div class="card-badges">' +
+        '<span class="status-badge-custom badge-red">Critical <strong>' + (attention.critical || 0) + '</strong></span>' +
+        '<span class="status-badge-custom badge-orange">Warning <strong>' + (attention.warning || 0) + '</strong></span>' +
+        '<span class="status-badge-custom badge-slate">Stale <strong>' + (attention.stale || 0) + '</strong></span>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
+  // Optional: MergeCode Card
   if (mergeCodeCount > 0) {
-    chips.push('MergeCode manual: ' + mergeCodeCount + ' PR');
+    cardsHtml += '<div class="summary-card mergecode-card">' +
+      '<span class="card-icon">🔗</span>' +
+      '<div class="card-body">' +
+        '<span class="card-label">MergeCode Manual</span>' +
+        '<strong class="card-value text-amber">' + mergeCodeCount + ' PR</strong>' +
+      '</div>' +
+    '</div>';
   }
 
   return '<div class="test-result result-success pr-summary-banner">' +
     '<div class="summary-main-line">✅ Found <strong>' + d.count + '</strong> PR waiting approve</div>' +
     '<div class="summary-sub-line">from ' + d.totalActive + ' total active PRs in <code>' + escapeHtml(d.targetBranch) + '</code></div>' +
-    '<div class="summary-chip-row">' +
-      chips.map(text => '<span class="summary-chip">' + text + '</span>').join('') +
+    '<div class="summary-cards-container">' +
+      cardsHtml +
     '</div>' +
   '</div>';
 }
+
 
 function renderPrTable(prs) {
   _allPrs = prs || [];
