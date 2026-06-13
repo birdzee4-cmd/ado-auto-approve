@@ -122,3 +122,35 @@
   color: #4b5563;
   font-style: italic;
 }
+
+/* ==========================================================================
+   Premium Light Mode Overrides
+   ========================================================================== */
+.audit-table-wrap {
+  background: #ffffff !important;
+  border: 1px solid rgba(230, 190, 100, 0.3) !important;
+  box-shadow: 0 15px 35px rgba(220, 180, 100, 0.08) !important;
+}
+
+.audit-table th {
+  background: #fffbea !important;
+  color: #855800 !important;
+  border-bottom: 2px solid rgba(230, 190, 100, 0.3) !important;
+}
+
+.audit-table td {
+  border-bottom: 1px solid rgba(230, 190, 100, 0.15) !important;
+  color: #374151 !important;
+}
+
+.audit-table tbody tr:hover {
+  background: rgba(245, 164, 0, 0.04) !important;
+}
+
+.audit-repo {
+  color: #2c2512 !important;
+}
+
+.empty-cell {
+  color: #6b5b33 !important;
+}

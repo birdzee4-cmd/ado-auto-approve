@@ -38,4 +38,21 @@ html.dark .next-steps ol {
   color: #a0aec0;
 }
 
+/* ==========================================================================
+   Premium Light Mode Overrides
+   ========================================================================== */
+.next-steps {
+  background: rgba(255, 255, 255, 0.75) !important;
+  border: 1px solid rgba(230, 190, 100, 0.35) !important;
+  box-shadow: 0 15px 35px rgba(220, 180, 100, 0.08) !important;
+}
+
+.next-steps h2 {
+  color: #3b2806 !important;
+}
+
+.next-steps ol {
+  color: #5c4b37 !important;
+}
+
 

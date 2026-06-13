@@ -2,10 +2,9 @@
 // ADO Auto-Approve - Dashboard Script (Phase 3.1)
 // ============================================
 
-// Run theme check immediately to avoid Flash of Unstyled Content (FOUC)
 (function applyTheme() {
   try {
-    document.documentElement.classList.add('dark');
+    document.documentElement.classList.remove('dark');
   } catch (e) {}
 })();
 

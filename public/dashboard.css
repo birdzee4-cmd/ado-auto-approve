@@ -2157,4 +2157,161 @@ html.dark .attention-stale {
   color: #fed7aa !important;
 }
 
+/* ==========================================================================
+   Premium Light Mode Overrides
+   ========================================================================== */
+body {
+  background: linear-gradient(135deg, #fffdf8 0%, #fffbf2 40%, #fff6e0 75%, #fdf0bf 100%) !important;
+  color: #2c2514 !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: #3b2806 !important;
+}
+
+.welcome-card h1 {
+  background: linear-gradient(135deg, #7c4a00 0%, #d97706 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+.welcome-card > p {
+  color: #6b4c1a !important;
+}
+
+.info-label {
+  color: #855800 !important;
+}
+
+.info-value {
+  color: #2c2512 !important;
+}
+
+.pr-section {
+  background: rgba(255, 255, 255, 0.75) !important;
+  border: 1px solid rgba(230, 190, 100, 0.35) !important;
+  box-shadow: 0 15px 35px rgba(220, 180, 100, 0.08), 0 5px 15px rgba(0, 0, 0, 0.02) !important;
+  color: #374151 !important;
+}
+
+.pr-section h2 {
+  color: #3b2806 !important;
+}
+
+.section-desc {
+  color: #7c6a52 !important;
+}
+
+.pr-table-wrap {
+  background: #ffffff !important;
+  border: 1px solid rgba(230, 190, 100, 0.3) !important;
+  box-shadow: 0 10px 25px rgba(220, 180, 100, 0.06) !important;
+}
+
+.pr-table th {
+  background: #fffbea !important;
+  color: #855800 !important;
+  border-bottom: 2px solid rgba(230, 190, 100, 0.3) !important;
+}
+
+.pr-table td {
+  border-bottom: 1px solid rgba(230, 190, 100, 0.15) !important;
+  color: #374151 !important;
+}
+
+.pr-table tbody tr {
+  background: transparent !important;
+}
+
+.pr-table tbody tr:hover {
+  background: rgba(245, 164, 0, 0.04) !important;
+}
+
+.pr-table tbody tr:nth-child(even) {
+  background: rgba(245, 164, 0, 0.01) !important;
+}
+
+/* Form inputs */
+.filter-field input,
+.filter-field select {
+  background: #ffffff !important;
+  color: #1f2937 !important;
+  border: 1px solid rgba(230, 190, 100, 0.4) !important;
+}
+
+.filter-field span {
+  color: #7c6a52 !important;
+}
+
+/* Primary Button */
+.primary-button {
+  background: #fffdf5 !important;
+  color: #855800 !important;
+  border: 1px solid rgba(245, 164, 0, 0.6) !important;
+  box-shadow: 0 3px 6px rgba(245, 164, 0, 0.08) !important;
+}
+
+.primary-button:hover {
+  background: var(--bz-yellow) !important;
+  color: #000000 !important;
+  box-shadow: 0 5px 12px rgba(245, 164, 0, 0.25) !important;
+}
+
+.navbar {
+  background: rgba(255, 255, 255, 0.85) !important;
+  box-shadow: 0 8px 32px rgba(180, 140, 50, 0.08) !important;
+  border-bottom: 2px solid rgba(245, 164, 0, 0.35) !important;
+}
+
+.brand {
+  color: #855800 !important;
+  text-shadow: none !important;
+}
+
+.nav-link {
+  color: #7c6a52 !important;
+}
+
+.nav-link:hover,
+.nav-link-active {
+  color: #ffffff !important;
+  background: var(--bz-yellow) !important;
+}
+
+.user-name {
+  color: #374151 !important;
+}
+
+/* Status colors in table */
+.my-approval-approved,
+.attention-ready,
+.attention-normal {
+  background: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+  color: #15803d !important;
+}
+
+.my-approval-pending,
+.attention-watch,
+.my-approval-manual {
+  background: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #b45309 !important;
+}
+
+.my-approval-rejected,
+.attention-critical {
+  background: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #b91c1c !important;
+}
+
+.my-approval-warning,
+.attention-warning,
+.attention-stale {
+  background: #fff7ed !important;
+  border-color: #ffedd5 !important;
+  color: #c2410c !important;
+}
+
 

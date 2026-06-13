@@ -370,3 +370,70 @@
   border-left-color: #f59e0b;
   color: #ffedd5;
 }
+
+/* ==========================================================================
+   Premium Light Mode Overrides
+   ========================================================================== */
+.status-card {
+  background: rgba(255, 255, 255, 0.75) !important;
+  border: 1px solid rgba(230, 190, 100, 0.35) !important;
+  box-shadow: 0 15px 35px rgba(220, 180, 100, 0.08), 0 5px 15px rgba(0, 0, 0, 0.02) !important;
+}
+
+.status-title {
+  color: #3b2806 !important;
+}
+
+.status-desc {
+  color: #5c4b37 !important;
+}
+
+.status-detail-list {
+  color: #5c4b37 !important;
+}
+
+.diagnostic-card {
+  background: rgba(255, 255, 255, 0.75) !important;
+  border: 1px solid rgba(230, 190, 100, 0.35) !important;
+  box-shadow: 0 15px 35px rgba(220, 180, 100, 0.08) !important;
+  color: #374151 !important;
+}
+
+.diagnostic-card h2 {
+  color: #3b2806 !important;
+}
+
+.diagnostic-actions .primary-button {
+  background: #fffdf5 !important;
+  color: #855800 !important;
+  border: 1px solid rgba(245, 164, 0, 0.6) !important;
+}
+
+.diagnostic-actions .primary-button:hover {
+  background: var(--bz-yellow) !important;
+  color: #000000 !important;
+}
+
+.result-info {
+  background: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #b45309 !important;
+}
+
+.result-success {
+  background: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+  color: #15803d !important;
+}
+
+.result-error {
+  background: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #b91c1c !important;
+}
+
+.result-warning {
+  background: #fff7ed !important;
+  border-color: #ffedd5 !important;
+  color: #c2410c !important;
+}

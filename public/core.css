@@ -40,8 +40,8 @@
 
 body {
   font-family: 'Outfit', 'Segoe UI', Tahoma, 'Sarabun', sans-serif;
-  background: #06080a;
-  color: var(--bz-text-dark);
+  background: linear-gradient(135deg, #fffdf8 0%, #fffbf2 40%, #fff6e0 75%, #fdf0bf 100%);
+  color: var(--bz-text-light);
   min-height: 100vh;
   overflow-x: hidden;
   position: relative;
