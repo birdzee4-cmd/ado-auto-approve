@@ -1753,3 +1753,32 @@ html.dark .modal-header {
   box-shadow: 0 0px 0 #b37700, 0 4px 10px rgba(245, 164, 0, 0.2);
 }
 
+/* ===== Navbar Dark Gradient Styling Overrides ===== */
+.navbar {
+  background: linear-gradient(135deg, #111215 0%, #1a1b20 50%, #0a0b0d 100%) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), 0 0 20px rgba(245, 164, 0, 0.08) !important;
+  border-bottom: 2px solid rgba(245, 164, 0, 0.6) !important;
+}
+
+.brand {
+  color: #ffffff !important;
+  text-shadow: 0 0 12px rgba(245, 164, 0, 0.5) !important;
+}
+
+.nav-link {
+  color: #a0aec0 !important;
+}
+
+.nav-link:hover,
+.nav-link-active {
+  color: #000000 !important;
+  background: var(--bz-yellow) !important;
+  border-color: var(--bz-yellow) !important;
+  box-shadow: 0 0 15px rgba(245, 164, 0, 0.4) !important;
+}
+
+.user-name {
+  color: #f3f4f6 !important;
+  border-color: rgba(245, 164, 0, 0.35) !important;
+}
+
