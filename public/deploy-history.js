@@ -1,6 +1,7 @@
 import {
   safeFetchJson, escapeHtml, showBox, setText, setButtonLoading,
-  renderSkeletonRows, bind, formatDate, formatDateTime, initPage
+  renderSkeletonRows, bind, formatDate, formatDateTime, initPage,
+  compactBranchName
 } from './core.js';
 
 // เก็บข้อมูลทั้งหมดที่ดึงมาจาก API ใน Memory เพื่อใช้คัดกรองข้อมูลฝั่ง Client
@@ -233,6 +234,11 @@ function renderDeployTable(items) {
           : `<span class="commit-hash-link">[${escapeHtml(item.CommitHash.substring(0, 7))}]</span>`)
       : '-';
 
+    // สร้างป้ายกำกับ Branch แบบย่อ เพื่อไม่ให้ล้นตาราง
+    const branchName = item.Branch || '-';
+    const compactedBranch = compactBranchName(branchName, 22);
+    const branchHtml = `<code title="${escapeHtml(branchName)}">${escapeHtml(compactedBranch)}</code>`;
+
     // สร้างป้าย Tag
     const tagsHtml = item.BuildTags
       ? item.BuildTags.split(',').map(tag => `<span class="tag-badge">${escapeHtml(tag.trim())}</span>`).join(' ')
@@ -247,7 +253,7 @@ function renderDeployTable(items) {
       <td>${formatDateTime(item.FinishedTime)}</td>
       <td><span class="pipeline-name-title">${escapeHtml(item.PipelineName)}</span></td>
       <td><strong>${escapeHtml(item.RepoName || '-')}</strong></td>
-      <td><code>${escapeHtml(item.Branch || '-')}</code></td>
+      <td>${branchHtml}</td>
       <td><code>${escapeHtml(item.BuildNumber || '-')}</code></td>
       <td>
         <span class="status-badge ${statusClass}">
@@ -257,7 +263,7 @@ function renderDeployTable(items) {
       </td>
       <td>${escapeHtml(item.TriggeredBy || '-')}</td>
       <td>
-        <div style="display: flex; flex-direction: column;">
+        <div style="display: flex; flex-direction: column; align-items: flex-start;">
           ${commitHtml}
           <small style="color: #6b7280; line-height: 1.35;">${escapeHtml(item.CommitMessage || '-')}</small>
         </div>
