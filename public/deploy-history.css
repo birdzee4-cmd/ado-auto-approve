@@ -150,7 +150,7 @@
 
 /* Badges */
 .status-badge {
-  display: inline-flex;
+  display: inline-flex !important;
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
@@ -159,6 +159,18 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  white-space: nowrap !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  width: auto !important;
+}
+
+.status-badge span {
+  display: inline-block !important;
+  white-space: nowrap !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  width: auto !important;
 }
 
 .status-succeeded {
