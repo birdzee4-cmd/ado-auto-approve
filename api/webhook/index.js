@@ -135,8 +135,12 @@ module.exports = async function (context, req) {
             context.log.warn('webhook: TEAMS_WEBHOOK_URL ไม่ได้ตั้งค่า — ข้ามการแจ้งเตือน Build Fail');
         } else {
             try {
-                await notifyTeams(teamsWebhookUrl, message);
-                context.log('webhook: Teams build failure notification ส่งสำเร็จ');
+                const teamsResult = await notifyTeams(teamsWebhookUrl, message);
+                if (!teamsResult.ok) {
+                    context.log.error(`webhook: Teams build failure notification status error ${teamsResult.status}: ${teamsResult.body}`);
+                } else {
+                    context.log('webhook: Teams build failure notification ส่งสำเร็จ');
+                }
             } catch (err) {
                 context.log.error('webhook: Teams build failure notification ล้มเหลว:', err.message);
             }

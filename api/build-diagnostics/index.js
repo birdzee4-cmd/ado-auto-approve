@@ -169,7 +169,14 @@ module.exports = async function (context, req) {
       message += `\`\`\`text\n${diagnostics.snippet}\n\`\`\`\n\n`;
 
       try {
-        await teams.notifyTeams(teamsWebhookUrl, message);
+        const teamsResult = await teams.notifyTeams(teamsWebhookUrl, message);
+        if (!teamsResult.ok) {
+          jsonResponse(502, {
+            ok: false,
+            error: `Teams webhook returned status ${teamsResult.status}: ${teamsResult.body}`
+          });
+          return;
+        }
       } catch (err) {
         jsonResponse(502, { ok: false, error: 'Failed to notify Teams: ' + err.message });
         return;
