@@ -101,11 +101,7 @@ module.exports = async function (context, req) {
                         for (const sol of diag.solutions) {
                             failMessage += `* **${sol.title}**\n${sol.details}\n\n`;
                         }
-                        const teamsSnippet = diag.snippet && diag.snippet.length > 3000
-                            ? diag.snippet.substring(0, 3000) + '\n... [truncated due to length limit] ...'
-                            : diag.snippet;
-                        failMessage += `#### 📋 ข้อผิดพลาดดิบจาก Log (Failed Task: ${failedTaskName})\n`;
-                        failMessage += `\`\`\`text\n${teamsSnippet}\n\`\`\`\n\n`;
+                        failMessage += `💡 *หมายเหตุ: คุณสามารถดูรายละเอียดข้อผิดพลาดดิบแบบเรียงบรรทัดได้ที่หน้า Dashboard วิเคราะห์ปัญหาผ่านลิงก์ด้านบนครับ*\n\n`;
                     }
                 }
             }
