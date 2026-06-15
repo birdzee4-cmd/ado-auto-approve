@@ -83,7 +83,14 @@ module.exports = async function (context, req) {
                     failedTaskName = failedTask.name || '';
                     const logResult = await ado.getBuildLog(buildId, failedTask.log.id);
                     if (logResult.ok) {
-                        const rawLogText = typeof logResult.body === 'string' ? logResult.body : JSON.stringify(logResult.body);
+                        let rawLogText = '';
+                        if (typeof logResult.body === 'string') {
+                            rawLogText = logResult.body;
+                        } else if (logResult.body && Array.isArray(logResult.body.value)) {
+                            rawLogText = logResult.body.value.join('\n');
+                        } else {
+                            rawLogText = JSON.stringify(logResult.body);
+                        }
                         const catalog = require('../shared/build-diagnostics-catalog');
                         const diag = catalog.diagnoseLog(rawLogText);
                         
