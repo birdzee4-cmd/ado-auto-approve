@@ -11,20 +11,17 @@
   animation: rowFadeIn 0.3s ease-out;
 }
 
-/* ===== Filter Panel (Sticky) ===== */
+/* ===== Filter Panel (Static) ===== */
 .filter-panel {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
   padding: 20px;
-  background: #ffffff; /* เปลี่ยนเป็นสีทึบใน Light mode เพื่อกันข้อความตารางทะลุ */
+  background: #ffffff;
   border: 1px solid rgba(245, 164, 0, 0.2);
   border-radius: 12px;
   margin-bottom: 24px;
   align-items: flex-end;
-  position: sticky;
-  top: 70px; /* ตรึงไว้ใต้ Navbar พอดี (Navbar สูงประมาณ 70px) */
-  z-index: 10;
   box-shadow: 0 10px 25px rgba(91, 69, 0, 0.05);
 }
 
@@ -75,11 +72,13 @@
   flex-wrap: wrap;
 }
 
-/* ===== History Table Container ===== */
+/* ===== History Table Container (Scrollable) ===== */
 .history-table-wrap {
   width: 100%;
   overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow-y: auto; /* เปิดการเลื่อนแนวตั้งเฉพาะส่วนตาราง */
+  max-height: calc(100vh - 430px); /* จำกัดความสูงตารางสัมพันธ์กับความสูงหน้าจอ */
+  min-height: 320px;
   background: #ffffff;
   border: 1px solid rgba(230, 190, 100, 0.3);
   border-radius: 16px;
@@ -105,6 +104,9 @@
   padding: 14px 12px;
   text-align: left;
   border-bottom: 2px solid rgba(230, 190, 100, 0.3);
+  position: sticky; /* ตรึงแถวหัวตารางไว้ด้านบนสุด */
+  top: 0;
+  z-index: 5;
 }
 
 .history-table td {
