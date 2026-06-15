@@ -234,10 +234,9 @@ function renderDeployTable(items) {
           : `<span class="commit-hash-link">[${escapeHtml(item.CommitHash.substring(0, 7))}]</span>`)
       : '-';
 
-    // สร้างป้ายกำกับ Branch แบบย่อ เพื่อไม่ให้ล้นตาราง
+    // แสดงชื่อ Branch เต็มรูปแบบ แต่บังคับตัดคำเพื่อไม่ให้ล้นออกนอกคอลัมน์
     const branchName = item.Branch || '-';
-    const compactedBranch = compactBranchName(branchName, 22);
-    const branchHtml = `<code title="${escapeHtml(branchName)}">${escapeHtml(compactedBranch)}</code>`;
+    const branchHtml = `<code class="branch-text-wrap" title="${escapeHtml(branchName)}">${escapeHtml(branchName)}</code>`;
 
     // สร้างป้าย Tag
     const tagsHtml = item.BuildTags
