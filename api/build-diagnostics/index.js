@@ -172,8 +172,11 @@ module.exports = async function (context, req) {
       for (const sol of diagnostics.solutions) {
         message += `* **${sol.title}**\n${sol.details}\n\n`;
       }
+      const teamsSnippet = diagnostics.snippet && diagnostics.snippet.length > 3000
+        ? diagnostics.snippet.substring(0, 3000) + '\n... [truncated due to length limit] ...'
+        : diagnostics.snippet;
       message += `#### 📋 ข้อผิดพลาดดิบจาก Log (Failed Task: ${failedTask.name})\n`;
-      message += `\`\`\`text\n${diagnostics.snippet}\n\`\`\`\n\n`;
+      message += `\`\`\`text\n${teamsSnippet}\n\`\`\`\n\n`;
 
       try {
         const teamsResult = await teams.notifyTeams(teamsWebhookUrl, message);
