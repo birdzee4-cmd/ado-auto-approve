@@ -350,7 +350,25 @@ async function buildRecentlyApprovedRows(context, options) {
     const createdTime = Date.parse(createdAt);
     if (Number.isFinite(sinceTime) && (!Number.isFinite(createdTime) || createdTime < sinceTime)) continue;
     const existing = approvedByPr.get(prId);
-    if (!existing || compareDateDesc({ approvedAt: createdAt }, { approvedAt: existing.approvedAt }) < 0) {
+    let shouldUpdate = false;
+    if (!existing) {
+      shouldUpdate = true;
+    } else {
+      const existingAction = String(existing.action || '').toLowerCase();
+      const newAction = String(fields.Action || '').toLowerCase();
+      const isExistingSpecific = existingAction === 'auto approved' || existingAction === 'approved';
+      const isNewSpecific = newAction === 'auto approved' || newAction === 'approved';
+      
+      if (isNewSpecific && !isExistingSpecific) {
+        shouldUpdate = true;
+      } else if (!isNewSpecific && isExistingSpecific) {
+        shouldUpdate = false;
+      } else {
+        shouldUpdate = compareDateDesc({ approvedAt: createdAt }, { approvedAt: existing.approvedAt }) < 0;
+      }
+    }
+
+    if (shouldUpdate) {
       approvedByPr.set(prId, {
         prId: prId,
         approvedAt: createdAt,
