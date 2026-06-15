@@ -328,8 +328,13 @@ html.dark .tag-badge {
   border-color: #3b82f6;
 }
 
-/* Allow all table cell contents (spans, strong, code, small) to wrap onto multiple lines instead of overlapping */
-.history-table td,
+/* Allow all table cell contents to wrap onto multiple lines instead of overflowing */
+.history-table td {
+  white-space: normal !important;
+  word-break: break-all !important;
+  overflow-wrap: anywhere !important;
+}
+
 .history-table td span,
 .history-table td strong,
 .history-table td code,
@@ -340,5 +345,6 @@ html.dark .tag-badge {
   display: inline-block;
   max-width: 100%;
 }
+
 
 
