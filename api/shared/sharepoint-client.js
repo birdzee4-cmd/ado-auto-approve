@@ -444,8 +444,51 @@ async function downloadArchiveFile(filePath) {
   const normalizedPath = normalizeDrivePath(filePath);
   const encodedPath = encodeDrivePath(normalizedPath);
   const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:/${encodedPath}:/content`;
-  return httpRequest('GET', url, {
-    'Authorization': 'Bearer ' + token
+  
+  // Microsoft Graph API downloads redirect (302 Found) to a pre-authenticated SharePoint URL.
+  // We must follow this redirect to get the actual file content.
+  return new Promise((resolve, reject) => {
+    function getWithRedirect(targetUrl, isRedirect = false) {
+      try {
+        const u = new URL(targetUrl);
+        const options = {
+          hostname: u.hostname,
+          port: 443,
+          path: u.pathname + u.search,
+          method: 'GET',
+          headers: isRedirect ? {} : { 'Authorization': 'Bearer ' + token },
+          timeout: 15000
+        };
+        
+        const req = https.request(options, (res) => {
+          if ((res.statusCode === 302 || res.statusCode === 301 || res.statusCode === 307) && res.headers.location) {
+            getWithRedirect(res.headers.location, true);
+            return;
+          }
+          
+          let resBody = '';
+          res.on('data', chunk => resBody += chunk);
+          res.on('end', () => {
+            resolve({
+              ok: res.statusCode >= 200 && res.statusCode < 300,
+              status: res.statusCode,
+              body: resBody
+            });
+          });
+        });
+        
+        req.on('error', reject);
+        req.on('timeout', () => { 
+          req.destroy(); 
+          reject(new Error('SharePoint Graph download timeout (15s)')); 
+        });
+        req.end();
+      } catch (err) {
+        reject(err);
+      }
+    }
+    
+    getWithRedirect(url);
   });
 }
 
