@@ -200,7 +200,7 @@ module.exports = async function (context, req) {
       : await syncExceptionNotifications(context, completedPrs, { scope: 'recently-completed' });
     const syncResult = includeActivity
       ? { ok: true, checked: 0, logged: 0, skipped: true, reason: 'Skipped on activity page request' }
-      : await syncExternalVoteLogs(context, prs.concat(completedPrs));
+      : await syncExternalVoteLogs(context, prs.concat(completedPrs), currentUser);
 
     jsonResponse(200, {
       ok: true,
@@ -524,7 +524,7 @@ function compareDateDesc(a, b) {
   return 0;
 }
 
-async function syncExternalVoteLogs(context, prRows) {
+async function syncExternalVoteLogs(context, prRows, currentUser) {
   const rows = Array.isArray(prRows) ? prRows.slice(0, 25) : [];
   if (!rows.length || process.env.ADO_EXTERNAL_LOG_SYNC === 'false') {
     return { ok: true, checked: 0, logged: 0, skipped: true };
@@ -540,6 +540,29 @@ async function syncExternalVoteLogs(context, prRows) {
     return { ok: false, checked: 0, logged: 0, error: e.message };
   }
 
+  // Get bot identities
+  let botIdentities = [];
+  try {
+    const conn = await ado.getConnectionData();
+    if (conn.ok && conn.body && conn.body.authenticatedUser) {
+      const user = conn.body.authenticatedUser;
+      botIdentities = [
+        user.id,
+        user.uniqueName,
+        user.displayName
+      ].map(v => String(v || '').trim().toLowerCase()).filter(Boolean);
+    }
+  } catch (e) {
+    context.log.warn('Failed to fetch bot connection data for external vote log sync: ' + e.message);
+  }
+
+  // Get current user identities
+  const userIdentities = currentUser && Array.isArray(currentUser.identities)
+    ? currentUser.identities
+    : [];
+
+  const allowedVoters = [...botIdentities, ...userIdentities];
+
   let checked = 0;
   let logged = 0;
   const errors = [];
@@ -551,7 +574,7 @@ async function syncExternalVoteLogs(context, prRows) {
         ? history.body.value.map(item => item.fields || {})
         : [];
 
-      const voteEvents = buildExternalVoteEvents(pr);
+      const voteEvents = buildExternalVoteEvents(pr, allowedVoters);
       for (const event of voteEvents) {
         checked += 1;
         if (hasExistingVoteLog(existing, event)) continue;
@@ -641,10 +664,20 @@ async function syncExceptionNotifications(context, prRows, options) {
   return { ok: errors.length === 0, checked: checked, sent: sent, errors: errors.slice(0, 5) };
 }
 
-function buildExternalVoteEvents(pr) {
+function buildExternalVoteEvents(pr, allowedVoters) {
   const reviewers = Array.isArray(pr.reviewers) ? pr.reviewers : [];
+  const allowed = Array.isArray(allowedVoters) ? allowedVoters : [];
   return reviewers
     .filter(r => r && r.isContainer !== true)
+    .filter(r => {
+      if (allowed.length === 0) return true;
+      const reviewerValues = [
+        r.id,
+        r.uniqueName,
+        r.displayName
+      ].map(v => String(v || '').trim().toLowerCase()).filter(Boolean);
+      return reviewerValues.some(val => allowed.includes(val));
+    })
     .map(r => {
       const vote = Number(r.vote) || 0;
       const voteState = getVoteState(vote);
