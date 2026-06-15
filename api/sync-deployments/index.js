@@ -30,10 +30,12 @@ module.exports = async function (context, req) {
     let maxTime = null;
     let hasMore = true;
     let page = 0;
-    const maxPages = 30; // ป้องกัน infinite loop ดึงสูงสุด 30,000 builds
+    const maxPages = 5; // ป้องกัน infinite loop ดึงสูงสุด 5,000 builds
+    const lookbackDays = 90; // กรองประวัติย้อนหลัง 90 วัน เพื่อความเร็วในการรัน ป้องกัน timeout
+    const minTime = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString();
 
     while (hasMore && page < maxPages) {
-      let path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?queryOrder=queueTimeDescending&$top=1000&api-version=7.0`;
+      let path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?queryOrder=queueTimeDescending&$top=1000&minTime=${encodeURIComponent(minTime)}&api-version=7.0`;
       if (maxTime) {
         path += `&maxTime=${encodeURIComponent(maxTime)}`;
       }
