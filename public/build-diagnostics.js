@@ -1,0 +1,187 @@
+import { safeFetchJson, formatDate, escapeHtml } from './core.js';
+
+window.addEventListener('DOMContentLoaded', () => {
+  initUserInfo();
+  loadDiagnostics();
+  setupEvents();
+});
+
+let currentBuildId = null;
+let diagnosticData = null;
+
+async function initUserInfo() {
+  try {
+    const authResp = await fetch('/.auth/me');
+    const authData = await authResp.json();
+    if (authData.clientPrincipal) {
+      const principal = authData.clientPrincipal;
+      const userNameEl = document.getElementById('userName');
+      if (userNameEl) userNameEl.textContent = principal.userDetails || 'Unknown';
+    }
+  } catch (e) {
+    console.warn('Failed to load user auth info:', e);
+  }
+}
+
+async function loadDiagnostics() {
+  const params = new URLSearchParams(window.location.search);
+  const buildId = params.get('buildId');
+  currentBuildId = buildId;
+
+  if (!buildId) {
+    showError('❌ Error: Parameter `buildId` is missing in the URL query.');
+    return;
+  }
+
+  try {
+    const result = await safeFetchJson('/api/build-diagnostics?buildId=' + buildId);
+    
+    if (result.parseError) {
+      showError('❌ Backend responded with non-JSON format (HTTP ' + result.status + ')');
+      return;
+    }
+    
+    if (!result.ok || !result.data || !result.data.ok) {
+      const d = result.data || {};
+      showError('❌ ' + (d.error || 'Failed to retrieve diagnostics') + 
+               (d.hint ? '<br/><small>' + d.hint + '</small>' : '') + 
+               (d.detail ? '<br/><small style="color:#ef4444">' + d.detail + '</small>' : ''));
+      return;
+    }
+
+    const data = result.data;
+    diagnosticData = data;
+    renderPage(data);
+
+  } catch (err) {
+    showError('❌ System Error: ' + err.message);
+  }
+}
+
+function renderPage(data) {
+  document.getElementById('loader').style.display = 'none';
+  document.getElementById('diagnosticsContainer').style.display = 'block';
+
+  // Set titles
+  document.getElementById('buildTitle').textContent = `Build #${data.buildId} Diagnostics`;
+  document.getElementById('buildSubtitle').textContent = `ผลลัพธ์การสแกนความล้มเหลวแบบอัตโนมัติสำหรับ Pipeline`;
+
+  // Set meta values
+  document.getElementById('diagFailedStep').textContent = data.failedTask.name || '-';
+  document.getElementById('diagErrorKey').textContent = data.diagnostics.errorKey || 'GENERIC';
+  document.getElementById('diagTime').textContent = formatDate(data.analyzedAt);
+
+  // Set Title & Description
+  document.getElementById('diagTitle').textContent = data.diagnostics.title || 'ไม่ระบุหัวข้อปัญหา';
+  document.getElementById('diagDescription').textContent = data.diagnostics.description || '-';
+
+  // Set Snippet
+  document.getElementById('rawLogSnippet').textContent = data.diagnostics.snippet || '';
+
+  // Render Solutions
+  const listEl = document.getElementById('solutionsList');
+  listEl.innerHTML = '';
+  
+  const solutions = data.diagnostics.solutions || [];
+  solutions.forEach((sol, idx) => {
+    const item = document.createElement('div');
+    item.className = 'solution-item';
+    
+    const title = document.createElement('h3');
+    title.className = 'solution-title';
+    title.innerHTML = `💡 ${escapeHtml(sol.title)}`;
+    
+    const details = document.createElement('div');
+    details.className = 'solution-details';
+    
+    // Parse markdown-like details (convert `code` and ```blocks)
+    details.innerHTML = formatMarkdownDetails(sol.details);
+    
+    item.appendChild(title);
+    item.appendChild(details);
+    listEl.appendChild(item);
+  });
+
+  // Show Teams Button
+  document.getElementById('btnSendToTeams').style.display = 'inline-flex';
+}
+
+function formatMarkdownDetails(text) {
+  if (!text) return '';
+  let escaped = escapeHtml(text);
+  
+  // Convert ```yaml ... ``` to pre/code
+  escaped = escaped.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    return `<pre><code class="language-${lang}">${code.trim()}</code></pre>`;
+  });
+  
+  // Convert `code` to inline code
+  escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
+  
+  // Convert newlines to br
+  escaped = escaped.replace(/\n/g, '<br/>');
+  
+  return escaped;
+}
+
+function setupEvents() {
+  const btnCopy = document.getElementById('btnCopyLog');
+  if (btnCopy) {
+    btnCopy.addEventListener('click', () => {
+      const code = document.getElementById('rawLogSnippet').textContent;
+      navigator.clipboard.writeText(code)
+        .then(() => {
+          const originalText = btnCopy.innerHTML;
+          btnCopy.innerHTML = '✅ คัดลอกสำเร็จ!';
+          setTimeout(() => btnCopy.innerHTML = originalText, 2000);
+        })
+        .catch(err => {
+          alert('ไม่สามารถคัดลอกได้: ' + err.message);
+        });
+    });
+  }
+
+  const btnTeams = document.getElementById('btnSendToTeams');
+  if (btnTeams) {
+    btnTeams.addEventListener('click', async () => {
+      if (!currentBuildId) return;
+      btnTeams.disabled = true;
+      btnTeams.style.opacity = '0.6';
+      btnTeams.style.cursor = 'wait';
+      const originalText = btnTeams.innerHTML;
+      btnTeams.innerHTML = '<span>⏳</span><span>กำลังส่งเข้า Teams...</span>';
+
+      try {
+        const res = await safeFetchJson('/api/build-diagnostics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            buildId: currentBuildId,
+            sendToTeams: true
+          })
+        });
+
+        if (res.ok && res.data && res.data.ok) {
+          alert('✅ ส่งแจ้งเตือนการวิเคราะห์ผลลัพธ์เข้า Microsoft Teams สำเร็จ!');
+        } else {
+          const d = res.data || {};
+          alert('❌ ส่งไม่สำเร็จ: ' + (d.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      } finally {
+        btnTeams.disabled = false;
+        btnTeams.style.opacity = '1';
+        btnTeams.style.cursor = 'pointer';
+        btnTeams.innerHTML = originalText;
+      }
+    });
+  }
+}
+
+function showError(msg) {
+  document.getElementById('loader').style.display = 'none';
+  const box = document.getElementById('errorBox');
+  box.hidden = false;
+  box.innerHTML = msg;
+}

@@ -629,6 +629,18 @@ async function createGitRef(repositoryId, refName, commitSha) {
   return adoRequest('POST', path, body);
 }
 
+async function getBuildTimeline(buildId) {
+  const { org, project } = getConfig();
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds/${encodeURIComponent(String(buildId))}/timeline?api-version=6.0`;
+  return adoRequest('GET', path);
+}
+
+async function getBuildLog(buildId, logId) {
+  const { org, project } = getConfig();
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds/${encodeURIComponent(String(buildId))}/logs/${encodeURIComponent(String(logId))}?api-version=6.0`;
+  return adoRequest('GET', path);
+}
+
 module.exports = {
   getConfig,
   adoRequest,
@@ -656,6 +668,8 @@ module.exports = {
   getPendingReleaseApprovals,
   getRepositoryIdByName,
   listGitRefs,
-  createGitRef
+  createGitRef,
+  getBuildTimeline,
+  getBuildLog
 };
 

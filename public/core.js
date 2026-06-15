@@ -526,9 +526,15 @@ function renderRecentlyApprovedStatusBadge(pr) {
     ? 'Policy: ' + policyStatus
     : 'Policy: unknown';
   const title = label + ' | ' + supportingLabel + ' | ' + policyLabel;
+  const innerHtml = '<span class="status-main">' + icon + ' ' + escapeHtml(label) + '</span>' +
+    '<span class="status-detail">' + escapeHtml(detail) + '</span>';
+
+  const buildId = s.buildRunId || (s.adoBuildUrl && (s.adoBuildUrl.match(/[?&]buildId=(\d+)/i) || s.adoBuildUrl.match(/\/build\/results\?buildId=(\d+)/i) || [])[1]) || '';
+  if (buildId && isFailed) {
+    return '<a class="' + cls + '" href="/build-diagnostics.html?buildId=' + encodeURIComponent(buildId) + '" title="' + escapeHtml(title) + '">' + innerHtml + '</a>';
+  }
   return '<span class="' + cls + '" title="' + escapeHtml(title) + '">' +
-    '<span class="status-main">' + icon + ' ' + escapeHtml(label) + '</span>' +
-    '<span class="status-detail">' + escapeHtml(detail) + '</span>' +
+    innerHtml +
     '</span>';
 }
 

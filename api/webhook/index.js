@@ -72,6 +72,37 @@ module.exports = async function (context, req) {
             }
         }
 
+        let failMessage = '';
+        let failedTaskName = '';
+        try {
+            const timelineResult = await ado.getBuildTimeline(buildId);
+            if (timelineResult.ok && timelineResult.body && Array.isArray(timelineResult.body.records)) {
+                const records = timelineResult.body.records;
+                const failedTask = records.find(r => r && r.state === 'completed' && r.result === 'failed' && r.log);
+                if (failedTask) {
+                    failedTaskName = failedTask.name || '';
+                    const logResult = await ado.getBuildLog(buildId, failedTask.log.id);
+                    if (logResult.ok) {
+                        const rawLogText = typeof logResult.body === 'string' ? logResult.body : JSON.stringify(logResult.body);
+                        const catalog = require('../shared/build-diagnostics-catalog');
+                        const diag = catalog.diagnoseLog(rawLogText);
+                        
+                        failMessage += `### 🔍 วิเคราะห์ปัญหา (Diagnostics)\n`;
+                        failMessage += `**ปัญหา:** ${diag.title}\n\n`;
+                        failMessage += `**รายละเอียด:** ${diag.description}\n\n`;
+                        failMessage += `#### 🛠️ แนวทางแก้ไข\n`;
+                        for (const sol of diag.solutions) {
+                            failMessage += `* **${sol.title}**\n${sol.details}\n\n`;
+                        }
+                        failMessage += `#### 📋 ข้อผิดพลาดดิบจาก Log (Failed Task: ${failedTaskName})\n`;
+                        failMessage += `\`\`\`text\n${diag.snippet}\n\`\`\`\n\n`;
+                    }
+                }
+            }
+        } catch (e) {
+            context.log.warn('webhook diagnostics failed:', e.message);
+        }
+
         let message = `## 🚨 Build Failed Detected\n\n`;
         message += `| Field | Value |\n`;
         message += `|---|---|\n`;
@@ -86,6 +117,16 @@ module.exports = async function (context, req) {
         }
         if (requestedBy) {
             message += `| **Triggered by** | ${requestedBy} |\n`;
+        }
+
+        const myAppUrl = process.env.WEBSITE_HOSTNAME ? `https://${process.env.WEBSITE_HOSTNAME}` : '';
+        const diagWebUrl = myAppUrl ? `${myAppUrl}/build-diagnostics.html?buildId=${buildId}` : '';
+        if (diagWebUrl) {
+            message += `\n🔗 **[เปิดดูหน้าวิเคราะห์บน Dashboard](${diagWebUrl})**\n\n`;
+        }
+
+        if (failMessage) {
+            message += `${failMessage}`;
         }
 
         // --- Send to Teams ---
