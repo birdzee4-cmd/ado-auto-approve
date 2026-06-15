@@ -201,12 +201,39 @@ function adaptiveCardToText(adaptiveCardPayload) {
  * Sends a message/payload to a specific Teams Webhook URL.
  */
 function notifyTeams(webhookUrl, payload) {
-  return new Promise((resolve, reject) => {
-    const urlToUse = webhookUrl || process.env.TEAMS_WEBHOOK_URL;
-    if (!urlToUse) {
-      return reject(new Error('Teams webhook URL is not configured'));
-    }
+  const urlToUse = webhookUrl || process.env.TEAMS_WEBHOOK_URL;
+  if (!urlToUse) {
+    return Promise.reject(new Error('Teams webhook URL is not configured'));
+  }
 
+  if (urlToUse.includes(',')) {
+    const urls = urlToUse.split(',').map(u => u.trim()).filter(Boolean);
+    const promises = urls.map(url => {
+      return notifySingleTeams(url, payload)
+        .catch(err => ({ ok: false, status: 500, body: err.message }));
+    });
+    return Promise.all(promises).then(results => {
+      const failed = results.filter(r => !r.ok);
+      if (failed.length === results.length) {
+        return {
+          ok: false,
+          status: results[0].status,
+          body: results.map(r => r.body).join(' | ')
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        body: `Sent to ${results.length - failed.length}/${results.length} channels`
+      };
+    });
+  }
+
+  return notifySingleTeams(urlToUse, payload);
+}
+
+function notifySingleTeams(urlToUse, payload) {
+  return new Promise((resolve, reject) => {
     let parsed;
     try {
       parsed = new URL(urlToUse);
