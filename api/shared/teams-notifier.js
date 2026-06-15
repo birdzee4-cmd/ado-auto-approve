@@ -197,11 +197,66 @@ function adaptiveCardToText(adaptiveCardPayload) {
   }
 }
 
+/**
+ * Sends a message/payload to a specific Teams Webhook URL.
+ */
+function notifyTeams(webhookUrl, payload) {
+  return new Promise((resolve, reject) => {
+    const urlToUse = webhookUrl || process.env.TEAMS_WEBHOOK_URL;
+    if (!urlToUse) {
+      return reject(new Error('Teams webhook URL is not configured'));
+    }
+
+    let parsed;
+    try {
+      parsed = new URL(urlToUse);
+    } catch (e) {
+      return reject(new Error('Teams webhook URL is not a valid URL'));
+    }
+
+    const payloadObj = typeof payload === 'string' ? { text: payload } : payload;
+    const data = JSON.stringify(payloadObj);
+    const options = {
+      hostname: parsed.hostname,
+      port: parsed.port || 443,
+      path: parsed.pathname + parsed.search,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(data)
+      },
+      timeout: 10000
+    };
+
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        resolve({
+          ok: res.statusCode >= 200 && res.statusCode < 300,
+          status: res.statusCode,
+          body: body
+        });
+      });
+    });
+
+    req.on('error', err => reject(err));
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Teams webhook request timeout (10s)'));
+    });
+
+    req.write(data);
+    req.end();
+  });
+}
+
 module.exports = {
   sendTeamsMessage,
   sendTeamsText,
   sendTeamsCard,
   buildPrDetectedCard,
   buildTestCard,
-  buildErrorCard
+  buildErrorCard,
+  notifyTeams
 };

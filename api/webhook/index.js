@@ -3,6 +3,7 @@
 // รองรับ Staging/VN, Staging/api, staging, Staging ทุกรูปแบบ
 const { notifyTeams } = require('../shared/teams-notifier');
 const sp = require('../shared/sharepoint-client');
+const ado = require('../shared/ado-client');
 
 module.exports = async function (context, req) {
     context.log('webhook: called');
@@ -25,6 +26,102 @@ module.exports = async function (context, req) {
     const body = req.body || {};
     const eventType   = body.eventType || '';
     const resourceData = body.resource || {};
+
+    if (eventType === 'build.complete') {
+        const buildStatus = resourceData.status || '';
+        const buildResult = resourceData.result || '';
+        
+        if (buildResult !== 'failed' && buildResult !== 'error') {
+            context.log(`webhook: ignored build.complete - buildResult=${buildResult}`);
+            context.res = { status: 200, body: 'OK (ignored non-failed build)' };
+            return;
+        }
+
+        const triggerInfo = resourceData.triggerInfo || {};
+        let prId = triggerInfo['pr.number'] || triggerInfo['MSTFS.PullRequestId'] || '';
+        if (!prId && resourceData.sourceBranch) {
+            const match = resourceData.sourceBranch.match(/refs\/pull\/(\d+)/);
+            if (match) prId = match[1];
+        }
+
+        const buildId = resourceData.id || '';
+        const buildNum = resourceData.buildNumber || '';
+        const definitionName = (resourceData.definition || {}).name || '';
+        const repo = (resourceData.repository || {}).name || '';
+        const branch = resourceData.sourceBranch || '';
+        const requestedBy = Array.isArray(resourceData.requests) && resourceData.requests[0] && resourceData.requests[0].requestedFor 
+            ? resourceData.requests[0].requestedFor.displayName 
+            : '';
+        const buildUrl = (resourceData._links && resourceData._links.web && resourceData._links.web.href) || resourceData.url || '';
+
+        let prTitle = '';
+        let prAuthor = '';
+        let prUrl = '';
+        if (prId) {
+            try {
+                const prResult = await ado.getPullRequest(prId);
+                if (prResult.ok && prResult.body) {
+                    const pr = prResult.body;
+                    prTitle = pr.title || '';
+                    prAuthor = (pr.createdBy || {}).displayName || '';
+                    const cfg = ado.getConfig();
+                    prUrl = `https://dev.azure.com/${encodeURIComponent(cfg.org)}/${encodeURIComponent(cfg.project)}/_git/${encodeURIComponent(repo || (pr.repository || {}).name)}/pullrequest/${prId}`;
+                }
+            } catch (e) {
+                context.log.warn(`webhook: failed to fetch PR #${prId} details:`, e.message);
+            }
+        }
+
+        let message = `## 🚨 Build Failed Detected\n\n`;
+        message += `| Field | Value |\n`;
+        message += `|---|---|\n`;
+        message += `| **Pipeline** | ${definitionName || '-'} |\n`;
+        message += `| **Build Number** | ${buildNum ? `[${buildNum}](${buildUrl})` : '-'} |\n`;
+        message += `| **Repository** | ${repo || '-'} |\n`;
+        message += `| **Branch** | \`${branch}\` |\n`;
+        if (prId) {
+            message += `| **PR ID** | [#${prId}](${prUrl}) |\n`;
+            if (prTitle) message += `| **PR Title** | ${prTitle} |\n`;
+            if (prAuthor) message += `| **PR Author** | ${prAuthor} |\n`;
+        }
+        if (requestedBy) {
+            message += `| **Triggered by** | ${requestedBy} |\n`;
+        }
+
+        // --- Send to Teams ---
+        const teamsWebhookUrl = process.env.TEAMS_WEBHOOK_URL;
+        if (!teamsWebhookUrl) {
+            context.log.warn('webhook: TEAMS_WEBHOOK_URL ไม่ได้ตั้งค่า — ข้ามการแจ้งเตือน Build Fail');
+        } else {
+            try {
+                await notifyTeams(teamsWebhookUrl, message);
+                context.log('webhook: Teams build failure notification ส่งสำเร็จ');
+            } catch (err) {
+                context.log.error('webhook: Teams build failure notification ล้มเหลว:', err.message);
+            }
+        }
+
+        // --- Log to SharePoint ---
+        try {
+            await sp.addLogItem(sp.buildLogFields({
+                prId: String(prId || 0),
+                action: 'Build Failed',
+                user: requestedBy || 'System',
+                repository: repo,
+                prTitle: prTitle || `Build Failed: ${definitionName} - ${buildNum}`,
+                targetBranch: branch,
+                result: `Build Failed (${buildResult})`,
+                reason: `Pipeline ${definitionName} run ${buildNum} failed.`,
+                source: 'Azure DevOps Webhook'
+            }));
+            context.log(`webhook: SharePoint build failed log recorded successfully`);
+        } catch (err) {
+            context.log.warn('webhook: SharePoint build failed log failed:', err.message);
+        }
+
+        context.res = { status: 200, body: 'OK (Build failure processed)' };
+        return;
+    }
 
     // ดึงข้อมูล PR จาก payload
     const pr           = resourceData.pullRequest || resourceData || {};
