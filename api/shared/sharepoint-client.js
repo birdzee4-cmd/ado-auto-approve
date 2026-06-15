@@ -438,6 +438,17 @@ async function uploadArchiveFile(filePath, content, contentType) {
   }, content || '');
 }
 
+async function downloadArchiveFile(filePath) {
+  const siteId = await getSiteId();
+  const token = await getAccessToken();
+  const normalizedPath = normalizeDrivePath(filePath);
+  const encodedPath = encodeDrivePath(normalizedPath);
+  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:/${encodedPath}:/content`;
+  return httpRequest('GET', url, {
+    'Authorization': 'Bearer ' + token
+  });
+}
+
 async function ensureDriveFolderPath(folderPath) {
   const siteId = await getSiteId();
   const token = await getAccessToken();
@@ -585,6 +596,7 @@ module.exports = {
   getLogItemsBefore,
   deleteLogItem,
   uploadArchiveFile,
+  downloadArchiveFile,
   buildLogFields,
   getAutoApproveSettings,
   updateAutoApproveSettings

@@ -1,0 +1,329 @@
+/* ==========================================================================
+   ADO Auto-Approve - Deploy History Styles (Premium Design)
+   ========================================================================== */
+
+@keyframes rowFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.deploy-page {
+  animation: rowFadeIn 0.3s ease-out;
+}
+
+/* ===== Filter Panel ===== */
+.filter-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(245, 164, 0, 0.15);
+  border-radius: 12px;
+  margin-bottom: 24px;
+  align-items: flex-end;
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 200px;
+  font-size: 13px;
+}
+
+.filter-field span {
+  font-weight: 700;
+  color: var(--bz-muted);
+}
+
+.filter-field input,
+.filter-field select {
+  padding: 10px 12px;
+  border: 1px solid rgba(245, 164, 0, 0.25);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--bz-text-light);
+  font-family: inherit;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.filter-field input:focus,
+.filter-field select:focus {
+  outline: none;
+  border-color: var(--bz-yellow);
+  box-shadow: 0 0 10px rgba(245, 164, 0, 0.25);
+}
+
+.filter-field-wide {
+  flex: 2 1 350px;
+}
+
+.filter-field-small {
+  flex: 0 1 100px;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+/* ===== History Table Container ===== */
+.history-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #ffffff;
+  border: 1px solid rgba(230, 190, 100, 0.3);
+  border-radius: 16px;
+  box-shadow: 0 15px 35px rgba(220, 180, 100, 0.08);
+  position: relative;
+}
+
+.history-table {
+  width: 100%;
+  min-width: 1300px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 13px;
+}
+
+.history-table th {
+  background: #fffbea;
+  color: #855800;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 14px 12px;
+  text-align: left;
+  border-bottom: 2px solid rgba(230, 190, 100, 0.3);
+}
+
+.history-table td {
+  padding: 12px 12px;
+  border-bottom: 1px solid rgba(230, 190, 100, 0.15);
+  color: #374151;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  transition: background 0.15s;
+}
+
+.history-table tbody tr {
+  transition: background 0.15s;
+  animation: rowFadeIn 0.2s ease-out;
+}
+
+.history-table tbody tr:hover {
+  background: rgba(245, 164, 0, 0.04);
+}
+
+/* Column Widths */
+.history-table th:nth-child(1),
+.history-table td:nth-child(1) { width: 140px; } /* Finished Time */
+.history-table th:nth-child(2),
+.history-table td:nth-child(2) { width: 280px; } /* Pipeline Name */
+.history-table th:nth-child(3),
+.history-table td:nth-child(3) { width: 200px; } /* Repo Name */
+.history-table th:nth-child(4),
+.history-table td:nth-child(4) { width: 180px; } /* Branch */
+.history-table th:nth-child(5),
+.history-table td:nth-child(5) { width: 140px; } /* Build Number (Version) */
+.history-table th:nth-child(6),
+.history-table td:nth-child(6) { width: 130px; } /* Status */
+.history-table th:nth-child(7),
+.history-table td:nth-child(7) { width: 160px; } /* Triggered By */
+.history-table th:nth-child(8),
+.history-table td:nth-child(8) { width: 280px; } /* Commit Message */
+.history-table th:nth-child(9),
+.history-table td:nth-child(9) { width: 160px; } /* Tags */
+.history-table th:nth-child(10),
+.history-table td:nth-child(10) { width: 110px; } /* Actions / Links */
+
+/* Badges */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-succeeded {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #10b981;
+}
+
+.status-failed {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
+
+.status-canceled {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #9ca3af;
+}
+
+.status-inprogress {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+}
+
+.commit-hash-link {
+  font-family: Consolas, monospace;
+  font-weight: 700;
+  text-decoration: none;
+  background: rgba(245, 164, 0, 0.08);
+  border: 1px solid rgba(245, 164, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #b45309;
+  font-size: 12px;
+  transition: all 0.2s;
+  display: inline-block;
+  margin-bottom: 4px;
+}
+
+.commit-hash-link:hover {
+  background: var(--bz-yellow);
+  color: #000000;
+  box-shadow: 0 0 8px rgba(245, 164, 0, 0.3);
+}
+
+.tag-badge {
+  display: inline-block;
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #3b82f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  margin: 2px;
+  font-weight: 600;
+}
+
+.pipeline-name-title {
+  font-weight: 700;
+  color: #1f2937;
+}
+
+/* Sync info section */
+.sync-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--bz-muted);
+}
+
+/* ===== Stats Summary Cards ===== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.stats-card {
+  padding: 16px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(230, 190, 100, 0.25);
+  box-shadow: 0 6px 16px rgba(91, 69, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stats-card span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bz-muted);
+  text-transform: uppercase;
+}
+
+.stats-card strong {
+  font-size: 24px;
+  color: var(--bz-ink);
+  font-weight: 800;
+}
+
+/* ===== Dark Mode Support ===== */
+html.dark .filter-panel {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(245, 164, 0, 0.25);
+}
+
+html.dark .filter-field span {
+  color: #ead8a8;
+}
+
+html.dark .filter-field input,
+html.dark .filter-field select {
+  background: #1c1d22;
+  border-color: rgba(245, 164, 0, 0.35);
+  color: #f3f4f6;
+}
+
+html.dark .history-table-wrap {
+  background: #1f2937;
+  border-color: #374151;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.3);
+}
+
+html.dark .history-table {
+  background: #1f2937;
+  color: #e5e7eb;
+}
+
+html.dark .history-table th {
+  background: rgba(20, 22, 30, 0.98);
+  color: var(--bz-yellow);
+  border-bottom: 2px solid rgba(245, 164, 0, 0.2);
+}
+
+html.dark .history-table td {
+  border-bottom: 1px solid #374151;
+  color: #e5e7eb;
+}
+
+html.dark .history-table tbody tr:hover {
+  background: #374151;
+}
+
+html.dark .pipeline-name-title {
+  color: #ffffff;
+}
+
+html.dark .stats-card {
+  background: #1f2937;
+  border-color: #374151;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.3);
+}
+
+html.dark .stats-card span {
+  color: #ead8a8;
+}
+
+html.dark .stats-card strong {
+  color: #ffffff;
+}
+
+html.dark .tag-badge {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+  border-color: #3b82f6;
+}

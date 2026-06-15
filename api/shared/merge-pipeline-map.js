@@ -15,6 +15,21 @@ const MERGE_PIPELINE_RULES = [
     cd: {
       name: 'Stg service Wallet BackOffice V28 VM CD'
     }
+  },
+  {
+    key: 'static-website-sales-portal',
+    label: 'Static Website Sales Portal',
+    repository: 'Net_Product_Sales_Portal_Web',
+    sourceIncludes: ['MergeCode/'],
+    targetIncludes: ['MergeCodeProduction/'],
+    environment: 'STG',
+    confidence: 'high',
+    ci: {
+      name: 'Stg_Net_Product_Sales_Portal_Web_static-CI'
+    },
+    cd: {
+      name: 'None (CI Only / Static Web Apps)'
+    }
   }
 ];
 
