@@ -234,9 +234,9 @@ function renderDeployTable(items) {
           : `<span class="commit-hash-link">[${escapeHtml(item.CommitHash.substring(0, 7))}]</span>`)
       : '-';
 
-    // แสดงชื่อ Branch เต็มรูปแบบ แต่บังคับตัดคำเพื่อไม่ให้ล้นออกนอกคอลัมน์
+    // แสดงชื่อ Branch เต็มรูปแบบ (ตัดคำอัตโนมัติด้วย CSS)
     const branchName = item.Branch || '-';
-    const branchHtml = `<code class="branch-text-wrap" title="${escapeHtml(branchName)}">${escapeHtml(branchName)}</code>`;
+    const branchHtml = `<code title="${escapeHtml(branchName)}">${escapeHtml(branchName)}</code>`;
 
     // สร้างป้าย Tag
     const tagsHtml = item.BuildTags

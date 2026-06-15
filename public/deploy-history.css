@@ -328,12 +328,17 @@ html.dark .tag-badge {
   border-color: #3b82f6;
 }
 
-/* Allow branch name to wrap onto multiple lines instead of overlapping */
-.branch-text-wrap {
+/* Allow all table cell contents (spans, strong, code, small) to wrap onto multiple lines instead of overlapping */
+.history-table td,
+.history-table td span,
+.history-table td strong,
+.history-table td code,
+.history-table td small {
   white-space: pre-wrap !important;
   word-break: break-all !important;
   overflow-wrap: anywhere !important;
   display: inline-block;
   max-width: 100%;
 }
+
 
