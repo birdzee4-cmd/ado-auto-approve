@@ -75,8 +75,33 @@ function renderPage(data) {
   document.getElementById('diagTitle').textContent = data.diagnostics.title || 'ไม่ระบุหัวข้อปัญหา';
   document.getElementById('diagDescription').textContent = data.diagnostics.description || '-';
 
-  // Set Snippet
-  document.getElementById('rawLogSnippet').textContent = data.diagnostics.snippet || '';
+  // Set Snippet with line numbers
+  const snippetEl = document.getElementById('rawLogSnippet');
+  if (snippetEl) {
+    const rawText = data.diagnostics.snippet || '';
+    const startNum = data.diagnostics.startLineNumber || 1;
+    const lines = rawText.split(/\r?\n/);
+    snippetEl.innerHTML = '';
+    
+    lines.forEach((lineText, index) => {
+      const lineNum = startNum + index;
+      
+      const lineDiv = document.createElement('div');
+      lineDiv.className = 'ado-log-line';
+      
+      const numSpan = document.createElement('span');
+      numSpan.className = 'ado-line-number';
+      numSpan.textContent = lineNum;
+      
+      const textSpan = document.createElement('span');
+      textSpan.className = 'ado-line-text';
+      textSpan.textContent = lineText;
+      
+      lineDiv.appendChild(numSpan);
+      lineDiv.appendChild(textSpan);
+      snippetEl.appendChild(lineDiv);
+    });
+  }
 
   // Render Solutions
   const listEl = document.getElementById('solutionsList');
@@ -128,7 +153,7 @@ function setupEvents() {
   const btnCopy = document.getElementById('btnCopyLog');
   if (btnCopy) {
     btnCopy.addEventListener('click', () => {
-      const code = document.getElementById('rawLogSnippet').textContent;
+      const code = (diagnosticData && diagnosticData.diagnostics && diagnosticData.diagnostics.snippet) || '';
       navigator.clipboard.writeText(code)
         .then(() => {
           const originalText = btnCopy.innerHTML;

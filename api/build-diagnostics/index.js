@@ -200,7 +200,8 @@ module.exports = async function (context, req) {
         title: diagnostics.title,
         description: diagnostics.description,
         solutions: diagnostics.solutions,
-        snippet: diagnostics.snippet
+        snippet: diagnostics.snippet,
+        startLineNumber: diagnostics.startLineNumber
       },
       analyzedAt: new Date().toISOString()
     });

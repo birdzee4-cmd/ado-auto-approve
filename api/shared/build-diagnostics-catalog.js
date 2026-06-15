@@ -88,15 +88,19 @@ function diagnoseLog(logText) {
   });
 
   let snippet = '';
+  let startLineNumber = 1;
   if (errorLineIndices.length > 0) {
     // ดึงช่วงรอบๆ บรรทัดที่พังบรรทัดแรกมาแสดง (ก่อนหน้า 2 บรรทัด, ถัดไป 8 บรรทัด)
     const firstErrIdx = errorLineIndices[0];
     const start = Math.max(0, firstErrIdx - 2);
     const end = Math.min(lines.length, firstErrIdx + 8);
     snippet = lines.slice(start, end).join('\n');
+    startLineNumber = start + 1;
   } else {
     // หากสแกนไม่เจอบรรทัดที่มีคีย์เวิร์ดพัง ให้ตัดเอา 15 บรรทัดสุดท้ายมาแสดง
-    snippet = lines.slice(Math.max(0, lines.length - 15)).join('\n');
+    const start = Math.max(0, lines.length - 15);
+    snippet = lines.slice(start).join('\n');
+    startLineNumber = start + 1;
   }
 
   // 4. ผูกผลลัพธ์
@@ -108,7 +112,8 @@ function diagnoseLog(logText) {
       title: info.title,
       description: info.description,
       solutions: info.solutions,
-      snippet: snippet
+      snippet: snippet,
+      startLineNumber: startLineNumber
     };
   }
 
@@ -124,7 +129,8 @@ function diagnoseLog(logText) {
         details: "1. ตรวจสอบข้อความแจ้งเตือนสีแดงในส่วนของ Log ดิบด้านล่าง\n2. เปิดดูรายละเอียดบิลด์ตัวเต็มที่ Azure DevOps เพื่อตรวจสอบขั้นตอนก่อนหน้า"
       }
     ],
-    snippet: snippet
+    snippet: snippet,
+    startLineNumber: startLineNumber
   };
 }
 
