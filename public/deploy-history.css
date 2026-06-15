@@ -11,17 +11,21 @@
   animation: rowFadeIn 0.3s ease-out;
 }
 
-/* ===== Filter Panel ===== */
+/* ===== Filter Panel (Sticky) ===== */
 .filter-panel {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
   padding: 20px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(245, 164, 0, 0.15);
+  background: #ffffff; /* เปลี่ยนเป็นสีทึบใน Light mode เพื่อกันข้อความตารางทะลุ */
+  border: 1px solid rgba(245, 164, 0, 0.2);
   border-radius: 12px;
   margin-bottom: 24px;
   align-items: flex-end;
+  position: sticky;
+  top: 70px; /* ตรึงไว้ใต้ Navbar พอดี (Navbar สูงประมาณ 70px) */
+  z-index: 10;
+  box-shadow: 0 10px 25px rgba(91, 69, 0, 0.05);
 }
 
 .filter-field {
@@ -263,8 +267,9 @@
 
 /* ===== Dark Mode Support ===== */
 html.dark .filter-panel {
-  background: rgba(255, 255, 255, 0.03);
+  background: #1f2937; /* เปลี่ยนเป็นสีทึบใน Dark mode เพื่อกันข้อความตารางทะลุ */
   border-color: rgba(245, 164, 0, 0.25);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
 }
 
 html.dark .filter-field span {
