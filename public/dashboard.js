@@ -1486,6 +1486,11 @@ async function evaluateAutoApprovals(prs) {
   
   // Dashboard-specific event bindings
   bind('btnCheckPrs', async () => {
+    if (window._autoMode === 'dry-run' || window._autoMode === 'active') {
+      const modeLabel = window._autoMode === 'active' ? 'ACTIVE (Auto-Approve)' : 'ACTIVE (Manual)';
+      const ok = confirm(`คุณต้องการปิดโหมด ${modeLabel} และดึงข้อมูล PR ใหม่ใช่หรือไม่?`);
+      if (!ok) return;
+    }
     if (window._currentUser && window._currentUser.canApprovePrs === true) {
       await changeAutoMode('normal');
     }
@@ -1495,6 +1500,15 @@ async function evaluateAutoApprovals(prs) {
   bind('btnConfirmApprove', doApprove);
   bind('btnConfirmReject', doReject);
   bind('btnConfirmHold', doHold);
+  
+  // Intercept page reload/navigation when auto mode is active
+  window.addEventListener('beforeunload', (e) => {
+    if (window._autoMode === 'dry-run' || window._autoMode === 'active') {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    }
+  });
   
   await initAutoApprove();
   await checkPrs();
