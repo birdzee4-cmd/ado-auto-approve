@@ -11,3 +11,6 @@ mq6qj6h8-dashboard.html.artifact.json
 api/node_modules/
 scratch/
 
+# Ignore local settings
+api/local.settings.json
+
