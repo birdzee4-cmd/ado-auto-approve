@@ -750,6 +750,15 @@ function renderSystemHealth(data) {
     detail: { schedule: '18:00 Asia/Bangkok' }
   }));
 
+  const nextLineRun = data.schedule && data.schedule.lineDailySummary && data.schedule.lineDailySummary.nextRunAt;
+  cards.push(buildHealthCard({
+    key: 'next-line-summary',
+    label: 'Next LINE Summary',
+    status: data.schedule && data.schedule.lineDailySummary && data.schedule.lineDailySummary.enabled ? 'ok' : 'warning',
+    message: nextLineRun ? formatDate(nextLineRun) : 'LINE daily summary schedule not ready',
+    detail: { schedule: '23:59 Asia/Bangkok' }
+  }));
+
   if (grid) grid.innerHTML = cards.join('');
   if (summary) summary.innerHTML = buildHealthSummary(data);
 }

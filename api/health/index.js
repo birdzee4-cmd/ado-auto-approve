@@ -29,6 +29,8 @@ module.exports = async function (context, req) {
   checks.push(sharePointResult.check);
   checks.push(checkTeamsConfig());
   checks.push(checkDailySummaryConfig());
+  checks.push(checkLineConfig());
+  checks.push(checkLineDailySummaryConfig());
 
   const lastNotification = sharePointResult.recentLogs
     ? findLastNotification(sharePointResult.recentLogs)
@@ -65,7 +67,14 @@ module.exports = async function (context, req) {
           scheduler: 'Azure Logic Apps Consumption',
           timeZone: 'Asia/Bangkok',
           localTime: '18:00',
-          nextRunAt: getNextDailySummaryRun(generatedAt)
+          nextRunAt: getNextDailySummaryRun(generatedAt, 18, 0)
+        },
+        lineDailySummary: {
+          enabled: (!!process.env.LINE_DAILY_SUMMARY_TOKEN || !!process.env.DAILY_SUMMARY_TOKEN) && !!process.env.LINE_CHANNEL_ACCESS_TOKEN && !!process.env.LINE_TARGET_ID,
+          scheduler: 'Azure Logic Apps Consumption',
+          timeZone: 'Asia/Bangkok',
+          localTime: '23:59',
+          nextRunAt: getNextDailySummaryRun(generatedAt, 23, 59)
         }
       },
       message: 'ADO Auto-Approve API health checked'
@@ -151,6 +160,36 @@ function checkDailySummaryConfig() {
   return buildCheck('daily-summary', 'Daily Summary', 'ok', 'Daily summary token is configured', startedAt, {
     scheduler: 'Azure Logic Apps Consumption',
     schedule: '18:00 Asia/Bangkok'
+  });
+}
+
+function checkLineConfig() {
+  const startedAt = Date.now();
+  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
+  const targetId = process.env.LINE_TARGET_ID || '';
+  if (!token || !targetId) {
+    const missing = [];
+    if (!token) missing.push('LINE_CHANNEL_ACCESS_TOKEN');
+    if (!targetId) missing.push('LINE_TARGET_ID');
+    return buildCheck('line', 'LINE Notification', 'warning', `Missing: ${missing.join(', ')}`, startedAt);
+  }
+  return buildCheck('line', 'LINE Notification', 'ok', 'LINE configuration is configured', startedAt, {
+    targetId: targetId.substring(0, 5) + '...'
+  });
+}
+
+function checkLineDailySummaryConfig() {
+  const startedAt = Date.now();
+  const token = process.env.LINE_DAILY_SUMMARY_TOKEN || process.env.DAILY_SUMMARY_TOKEN || '';
+  if (!token) {
+    return buildCheck('line-daily-summary', 'LINE Daily Summary', 'warning', 'LINE_DAILY_SUMMARY_TOKEN is not configured', startedAt, {
+      scheduler: 'Azure Logic Apps Consumption',
+      schedule: '23:59 Asia/Bangkok'
+    });
+  }
+  return buildCheck('line-daily-summary', 'LINE Daily Summary', 'ok', 'LINE daily summary token is configured', startedAt, {
+    scheduler: 'Azure Logic Apps Consumption',
+    schedule: '23:59 Asia/Bangkok'
   });
 }
 
@@ -279,7 +318,7 @@ function buildCheck(key, label, status, message, startedAt, detail) {
   };
 }
 
-function getNextDailySummaryRun(nowIso) {
+function getNextDailySummaryRun(nowIso, targetHour, targetMinute) {
   const offsetMs = 7 * 60 * 60 * 1000;
   const now = new Date(nowIso);
   const bkkNow = new Date(now.getTime() + offsetMs);
@@ -287,8 +326,8 @@ function getNextDailySummaryRun(nowIso) {
     bkkNow.getUTCFullYear(),
     bkkNow.getUTCMonth(),
     bkkNow.getUTCDate(),
-    18,
-    0,
+    targetHour || 18,
+    targetMinute || 0,
     0
   ) - offsetMs;
   if (runUtcMs <= now.getTime()) runUtcMs += 24 * 60 * 60 * 1000;
