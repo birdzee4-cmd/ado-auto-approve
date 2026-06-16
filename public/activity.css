@@ -24,20 +24,6 @@
   color: #9ca3af;
 }
 
-/* ===== Dark Mode Overrides ===== */
-html.dark .next-steps {
-  background: rgba(28, 29, 34, 0.7);
-  border-left-color: var(--bz-yellow);
-}
-
-html.dark .next-steps h2 {
-  color: #fff;
-}
-
-html.dark .next-steps ol {
-  color: #a0aec0;
-}
-
 /* ==========================================================================
    Premium Light Mode Overrides
    ========================================================================== */

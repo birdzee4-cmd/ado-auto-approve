@@ -70,6 +70,7 @@ flowchart LR
 | Merge Lookup | `/merge.html` | กรอก PR ID เพื่อหา CI/CD ของงาน Merge |
 | Deploy History | `/deploy-history.html` | ค้นหา คัดกรอง และดูประวัติการรัน Build & Deploy ย้อนหลังบนระบบ Staging |
 | Build Diagnostics | `/build-diagnostics.html` | หน้าวิเคราะห์และแปลความหมายข้อผิดพลาดของ Build Log พร้อมเสนอแนวทางแก้ไขภาษาไทย |
+| Report | `/report.html` | ดูรายงานสรุปสถิติผลการดำเนินงานและสถิติ (รายวัน/รายเดือน) |
 | Audit Logs | `/logs.html` | ค้นหา SharePoint Log ตาม PR, action, source, keyword |
 | System Health | `/health.html` | ตรวจ Backend, ADO, SharePoint, Teams, Daily Summary, Last Sync/Notification |
 | Forbidden | `/403.html` | แสดงเมื่อผู้ใช้ไม่มีสิทธิ์ |
@@ -437,9 +438,11 @@ Routes สำคัญ:
 | `/merge.html` | `authenticated` |
 | `/logs.html` | `authenticated` |
 | `/health.html` | `authenticated` |
+| `/report.html` | `authenticated` |
 | `/api/list-prs` | `authenticated` |
 | `/api/merge-lookup` | `authenticated` |
 | `/api/logs` | `authenticated` |
+| `/api/report-summary` | `authenticated` |
 | `/api/pr-history/*` | `authenticated` |
 | `/api/approve-pr` | `it_support_approve` |
 | `/api/reject-pr` | `it_support_approve` |
@@ -485,6 +488,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/build-diagnostics` | GET/POST | วิเคราะห์ Timeline และเนื้อหา Log ความล้มเหลวของ Build พร้อมบันทึก/ส่งแจ้งเตือน Teams |
 | `/api/deploy-history` | GET | ดึงข้อมูลประวัติการ Deploy จากไฟล์ CSV บน SharePoint |
 | `/api/sync-deployments` | GET/POST | ดึงและประสานประวัติการรัน Build & Deploy จาก Azure DevOps บันทึกเก็บเป็นไฟล์ CSV ตามปีบน SharePoint |
+| `/api/report-summary` | GET | ดึงข้อมูลรายงานสรุปสถิติผลการดำเนินงาน (การอนุมัติ, อัตรา Auto-Approve, อัตราความสำเร็จของบิลด์) |
 | `/api/create-tag` | POST | สร้าง Git Tag ใน Azure DevOps ชี้ไปยัง Commit SHA ที่กำหนด |
 | `/api/pr-history/{prId}` | GET | อ่าน history ของ PR จาก SharePoint |
 | `/api/logs` | GET | อ่าน audit logs จาก SharePoint |

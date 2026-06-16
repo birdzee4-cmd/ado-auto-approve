@@ -371,6 +371,50 @@ async function getLogItemsSince(sinceIso, maxItems) {
   };
 }
 
+async function getLogItemsRange(startIso, endIso, maxItems) {
+  const siteId = await getSiteId();
+  const listId = await getListId();
+  const token = await getAccessToken();
+  const limit = Math.max(1, Math.min(parseInt(maxItems, 10) || 500, 2000));
+  const pageSize = 100;
+  const filter = `fields/Created ge '${startIso}' and fields/Created lt '${endIso}'`;
+  let url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$filter=${encodeURIComponent(filter)}&$orderby=lastModifiedDateTime desc&$top=${pageSize}`;
+  const headers = {
+    'Authorization': 'Bearer ' + token,
+    'Prefer': 'HonorNonIndexedQueriesWarningMayFailRandomly'
+  };
+  const items = [];
+  let lastStatus = 200;
+  let lastBody = null;
+
+  while (url && items.length < limit) {
+    const result = await httpRequest('GET', url, headers);
+    lastStatus = result.status;
+    lastBody = result.body;
+    if (!result.ok) return result;
+
+    const value = result.body && Array.isArray(result.body.value) ? result.body.value : [];
+    for (const item of value) {
+      if (items.length >= limit) break;
+      items.push(item);
+    }
+    url = result.body && result.body['@odata.nextLink'] ? result.body['@odata.nextLink'] : '';
+  }
+
+  return {
+    ok: true,
+    status: lastStatus,
+    body: {
+      value: items,
+      start: startIso,
+      end: endIso,
+      fetched: items.length,
+      truncated: items.length >= limit,
+      lastResponse: lastBody
+    }
+  };
+}
+
 async function getLogItemsBefore(cutoffIso, maxItems) {
   const siteId = await getSiteId();
   const listId = await getListId();
@@ -636,6 +680,7 @@ module.exports = {
   getLogByEventKey,
   getRecentLogItems,
   getLogItemsSince,
+  getLogItemsRange,
   getLogItemsBefore,
   deleteLogItem,
   uploadArchiveFile,

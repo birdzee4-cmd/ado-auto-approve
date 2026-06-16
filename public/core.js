@@ -2,11 +2,7 @@
 // ADO Auto-Approve - Dashboard Script (Phase 3.1)
 // ============================================
 
-(function applyTheme() {
-  try {
-    document.documentElement.classList.remove('dark');
-  } catch (e) {}
-})();
+
 
 window._prCache = {};
 window._activeTab = 'pr';
@@ -111,7 +107,7 @@ function showBox(id, html, type) {
 }
 
 function initThemeToggle() {
-  // Theme toggle removed, dark mode is now permanent
+  // Theme toggle logic removed
 }
 
 function renderSkeletonRows(columnsCount, rowsCount) {

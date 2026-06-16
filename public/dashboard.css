@@ -2031,10 +2031,6 @@
   background: rgba(245, 164, 0, 0.05) !important;
   box-shadow: inset 3px 0 0 var(--bz-yellow);
 }
-html.dark .pr-table tbody tr:hover {
-  background: rgba(245, 164, 0, 0.08) !important;
-  box-shadow: inset 3px 0 0 var(--bz-yellow);
-}
 
 /* 2. Interactive Badges & Chips */
 .attention-badge, .my-approval, .status-snapshot, .release-badge, .log-source-badge, .approval-badge {
@@ -2043,13 +2039,6 @@ html.dark .pr-table tbody tr:hover {
 .attention-badge:hover, .my-approval:hover, .status-snapshot:hover, .release-badge:hover, .log-source-badge:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
-}
-html.dark .attention-badge:hover, 
-html.dark .my-approval:hover, 
-html.dark .status-snapshot:hover, 
-html.dark .release-badge:hover, 
-html.dark .log-source-badge:hover {
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
 }
 
 /* 3. Auto-Approve Panel Polish */
@@ -2066,15 +2055,6 @@ html.dark .log-source-badge:hover {
   border-color: rgba(245, 164, 0, 0.35);
   box-shadow: 0 16px 40px rgba(91, 69, 0, 0.08);
 }
-html.dark .auto-approve-panel {
-  background: rgba(31, 41, 55, 0.75);
-  border-color: rgba(245, 164, 0, 0.25);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-}
-html.dark .auto-approve-panel:hover {
-  border-color: rgba(245, 164, 0, 0.45);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
-}
 
 /* 4. Cyberpunk Auto-Console Log */
 .auto-console-log {
@@ -2082,161 +2062,6 @@ html.dark .auto-approve-panel:hover {
   border: 1px solid rgba(245, 164, 0, 0.15);
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8), 0 4px 10px rgba(0, 0, 0, 0.1);
   color: #38bdf8;
-}
-html.dark .auto-console-log {
-  border-color: rgba(245, 164, 0, 0.25);
-}
-
-/* ==========================================================================
-   Dark-Glass Premium Themes Overrides
-   ========================================================================== */
-html.dark body {
-  background: #080a0a;
-  color: #f3f4f6;
-}
-
-html.dark .welcome-card {
-  background: linear-gradient(135deg, rgba(20, 22, 28, 0.95) 0%, rgba(12, 13, 16, 0.9) 100%);
-  border: 1px solid rgba(245, 164, 0, 0.25);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(245, 164, 0, 0.05);
-}
-
-html.dark .welcome-card h1 {
-  background: linear-gradient(90deg, #ffffff 0%, var(--bz-yellow) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-html.dark .welcome-card > p {
-  color: #ebd7b0; /* Warm beige for readability */
-}
-
-/* Dark mode overrides for welcome card highlights */
-html.dark .welcome-card-highlight.blue {
-  background: rgba(96, 165, 250, 0.15);
-  color: #93c5fd;
-  border-color: rgba(96, 165, 250, 0.25);
-}
-html.dark .welcome-card-highlight.gold {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fcd34d;
-  border-color: rgba(245, 158, 11, 0.25);
-}
-html.dark .welcome-card-highlight.green {
-  background: rgba(52, 211, 153, 0.15);
-  color: #6ee7b7;
-  border-color: rgba(52, 211, 153, 0.25);
-}
-html.dark .welcome-card-highlight.red {
-  background: rgba(248, 113, 113, 0.15);
-  color: #fca5a5;
-  border-color: rgba(248, 113, 113, 0.25);
-}
-html.dark .welcome-card-highlight.orange {
-  background: rgba(251, 146, 60, 0.15);
-  color: #fdba74;
-  border-color: rgba(251, 146, 60, 0.25);
-}
-html.dark .welcome-card-highlight.indigo {
-  background: rgba(129, 140, 248, 0.15);
-  color: #c7d2fe;
-  border-color: rgba(129, 140, 248, 0.25);
-}
-html.dark .welcome-card-highlight.purple {
-  background: rgba(167, 139, 250, 0.15);
-  color: #ddd6fe;
-  border-color: rgba(167, 139, 250, 0.25);
-}
-
-html.dark .info-item {
-  background: rgba(28, 29, 34, 0.7);
-  border: 1px solid rgba(245, 164, 0, 0.18);
-  border-left: 4px solid var(--bz-yellow);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-html.dark .info-item:hover {
-  background: rgba(40, 42, 50, 0.9);
-  border-color: var(--bz-yellow);
-  box-shadow: 0 8px 24px rgba(245, 164, 0, 0.2);
-}
-
-html.dark .info-label {
-  color: #718096;
-}
-
-html.dark .info-value {
-  color: #ffffff;
-}
-
-html.dark .pr-section {
-  background: rgba(20, 22, 28, 0.85);
-  border-color: rgba(245, 164, 0, 0.18);
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.4);
-}
-
-html.dark .pr-section h2 {
-  color: #ffffff;
-}
-
-html.dark .section-desc {
-  color: #718096;
-}
-
-html.dark .pr-table-wrap {
-  background: rgba(12, 13, 16, 0.9);
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-html.dark .pr-table th {
-  background: rgba(28, 29, 34, 0.9);
-  color: #a0aec0;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.05);
-}
-
-html.dark .pr-table td {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  color: #e2e8f0;
-}
-
-html.dark .pr-table tbody tr {
-  background: transparent;
-}
-
-html.dark .pr-table tbody tr:nth-child(even) {
-  background: rgba(255, 255, 255, 0.01);
-}
-
-/* Status colors remain the same visually but with slight text adjustments */
-html.dark .my-approval-approved,
-html.dark .attention-ready,
-html.dark .attention-normal {
-  background: rgba(22, 101, 52, 0.2) !important;
-  border-color: #15803d !important;
-  color: #86efac !important;
-}
-
-html.dark .my-approval-pending,
-html.dark .attention-watch,
-html.dark .my-approval-manual {
-  background: rgba(146, 64, 14, 0.2) !important;
-  border-color: #b45309 !important;
-  color: #fde68a !important;
-}
-
-html.dark .my-approval-rejected,
-html.dark .attention-critical {
-  background: rgba(153, 27, 27, 0.2) !important;
-  border-color: #b91c1c !important;
-  color: #fecaca !important;
-}
-
-html.dark .my-approval-warning,
-html.dark .attention-warning,
-html.dark .attention-stale {
-  background: rgba(154, 52, 18, 0.2) !important;
-  border-color: #c2410c !important;
-  color: #fed7aa !important;
 }
 
 /* ==========================================================================
@@ -2475,17 +2300,11 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: 4px;
   color: #3b2806;
 }
-html.dark .summary-main-line {
-  color: #ffffff;
-}
 .summary-sub-line {
   font-size: 13px;
   opacity: 0.85;
   margin-bottom: 18px;
   color: #5c4b37;
-}
-html.dark .summary-sub-line {
-  color: #9ca3af;
 }
 .summary-cards-container {
   display: grid;
@@ -2601,53 +2420,6 @@ html.dark .summary-sub-line {
 
 .text-amber {
   color: #b45309 !important;
-}
-
-/* Dark mode overrides */
-html.dark .summary-card {
-  background: rgba(20, 22, 28, 0.85) !important;
-  border: 1px solid rgba(245, 164, 0, 0.2) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
-}
-html.dark .summary-card:hover {
-  border-color: rgba(245, 164, 0, 0.45) !important;
-  box-shadow: 0 8px 24px rgba(245, 164, 0, 0.15) !important;
-}
-html.dark .card-label {
-  color: #a0aec0 !important;
-}
-html.dark .card-value {
-  color: #f3f4f6 !important;
-}
-html.dark .badge-blue {
-  background: rgba(59, 130, 246, 0.15) !important;
-  color: #93c5fd !important;
-  border-color: rgba(59, 130, 246, 0.25) !important;
-}
-html.dark .badge-orange {
-  background: rgba(245, 158, 11, 0.15) !important;
-  color: #fcd34d !important;
-  border-color: rgba(245, 158, 11, 0.25) !important;
-}
-html.dark .badge-green {
-  background: rgba(52, 211, 153, 0.15) !important;
-  color: #6ee7b7 !important;
-  border-color: rgba(52, 211, 153, 0.25) !important;
-}
-html.dark .badge-purple {
-  background: rgba(167, 139, 250, 0.15) !important;
-  color: #c084fc !important;
-  border-color: rgba(167, 139, 250, 0.25) !important;
-}
-html.dark .badge-red {
-  background: rgba(248, 113, 113, 0.15) !important;
-  color: #fca5a5 !important;
-  border-color: rgba(248, 113, 113, 0.25) !important;
-}
-html.dark .badge-slate {
-  background: rgba(148, 163, 184, 0.15) !important;
-  color: #cbd5e1 !important;
-  border-color: rgba(148, 163, 184, 0.25) !important;
 }
 
 .release-branch-tag {
