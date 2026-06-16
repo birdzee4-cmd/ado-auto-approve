@@ -424,4 +424,5 @@ function getBangkokDateKey(value) {
 dailySummaryHandler.buildDailySummary = buildDailySummary;
 dailySummaryHandler.getBangkokDateRange = getBangkokDateRange;
 dailySummaryHandler.parseRequestOptions = parseRequestOptions;
+dailySummaryHandler.buildDailySummaryMessage = buildDailySummaryMessage;
 module.exports = dailySummaryHandler;

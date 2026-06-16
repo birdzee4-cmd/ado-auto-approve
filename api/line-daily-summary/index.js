@@ -43,60 +43,100 @@ module.exports = async function (context, req) {
     
     // Fetch and build daily summary data (reuse daily summary helper)
     const summary = await dailySummaryModule.buildDailySummary(context, requestOptions.reportDate);
-    const eventKey = requestOptions.testMode
+    
+    // Check duplicate for LINE
+    const lineEventKey = requestOptions.testMode
       ? 'line:daily-summary-test:' + summary.dateKey + ':' + Date.now()
       : 'line:daily-summary:' + summary.dateKey;
+    const lineAlreadySent = !requestOptions.testMode && await lineSummaryAlreadySent(sp, summary, lineEventKey);
 
-    // Check duplicate from SharePoint Log
-    if (!requestOptions.testMode && await lineSummaryAlreadySent(sp, summary, eventKey)) {
-      jsonResponse(200, {
-        ok: true,
-        skipped: true,
-        reason: 'duplicate',
-        eventKey: eventKey,
-        summary: summary
-      });
-      return;
-    }
+    // Check duplicate for Teams 23:59
+    const teamsEventKey = requestOptions.testMode
+      ? 'teams:daily-summary-2359-test:' + summary.dateKey + ':' + Date.now()
+      : 'teams:daily-summary-2359:' + summary.dateKey;
+    const teamsAlreadySent = !requestOptions.testMode && await teamsSummaryAlreadySent(sp, summary, teamsEventKey);
 
-    // Format message specifically for LINE (No Markdown Tables, readable on Mobile)
-    const lineMessage = buildLineDailySummaryMessage(summary, requestOptions.testMode);
+    let lineResult = { ok: true, skipped: true, reason: 'duplicate' };
+    let teamsResult = { ok: true, skipped: true, reason: 'duplicate' };
 
-    // Send to LINE OA
-    context.log(`Sending Daily PR Summary to LINE: ${eventKey}...`);
-    const result = await line.sendLinePush(lineMessage);
+    // Send to LINE if not already sent
+    if (!lineAlreadySent) {
+      const lineMessage = buildLineDailySummaryMessage(summary, requestOptions.testMode);
+      context.log(`Sending Daily PR Summary to LINE: ${lineEventKey}...`);
+      lineResult = await line.sendLinePush(lineMessage);
 
-    if (result.ok) {
-      // Log to SharePoint
-      try {
-        await sp.addLogItem(sp.buildLogFields({
-          prId: 0,
-          action: requestOptions.testMode ? 'Test LINE Notification Sent' : 'LINE Notification Sent',
-          user: requestOptions.requestedBy || 'System',
-          repository: requestOptions.testMode ? 'Daily Summary LINE Test' : 'Daily Summary LINE',
-          prTitle: (requestOptions.testMode ? '[TEST] ' : '') + 'Daily PR Summary (LINE) - ' + summary.dateLabel,
-          targetBranch: summary.targetBranch,
-          result: requestOptions.testMode ? 'Test LINE daily summary sent' : 'LINE daily summary sent',
-          reason: `LINE status ${result.status} | target ${process.env.LINE_TARGET_ID || '-'}`,
-          source: requestOptions.testMode ? 'Dashboard Test LINE' : 'Logic Apps LINE Daily Summary',
-          eventKey: eventKey,
-          lastCheckedAt: summary.generatedAt
-        }));
-      } catch (spErr) {
-        context.log.warn('LINE daily summary log to SharePoint failed:', spErr.message);
+      if (lineResult.ok) {
+        try {
+          await sp.addLogItem(sp.buildLogFields({
+            prId: 0,
+            action: requestOptions.testMode ? 'Test LINE Notification Sent' : 'LINE Notification Sent',
+            user: requestOptions.requestedBy || 'System',
+            repository: requestOptions.testMode ? 'Daily Summary LINE Test' : 'Daily Summary LINE',
+            prTitle: (requestOptions.testMode ? '[TEST] ' : '') + 'Daily PR Summary (LINE) - ' + summary.dateLabel,
+            targetBranch: summary.targetBranch,
+            result: requestOptions.testMode ? 'Test LINE daily summary sent' : 'LINE daily summary sent',
+            reason: `LINE status ${lineResult.status} | target ${process.env.LINE_TARGET_ID || '-'}`,
+            source: requestOptions.testMode ? 'Dashboard Test LINE' : 'Logic Apps LINE Daily Summary',
+            eventKey: lineEventKey,
+            lastCheckedAt: summary.generatedAt
+          }));
+        } catch (spErr) {
+          context.log.warn('LINE daily summary log to SharePoint failed:', spErr.message);
+        }
       }
+    } else {
+      context.log(`Daily PR Summary to LINE already sent for date ${summary.dateKey}. Skipping.`);
     }
 
-    jsonResponse(result.ok ? 200 : 502, {
-      ok: result.ok,
-      lineStatus: result.status,
-      lineBody: result.body,
-      eventKey: eventKey,
+    // Send to Teams if not already sent
+    if (!teamsAlreadySent) {
+      const teams = require('../shared/teams-notifier');
+      const teamsMessage = dailySummaryModule.buildDailySummaryMessage(summary, requestOptions.testMode);
+      context.log(`Sending Daily PR Summary to MS Teams (23:59): ${teamsEventKey}...`);
+      teamsResult = await teams.sendTeamsCard({ text: teamsMessage });
+
+      if (teamsResult.ok) {
+        try {
+          await sp.addLogItem(sp.buildLogFields({
+            prId: 0,
+            action: requestOptions.testMode ? 'Test Notification Sent' : 'Notification Sent',
+            user: requestOptions.requestedBy || 'System',
+            repository: requestOptions.testMode ? 'Daily Summary Test' : 'Daily Summary',
+            prTitle: (requestOptions.testMode ? '[TEST] ' : '') + 'Daily PR Summary (Teams 23:59) - ' + summary.dateLabel,
+            targetBranch: summary.targetBranch,
+            result: requestOptions.testMode ? 'Test daily summary sent' : 'Daily summary sent',
+            reason: `Teams status ${teamsResult.status} (23:59)`,
+            source: requestOptions.testMode ? 'Dashboard Test LINE' : 'Logic Apps LINE Daily Summary',
+            eventKey: teamsEventKey,
+            lastCheckedAt: summary.generatedAt
+          }));
+        } catch (spErr) {
+          context.log.warn('Teams 23:59 daily summary log to SharePoint failed:', spErr.message);
+        }
+      }
+    } else {
+      context.log(`Daily PR Summary to MS Teams (23:59) already sent for date ${summary.dateKey}. Skipping.`);
+    }
+
+    jsonResponse((lineResult.ok && teamsResult.ok) ? 200 : 502, {
+      ok: lineResult.ok && teamsResult.ok,
+      line: {
+        ok: lineResult.ok,
+        status: lineResult.status,
+        skipped: !!lineResult.skipped,
+        eventKey: lineEventKey
+      },
+      teams: {
+        ok: teamsResult.ok,
+        status: teamsResult.status,
+        skipped: !!teamsResult.skipped,
+        eventKey: teamsEventKey
+      },
       summary: summary
     });
 
   } catch (err) {
-    context.log.error('LINE Daily summary failed:', err);
+    context.log.error('LINE/Teams Daily summary failed:', err);
     jsonResponse(500, { ok: false, error: 'Unexpected server error', detail: err.message });
   }
 };
@@ -180,6 +220,30 @@ async function lineSummaryAlreadySent(sp, summary, eventKey) {
       fields.Title
     ].join(' ').toLowerCase();
     return markerText.includes('line daily summary') &&
+      getBangkokDateKey(fields.Last_Checked_At) === summary.dateKey;
+  });
+}
+
+async function teamsSummaryAlreadySent(sp, summary, eventKey) {
+  const byEventKey = await sp.getLogByEventKey(eventKey);
+  const eventKeyItems = byEventKey.ok && byEventKey.body && Array.isArray(byEventKey.body.value)
+    ? byEventKey.body.value
+    : [];
+  if (eventKeyItems.length > 0) return true;
+
+  const markerLogs = await sp.getLogForPR(0);
+  const rows = markerLogs.ok && markerLogs.body && Array.isArray(markerLogs.body.value)
+    ? markerLogs.body.value.map(item => item.fields || {})
+    : [];
+  return rows.some(fields => {
+    const markerText = [
+      fields.PR_Title,
+      fields.Result,
+      fields.Reason,
+      fields.Title
+    ].join(' ').toLowerCase();
+    return markerText.includes('daily pr summary') && 
+      markerText.includes('23:59') &&
       getBangkokDateKey(fields.Last_Checked_At) === summary.dateKey;
   });
 }
