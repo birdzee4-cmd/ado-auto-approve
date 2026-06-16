@@ -406,32 +406,24 @@ TEAMS_EXCEPTION_NOTIFICATIONS=false
 
 ### Daily PR Summary
 
-ส่งสรุปรายวันเวลา 18:00 Asia/Bangkok ผ่าน Azure Logic Apps Consumption
+ระบบรองรับการส่งสรุปภาพรวมรายวัน (Daily Summary) ไปยัง 2 ช่องทางหลักตามรอบเวลาที่กำหนด:
 
-ข้อมูลใน summary:
+1. **MS Teams Daily Summary (รอบ 18:00 น. Asia/Bangkok):**
+   * ส่งแจ้งเตือนสรุปรายวันเข้ากลุ่ม MS Teams ผ่าน endpoint:
+     ```text
+     POST /api/daily-summary
+     ```
+   * ข้อมูลเป็นสถานะสด ณ เวลา 18:00 น.
+   * ใช้ Header: `x-daily-summary-token: <DAILY_SUMMARY_TOKEN>`
+2. **LINE OA Daily Summary (รอบ 23:59 น. Asia/Bangkok):**
+   * ส่งแจ้งเตือนสรุปรายวันเข้าแชท/กลุ่ม LINE OA ผ่าน endpoint:
+     ```text
+     POST /api/line-daily-summary
+     ```
+   * **การคำนวณข้อมูล:** ดึงและรวบรวมข้อมูลสดแบบเรียลไทม์ครบถ้วนตลอดทั้งวัน (00:00 - 23:59 น.) ซึ่งทำให้รายงานของ LINE จะครอบคลุมกิจกรรมทั้งหมด รวมถึง PR ที่มีการอนุมัติหรือสร้างใหม่ในช่วงเวลาหลังรอบส่งของ Teams (18:00 - 23:59 น.) และจะสแกนสถานะคิวรออนุมัติล่าสุด (Active now) ณ เวลาเที่ยงคืนก่อนเริ่มวันถัดไป
+   * ใช้ Header: `x-line-daily-summary-token: <LINE_DAILY_SUMMARY_TOKEN>`
 
-- New PR today
-- Completed today
-- Active now
-- Build/Policy failed
-- Rejected active
-- Abandoned today
-- Attention summary
-- Recently completed sample
-
-Endpoint:
-
-```text
-POST /api/daily-summary
-```
-
-Header:
-
-```text
-x-daily-summary-token: <DAILY_SUMMARY_TOKEN>
-```
-
-ระบบมี duplicate guard ด้วย `Event_Key` ใน SharePoint เพื่อไม่ให้ส่งซ้ำในวันเดียวกัน
+ระบบมี duplicate guard ด้วย `Event_Key` ใน SharePoint (`teams:daily-summary:<dateKey>` และ `line:daily-summary:<dateKey>`) เพื่อไม่ให้ส่งซ้ำในวันเดียวกันในแต่ละช่องทางโดยเฉพาะ
 
 ## Authentication และ Authorization
 
