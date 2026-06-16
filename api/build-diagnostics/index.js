@@ -193,6 +193,17 @@ module.exports = async function (context, req) {
       for (const sol of diagnostics.solutions) {
         message += `* **${sol.title}**\n${sol.details}\n\n`;
       }
+
+      if (diagnostics.snippet) {
+        const startLine = diagnostics.startLineNumber || 1;
+        const lines = diagnostics.snippet.split(/\r?\n/).filter(Boolean);
+        const snippetWithNumbers = lines
+          .map((line, idx) => `${startLine + idx} | ${line}`)
+          .join('\n');
+        message += `### 📋 ข้อผิดพลาดดิบจาก Log (Raw Log Snippet)\n`;
+        message += `\`\`\`text\n${snippetWithNumbers}\n\`\`\`\n\n`;
+      }
+
       message += `💡 *หมายเหตุ: คุณสามารถดูรายละเอียดข้อผิดพลาดดิบแบบเรียงบรรทัดได้ที่หน้า Dashboard วิเคราะห์ปัญหาผ่านลิงก์ด้านบนครับ*\n\n`;
 
       try {
