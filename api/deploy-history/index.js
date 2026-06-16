@@ -16,19 +16,24 @@ module.exports = async function (context, req) {
   }
 
   try {
-    const filePath = 'deploy-history/stg-deployments.csv';
-    context.log(`Downloading deployment history CSV from SharePoint: ${filePath}...`);
+    const yearParam = req.query && req.query.year ? String(req.query.year).trim() : '';
+    let filePath = 'deploy-history/stg-deployments.csv';
+    
+    if (yearParam && /^\d{4}$/.test(yearParam)) {
+      filePath = `deploy-history/stg-deployments-${yearParam}.csv`;
+    }
 
+    context.log(`Downloading deployment history CSV from SharePoint: ${filePath}...`);
     const result = await sp.downloadArchiveFile(filePath);
     
-    // กรณีที่ยังไม่มีไฟล์ประวัติบน SharePoint (อาจยังไม่ได้รัน sync รอบแรก)
+    // กรณีที่ยังไม่มีไฟล์ประวัติบน SharePoint
     if (result.status === 404) {
-      context.log.warn('Staging deployments CSV file not found on SharePoint (HTTP 404). Returning empty list.');
+      context.log.warn(`Staging deployments CSV file not found on SharePoint (HTTP 404): ${filePath}. Returning empty list.`);
       jsonResponse(200, {
         ok: true,
         count: 0,
         deployments: [],
-        message: 'ยังไม่มีข้อมูลการ Deploy กรุณารัน Sync ประวัติก่อน'
+        message: yearParam ? `ยังไม่มีข้อมูลการ Deploy ของปี ${yearParam}` : 'ยังไม่มีข้อมูลการ Deploy กรุณารัน Sync ประวัติก่อน'
       });
       return;
     }

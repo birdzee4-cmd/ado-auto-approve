@@ -17,7 +17,9 @@ async function loadDeployHistory(showNotification = false) {
   }
 
   try {
-    const r = await safeFetchJson('/api/deploy-history');
+    const yearVal = document.getElementById('filterYear') ? document.getElementById('filterYear').value : '';
+    const queryPath = yearVal ? `/api/deploy-history?year=${yearVal}` : '/api/deploy-history';
+    const r = await safeFetchJson(queryPath);
     
     if (r.parseError || !r.ok || !r.data || !r.data.ok) {
       const d = r.data || {};
@@ -275,11 +277,15 @@ function renderDeployTable(items) {
 
 // เคลียร์ Filters ทั้งหมด
 function clearFilters() {
+  const filterYear = document.getElementById('filterYear');
+  if (filterYear) filterYear.value = '';
+  
   document.getElementById('filterRepo').value = '';
   document.getElementById('filterBranch').value = '';
   document.getElementById('filterStatus').value = '';
   document.getElementById('filterKeyword').value = '';
-  applyFiltersAndRender();
+  
+  loadDeployHistory(true);
 }
 
 // ตั้งค่าปุ่มและ Events ค้นหา
@@ -287,6 +293,14 @@ function setupEventListeners() {
   bind('btnSearch', applyFiltersAndRender);
   bind('btnClear', clearFilters);
   bind('btnSyncHistory', syncDevOpsHistory);
+
+  // เมื่อเปลี่ยนฟิลเตอร์ของปี ให้ดึงข้อมูลใหม่จาก Server
+  const filterYear = document.getElementById('filterYear');
+  if (filterYear) {
+    filterYear.addEventListener('change', () => {
+      loadDeployHistory(true);
+    });
+  }
 
   // รองรับการป้อนคำในช่องเสิร์ชแล้วกด Enter
   const keywordInput = document.getElementById('filterKeyword');
@@ -299,7 +313,7 @@ function setupEventListeners() {
     });
   }
 
-  // อัปเดตข้อมูลเมื่อเปลี่ยนค่า Dropdown ทันที
+  // อัปเดตข้อมูลเมื่อเปลี่ยนค่า Dropdown ทันที (ฟิลเตอร์ฝั่ง Client)
   ['filterRepo', 'filterBranch', 'filterStatus'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
