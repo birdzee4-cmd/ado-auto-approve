@@ -7,7 +7,7 @@
 
 const attentionUtil = require('../shared/attention');
 
-module.exports = async function (context, req) {
+async function dailySummaryHandler(context, req) {
   function jsonResponse(status, payload) {
     context.res = {
       status: status,
@@ -420,3 +420,8 @@ function getBangkokDateKey(value) {
     String(bkk.getUTCDate()).padStart(2, '0')
   ].join('-');
 }
+
+dailySummaryHandler.buildDailySummary = buildDailySummary;
+dailySummaryHandler.getBangkokDateRange = getBangkokDateRange;
+dailySummaryHandler.parseRequestOptions = parseRequestOptions;
+module.exports = dailySummaryHandler;

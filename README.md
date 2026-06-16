@@ -502,6 +502,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/test-daily-summary` | POST | ทดสอบ Daily Summary |
 | `/api/test-exception-scan` | POST | ทดสอบ Build/Policy exception scan จากหน้า Health |
 | `/api/daily-summary` | POST | endpoint สำหรับ Logic Apps scheduler |
+| `/api/line-daily-summary` | POST | endpoint สำหรับ Logic Apps LINE Daily Summary scheduler (ส่ง 23:59 น.) |
 | `/api/exception-scan` | POST | endpoint สำหรับสแกน Build/Policy failed จาก approval logs |
 | `/api/log-retention-cleanup` | POST | endpoint สำหรับ archive/export/delete SharePoint logs เก่ากว่า retention window |
 | `/api/webhook` | POST | legacy/webhook notification endpoint |
@@ -518,6 +519,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `api/shared/build-diagnostics-catalog.js` | ฐานข้อมูลรูปแบบ Error และกฎการวิเคราะห์ปัญหาของ Build Log |
 | `api/shared/notification-service.js` | exception notification orchestration |
 | `api/shared/teams-notifier.js` | Teams webhook client |
+| `api/shared/line-notifier.js` | LINE Messaging API client |
 | `api/shared/merge-pipeline-map.js` | Merge branch rule + Staging CSV lookup |
 | `api/shared/stg-ci-cd-map.json` | generated Staging CI/CD mapping |
 | `api/shared/user-profile.js` | optional Graph display name lookup |
@@ -592,6 +594,14 @@ api/shared/attention.js
 | `LOG_RETENTION_DAYS` | No | default `180` |
 | `LOG_RETENTION_BATCH_LIMIT` | No | default `500`, max `1000` |
 | `LOG_ARCHIVE_FOLDER` | No | default `ADO AutoApprove Archive` |
+
+### LINE / Notification
+
+| Variable | Required | Description |
+|---|---:|---|
+| `LINE_CHANNEL_ACCESS_TOKEN` | For LINE notification | Channel Access Token (Long-lived) ของ LINE OA |
+| `LINE_TARGET_ID` | For LINE notification | ID ปลายทางที่ต้องการส่งข้อความ (Group ID `C...` หรือ User ID `U...`) |
+| `LINE_DAILY_SUMMARY_TOKEN` | For LINE summary | Token ที่ตั้งไว้เพื่อใช้ตรวจสอบสิทธิ์ใน header สำหรับ `/api/line-daily-summary` |
 
 ### Webhook
 
@@ -683,6 +693,8 @@ node --check api\build-diagnostics\index.js
 node --check api\deploy-history\index.js
 node --check api\sync-deployments\index.js
 node --check api\create-tag\index.js
+node --check api\shared\line-notifier.js
+node --check api\line-daily-summary\index.js
 node -e "JSON.parse(require('fs').readFileSync('staticwebapp.config.json','utf8')); console.log('SWA root config JSON: OK')"
 node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json','utf8')); console.log('SWA public config JSON: OK')"
 ```
