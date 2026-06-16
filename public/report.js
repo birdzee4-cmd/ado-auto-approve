@@ -28,9 +28,24 @@ async function init() {
   if (filterMonth) filterMonth.value = String(currentMonth);
 
   // สลับการแสดงผลตัวกรองวันที่
-  bind('filterType', handleTypeChange);
-  bind('filterMonth', handleDateUpdate);
-  bind('filterYear', handleDateUpdate);
+  const filterType = document.getElementById('filterType');
+  if (filterType) {
+    filterType.addEventListener('change', () => {
+      handleTypeChange();
+      handleDateUpdate();
+    });
+  }
+
+  const filterMonth = document.getElementById('filterMonth');
+  if (filterMonth) {
+    filterMonth.addEventListener('change', handleDateUpdate);
+  }
+
+  const filterYear = document.getElementById('filterYear');
+  if (filterYear) {
+    filterYear.addEventListener('change', handleDateUpdate);
+  }
+
   bind('btnLoadReport', loadReport);
 
   // สร้างรายชื่อตัวเลือกวันที่
@@ -291,5 +306,7 @@ function renderStatsUi(data) {
 }
 
 // เริ่มต้นเรียกทำงานสคริปต์
-bind(window, 'DOMContentLoaded', init);
+(async function start() {
+  await init();
+})();
 export { init };
