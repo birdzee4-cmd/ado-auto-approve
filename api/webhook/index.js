@@ -140,15 +140,47 @@ module.exports = async function (context, req) {
         if (!teamsWebhookUrl) {
             context.log.warn('webhook: TEAMS_WEBHOOK_URL ไม่ได้ตั้งค่า — ข้ามการแจ้งเตือน Build Fail');
         } else {
+            const eventKey = `teams:build-failed:${buildId}`;
+            let alreadySent = false;
             try {
-                const teamsResult = await notifyTeams(teamsWebhookUrl, message);
-                if (!teamsResult.ok) {
-                    context.log.error(`webhook: Teams build failure notification status error ${teamsResult.status}: ${teamsResult.body}`);
-                } else {
-                    context.log('webhook: Teams build failure notification ส่งสำเร็จ');
+                const existing = await sp.getLogByEventKey(eventKey);
+                if (existing.ok && existing.body && Array.isArray(existing.body.value) && existing.body.value.length > 0) {
+                    alreadySent = true;
                 }
-            } catch (err) {
-                context.log.error('webhook: Teams build failure notification ล้มเหลว:', err.message);
+            } catch (e) {
+                context.log.warn(`webhook: failed to check duplicate for ${eventKey}:`, e.message);
+            }
+
+            if (alreadySent) {
+                context.log(`webhook: Teams build failure notification for buildId=${buildId} already sent previously.`);
+            } else {
+                try {
+                    const teamsResult = await notifyTeams(teamsWebhookUrl, message);
+                    if (!teamsResult.ok) {
+                        context.log.error(`webhook: Teams build failure notification status error ${teamsResult.status}: ${teamsResult.body}`);
+                    } else {
+                        context.log('webhook: Teams build failure notification ส่งสำเร็จ');
+                        // บันทึก Log ลง SharePoint เพื่อระบุว่าส่งแจ้งเตือนแล้ว
+                        try {
+                            await sp.addLogItem(sp.buildLogFields({
+                                prId: String(prId || 0),
+                                action: 'Build Failed Alert',
+                                user: requestedBy || 'System',
+                                repository: repo,
+                                prTitle: prTitle || `Build Failed Alert: ${definitionName} - ${buildNum}`,
+                                targetBranch: branch,
+                                result: `Alert Sent`,
+                                reason: `Auto Teams notification sent for build ${buildId} from webhook.`,
+                                source: 'Azure DevOps Webhook',
+                                eventKey: eventKey
+                            }));
+                        } catch (spErr) {
+                            context.log.warn('webhook: failed to log Teams notification to SharePoint:', spErr.message);
+                        }
+                    }
+                } catch (err) {
+                    context.log.error('webhook: Teams build failure notification ล้มเหลว:', err.message);
+                }
             }
         }
 

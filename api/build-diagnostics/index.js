@@ -6,6 +6,7 @@
 
 const ado = require('../shared/ado-client');
 const catalog = require('../shared/build-diagnostics-catalog');
+const sp = require('../shared/sharepoint-client');
 
 module.exports = async function (context, req) {
   function jsonResponse(status, payload) {
@@ -87,11 +88,29 @@ module.exports = async function (context, req) {
     // ---- 5) วิเคราะห์ปัญหาผ่านระบบ Catalog ----
     const diagnostics = catalog.diagnoseLog(rawLogText);
 
-    // ---- 6) ส่งแจ้งเตือนเข้า Teams หากมีการร้องขอ ----
+    // ---- 6) ส่งแจ้งเตือนเข้า Teams หากมีการร้องขอ หรือมี Build Error และยังไม่เคยแจ้งเตือน ----
     const sendToTeams = query.sendToTeams === 'true' || body.sendToTeams === true;
+    const teamsWebhookUrl = process.env.TEAMS_WEBHOOK_URL;
+    let shouldNotify = false;
+
     if (sendToTeams) {
+      shouldNotify = true;
+    } else if (failedTask && teamsWebhookUrl) {
+      const eventKey = `teams:build-failed:${buildId}`;
+      try {
+        const existing = await sp.getLogByEventKey(eventKey);
+        const existingItems = existing.ok && existing.body && Array.isArray(existing.body.value) ? existing.body.value : [];
+        if (existingItems.length === 0) {
+          shouldNotify = true;
+          context.log(`build-diagnostics: Build #${buildId} is failed, triggering auto Teams notification.`);
+        }
+      } catch (e) {
+        context.log.warn(`build-diagnostics: failed to check duplicate for ${eventKey}:`, e.message);
+      }
+    }
+
+    if (shouldNotify) {
       const teams = require('../shared/teams-notifier');
-      const teamsWebhookUrl = process.env.TEAMS_WEBHOOK_URL;
       if (!teamsWebhookUrl) {
         jsonResponse(500, { ok: false, error: 'TEAMS_WEBHOOK_URL is not configured' });
         return;
@@ -143,7 +162,9 @@ module.exports = async function (context, req) {
         }
       }
 
-      let message = `## 🚨 Manual Diagnostics Sent: Build Failed Detected\n\n`;
+      let message = sendToTeams
+        ? `## 🚨 Manual Diagnostics Sent: Build Failed Detected\n\n`
+        : `## 🚨 Build Failed Detected (Auto-Diagnostics)\n\n`;
       message += `| Field | Value |\n`;
       message += `|---|---|\n`;
       message += `| **Pipeline** | ${definitionName || '-'} |\n`;
@@ -182,6 +203,27 @@ module.exports = async function (context, req) {
             error: `Teams webhook returned status ${teamsResult.status}: ${teamsResult.body}`
           });
           return;
+        }
+
+        // บันทึก Log ลง SharePoint
+        const eventKey = `teams:build-failed:${buildId}`;
+        try {
+          await sp.addLogItem(sp.buildLogFields({
+            prId: String(prId || 0),
+            action: sendToTeams ? 'Manual Diagnostics Sent' : 'Build Failed Alert',
+            user: requestedBy || 'System',
+            repository: repoName,
+            prTitle: prTitle || `Build Failed Alert: ${definitionName} - ${buildNumber}`,
+            targetBranch: branch,
+            result: `Alert Sent`,
+            reason: sendToTeams 
+              ? `Manual Teams notification sent for build ${buildId} diagnostics.`
+              : `Auto Teams notification sent for build ${buildId} diagnostics.`,
+            source: sendToTeams ? 'Build Diagnostics UI' : 'Build Diagnostics Auto',
+            eventKey: eventKey
+          }));
+        } catch (spErr) {
+          context.log.warn('build-diagnostics: failed to log Teams notification to SharePoint:', spErr.message);
         }
       } catch (err) {
         jsonResponse(502, { ok: false, error: 'Failed to notify Teams: ' + err.message });
