@@ -1350,7 +1350,15 @@ async function evaluateAutoApprovals(prs) {
     if (typeof pr.id === 'string' && pr.id.startsWith('R')) return false;
     
     const targetRef = String(pr.targetBranch || '').toLowerCase();
-    const isStaging = targetRef.startsWith('refs/heads/staging');
+    
+    // Retrieve backend's configured staging prefix from last sync info
+    const lastSync = getLastSync() || {};
+    const configuredPrefix = String(lastSync.targetBranch || 'refs/heads/staging').toLowerCase();
+    
+    const isStaging = targetRef.startsWith('refs/heads/staging') || 
+                      targetRef.startsWith('refs/heads/stag') || 
+                      targetRef.startsWith('refs/heads/stg') || 
+                      (configuredPrefix && targetRef.startsWith(configuredPrefix));
     
     const isDraft = pr.isDraft === true;
     const isMergeCode = pr.isMergeCodeTarget === true;
@@ -1376,7 +1384,12 @@ async function evaluateAutoApprovals(prs) {
     if (!hasPendingRelease) return false;
 
     const definitionName = String(r.releaseDefinitionName || r.cdName || '').toLowerCase().trim();
-    if (!definitionName.startsWith('stg')) return false;
+    // Allow definitions starting with 'stg' or containing ' stg', '-stg', or '_stg' to support country-specific pipelines (e.g. PH Stg)
+    const isStagingDefinition = definitionName.startsWith('stg') || 
+                                definitionName.includes(' stg') || 
+                                definitionName.includes('-stg') || 
+                                definitionName.includes('_stg');
+    if (!isStagingDefinition) return false;
 
     const hasHold = pr.approvalHold && pr.approvalHold.active === true;
     return !hasHold;
