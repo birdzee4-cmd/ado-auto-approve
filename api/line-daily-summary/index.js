@@ -40,10 +40,10 @@ module.exports = async function (context, req) {
       try { body = JSON.parse(body); } catch (e) { body = {}; }
     }
     const requestOptions = dailySummaryModule.parseRequestOptions(body);
-    
+
     // Fetch and build daily summary data (reuse daily summary helper)
     const summary = await dailySummaryModule.buildDailySummary(context, requestOptions.reportDate);
-    
+
     // Check duplicate for LINE
     const lineEventKey = requestOptions.testMode
       ? 'line:daily-summary-test:' + summary.dateKey + ':' + Date.now()
@@ -154,6 +154,7 @@ function buildLineDailySummaryMessage(summary, testMode) {
     `• New PR today : ${c.createdToday || 0}`,
     `• Completed today : ${c.completedToday || 0}`,
     `• Active now : ${c.activeNow || 0}`,
+    `• Active Merge PRs : ${c.activeMerge || 0}`,
     `• Critical attention : ${c.attentionCritical || 0}`,
     `• Warning attention : ${c.attentionWarning || 0}`,
     `• Stale active : ${c.staleActive || 0}`,
@@ -242,7 +243,7 @@ async function teamsSummaryAlreadySent(sp, summary, eventKey) {
       fields.Reason,
       fields.Title
     ].join(' ').toLowerCase();
-    return markerText.includes('daily pr summary') && 
+    return markerText.includes('daily pr summary') &&
       markerText.includes('23:59') &&
       getBangkokDateKey(fields.Last_Checked_At) === summary.dateKey;
   });
