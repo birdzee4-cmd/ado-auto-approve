@@ -191,9 +191,6 @@ function appendLineItems(lines, title, items, formatter) {
   lines.push(`[${title}]`);
   for (const item of items) {
     lines.push(`- ${formatter(item)}`);
-    if (item.url) {
-      lines.push(`  Link: ${item.url}`);
-    }
   }
 }
 
