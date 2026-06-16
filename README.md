@@ -68,6 +68,8 @@ flowchart LR
 | Dashboard | `/dashboard.html` | ตรวจ Active PR Queue, Approve/Reject PR, ดู Build/Policy/Release และกด Approve Release เมื่อมี pending approval |
 | Activity | `/activity.html` | ดู PR ที่ user approve หรือระบบ detect external approval ใน 24 ชั่วโมงล่าสุด พร้อม filter Build Failed / Policy Pending / source และ paging |
 | Merge Lookup | `/merge.html` | กรอก PR ID เพื่อหา CI/CD ของงาน Merge |
+| Deploy History | `/deploy-history.html` | ค้นหา คัดกรอง และดูประวัติการรัน Build & Deploy ย้อนหลังบนระบบ Staging |
+| Build Diagnostics | `/build-diagnostics.html` | หน้าวิเคราะห์และแปลความหมายข้อผิดพลาดของ Build Log พร้อมเสนอแนวทางแก้ไขภาษาไทย |
 | Audit Logs | `/logs.html` | ค้นหา SharePoint Log ตาม PR, action, source, keyword |
 | System Health | `/health.html` | ตรวจ Backend, ADO, SharePoint, Teams, Daily Summary, Last Sync/Notification |
 | Forbidden | `/403.html` | แสดงเมื่อผู้ใช้ไม่มีสิทธิ์ |
@@ -104,6 +106,22 @@ flowchart LR
 - ถ้างานไม่ใช่ reviewer ของผู้ใช้ จะแสดงสถานะที่เหมาะสมและไม่เปิด action ที่ไม่ควรทำ
 - ถ้า PR approval complete แล้ว แต่มี `Release approval pending` จะยังอยู่ใน Active Queue เพื่อให้กด `Approve Release`
 - ถ้า PR approval/policy ครบแล้วและไม่มี release approval pending ระบบจะซ่อนออกจาก Active Queue
+
+### Guarded Auto Approve Mode
+
+แผงควบคุมโหมดการทำงานสำหรับกลุ่ม `IT Support Approve` บนหน้า Dashboard ซึ่งรองรับการตั้งค่า 3 โหมดหลัก:
+- `OFF` (Normal): ดำเนินการอนุมัติแบบ Manual ทีละรายการผ่านหน้าเว็บ
+- `ACTIVE (Manual)` (Dry-run): บอทช่วยจำลองการตรวจ PR คิว แต่จะไม่ส่งคำสั่ง Approve ไปยัง Azure DevOps จริง (มีไว้สำหรับทดสอบ)
+- `ACTIVE (Auto-Approve)` (Active): บอทตรวจคิว PR และ Release อัตโนมัติ หากผ่าน Guardrail และเงื่อนไขระบบ จะอนุมัติ (Approve) ให้อัตโนมัติทันที
+- การเปิดใช้งานโหมด Active จะมีระยะเวลาหมดอายุ (Expiry Countdown) ตามที่ผู้ใช้กำหนด (เช่น 30 นาที, 1 ชั่วโมง หรือสิ้นสุดวันทำงาน) เมื่อครบกำหนดระบบจะ Reset กลับเป็นโหมด Normal/OFF อัตโนมัติเพื่อความปลอดภัย
+
+### Approval Hold
+
+ระบบรองรับการระงับการทำงานอนุมัติชั่วคราว (Hold) สำหรับ PR บางรายการ เพื่อป้องกันการอนุมัติโดยไม่ตั้งใจ:
+- ผู้ใช้ที่มีสิทธิ์สามารถกดปุ่ม **Hold** และระบุเหตุผล (จำเป็น) ได้จากหน้า Dashboard
+- ข้อมูลการ Hold จะบันทึกลง SharePoint Log
+- ตราบใดที่ PR ยังอยู่ในสถานะ **Hold** ปุ่ม Action ทั้งหมดบนหน้า Dashboard สำหรับ PR นั้น (Approve, Reject, Approve Release) จะถูกปิดใช้งานชั่วคราว
+- เมื่อต้องการให้ดำเนินการต่อได้ ให้กดปุ่ม **Unlock** เพื่อปลดล็อกสถานะ Hold
 
 ### Release Approval
 
@@ -470,6 +488,12 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/approve-pr` | POST | Approve PR ปกติ, set auto-complete, log SharePoint |
 | `/api/reject-pr` | POST | Reject PR ปกติ, log SharePoint |
 | `/api/approve-release` | POST | Approve Azure DevOps Classic Release pre-deploy approval ที่ยัง pending และ log SharePoint |
+| `/api/approval-hold` | POST | ตั้งค่า Hold หรือ Release สถานะระงับการอนุมัติของ PR บน Dashboard |
+| `/api/auto-approve-settings` | GET/POST | ดึงหรืออัปเดตการตั้งค่าโหมด Guarded Auto Approve |
+| `/api/build-diagnostics` | GET/POST | วิเคราะห์ Timeline และเนื้อหา Log ความล้มเหลวของ Build พร้อมบันทึก/ส่งแจ้งเตือน Teams |
+| `/api/deploy-history` | GET | ดึงข้อมูลประวัติการ Deploy จากไฟล์ CSV บน SharePoint |
+| `/api/sync-deployments` | GET/POST | ดึงและประสานประวัติการรัน Build & Deploy จาก Azure DevOps บันทึกเก็บเป็นไฟล์ CSV ตามปีบน SharePoint |
+| `/api/create-tag` | POST | สร้าง Git Tag ใน Azure DevOps ชี้ไปยัง Commit SHA ที่กำหนด |
 | `/api/pr-history/{prId}` | GET | อ่าน history ของ PR จาก SharePoint |
 | `/api/logs` | GET | อ่าน audit logs จาก SharePoint |
 | `/api/health` | GET | ตรวจ system health |
@@ -490,6 +514,8 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `api/shared/sharepoint-client.js` | Microsoft Graph / SharePoint List client |
 | `api/shared/auth.js` | role / principal helper |
 | `api/shared/attention.js` | PR aging / stuck / attention logic |
+| `api/shared/approval-hold.js` | ดึงสถานะและบันทึก Log การระงับการอนุมัติ (Hold State) |
+| `api/shared/build-diagnostics-catalog.js` | ฐานข้อมูลรูปแบบ Error และกฎการวิเคราะห์ปัญหาของ Build Log |
 | `api/shared/notification-service.js` | exception notification orchestration |
 | `api/shared/teams-notifier.js` | Teams webhook client |
 | `api/shared/merge-pipeline-map.js` | Merge branch rule + Staging CSV lookup |
@@ -644,11 +670,19 @@ node --check public\activity.js
 node --check public\logs.js
 node --check public\health.js
 node --check public\merge.js
+node --check public\build-diagnostics.js
+node --check public\deploy-history.js
 node --check api\list-prs\index.js
 node --check api\approve-pr\index.js
 node --check api\reject-pr\index.js
 node --check api\logs\index.js
 node --check api\merge-lookup\index.js
+node --check api\approval-hold\index.js
+node --check api\auto-approve-settings\index.js
+node --check api\build-diagnostics\index.js
+node --check api\deploy-history\index.js
+node --check api\sync-deployments\index.js
+node --check api\create-tag\index.js
 node -e "JSON.parse(require('fs').readFileSync('staticwebapp.config.json','utf8')); console.log('SWA root config JSON: OK')"
 node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json','utf8')); console.log('SWA public config JSON: OK')"
 ```
@@ -677,6 +711,10 @@ node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json'
 | Activity | แสดง approval log ล่าสุด 24 ชั่วโมง, filter ได้, paging ได้ และปุ่ม History ใช้งานได้ |
 | Build / Policy | แสดง Build Failed / Policy Failed ได้เมื่อมีข้อมูล |
 | Release | แสดง Release expected / pending / approved / deploy status ได้ถูกต้อง และปุ่ม Approve Release แสดงเฉพาะ pending approval |
+| Guarded Auto Approve | สามารถตั้งค่าโหมด OFF / ACTIVE (Manual) / ACTIVE (Auto-Approve) พร้อมแสดง Console Log และ Countdown |
+| Approval Hold | ปรับเปลี่ยนสถานะ Hold / Unlock และจำกัด Action การควบคุมของ PR ได้ถูกต้อง |
+| Deploy History | แสดงและค้นหาประวัติการ Deploy Staging ย้อนหลัง คัดกรองตาม Repository, Branch และดึงไฟล์ CSV จาก SharePoint |
+| Build Diagnostics | ตรวจสอบ Timeline วิเคราะห์หา Failed Task และแปลรายละเอียดออกมาได้อย่างถูกต้องพร้อมส่ง Teams |
 | SharePoint Log | action ผ่านเว็บมี log |
 | Audit Logs | ค้นหาได้และเรียงล่าสุดก่อน |
 | Daily Summary | ส่ง Teams เวลา 18:00 ผ่าน Logic Apps และไม่ duplicate |
