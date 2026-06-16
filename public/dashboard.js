@@ -324,11 +324,7 @@ function renderReleaseQueueTable(prs) {
 
 function renderTargetBranchCell(pr) {
   const targetFull = shortBranch(pr.targetBranch);
-  return '<div class="branch-stack">' +
-    '<div class="branch-line branch-into">' +
-      '<code title="' + escapeHtml(pr.targetBranch) + '">' + escapeHtml(targetFull) + '</code>' +
-    '</div>' +
-  '</div>';
+  return '<code class="release-branch-tag" title="' + escapeHtml(pr.targetBranch) + '">' + escapeHtml(targetFull) + '</code>';
 }
 
 function renderReleaseDefinitionCell(pr) {

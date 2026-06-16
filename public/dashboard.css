@@ -2650,5 +2650,14 @@ html.dark .badge-slate {
   border-color: rgba(148, 163, 184, 0.25) !important;
 }
 
+.release-branch-tag {
+  display: inline-block !important;
+  white-space: nowrap !important;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
 
 
