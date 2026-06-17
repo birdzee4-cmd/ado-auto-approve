@@ -18,6 +18,16 @@ module.exports = async function (context, req) {
   }
 
   try {
+    // Auth validation (Support both authenticated user session and Logic App token)
+    const hasClientPrincipal = !!(req.headers['x-ms-client-principal'] || req.headers['X-MS-CLIENT-PRINCIPAL']);
+    const token = req.headers['x-daily-summary-token'] || req.headers['x-sync-token'] || (req.query && req.query.token);
+    const isValidToken = token && token === process.env.DAILY_SUMMARY_TOKEN;
+
+    if (!hasClientPrincipal && !isValidToken) {
+      jsonResponse(401, { ok: false, error: 'Authentication required' });
+      return;
+    }
+
     // 1) โหลดและตรวจสอบ configuration
     const config = getConfig(); // throws if missing org/project/pat
     const org = config.org;

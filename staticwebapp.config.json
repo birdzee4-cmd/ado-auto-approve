@@ -23,7 +23,7 @@
     { "route": "/build-diagnostics.html", "allowedRoles": ["authenticated"] },
     { "route": "/build-diagnostics", "rewrite": "/build-diagnostics.html", "allowedRoles": ["authenticated"] },
     { "route": "/api/userinfo", "allowedRoles": ["authenticated"] },
-    { "route": "/api/sync-deployments", "methods": ["GET", "POST"], "allowedRoles": ["authenticated"] },
+    { "route": "/api/sync-deployments", "methods": ["GET", "POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/deploy-history", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/report-summary", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/health", "allowedRoles": ["anonymous"] },
