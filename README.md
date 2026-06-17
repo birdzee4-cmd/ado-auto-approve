@@ -424,7 +424,7 @@ TEAMS_EXCEPTION_NOTIFICATIONS=false
    * **การคำนวณข้อมูล:** ดึงและรวบรวมข้อมูลสดแบบเรียลไทม์ครบถ้วนตลอดทั้งวัน (00:00 - 23:59 น.) ซึ่งทำให้รายงานของ LINE จะครอบคลุมกิจกรรมทั้งหมด รวมถึง PR ที่มีการอนุมัติหรือสร้างใหม่ในช่วงเวลาหลังรอบส่งของ Teams (18:00 - 23:59 น.) และจะสแกนสถานะคิวรออนุมัติล่าสุด (Active now) ณ เวลาเที่ยงคืนก่อนเริ่มวันถัดไป
    * ใช้ Header: `x-line-daily-summary-token: <LINE_DAILY_SUMMARY_TOKEN>`
 
-ระบบมี duplicate guard ด้วย `Event_Key` ใน SharePoint (`teams:daily-summary:<dateKey>` และ `line:daily-summary:<dateKey>`) เพื่อไม่ให้ส่งซ้ำในวันเดียวกันในแต่ละช่องทางโดยเฉพาะ
+ระบบมี duplicate guard ด้วย `Event_Key` ใน SharePoint (`teams:daily-summary:<dateKey>` และ `line:daily-summary:<dateKey>`) เพื่อไม่ให้ส่งซ้ำในวันเดียวกันในแต่ละช่องทางโดยเฉพาะ *(หมายเหตุ: ระบบ Duplicate Guard จะทำการกรองและมองข้าม Log ที่เกิดจากคำสั่งทดสอบ (Test Mode) เสมอ เพื่อไม่ให้ประวัติการกดทดสอบไปขัดขวางการส่งสรุปจริงตอนสิ้นวัน)*
 
 ## Authentication และ Authorization
 
@@ -448,6 +448,8 @@ Routes สำคัญ:
 | `/api/reject-pr` | `it_support_approve` |
 | `/api/approve-release` | `it_support_approve` |
 | `/api/daily-summary` | `anonymous` + header token |
+| `/api/line-daily-summary` | `anonymous` + header token |
+| `/api/sync-deployments` | `anonymous` + header/query token |
 | `/api/exception-scan` | `anonymous` + header token |
 | `/api/log-retention-cleanup` | `anonymous` + header token |
 | `/api/webhook` | `anonymous` + basic auth |
@@ -487,7 +489,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/auto-approve-settings` | GET/POST | ดึงหรืออัปเดตการตั้งค่าโหมด Guarded Auto Approve |
 | `/api/build-diagnostics` | GET/POST | วิเคราะห์ Timeline และเนื้อหา Log ความล้มเหลวของ Build พร้อมบันทึก/ส่งแจ้งเตือน Teams |
 | `/api/deploy-history` | GET | ดึงข้อมูลประวัติการ Deploy จากไฟล์ CSV บน SharePoint |
-| `/api/sync-deployments` | GET/POST | ดึงและประสานประวัติการรัน Build & Deploy จาก Azure DevOps บันทึกเก็บเป็นไฟล์ CSV ตามปีบน SharePoint |
+| `/api/sync-deployments` | GET/POST | ดึงและประสานประวัติการรัน Build & Deploy จาก Azure DevOps บันทึกเก็บเป็นไฟล์ CSV ตามปีบน SharePoint (โดยคัดกรองยกเว้นพวก Scheduled/Infrastructure system tasks ที่มีชื่อ Pipeline มีคำว่า `schedule` หรือ `scripts` ออกโดยอัตโนมัติ) |
 | `/api/report-summary` | GET | ดึงข้อมูลรายงานสรุปสถิติผลการดำเนินงาน (การอนุมัติ, อัตรา Auto-Approve, อัตราความสำเร็จของบิลด์) |
 | `/api/create-tag` | POST | สร้าง Git Tag ใน Azure DevOps ชี้ไปยัง Commit SHA ที่กำหนด |
 | `/api/pr-history/{prId}` | GET | อ่าน history ของ PR จาก SharePoint |
