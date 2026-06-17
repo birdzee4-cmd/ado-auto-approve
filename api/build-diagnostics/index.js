@@ -51,8 +51,12 @@ module.exports = async function (context, req) {
       ? timelineResult.body.records
       : [];
 
-    // ค้นหาขั้นตอนที่รันล้มเหลว (Task ที่มีความเป็นจริงว่าล้มเหลวตัวแรก)
-    const failedTask = records.find(r => r && r.state === 'completed' && r.result === 'failed' && r.log);
+    // ค้นหาขั้นตอนที่รันล้มเหลว (เน้นเจาะจงที่ Task ที่รันล้มเหลวก่อน เพื่อไม่ให้ได้ตัวครอบอย่าง Job หรือ Phase)
+    let failedTask = records.find(r => r && r.type === 'Task' && r.state === 'completed' && r.result === 'failed' && r.log);
+    
+    if (!failedTask) {
+      failedTask = records.find(r => r && r.state === 'completed' && r.result === 'failed' && r.log);
+    }
     
     if (!failedTask) {
       jsonResponse(404, {

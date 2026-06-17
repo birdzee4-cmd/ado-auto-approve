@@ -78,7 +78,10 @@ module.exports = async function (context, req) {
             const timelineResult = await ado.getBuildTimeline(buildId);
             if (timelineResult.ok && timelineResult.body && Array.isArray(timelineResult.body.records)) {
                 const records = timelineResult.body.records;
-                const failedTask = records.find(r => r && r.state === 'completed' && r.result === 'failed' && r.log);
+                let failedTask = records.find(r => r && r.type === 'Task' && r.state === 'completed' && r.result === 'failed' && r.log);
+                if (!failedTask) {
+                    failedTask = records.find(r => r && r.state === 'completed' && r.result === 'failed' && r.log);
+                }
                 if (failedTask) {
                     failedTaskName = failedTask.name || '';
                     const logResult = await ado.getBuildLog(buildId, failedTask.log.id);

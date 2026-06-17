@@ -48,6 +48,100 @@ const catalog = {
         details: "ตรวจสอบและแก้ไขไฟล์ `package.json` ให้ดึงโมดูลที่ขัดแย้งกันออก หรือบังคับเวอร์ชันให้เข้ากันได้"
       }
     ]
+  },
+  "CS_COMPILE_ERROR": {
+    title: "C# Compilation Error (.NET Compile Failure)",
+    description: "เกิดข้อผิดพลาดในการคอมไพล์โค้ด C# (.NET) เนื่องจากโครงสร้างโค้ดไม่ถูกต้องตามหลักไวยากรณ์ (Syntax) หรือไม่พบเนมสเปซ/คลาส/ตัวแปรตามที่เรียกใช้",
+    solutions: [
+      {
+        title: "วิธีที่ 1: ตรวจสอบ syntax และ namespace",
+        details: "ตรวจสอบข้อความข้อผิดพลาด (เช่น `CS0246` หรือ `CS0103`) ในบรรทัด Log ด้านล่าง เพื่อค้นหาคลาสหรือตัวแปรที่มีปัญหาและเพิ่มการสะกดคำหรือการ `using` namespace ให้ถูกต้อง"
+      },
+      {
+        title: "วิธีที่ 2: ตรวจเช็กการ Commit ไฟล์",
+        details: "ตรวจสอบบน Git ว่ามีไฟล์โค้ดใหม่บางตัวที่สร้างขึ้นและเรียกใช้งาน แต่ลืมทำการ add หรือ commit ขึ้นมาพร้อมกันหรือไม่"
+      }
+    ]
+  },
+  "TS_COMPILE_ERROR": {
+    title: "TypeScript Compilation Error (TS Compile Failure)",
+    description: "ตัวแปลงคอมไพเลอร์ TypeScript ตรวจพบความไม่สอดคล้องของประเภทข้อมูล (Type Mismatch) หรือการเรียกใช้ไฟล์/โมดูลที่ไม่มีอยู่จริง",
+    solutions: [
+      {
+        title: "วิธีที่ 1: แก้ไขไทป์ข้อมูลและโครงสร้างของ Object",
+        details: "เปิดหน้าจอ Log ด้านล่างดูบรรทัดรหัสข้อผิดพลาดของ TS (เช่น `TS2307`) และปรับปรุงประเภทข้อมูลหรืออินเทอร์เฟซให้สอดคล้องกัน"
+      },
+      {
+        title: "วิธีที่ 2: ตรวจสอบการสะกดชื่อไฟล์ (Case-sensitive)",
+        details: "ตัวคอมไพเลอร์บน Linux Agent จะคัดกรองชื่อไฟล์แบบ Case-sensitive ตรวจสอบว่า `import` path สะกดตัวพิมพ์เล็ก-ใหญ่ตรงกับชื่อไฟล์จริงหรือไม่"
+      }
+    ]
+  },
+  "GIT_MERGE_CONFLICT": {
+    title: "Git Merge Conflict (เกิดการชนกันของโค้ด)",
+    description: "เกิดความขัดแย้งของโค้ดในการผสานสาขาอัตโนมัติ เนื่องจากไฟล์เดียวกันในบรรทัดเดียวกันมีการแก้ไขจากทั้งฝั่งต้นทางและปลายทาง",
+    solutions: [
+      {
+        title: "วิธีแก้ไข: ดำเนินการ Resolve Conflict ด้วยตนเอง",
+        details: "ดึงโค้ดสาขาปลายทางลงมาที่เครื่องตัวเอง (`git pull origin staging`) ทำการแก้ไขจุดชนกันของโค้ด (Resolve Conflict) จากนั้นจึงทำการ Commit และ Push ขึ้นไปใหม่อีกครั้ง"
+      }
+    ]
+  },
+  "TIMEOUT": {
+    title: "Build Step Timeout (หมดเวลาการประมวลผลคำสั่ง)",
+    description: "คำสั่งในขั้นตอนการรันบิลด์ค้างทำงานนานเกินกว่าเวลาจำกัด หรือมีกระบวนการที่หยุดค้างรออินพุตจากภายนอก",
+    solutions: [
+      {
+        title: "วิธีที่ 1: ตรวจสอบกระบวนการ Unit Test / Server Start",
+        details: "ตรวจสอบว่ามีสคริปต์ Unit Test บางตัวเข้าลูปอนันต์ (Infinite Loop) หรือมีคำสั่งจำพวก start server ที่ทำงานค้างและไม่ยอมปิดการรันตัวเองเมื่อทำงานเสร็จสิ้นหรือไม่"
+      },
+      {
+        title: "วิธีที่ 2: เพิ่มระยะเวลารัน (Timeout Limit) ใน Pipeline YAML",
+        details: "หากบิลด์มีขนาดใหญ่มาก สามารถเข้าไปเพิ่มคุณสมบัติ `timeoutInMinutes` ในขั้นตอนทำงานเพื่อขยายเวลาออกไปได้"
+      }
+    ]
+  },
+  "UNIT_TEST_FAILURE": {
+    title: "Unit Test Execution Failed (การทดสอบโค้ดล้มเหลว)",
+    description: "ฟังก์ชันหรือเคสทดสอบรันเสร็จสิ้นแต่ให้ผลลัพธ์ไม่ตรงตามเงื่อนไขที่คาดหวังไว้ (Assertion Failed)",
+    solutions: [
+      {
+        title: "วิธีที่ 1: ตรวจสอบ Log และค่าผลลัพธ์ของข้อผิดพลาด",
+        details: "เปิดดูความแตกต่างระหว่างผลลัพธ์ที่ได้รับจริง (Actual) และค่าที่คาดหวัง (Expected) เพื่อประเมินจุดบกพร่องของฟังก์ชันหลัก"
+      },
+      {
+        title: "วิธีที่ 2: อัปเดตเคสทดสอบกรณีมีการแก้ไข Requirements",
+        details: "หากเงื่อนไขการทำงานของโปรแกรมหลักเปลี่ยนไป ให้อัปเดตโค้ดในไฟล์ทดสอบเพื่อให้สอดรับกับผลลัพธ์รูปแบบใหม่"
+      }
+    ]
+  },
+  "ESLINT_ERROR": {
+    title: "Linter Checks Failed (การจัดรูปแบบโค้ดผิดกฎมาตรฐาน)",
+    description: "ซอร์สโค้ดที่อัปเดตไม่ผ่านการตรวจสอบมาตรฐานความสวยงามและระเบียบสไตล์ของโค้ด (Lint Rules)",
+    solutions: [
+      {
+        title: "วิธีที่ 1: รันคำสั่งแก้ไขอัตโนมัติบนโลคอล",
+        details: "รันคำสั่งแก้ไขฟอร์แมตในเครื่องคอมพิวเตอร์ของคุณเพื่อช่วยจัดการโค้ดให้สอดคล้องกับกฎส่วนใหญ่:\n```bash\nnpm run lint -- --fix\n```"
+      },
+      {
+        title: "วิธีที่ 2: แก้ไขสไตล์ตามจุดที่ระบุใน Log",
+        details: "ตรวจสอบบรรทัดและไฟล์ที่มีการระบุข้อผิดพลาดจากบรรทัด Log ดิบด้านล่าง และปรับปรุงแก้ไขตามแนวทางที่ระบุ"
+      }
+    ]
+  },
+  "DOCKER_BUILD_ERROR": {
+    title: "Docker Build Failed (การสร้าง Container Image ล้มเหลว)",
+    description: "คำสั่งรัน Docker Build ใน Container Image ล้มเหลวเนื่องจากมีขั้นตอนหรือคำสั่งภายใน Dockerfile ทำงานไม่สำเร็จ (เช่น ขั้นตอน compile, build, test หรือการติดตั้ง package)",
+    solutions: [
+      {
+        title: "วิธีที่ 1: ตรวจสอบขั้นตอนที่ล้มเหลวใน Dockerfile",
+        details: "ตรวจสอบบรรทัดคำสั่ง Dockerfile ใน Log ดิบด้านล่าง เช่น `RUN npm run build` หรือ `RUN dotnet build` เพื่อดูว่าล้มเหลวจากคำสั่งใดและมีรายละเอียดข้อผิดพลาดแจ้งอย่างไร"
+      },
+      {
+        title: "วิธีที่ 2: ตรวจสอบข้อผิดพลาดของภาษาซอร์สโค้ด (TypeScript / .NET compile)",
+        details: "เลื่อนดู Log ด้านล่างเพื่อค้นหาบรรทัดข้อผิดพลาดของซอร์สโค้ดที่เกิดขึ้นในขั้นสร้าง container (เช่น TypeScript type check fail, compilation error) แล้วดำเนินการแก้ไขซอร์สโค้ดและ commit ขึ้นไปใหม่"
+      }
+    ]
   }
 };
 
@@ -69,9 +163,25 @@ function diagnoseLog(logText) {
     }
   }
 
-  // 2. ถ้าเจอ npm conflict แต่ไม่มีรหัสตรงๆ
-  if (!matchedKey && (text.includes("npm ERR! code ERESOLVE") || text.includes("npm ERR! peer"))) {
-    matchedKey = "NPM_CONFLICT";
+  // 2. ค้นหาความผิดพลาดด้วย Regex Patterns
+  if (!matchedKey) {
+    if (/error CS\d{4}:/i.test(text)) {
+      matchedKey = "CS_COMPILE_ERROR";
+    } else if (/error TS\d{4}:|failed to type check|type error:/i.test(text)) {
+      matchedKey = "TS_COMPILE_ERROR";
+    } else if (/automatic merge failed|merge conflict/i.test(text)) {
+      matchedKey = "GIT_MERGE_CONFLICT";
+    } else if (/timed out|timeout|operation was canceled/i.test(text)) {
+      matchedKey = "TIMEOUT";
+    } else if (/(failed|failure)\s+:[^\n]*test|assert\.fail|expected[^\n]*actual/i.test(text)) {
+      matchedKey = "UNIT_TEST_FAILURE";
+    } else if (/\d+\s+problems?\s+\(\d+\s+errors?/i.test(text)) {
+      matchedKey = "ESLINT_ERROR";
+    } else if (/failed to build|failed to solve: process|docker failed with exit code/i.test(text)) {
+      matchedKey = "DOCKER_BUILD_ERROR";
+    } else if (text.includes("npm ERR! code ERESOLVE") || text.includes("npm ERR! peer")) {
+      matchedKey = "NPM_CONFLICT";
+    }
   }
 
   // 3. ดึง Log Snippet ตรงจุดพัง (Fallback scan)
@@ -80,7 +190,7 @@ function diagnoseLog(logText) {
   lines.forEach((line, idx) => {
     const l = line.toLowerCase();
     if (
-      (l.includes('error ') || l.includes('error:') || l.includes('failed') || l.includes('exception') || l.includes('fatal')) &&
+      (l.includes('error') || l.includes('failed') || l.includes('exception') || l.includes('fatal') || l.includes('##[error]')) &&
       !l.includes('npm warn') && !l.includes('warning')
     ) {
       errorLineIndices.push(idx);
