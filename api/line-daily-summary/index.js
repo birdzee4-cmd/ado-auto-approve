@@ -218,6 +218,7 @@ async function lineSummaryAlreadySent(sp, summary, eventKey) {
       fields.Title
     ].join(' ').toLowerCase();
     return markerText.includes('line daily summary') &&
+      !markerText.includes('test') &&
       getBangkokDateKey(fields.Last_Checked_At) === summary.dateKey;
   });
 }
@@ -242,6 +243,7 @@ async function teamsSummaryAlreadySent(sp, summary, eventKey) {
     ].join(' ').toLowerCase();
     return markerText.includes('daily pr summary') &&
       markerText.includes('23:59') &&
+      !markerText.includes('test') &&
       getBangkokDateKey(fields.Last_Checked_At) === summary.dateKey;
   });
 }

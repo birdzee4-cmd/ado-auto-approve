@@ -407,6 +407,9 @@ async function dailySummaryAlreadySent(sp, summary, eventKey) {
       fields.Title
     ].join(' ').toLowerCase();
     return markerText.includes('daily summary') &&
+      !markerText.includes('line') &&
+      !markerText.includes('23:59') &&
+      !markerText.includes('test') &&
       getBangkokDateKey(fields.Last_Checked_At) === summary.dateKey;
   });
 }
