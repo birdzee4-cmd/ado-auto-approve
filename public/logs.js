@@ -120,13 +120,16 @@ function renderAuditLogTable(items) {
       item.adoPrUrl ? '<a class="btn-mini btn-open" href="' + escapeHtml(item.adoPrUrl) + '" target="_blank" rel="noopener">PR</a>' : '',
       item.adoBuildUrl ? '<a class="btn-mini btn-open" href="' + escapeHtml(item.adoBuildUrl) + '" target="_blank" rel="noopener">Build</a>' : ''
     ].filter(Boolean).join(' ');
+    const branchBadge = item.targetBranch
+      ? ' <span class="badge-branch" title="' + escapeHtml(item.targetBranch) + '">' + escapeHtml(item.targetBranch.replace('refs/heads/', '')) + '</span>'
+      : '';
     return '<tr>' +
       '<td>' + formatDate(item.createdAt) + '</td>' +
       '<td><strong>#' + escapeHtml(item.prId || '-') + '</strong></td>' +
       '<td><span class="' + actionClass + '">' + escapeHtml(item.action || '-') + '</span></td>' +
       '<td>' + escapeHtml(item.user || '-') + '</td>' +
       '<td>' + escapeHtml(item.source || '-') + '</td>' +
-      '<td><span class="audit-repo">' + escapeHtml(item.repository || '-') + '</span><small>' + escapeHtml(item.prTitle || '') + '</small></td>' +
+      '<td><span class="audit-repo">' + escapeHtml(item.repository || '-') + branchBadge + '</span><small>' + escapeHtml(item.prTitle || '') + '</small></td>' +
       '<td>' + escapeHtml(item.result || '-') + '</td>' +
       '<td>' + buildPolicy + '</td>' +
       '<td>' + escapeHtml(item.reason || '-') + '</td>' +

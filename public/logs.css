@@ -154,3 +154,24 @@
 .empty-cell {
   color: #6b5b33 !important;
 }
+
+/* ===== Badge Target Branch ===== */
+.badge-branch {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(245, 164, 0, 0.15);
+  color: var(--bz-yellow, #f5a400);
+  border: 1px solid rgba(245, 164, 0, 0.3);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* Light mode override styling */
+body:not(.dark-mode) .badge-branch {
+  color: #a16207 !important; /* darker amber/yellow for light mode readability */
+  background: rgba(245, 164, 0, 0.08) !important;
+  border-color: rgba(245, 164, 0, 0.25) !important;
+}
