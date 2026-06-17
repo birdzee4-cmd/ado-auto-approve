@@ -22,6 +22,18 @@ async function testTeams() {
   finally { setButtonLoading('btnTestTeams', false); }
 }
 
+async function testLine() {
+  setButtonLoading('btnTestLine', true);
+  showResult('⏳ Sending LINE test message...', 'info');
+  try {
+    const r = await safeFetchJson('/api/test-line-notification', { method: 'POST' });
+    if (r.parseError) { showResult('❌ ตอบกลับไม่ใช่ JSON (HTTP ' + r.status + ')', 'error'); return; }
+    if (r.ok && r.data && r.data.ok) showResult('✅ ส่งสำเร็จ! ตรวจสอบแชท LINE', 'success');
+    else { const d = r.data || {}; showResult('❌ ' + (d.error || 'Unknown'), 'error'); }
+  } catch (err) { showResult('❌ ' + err.message, 'error'); }
+  finally { setButtonLoading('btnTestLine', false); }
+}
+
 async function testHealth() {
   setButtonLoading('btnTestHealth', true);
   showResult('⏳ Checking...', 'info');
@@ -97,6 +109,7 @@ async function testExceptionScan() {
 (async function init() {
   await initPage();
   bind('btnTestTeams', testTeams);
+  bind('btnTestLine', testLine);
   bind('btnTestDailySummary', testDailySummary);
   bind('btnTestExceptionScan', testExceptionScan);
   bind('btnTestHealth', testHealth);
