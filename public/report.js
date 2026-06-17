@@ -28,7 +28,6 @@ async function init() {
   if (filterMonth) filterMonth.value = String(currentMonth);
 
   // สลับการแสดงผลตัวกรองวันที่
-  const filterType = document.getElementById('filterType');
   if (filterType) {
     filterType.addEventListener('change', () => {
       handleTypeChange();
@@ -36,12 +35,10 @@ async function init() {
     });
   }
 
-  const filterMonth = document.getElementById('filterMonth');
   if (filterMonth) {
     filterMonth.addEventListener('change', handleDateUpdate);
   }
 
-  const filterYear = document.getElementById('filterYear');
   if (filterYear) {
     filterYear.addEventListener('change', handleDateUpdate);
   }
