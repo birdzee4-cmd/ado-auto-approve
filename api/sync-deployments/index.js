@@ -91,10 +91,12 @@ module.exports = async function (context, req) {
 
     context.log(`Total builds fetched: ${uniqueBuilds.length}`);
 
-    // 3) กรองเฉพาะประวัติการ Build ที่มีคำว่า 'stg' (Case-insensitive)
+    // 3) กรองเฉพาะประวัติการ Build ที่มีคำว่า 'stg' (Case-insensitive) และไม่ใช่พวก schedule / devops scripts ของระบบ
     const filteredBuilds = uniqueBuilds.filter(b => {
-      const pipelineName = b.definition && b.definition.name || '';
-      return pipelineName.toLowerCase().includes('stg');
+      const pipelineName = (b.definition && b.definition.name || '').toLowerCase();
+      if (!pipelineName.includes('stg')) return false;
+      if (pipelineName.includes('schedule') || pipelineName.includes('scripts')) return false;
+      return true;
     });
 
     context.log(`Staging builds count: ${filteredBuilds.length}`);
@@ -142,7 +144,11 @@ module.exports = async function (context, req) {
       const dlResult = await sp.downloadArchiveFile(filePath);
       if (dlResult.ok) {
         const csvText = typeof dlResult.body === 'string' ? dlResult.body : JSON.stringify(dlResult.body);
-        existingRows = parseCsv(csvText);
+        const parsedRows = parseCsv(csvText);
+        existingRows = parsedRows.filter(row => {
+          const pipelineName = (row.PipelineName || '').toLowerCase();
+          return !pipelineName.includes('schedule') && !pipelineName.includes('scripts');
+        });
       }
 
       // แปลงข้อมูลใหม่เป็น object format
@@ -235,8 +241,13 @@ module.exports = async function (context, req) {
       }
     }
 
-    allCombinedRows.sort((a, b) => new Date(b.FinishedTime) - new Date(a.FinishedTime));
-    const latest1000 = allCombinedRows.slice(0, 1000);
+    const cleanCombinedRows = allCombinedRows.filter(row => {
+      const pipelineName = (row.PipelineName || '').toLowerCase();
+      return !pipelineName.includes('schedule') && !pipelineName.includes('scripts');
+    });
+
+    cleanCombinedRows.sort((a, b) => new Date(b.FinishedTime) - new Date(a.FinishedTime));
+    const latest1000 = cleanCombinedRows.slice(0, 1000);
 
     const legacyLines = latest1000.map(row => {
       return headers.map(h => escapeCsvValue(row[h])).join(',');

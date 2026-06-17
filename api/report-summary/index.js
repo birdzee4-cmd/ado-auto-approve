@@ -149,6 +149,9 @@ module.exports = async function (context, req) {
     const endTs = endUtc.getTime();
 
     deployments.forEach(row => {
+      const pipelineName = (row.PipelineName || '').toLowerCase();
+      if (pipelineName.includes('schedule') || pipelineName.includes('scripts')) return;
+
       const finishedTime = row.FinishedTime || '';
       const ts = Date.parse(finishedTime);
       if (isNaN(ts) || ts < startTs || ts >= endTs) return;
