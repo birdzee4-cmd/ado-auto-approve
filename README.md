@@ -9,6 +9,7 @@ Production URL:
 - Merge Lookup: https://mango-wave-09cff3700.7.azurestaticapps.net/merge.html
 - Audit Logs: https://mango-wave-09cff3700.7.azurestaticapps.net/logs.html
 - System Health: https://mango-wave-09cff3700.7.azurestaticapps.net/health.html
+- Report (Staging Deployments Summary): https://mango-wave-09cff3700.7.azurestaticapps.net/report.html
 
 ## Current Status
 
