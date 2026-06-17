@@ -50,6 +50,35 @@ async function init() {
   
   // โหลดรายงานรอบแรก
   await loadReport();
+
+  // ดึงข้อมูลและอัปเดตประวัติการดีพลอยล่าสุดแบบเบื้องหลัง (Background Sync)
+  triggerBackgroundSync();
+}
+
+// ดึงข้อมูลการดีพลอยล่าสุดแบบเบื้องหลังเพื่ออัปเดตแคช (SharePoint CSV)
+async function triggerBackgroundSync() {
+  const statusEl = document.getElementById('txtSyncStatus');
+  if (statusEl) {
+    statusEl.innerHTML = '⏳ กำลังซิงก์ข้อมูลล่าสุดจาก Azure DevOps...';
+  }
+  try {
+    const r = await safeFetchJson('/api/sync-deployments', { method: 'POST' });
+    if (r.ok && r.data && r.data.ok) {
+      if (statusEl) {
+        statusEl.innerHTML = `✅ อัปเดตข้อมูลบิลด์ล่าสุดแล้ว (Staging: ${r.data.stagingBuildsLogged} บิลด์)`;
+      }
+      // โหลดรายงานใหม่อีกครั้งเพื่ออัปเดตหน้าจอด้วยข้อมูลใหม่
+      await loadReport();
+    } else {
+      if (statusEl) {
+        statusEl.innerHTML = '⚠️ ซิงก์ข้อมูลไม่สำเร็จ (ใช้ข้อมูลแคช)';
+      }
+    }
+  } catch (err) {
+    if (statusEl) {
+      statusEl.innerHTML = '⚠️ ซิงก์ข้อมูลล่าสุดล้มเหลว (ใช้ข้อมูลแคช)';
+    }
+  }
 }
 
 // เมื่อเปลี่ยนประเภทรายงาน (รายเดือน vs รายวัน)
