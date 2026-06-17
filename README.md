@@ -71,10 +71,10 @@ flowchart LR
 | Merge Lookup | `/merge.html` | กรอก PR ID เพื่อหา CI/CD ของงาน Merge |
 | Deploy History | `/deploy-history.html` | ค้นหา คัดกรอง และดูประวัติการรัน Build & Deploy ย้อนหลังบนระบบ Staging |
 | Build Diagnostics | `/build-diagnostics.html` | หน้าวิเคราะห์และแปลความหมายข้อผิดพลาดของ Build Log พร้อมเสนอแนวทางแก้ไขภาษาไทย |
-| Report | `/report.html` | ดูรายงานสรุปสถิติผลการดำเนินงานและสถิติ (รายวัน/รายเดือน) |
 | Audit Logs | `/logs.html` | ค้นหา SharePoint Log ตาม PR, action, source, keyword |
 | System Health | `/health.html` | ตรวจ Backend, ADO, SharePoint, Teams, Daily Summary, Last Sync/Notification |
 | Forbidden | `/403.html` | แสดงเมื่อผู้ใช้ไม่มีสิทธิ์ |
+| Report | `/report.html` | ดูรายงานสรุปสถิติผลการดำเนินงานและสถิติ (รายวัน/รายเดือน) พร้อมระบบซิงก์ข้อมูลบิลด์อัตโนมัติเบื้องหลัง (Background Sync) เมื่อโหลดหน้าเว็บ |
 
 ## Dashboard Behavior
 
@@ -681,9 +681,13 @@ node --check public\health.js
 node --check public\merge.js
 node --check public\build-diagnostics.js
 node --check public\deploy-history.js
+node --check api\userinfo\index.js
+node --check api\health\index.js
 node --check api\list-prs\index.js
 node --check api\approve-pr\index.js
 node --check api\reject-pr\index.js
+node --check api\approve-release\index.js
+node --check api\pr-history\index.js
 node --check api\logs\index.js
 node --check api\merge-lookup\index.js
 node --check api\approval-hold\index.js
@@ -691,9 +695,14 @@ node --check api\auto-approve-settings\index.js
 node --check api\build-diagnostics\index.js
 node --check api\deploy-history\index.js
 node --check api\sync-deployments\index.js
+node --check api\report-summary\index.js
 node --check api\create-tag\index.js
 node --check api\shared\line-notifier.js
+node --check api\daily-summary\index.js
 node --check api\line-daily-summary\index.js
+node --check api\exception-scan\index.js
+node --check api\log-retention-cleanup\index.js
+node --check api\webhook\index.js
 node -e "JSON.parse(require('fs').readFileSync('staticwebapp.config.json','utf8')); console.log('SWA root config JSON: OK')"
 node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json','utf8')); console.log('SWA public config JSON: OK')"
 ```
@@ -726,6 +735,7 @@ node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json'
 | Approval Hold | ปรับเปลี่ยนสถานะ Hold / Unlock และจำกัด Action การควบคุมของ PR ได้ถูกต้อง |
 | Deploy History | แสดงและค้นหาประวัติการ Deploy Staging ย้อนหลัง คัดกรองตาม Repository, Branch และดึงไฟล์ CSV จาก SharePoint |
 | Build Diagnostics | ตรวจสอบ Timeline วิเคราะห์หา Failed Task และแปลรายละเอียดออกมาได้อย่างถูกต้องพร้อมส่ง Teams |
+| Report | แสดงผลสถิติการอนุมัติ, อัตรา Auto-Approve, อัตราสำเร็จของบิลด์ (รายวัน/รายเดือน) โดยทำการคัดกรองข้ามพวก scheduled task ของระบบ และซิงก์ข้อมูลเบื้องหลังสำเร็จ |
 | SharePoint Log | action ผ่านเว็บมี log |
 | Audit Logs | ค้นหาได้และเรียงล่าสุดก่อน |
 | Daily Summary | ส่ง Teams เวลา 18:00 ผ่าน Logic Apps และไม่ duplicate |
