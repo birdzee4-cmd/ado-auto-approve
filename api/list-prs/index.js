@@ -729,7 +729,7 @@ function hasExistingVoteLog(existingLogs, event) {
     const user = normalizeIdentity(log.User);
     const sameAction =
       action === event.action.toLowerCase() ||
-      (event.action === 'External Approved' && action === 'approved') ||
+      (event.action === 'External Approved' && (action === 'approved' || action === 'auto approved')) ||
       (event.action === 'External Rejected' && action === 'rejected');
     return sameAction && user && (
       user === normalizeIdentity(event.user) ||

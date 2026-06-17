@@ -274,6 +274,39 @@ module.exports = async function (context, req) {
                 action = 'Reviewers Voted';
                 result = `Voted (vote value: ${vote})`;
             }
+
+            // Check if there is already an approval/rejection log for this PR and user to prevent duplicates
+            if (action === 'External Approved' || action === 'External Rejected') {
+                try {
+                    const history = await sp.getLogForPR(prId);
+                    const existing = history.ok && history.body && Array.isArray(history.body.value)
+                        ? history.body.value.map(item => item.fields || {})
+                        : [];
+                    const identity = String(userEmail || '').trim().toLowerCase();
+
+                    const hasExisting = existing.some(log => {
+                        const existingAction = String(log.Action || '').toLowerCase();
+                        const existingUser = String(log.User || '').trim().toLowerCase();
+                        const isSameUser = existingUser === identity;
+                        if (!isSameUser) return false;
+
+                        if (action === 'External Approved') {
+                            return existingAction === 'auto approved' || existingAction === 'approved' || existingAction === 'external approved';
+                        } else if (action === 'External Rejected') {
+                            return existingAction === 'rejected' || existingAction === 'external rejected';
+                        }
+                        return false;
+                    });
+
+                    if (hasExisting) {
+                        context.log(`webhook: Skip logging duplicate vote for PR #${prId} and reviewer ${userEmail}`);
+                        context.res = { status: 200, body: 'OK (duplicate log skipped)' };
+                        return;
+                    }
+                } catch (e) {
+                    context.log.warn('webhook: Failed to query existing logs for duplicate check:', e.message);
+                }
+            }
         } else if (eventType === 'git.pullrequest.created') {
             action = 'PR Created';
             result = `New Pull Request created`;
