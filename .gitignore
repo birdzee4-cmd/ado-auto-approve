@@ -1,5 +1,5 @@
 # Ignore editor and environment folders
-.vscode/
+
 .od-skills/
 
 # Ignore local dashboard artifacts
