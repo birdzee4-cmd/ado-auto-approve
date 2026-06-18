@@ -30,6 +30,21 @@ const MERGE_PIPELINE_RULES = [
     cd: {
       name: 'None (CI Only / Static Web Apps)'
     }
+  },
+  {
+    key: 'net-web-rulebasedengine',
+    label: 'Net Web RuleBasedEngine',
+    repository: 'Net_Web_RuleBasedEngine',
+    sourceIncludes: ['merge_', 'MergeCode/'],
+    targetIncludes: ['MergeCodeProduction/'],
+    environment: 'STG',
+    confidence: 'high',
+    ci: {
+      name: 'STG_Net_Web_RuleBasedEngine-CI'
+    },
+    cd: {
+      name: 'stg web rulebasedengine CD'
+    }
   }
 ];
 

@@ -23126,5 +23126,13 @@
     "ciFolder": "",
     "cdId": "",
     "cdPath": ""
+  },
+  {
+    "ciName": "STG_Net_Web_RuleBasedEngine-CI",
+    "cdName": "stg web rulebasedengine CD",
+    "ciId": "4811",
+    "ciFolder": "\\Stg_Web_CI",
+    "cdId": "4145",
+    "cdPath": "\\STG web"
   }
 ]
