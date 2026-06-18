@@ -189,6 +189,9 @@ function renderBranchCell(pr) {
   const sourceFull = shortBranch(pr.sourceBranch);
   const targetFull = shortBranch(pr.targetBranch);
   const sourceText = compactBranchName(pr.sourceBranch, 34);
+  const copyIntoButton = isMergeCodePr(pr)
+    ? '<button type="button" class="branch-copy-btn" title="Copy Into branch" aria-label="Copy Into branch" data-branch="' + escapeHtml(targetFull) + '" onclick="copyBranchInto(this)">📋</button>'
+    : '';
 
   return '<div class="branch-stack">' +
     '<div class="branch-line branch-from">' +
@@ -197,10 +200,57 @@ function renderBranchCell(pr) {
     '</div>' +
     '<div class="branch-line branch-into">' +
       '<span class="branch-label">Into</span>' +
-      '<code title="' + escapeHtml(targetFull) + '">' + escapeHtml(targetFull) + '</code>' +
+      '<span class="branch-copy-wrap">' +
+        '<code title="' + escapeHtml(targetFull) + '">' + escapeHtml(targetFull) + '</code>' +
+        copyIntoButton +
+      '</span>' +
     '</div>' +
   '</div>';
 }
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  textarea.style.top = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textarea);
+}
+
+window.copyBranchInto = async function(button) {
+  const text = button && button.dataset ? String(button.dataset.branch || '') : '';
+  if (!text) return;
+  const originalText = button.textContent;
+  const originalTitle = button.getAttribute('title') || '';
+  try {
+    await copyTextToClipboard(text);
+    button.textContent = '✓';
+    button.classList.add('copied');
+    button.setAttribute('title', 'Copied');
+    window.setTimeout(() => {
+      button.textContent = originalText;
+      button.classList.remove('copied');
+      button.setAttribute('title', originalTitle);
+    }, 1200);
+  } catch (err) {
+    button.textContent = '!';
+    button.classList.add('copy-failed');
+    button.setAttribute('title', 'Copy failed');
+    window.setTimeout(() => {
+      button.textContent = originalText;
+      button.classList.remove('copy-failed');
+      button.setAttribute('title', originalTitle);
+    }, 1200);
+  }
+};
 function openModal(id) {
   const m = document.getElementById(id);
   if (m) m.hidden = false;

@@ -1076,6 +1076,49 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }
+.branch-copy-wrap {
+  align-items: flex-start;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  min-width: 0;
+}
+
+.branch-copy-btn {
+  align-items: center;
+  background: #fff7d6;
+  border: 1px solid #f6c453;
+  border-radius: 6px;
+  color: #8a5a00;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  height: 24px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  width: 28px;
+}
+
+.branch-copy-btn:hover {
+  background: #ffe8a3;
+  border-color: #e5a900;
+  color: #5f3b00;
+}
+
+.branch-copy-btn.copied {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.branch-copy-btn.copy-failed {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
 
 .pr-badge {
   display: inline-block;
