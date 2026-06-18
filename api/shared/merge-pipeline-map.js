@@ -17,6 +17,21 @@ const MERGE_PIPELINE_RULES = [
     }
   },
   {
+    key: 'service-api1-center-v27',
+    label: 'Service Api1 Center V27',
+    repository: 'Net',
+    sourceIncludes: ['UserStory/Poppper/SIN-Merge-apiservicecenter'],
+    targetIncludes: ['MergeCodeProduction/TH/2025/ServiceApi1CenterV27/'],
+    environment: 'STG',
+    confidence: 'high',
+    ci: {
+      name: 'STG_Net_APICenter1_service-CI'
+    },
+    cd: {
+      name: 'stg service apicenter1 CD'
+    }
+  },
+  {
     key: 'static-website-sales-portal',
     label: 'Static Website Sales Portal',
     repository: 'Net_Product_Sales_Portal_Web',
