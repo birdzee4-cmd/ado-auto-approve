@@ -9,6 +9,22 @@
  *  - Last notification from SharePoint log
  */
 module.exports = async function (context, req) {
+  if (!req.headers || !req.headers['x-ms-client-principal']) {
+    context.res = {
+      status: 401,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      },
+      body: {
+        ok: false,
+        error: 'Authentication required',
+        hint: 'Sign in before checking system health'
+      }
+    };
+    return;
+  }
+
   const generatedAt = new Date().toISOString();
   const checks = [];
 

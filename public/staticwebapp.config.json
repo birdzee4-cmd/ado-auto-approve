@@ -19,7 +19,7 @@
     { "route": "/report.html", "allowedRoles": ["authenticated"] },
     { "route": "/report", "rewrite": "/report.html", "allowedRoles": ["authenticated"] },
     { "route": "/api/userinfo", "allowedRoles": ["authenticated"] },
-    { "route": "/api/health", "allowedRoles": ["anonymous"] },
+    { "route": "/api/health", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/list-prs", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/report-summary", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/merge-lookup", "methods": ["GET"], "allowedRoles": ["authenticated"] },

@@ -60,7 +60,7 @@
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │  Managed Azure Functions (Node.js 22)                    │   │
 │  │  - /api/userinfo        สิทธิ์และข้อมูลผู้ใช้              │   │
-│  │  - /api/health          Health check ระบบ                │   │
+│  │  - /api/health          Authenticated system health       │   │
 │  │  - /api/list-prs        ดึง PR ที่รออนุมัติ / ประวัติ      │   │
 │  │  - /api/approve-pr      อนุมัติ PR + Auto-Complete        │   │
 │  │  - /api/reject-pr       ปฏิเสธ PR พร้อมเหตุผล             │   │
@@ -219,7 +219,7 @@ ado-auto-approve/
 │   │   └── [user-profile.js](file:///d:/Github/ado-auto-approve/ado-auto-approve/api/shared/user-profile.js)          ตัวดึงข้อมูลชื่อ-สกุลจาก AD ผ่าน Graph API (User lookup)
 │   │
 │   ├── userinfo/                    Endpoint คืนค่าข้อมูลและสิทธิ์ของผู้ใช้งาน [index.js](file:///d:/Github/ado-auto-approve/ado-auto-approve/api/userinfo/index.js)
-│   ├── health/                      Endpoint ตรวจสอบระบบภายนอกและ runtime [index.js](file:///d:/Github/ado-auto-approve/ado-auto-approve/api/health/index.js)
+│   ├── health/                      Endpoint ตรวจสอบระบบภายนอกและ runtime หลัง login [index.js](file:///d:/Github/ado-auto-approve/ado-auto-approve/api/health/index.js)
 │   ├── list-prs/                    Endpoint คืนค่า PR Active และ Activity PR [index.js](file:///d:/Github/ado-auto-approve/ado-auto-approve/api/list-prs/index.js)
 │   ├── approve-pr/                  Endpoint บันทึกอนุมัติและตั้งค่า Auto-Complete PR [index.js](file:///d:/Github/ado-auto-approve/ado-auto-approve/api/approve-pr/index.js)
 │   ├── reject-pr/                   Endpoint ปฏิเสธ PR พร้อมแนบเหตุผลการทำรายการ [index.js](file:///d:/Github/ado-auto-approve/ado-auto-approve/api/reject-pr/index.js)
@@ -404,7 +404,7 @@ Azure Static Web Apps (อัปเดตไฟล์ HTML/CSS และ API Run
 ### 7.1 Authentication & Authorization (RBAC)
 
 - **สิทธิ์การใช้งานจำกัด:** บังคับให้ผู้ใช้งานทุกคนเข้าผ่าน Microsoft Entra ID SSO ภายใต้ Tenant องค์กรที่กำหนดเท่านั้น
-- **การคัดกรองระดับเส้นทาง (Route-level protection):** กำหนดสิทธิ์ให้แดชบอร์ด `/dashboard.html` และ API ทุกส่วนรองรับเฉพาะผู้ใช้ที่ `authenticated` แล้ว
+- **การคัดกรองระดับเส้นทาง (Route-level protection):** กำหนดสิทธิ์ให้แดชบอร์ดและ API ที่ใช้งานผ่านหน้าเว็บ รวมถึง `/api/health` รองรับเฉพาะผู้ใช้ที่ `authenticated` แล้ว ส่วน endpoint สำหรับ scheduler ต้องใช้ token เฉพาะใน header
 - **Role-based Access Control:** ปุ่ม Approve PR, Reject PR, และ Approve Release จะทำงานได้เฉพาะผู้ใช้ที่มีบทบาท `it_support_approve` เท่านั้น (สำหรับผู้ใช้งานทั่วไปจะถูกซ่อนปุ่มและไม่สามารถยิงคำขอเข้า API ได้)
 
 ### 7.2 Secret Management

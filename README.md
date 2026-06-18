@@ -445,6 +445,7 @@ Routes สำคัญ:
 | `/api/logs` | `authenticated` |
 | `/api/report-summary` | `authenticated` |
 | `/api/pr-history/*` | `authenticated` |
+| `/api/health` | `authenticated` |
 | `/api/approve-pr` | `it_support_approve` |
 | `/api/reject-pr` | `it_support_approve` |
 | `/api/approve-release` | `it_support_approve` |
@@ -495,7 +496,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/create-tag` | POST | สร้าง Git Tag ใน Azure DevOps ชี้ไปยัง Commit SHA ที่กำหนด |
 | `/api/pr-history/{prId}` | GET | อ่าน history ของ PR จาก SharePoint |
 | `/api/logs` | GET | อ่าน audit logs จาก SharePoint |
-| `/api/health` | GET | ตรวจ system health |
+| `/api/health` | GET | ตรวจ authenticated system health หลัง login |
 | `/api/merge-lookup` | GET | ค้นหา CI/CD ของ Merge PR |
 | `/api/test-notification` | POST | ทดสอบ Teams notification |
 | `/api/test-daily-summary` | POST | ทดสอบ Daily Summary |
@@ -711,7 +712,7 @@ node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json'
 
 - GitHub Actions conclusion = success
 - หน้า Dashboard โหลดได้
-- `/api/health` healthy หรือ warning ตาม config จริง
+- `/api/health` หลัง login ได้ผล healthy หรือ warning ตาม config จริง
 - Audit Logs เรียงล่าสุดก่อน
 - Merge Lookup ค้น PR ตัวอย่างได้
 

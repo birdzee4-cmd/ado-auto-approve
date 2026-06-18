@@ -26,7 +26,7 @@
     { "route": "/api/sync-deployments", "methods": ["GET", "POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/deploy-history", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/report-summary", "methods": ["GET"], "allowedRoles": ["authenticated"] },
-    { "route": "/api/health", "allowedRoles": ["anonymous"] },
+    { "route": "/api/health", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/list-prs", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/build-diagnostics", "methods": ["GET", "POST"], "allowedRoles": ["authenticated"] },
     { "route": "/api/merge-lookup", "methods": ["GET"], "allowedRoles": ["authenticated"] },
