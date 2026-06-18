@@ -63,7 +63,16 @@ module.exports = async function (context, req) {
     if (!lineAlreadySent) {
       const lineMessage = buildLineDailySummaryMessage(summary, requestOptions.testMode);
       context.log(`Sending Daily PR Summary to LINE: ${lineEventKey}...`);
-      lineResult = await line.sendLinePush(lineMessage);
+      try {
+        lineResult = await line.sendLinePush(lineMessage);
+      } catch (lineErr) {
+        context.log.error('LINE daily summary send failed:', lineErr);
+        lineResult = {
+          ok: false,
+          status: 500,
+          body: lineErr && lineErr.message ? lineErr.message : 'LINE daily summary send failed'
+        };
+      }
 
       if (lineResult.ok) {
         try {
@@ -93,7 +102,16 @@ module.exports = async function (context, req) {
       const teams = require('../shared/teams-notifier');
       const teamsMessage = dailySummaryModule.buildDailySummaryMessage(summary, requestOptions.testMode);
       context.log(`Sending Daily PR Summary to MS Teams (23:59): ${teamsEventKey}...`);
-      teamsResult = await teams.sendTeamsCard({ text: teamsMessage });
+      try {
+        teamsResult = await teams.sendTeamsCard({ text: teamsMessage });
+      } catch (teamsErr) {
+        context.log.error('Teams 23:59 daily summary send failed:', teamsErr);
+        teamsResult = {
+          ok: false,
+          status: 500,
+          body: teamsErr && teamsErr.message ? teamsErr.message : 'Teams 23:59 daily summary send failed'
+        };
+      }
 
       if (teamsResult.ok) {
         try {
