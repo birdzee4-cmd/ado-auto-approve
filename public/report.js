@@ -47,6 +47,7 @@ async function init() {
 
   // สร้างรายชื่อตัวเลือกวันที่
   populateDays(currentYear, currentMonth, currentDay);
+  populateHourOptions();
   
   // โหลดรายงานรอบแรก
   await loadReport();
@@ -85,8 +86,17 @@ async function triggerBackgroundSync() {
 function handleTypeChange() {
   const type = document.getElementById('filterType').value;
   const dayContainer = document.getElementById('filterDayContainer');
+  const startTimeContainer = document.getElementById('filterStartTimeContainer');
+  const endTimeContainer = document.getElementById('filterEndTimeContainer');
+  const showDailyFilters = type === 'daily';
   if (dayContainer) {
-    dayContainer.style.display = type === 'daily' ? 'block' : 'none';
+    dayContainer.style.display = showDailyFilters ? 'block' : 'none';
+  }
+  if (startTimeContainer) {
+    startTimeContainer.style.display = showDailyFilters ? 'block' : 'none';
+  }
+  if (endTimeContainer) {
+    endTimeContainer.style.display = showDailyFilters ? 'block' : 'none';
   }
 }
 
@@ -120,6 +130,29 @@ function populateDays(year, month, selectDayValue = 1) {
   filterDay.value = String(Math.min(selectDayValue, totalDays));
 }
 
+function populateHourOptions() {
+  const startSelect = document.getElementById('filterStartTime');
+  const endSelect = document.getElementById('filterEndTime');
+  if (!startSelect || !endSelect) return;
+
+  startSelect.innerHTML = '';
+  endSelect.innerHTML = '';
+  for (let hour = 0; hour < 24; hour++) {
+    const labelHour = String(hour).padStart(2, '0');
+    const startOpt = document.createElement('option');
+    startOpt.value = labelHour + ':00';
+    startOpt.textContent = labelHour + ':00';
+    startSelect.appendChild(startOpt);
+
+    const endOpt = document.createElement('option');
+    endOpt.value = labelHour + ':59';
+    endOpt.textContent = labelHour + ':00-' + labelHour + ':59';
+    endSelect.appendChild(endOpt);
+  }
+  startSelect.value = '00:00';
+  endSelect.value = '23:59';
+}
+
 // ยิงโหลดข้อมูลรายงานสรุปผลสถิติ
 async function loadReport() {
   setButtonLoading('btnLoadReport', true, 'Loading...');
@@ -128,6 +161,8 @@ async function loadReport() {
   const year = document.getElementById('filterYear').value;
   const month = document.getElementById('filterMonth').value;
   const day = document.getElementById('filterDay').value;
+  const startTime = (document.getElementById('filterStartTime') || {}).value || '00:00';
+  const endTime = (document.getElementById('filterEndTime') || {}).value || '23:59';
   const actionScope = (document.getElementById('filterActionScope') || {}).value || 'all';
   const buildScope = (document.getElementById('filterBuildScope') || {}).value || 'all';
 
@@ -136,6 +171,8 @@ async function loadReport() {
     `&buildScope=${encodeURIComponent(buildScope)}`;
   if (type === 'daily') {
     queryPath += `&day=${day}`;
+    queryPath += `&startTime=${encodeURIComponent(startTime)}`;
+    queryPath += `&endTime=${encodeURIComponent(endTime)}`;
   }
 
   try {
@@ -358,8 +395,21 @@ function renderScopeNote(data) {
   const relatedText = scope.buildScope === 'related'
     ? ' | PR ที่ใช้จับคู่: ' + (scope.relatedPrCount || 0)
     : '';
+  const rangeText = formatReportRange(data.range);
   scopeNote.hidden = false;
-  scopeNote.textContent = actionText + ' | ' + buildText + relatedText;
+  scopeNote.textContent = [rangeText, actionText, buildText + relatedText].filter(Boolean).join(' | ');
+}
+
+function formatReportRange(range) {
+  if (!range || !range.start || !range.end) return '';
+  const start = new Date(range.start);
+  const end = new Date(range.end);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '';
+  const displayEnd = new Date(Math.max(start.getTime(), end.getTime() - 60 * 1000));
+  return 'ช่วงข้อมูล: ' +
+    start.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Bangkok' }) +
+    ' - ' +
+    displayEnd.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Bangkok' });
 }
 
 function renderFailedBuilds(items) {

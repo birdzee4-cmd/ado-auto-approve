@@ -9,6 +9,8 @@
  *   year  = YYYY (e.g. 2026)
  *   month = MM (1-12)
  *   day   = DD (1-31, required only if type=daily)
+ *   startTime = HH:mm (daily only, default 00:00)
+ *   endTime   = HH:mm (daily only, default 23:59)
  */
 
 const sp = require('../shared/sharepoint-client');
@@ -36,6 +38,8 @@ module.exports = async function (context, req) {
     const year = parseInt(req.query.year, 10) || defaultYear;
     const month = parseInt(req.query.month, 10) || defaultMonth;
     const day = parseInt(req.query.day, 10) || defaultDay;
+    const startTime = type === 'daily' ? parseTimeOfDay(req.query.startTime || '00:00', '00:00') : null;
+    const endTime = type === 'daily' ? parseTimeOfDay(req.query.endTime || '23:59', '23:59') : null;
     const actionScope = req.query.actionScope === 'mine' ? 'mine' : 'all';
     const buildScope = req.query.buildScope === 'related' ? 'related' : 'all';
     const principal = auth.parseClientPrincipal(req.headers);
@@ -54,12 +58,21 @@ module.exports = async function (context, req) {
       jsonResponse(400, { ok: false, error: 'วันที่ (day) ที่ระบุไม่ถูกต้อง' });
       return;
     }
+    if (type === 'daily' && (!startTime || !endTime || timeToMinutes(startTime) > timeToMinutes(endTime))) {
+      jsonResponse(400, { ok: false, error: 'ช่วงเวลาไม่ถูกต้อง' });
+      return;
+    }
 
     // 3) คำนวณช่วงเวลาเริ่มต้นและสิ้นสุดในรูปแบบ UTC เพื่อนำไป Query บน SharePoint
     let startUtc, endUtc;
     if (type === 'daily') {
-      startUtc = new Date(Date.UTC(year, month - 1, day, 0, 0, 0) - offsetMs);
-      endUtc = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0) - offsetMs);
+      startUtc = new Date(Date.UTC(year, month - 1, day, startTime.hour, startTime.minute, 0) - offsetMs);
+      const endMinute = timeToMinutes(endTime) + 1;
+      const endHour = Math.floor(endMinute / 60);
+      const endMinutePart = endMinute % 60;
+      endUtc = endMinute >= 24 * 60
+        ? new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0) - offsetMs)
+        : new Date(Date.UTC(year, month - 1, day, endHour, endMinutePart, 0) - offsetMs);
     } else {
       startUtc = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0) - offsetMs);
       endUtc = new Date(Date.UTC(year, month, 1, 0, 0, 0) - offsetMs);
@@ -205,6 +218,8 @@ module.exports = async function (context, req) {
       year: year,
       month: month,
       day: type === 'daily' ? day : undefined,
+      startTime: type === 'daily' ? formatTimeOfDay(startTime) : undefined,
+      endTime: type === 'daily' ? formatTimeOfDay(endTime) : undefined,
       range: {
         start: startIso,
         end: endIso
@@ -311,6 +326,26 @@ function isSameUser(logUser, currentUserAliases) {
   const left = normalizeUser(logUser);
   const aliases = Array.isArray(currentUserAliases) ? currentUserAliases : [currentUserAliases];
   return !!left && aliases.some(alias => left === normalizeUser(alias));
+}
+
+function parseTimeOfDay(value, fallback) {
+  const text = String(value || fallback || '').trim();
+  const match = text.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+  if (!match) return null;
+  return {
+    hour: Number(match[1]),
+    minute: Number(match[2])
+  };
+}
+
+function timeToMinutes(value) {
+  return (Number(value && value.hour) || 0) * 60 + (Number(value && value.minute) || 0);
+}
+
+function formatTimeOfDay(value) {
+  const hour = String(value && value.hour || 0).padStart(2, '0');
+  const minute = String(value && value.minute || 0).padStart(2, '0');
+  return hour + ':' + minute;
 }
 
 function normalizeUser(value) {
