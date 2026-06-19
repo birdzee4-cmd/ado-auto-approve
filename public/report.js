@@ -43,6 +43,10 @@ async function init() {
     filterYear.addEventListener('change', handleDateUpdate);
   }
 
+  const filterStartTime = document.getElementById('filterStartTime');
+  const filterEndTime = document.getElementById('filterEndTime');
+  if (filterStartTime) filterStartTime.addEventListener('change', syncEndTimeOptions);
+  if (filterEndTime) filterEndTime.addEventListener('change', syncEndTimeOptions);
   bind('btnLoadReport', loadReport);
 
   // สร้างรายชื่อตัวเลือกวันที่
@@ -143,14 +147,40 @@ function populateHourOptions() {
     startOpt.value = labelHour + ':00';
     startOpt.textContent = labelHour + ':00';
     startSelect.appendChild(startOpt);
+  }
 
+  for (let hour = 1; hour <= 24; hour++) {
+    const labelHour = String(hour).padStart(2, '0');
     const endOpt = document.createElement('option');
-    endOpt.value = labelHour + ':59';
-    endOpt.textContent = labelHour + ':00-' + labelHour + ':59';
+    endOpt.value = labelHour + ':00';
+    endOpt.textContent = labelHour + ':00';
     endSelect.appendChild(endOpt);
   }
+
   startSelect.value = '00:00';
-  endSelect.value = '23:59';
+  endSelect.value = '24:00';
+  syncEndTimeOptions();
+}
+
+function syncEndTimeOptions() {
+  const startSelect = document.getElementById('filterStartTime');
+  const endSelect = document.getElementById('filterEndTime');
+  if (!startSelect || !endSelect) return;
+
+  const minEndMinutes = timeValueToMinutes(startSelect.value) + 60;
+  Array.from(endSelect.options).forEach(option => {
+    option.disabled = timeValueToMinutes(option.value) < minEndMinutes;
+  });
+  if (timeValueToMinutes(endSelect.value) < minEndMinutes) {
+    const nextOption = Array.from(endSelect.options).find(option => !option.disabled);
+    if (nextOption) endSelect.value = nextOption.value;
+  }
+}
+
+function timeValueToMinutes(value) {
+  if (value === '24:00') return 24 * 60;
+  const parts = String(value || '00:00').split(':').map(Number);
+  return (parts[0] || 0) * 60 + (parts[1] || 0);
 }
 
 // ยิงโหลดข้อมูลรายงานสรุปผลสถิติ
@@ -405,11 +435,10 @@ function formatReportRange(range) {
   const start = new Date(range.start);
   const end = new Date(range.end);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '';
-  const displayEnd = new Date(Math.max(start.getTime(), end.getTime() - 60 * 1000));
   return 'ช่วงข้อมูล: ' +
     start.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Bangkok' }) +
     ' - ' +
-    displayEnd.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Bangkok' });
+    end.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Bangkok' });
 }
 
 function renderFailedBuilds(items) {
