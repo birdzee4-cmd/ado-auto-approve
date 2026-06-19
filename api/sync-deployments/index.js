@@ -152,9 +152,13 @@ module.exports = async function (context, req) {
       }
 
       // แปลงข้อมูลใหม่เป็น object format
-      const newMappedRows = buildsByYear[year].map(b => {
+      const definitionRepoCache = {};
+      const newMappedRows = [];
+      for (const b of buildsByYear[year]) {
         const pipelineName = b.definition && b.definition.name || '';
-        const repoName = b.repository && b.repository.name || '';
+        const repoName = b.repository && b.repository.name ||
+          await getRepositoryNameFromDefinition(b.definition && b.definition.id, definitionRepoCache) ||
+          inferRepoNameFromPipeline(pipelineName);
         const cleanBranch = b.sourceBranch ? b.sourceBranch.replace('refs/heads/', '') : '';
         const status = b.status || '';
         const result = b.result || '';
@@ -178,7 +182,7 @@ module.exports = async function (context, req) {
         const tags = b.tags ? b.tags.join(', ') : '';
         const buildUrl = b._links && b._links.web && b._links.web.href || '';
 
-        return {
+        const mappedRow = {
           PipelineName: pipelineName,
           RepoName: repoName,
           Branch: cleanBranch,
@@ -193,7 +197,8 @@ module.exports = async function (context, req) {
           BuildTags: tags,
           AdoBuildUrl: buildUrl
         };
-      });
+        newMappedRows.push(mappedRow);
+      }
 
       // Merge และ De-duplicate ตาม PipelineName + BuildNumber
       const mergedMap = new Map();
@@ -279,6 +284,31 @@ module.exports = async function (context, req) {
     });
   }
 };
+
+async function getRepositoryNameFromDefinition(definitionId, cache) {
+  if (!definitionId) return '';
+  const key = String(definitionId);
+  if (Object.prototype.hasOwnProperty.call(cache, key)) return cache[key];
+  try {
+    const { org, project } = getConfig();
+    const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/definitions/${encodeURIComponent(key)}?api-version=7.0`;
+    const result = await adoRequest('GET', path);
+    const repoName = result.ok && result.body && result.body.repository && result.body.repository.name || '';
+    cache[key] = repoName;
+    return repoName;
+  } catch (e) {
+    cache[key] = '';
+    return '';
+  }
+}
+
+function inferRepoNameFromPipeline(pipelineName) {
+  return String(pipelineName || '')
+    .replace(/^(STG|PH|VN|MY|ID)_/i, '')
+    .replace(/_docker-CI$/i, '')
+    .replace(/-CI$/i, '')
+    .trim();
+}
 
 /**
  * ฟังก์ชันสำหรับแยกวิเคราะห์ CSV (CSV Parser) แบบรองรับ double quotes และ newline

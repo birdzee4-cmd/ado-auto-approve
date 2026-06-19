@@ -171,7 +171,7 @@ module.exports = async function (context, req) {
 
       totalDeploys++;
       const status = String(row.Status || '').toLowerCase();
-      const repo = (row.RepoName || 'Unknown').trim();
+      const repo = getDeploymentRepoName(row);
 
       if (status === 'succeeded') {
         succeededDeploys++;
@@ -354,7 +354,7 @@ function isDeploymentRelatedToPr(row, relatedPrIds) {
 function buildFailedDeployItem(row) {
   return {
     prId: row.PrId || row.PR_ID || row.PullRequestId || extractPrId(row.Branch) || extractPrId(row.CommitMessage) || '',
-    repo: row.RepoName || 'Unknown',
+    repo: getDeploymentRepoName(row),
     branch: row.Branch || '',
     status: row.Status || '',
     buildNumber: row.BuildNumber || '',
@@ -377,4 +377,19 @@ function extractPrId(value) {
     if (match) return match[1];
   }
   return '';
+}
+
+function getDeploymentRepoName(row) {
+  const direct = String(row && row.RepoName || '').trim();
+  if (direct) return direct;
+  const inferred = inferRepoNameFromPipeline(row && row.PipelineName);
+  return inferred || 'Unknown';
+}
+
+function inferRepoNameFromPipeline(pipelineName) {
+  return String(pipelineName || '')
+    .replace(/^(STG|PH|VN|MY|ID)_/i, '')
+    .replace(/_docker-CI$/i, '')
+    .replace(/-CI$/i, '')
+    .trim();
 }

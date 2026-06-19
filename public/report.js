@@ -374,26 +374,26 @@ function renderFailedBuilds(items) {
     const prText = item.prId ? '#' + item.prId : 'N/A';
     const buildText = item.buildNumber || 'Open build';
     const buildLink = item.buildUrl
-      ? `<a class="failed-build-link" href="${escapeHtml(item.buildUrl)}" target="_blank" rel="noopener">${escapeHtml(buildText)}</a>`
-      : `<span class="failed-build-value">${escapeHtml(buildText)}</span>`;
+      ? `<a class="failed-build-link" href="${escapeHtml(item.buildUrl)}" target="_blank" rel="noopener" title="${escapeHtml(buildText)}">${escapeHtml(buildText)}</a>`
+      : `<span class="failed-build-value failed-build-value--compact" title="${escapeHtml(buildText)}">${escapeHtml(buildText)}</span>`;
     return `<div class="failed-build-item">
-      <div>
+      <div class="failed-build-cell failed-build-cell--pr">
         <span class="failed-build-label">PR</span>
-        <span class="failed-build-value">${escapeHtml(prText)}</span>
+        <span class="failed-build-value failed-build-value--compact" title="${escapeHtml(prText)}">${escapeHtml(prText)}</span>
       </div>
-      <div>
+      <div class="failed-build-cell failed-build-cell--repo">
         <span class="failed-build-label">Repository</span>
-        <span class="failed-build-value" title="${escapeHtml(item.repo || '-')}">${escapeHtml(item.repo || '-')}</span>
+        <span class="failed-build-value failed-build-value--long" title="${escapeHtml(item.repo || '-')}">${escapeHtml(item.repo || '-')}</span>
       </div>
-      <div>
+      <div class="failed-build-cell failed-build-cell--branch">
         <span class="failed-build-label">Branch</span>
-        <span class="failed-build-value" title="${escapeHtml(item.branch || '-')}">${escapeHtml(item.branch || '-')}</span>
+        <span class="failed-build-value failed-build-value--long" title="${escapeHtml(item.branch || '-')}">${escapeHtml(item.branch || '-')}</span>
       </div>
-      <div>
+      <div class="failed-build-cell failed-build-cell--finished">
         <span class="failed-build-label">Finished</span>
-        <span class="failed-build-value">${escapeHtml(formatShortDate(item.finishedTime))}</span>
+        <span class="failed-build-value failed-build-value--compact" title="${escapeHtml(formatShortDate(item.finishedTime))}">${escapeHtml(formatShortDate(item.finishedTime))}</span>
       </div>
-      <div>${buildLink}</div>
+      <div class="failed-build-cell failed-build-cell--build">${buildLink}</div>
     </div>`;
   }).join('');
 }
