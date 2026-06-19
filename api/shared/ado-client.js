@@ -273,6 +273,28 @@ async function getBuildsForBranch(repositoryId, branchName, top) {
   return adoRequest('GET', path);
 }
 
+async function listBuilds(options) {
+  const { org, project } = getConfig();
+  const opts = options || {};
+  const params = [
+    'queryOrder=finishTimeDescending',
+    '$top=' + encodeURIComponent(String(opts.top || 100)),
+    'api-version=7.0'
+  ];
+  if (opts.minTime) params.push('minTime=' + encodeURIComponent(opts.minTime));
+  if (opts.maxTime) params.push('maxTime=' + encodeURIComponent(opts.maxTime));
+  if (opts.statusFilter) params.push('statusFilter=' + encodeURIComponent(opts.statusFilter));
+  if (opts.resultFilter) params.push('resultFilter=' + encodeURIComponent(opts.resultFilter));
+  if (opts.branchName) params.push('branchName=' + encodeURIComponent(opts.branchName));
+  if (opts.repositoryId) {
+    params.push('repositoryId=' + encodeURIComponent(opts.repositoryId));
+    params.push('repositoryType=' + encodeURIComponent(opts.repositoryType || 'TfsGit'));
+  }
+
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?${params.join('&')}`;
+  return adoRequest('GET', path);
+}
+
 async function getProjectId() {
   if (cachedProjectId) return cachedProjectId;
   const { org, project } = getConfig();
@@ -648,6 +670,7 @@ module.exports = {
   getPullRequest,
   getPullRequestStatuses,
   getBuildsForBranch,
+  listBuilds,
   getPolicyEvaluations,
   listActivePRs,
   getConnectionData,

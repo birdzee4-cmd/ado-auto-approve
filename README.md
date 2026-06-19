@@ -406,6 +406,48 @@ x-exception-scan-token: <EXCEPTION_SCAN_TOKEN หรือ DAILY_SUMMARY_TOKEN>
 TEAMS_EXCEPTION_NOTIFICATIONS=false
 ```
 
+### Build Failure REST Polling
+
+ถ้า Azure DevOps Service Hook ใช้งานไม่เสถียร ให้ใช้ Azure Logic Apps Consumption เรียก endpoint นี้แทน:
+
+```text
+POST /api/build-failure-scan
+```
+
+Header:
+
+```text
+x-build-failure-scan-token: <BUILD_FAILURE_SCAN_TOKEN หรือ DAILY_SUMMARY_TOKEN>
+```
+
+Body ตัวอย่าง:
+
+```json
+{
+  "lookbackMinutes": 30,
+  "maxBuilds": 100
+}
+```
+
+หลักการทำงาน:
+
+- Query Azure DevOps REST API หา build ที่ `completed` และ `failed` ในช่วงเวลาล่าสุด
+- Default lookback คือ 30 นาที และดึงสูงสุด 100 builds
+- กรองเฉพาะ pipeline ที่มีคำว่า `stg` และ branch ที่ขึ้นต้นด้วย `refs/heads/staging`
+- ส่ง Teams หนึ่งครั้งต่อ build ด้วย `Event_Key` รูปแบบ `teams:build-failed:<buildId>`
+- บันทึก SharePoint Log ด้วย source `ADO REST Build Failure Scan`
+
+แนะนำให้ตั้ง Logic Apps เรียกทุก 5-10 นาที โดยให้ `lookbackMinutes` มากกว่ารอบ schedule เล็กน้อย เช่น schedule ทุก 10 นาที ใช้ lookback 30 นาที เพื่อกันช่วงที่ scheduler delay และให้ duplicate guard กันการส่งซ้ำ
+
+สำหรับทดสอบโดยไม่ส่ง Teams ให้ใส่:
+
+```json
+{
+  "dryRun": true,
+  "lookbackMinutes": 30
+}
+```
+
 ### Daily PR Summary
 
 ระบบรองรับการส่งสรุปภาพรวมรายวัน (Daily Summary) ไปยัง 2 ช่องทางหลักตามรอบเวลาที่กำหนด:
@@ -453,6 +495,7 @@ Routes สำคัญ:
 | `/api/line-daily-summary` | `anonymous` + header token |
 | `/api/sync-deployments` | `anonymous` + header/query token |
 | `/api/exception-scan` | `anonymous` + header token |
+| `/api/build-failure-scan` | `anonymous` + header token |
 | `/api/log-retention-cleanup` | `anonymous` + header token |
 | `/api/webhook` | `anonymous` + basic auth |
 
@@ -504,6 +547,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/daily-summary` | POST | endpoint สำหรับ Logic Apps scheduler |
 | `/api/line-daily-summary` | POST | endpoint สำหรับ Logic Apps LINE Daily Summary scheduler (ส่ง 23:59 น.) |
 | `/api/exception-scan` | POST | endpoint สำหรับสแกน Build/Policy failed จาก approval logs |
+| `/api/build-failure-scan` | POST | endpoint สำหรับ Logic Apps polling หา Build failed จาก Azure DevOps REST API โดยตรง |
 | `/api/log-retention-cleanup` | POST | endpoint สำหรับ archive/export/delete SharePoint logs เก่ากว่า retention window |
 | `/api/webhook` | POST | legacy/webhook notification endpoint |
 
@@ -590,6 +634,7 @@ api/shared/attention.js
 | `TEAMS_EXCEPTION_NOTIFICATIONS` | No | set `false` เพื่อปิด exception alerts |
 | `DAILY_SUMMARY_TOKEN` | For daily summary | token ที่ Logic Apps ส่งมาใน header |
 | `EXCEPTION_SCAN_TOKEN` | No | token สำหรับ `/api/exception-scan`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
+| `BUILD_FAILURE_SCAN_TOKEN` | No | token สำหรับ `/api/build-failure-scan`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
 | `LOG_RETENTION_TOKEN` | No | token สำหรับ `/api/log-retention-cleanup`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
 | `LOG_RETENTION_DAYS` | No | default `180` |
 | `LOG_RETENTION_BATCH_LIMIT` | No | default `500`, max `1000` |
