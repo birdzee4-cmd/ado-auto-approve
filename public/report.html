@@ -32,80 +32,92 @@
 
   <main class="dashboard halftone-bg">
     <div class="welcome-card report-page">
-      <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 16px;">
-        <div>
-          <h1 style="margin: 0 0 4px 0; font-size: 28px;">Report Summary</h1>
-          <p style="margin: 0; color: var(--bz-muted);">วิเคราะห์ปริมาณงาน สถิติประสิทธิภาพการอนุมัติอัตโนมัติ และอัตราความสำเร็จของบิลด์ประจำวันและรายเดือน</p>
+      <div class="report-header">
+        <div class="report-title-block">
+          <h1>Report Summary</h1>
+          <p>วิเคราะห์ปริมาณงาน สถิติประสิทธิภาพการอนุมัติอัตโนมัติ และอัตราความสำเร็จของบิลด์ประจำวันและรายเดือน</p>
         </div>
-        <div style="font-size: 13px; color: var(--bz-muted); text-align: right; min-width: 200px;" id="syncStatusContainer">
+        <div class="sync-status-pill" id="syncStatusContainer">
           <span id="txtSyncStatus">⏳ ตรวจสอบข้อมูลล่าสุดในระบบ...</span>
         </div>
       </div>
 
       <!-- Filters Panel -->
       <div class="filter-panel">
-        <div class="filter-field">
-          <span>ประเภทรายงาน (Type)</span>
-          <select id="filterType">
-            <option value="monthly">รายเดือน (Monthly Summary)</option>
-            <option value="daily">รายวัน (Daily Summary)</option>
-          </select>
+        <div class="filter-section filter-section-period">
+          <div class="filter-section-title">ช่วงรายงาน</div>
+          <div class="filter-grid filter-grid-period">
+            <div class="filter-field">
+              <span>ประเภทรายงาน</span>
+              <select id="filterType">
+                <option value="monthly">รายเดือน (Monthly Summary)</option>
+                <option value="daily">รายวัน (Daily Summary)</option>
+              </select>
+            </div>
+            <div class="filter-field">
+              <span>ปี</span>
+              <select id="filterYear">
+                <option value="2026">2026</option>
+                <option value="2025">2025</option>
+              </select>
+            </div>
+            <div class="filter-field">
+              <span>เดือน</span>
+              <select id="filterMonth">
+                <option value="1">มกราคม (Jan)</option>
+                <option value="2">กุมภาพันธ์ (Feb)</option>
+                <option value="3">มีนาคม (Mar)</option>
+                <option value="4">เมษายน (Apr)</option>
+                <option value="5">พฤษภาคม (May)</option>
+                <option value="6">มิถุนายน (Jun)</option>
+                <option value="7">กรกฎาคม (Jul)</option>
+                <option value="8">สิงหาคม (Aug)</option>
+                <option value="9">กันยายน (Sep)</option>
+                <option value="10">ตุลาคม (Oct)</option>
+                <option value="11">พฤศจิกายน (Nov)</option>
+                <option value="12">ธันวาคม (Dec)</option>
+              </select>
+            </div>
+            <div class="filter-field" id="filterDayContainer" style="display: none;">
+              <span>วันที่</span>
+              <select id="filterDay">
+                <!-- Will be populated dynamically -->
+              </select>
+            </div>
+            <div class="filter-field time-filter-field" id="filterStartTimeContainer" style="display: none;">
+              <span>ตั้งแต่เวลา</span>
+              <select id="filterStartTime"></select>
+            </div>
+            <div class="filter-field time-filter-field" id="filterEndTimeContainer" style="display: none;">
+              <span>ถึงชั่วโมง</span>
+              <select id="filterEndTime"></select>
+            </div>
+          </div>
         </div>
-        <div class="filter-field">
-          <span>ปี (Year)</span>
-          <select id="filterYear">
-            <option value="2026">2026</option>
-            <option value="2025">2025</option>
-          </select>
+
+        <div class="filter-section filter-section-scope">
+          <div class="filter-section-title">ขอบเขตข้อมูล</div>
+          <div class="filter-grid filter-grid-scope">
+            <div class="filter-field">
+              <span>PR Actions</span>
+              <select id="filterActionScope">
+                <option value="all">ทั้งหมด (All users)</option>
+                <option value="mine">เฉพาะของฉัน (My actions only)</option>
+              </select>
+            </div>
+            <div class="filter-field">
+              <span>Staging Builds</span>
+              <select id="filterBuildScope">
+                <option value="all">ทั้งหมดบน Staging</option>
+                <option value="related">เฉพาะที่สัมพันธ์กับ PR ในรายงาน</option>
+              </select>
+            </div>
+          </div>
         </div>
-        <div class="filter-field">
-          <span>เดือน (Month)</span>
-          <select id="filterMonth">
-            <option value="1">มกราคม (Jan)</option>
-            <option value="2">กุมภาพันธ์ (Feb)</option>
-            <option value="3">มีนาคม (Mar)</option>
-            <option value="4">เมษายน (Apr)</option>
-            <option value="5">พฤษภาคม (May)</option>
-            <option value="6">มิถุนายน (Jun)</option>
-            <option value="7">กรกฎาคม (Jul)</option>
-            <option value="8">สิงหาคม (Aug)</option>
-            <option value="9">กันยายน (Sep)</option>
-            <option value="10">ตุลาคม (Oct)</option>
-            <option value="11">พฤศจิกายน (Nov)</option>
-            <option value="12">ธันวาคม (Dec)</option>
-          </select>
-        </div>
-        <div class="filter-field" id="filterDayContainer" style="display: none;">
-          <span>วันที่ (Day)</span>
-          <select id="filterDay">
-            <!-- Will be populated dynamically -->
-          </select>
-        </div>
-        <div class="filter-field time-filter-field" id="filterStartTimeContainer" style="display: none;">
-          <span>ตั้งแต่เวลา</span>
-          <select id="filterStartTime"></select>
-        </div>
-        <div class="filter-field time-filter-field" id="filterEndTimeContainer" style="display: none;">
-          <span>ถึงชั่วโมง</span>
-          <select id="filterEndTime"></select>
-        </div>
-        <div class="filter-field">
-          <span>ขอบเขต PR Actions</span>
-          <select id="filterActionScope">
-            <option value="all">ทั้งหมด (All users)</option>
-            <option value="mine">เฉพาะของฉัน (My actions only)</option>
-          </select>
-        </div>
-        <div class="filter-field">
-          <span>ขอบเขต Staging Builds</span>
-          <select id="filterBuildScope">
-            <option value="all">ทั้งหมดบน Staging</option>
-            <option value="related">เฉพาะที่สัมพันธ์กับ PR ในรายงาน</option>
-          </select>
-        </div>
-        <div class="filter-actions">
-          <button id="btnLoadReport" class="primary-button" style="display: inline-flex; align-items: center; gap: 6px;">
-            <span>📊</span>
+
+        <div class="filter-actions-row">
+          <button id="btnLoadReport" class="primary-button report-load-button">
+            <span class="button-icon">📊</span>
             <span>โหลดรายงาน (Load Report)</span>
           </button>
         </div>

@@ -94,13 +94,13 @@ function handleTypeChange() {
   const endTimeContainer = document.getElementById('filterEndTimeContainer');
   const showDailyFilters = type === 'daily';
   if (dayContainer) {
-    dayContainer.style.display = showDailyFilters ? 'block' : 'none';
+    dayContainer.style.display = showDailyFilters ? '' : 'none';
   }
   if (startTimeContainer) {
-    startTimeContainer.style.display = showDailyFilters ? 'block' : 'none';
+    startTimeContainer.style.display = showDailyFilters ? '' : 'none';
   }
   if (endTimeContainer) {
-    endTimeContainer.style.display = showDailyFilters ? 'block' : 'none';
+    endTimeContainer.style.display = showDailyFilters ? '' : 'none';
   }
 }
 
