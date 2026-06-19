@@ -12,6 +12,7 @@
  */
 
 const sp = require('../shared/sharepoint-client');
+const auth = require('../shared/auth');
 
 module.exports = async function (context, req) {
   function jsonResponse(status, payload) {
@@ -35,6 +36,11 @@ module.exports = async function (context, req) {
     const year = parseInt(req.query.year, 10) || defaultYear;
     const month = parseInt(req.query.month, 10) || defaultMonth;
     const day = parseInt(req.query.day, 10) || defaultDay;
+    const actionScope = req.query.actionScope === 'mine' ? 'mine' : 'all';
+    const buildScope = req.query.buildScope === 'related' ? 'related' : 'all';
+    const principal = auth.parseClientPrincipal(req.headers);
+    const currentUser = auth.getUserEmail(principal);
+    const currentUserAliases = buildUserAliases(principal);
 
     if (isNaN(year) || year < 2000 || year > 2100) {
       jsonResponse(400, { ok: false, error: 'ปี (year) ที่ระบุไม่ถูกต้อง' });
@@ -71,7 +77,10 @@ module.exports = async function (context, req) {
       throw new Error(`Failed to query SharePoint logs: HTTP ${logsResult.status}`);
     }
 
-    const logs = logsResult.body && Array.isArray(logsResult.body.value) ? logsResult.body.value : [];
+    const allLogs = logsResult.body && Array.isArray(logsResult.body.value) ? logsResult.body.value : [];
+    const logs = actionScope === 'mine'
+      ? allLogs.filter(item => isSameUser(item && item.fields && item.fields.User, currentUserAliases))
+      : allLogs;
     
     // 5) คำนวณ Metrics สำหรับประวัติการอนุมัติ (PR & Action Summary)
     let totalActions = 0;
@@ -82,6 +91,7 @@ module.exports = async function (context, req) {
 
     const uniquePrs = new Set();
     const repoPrCount = {}; // repository -> Set of unique PRs
+    const relatedPrIds = new Set();
 
     logs.forEach(item => {
       const fields = item.fields || {};
@@ -92,6 +102,7 @@ module.exports = async function (context, req) {
 
       totalActions++;
       uniquePrs.add(prId);
+      relatedPrIds.add(String(prId));
 
       const repo = (fields.Repository || 'Unknown').trim();
       if (repo && repo !== 'Daily Summary' && repo !== 'Daily Summary Test') {
@@ -144,6 +155,7 @@ module.exports = async function (context, req) {
     let failedDeploys = 0;
     let inProgressDeploys = 0;
     const repoFailedDeploys = {}; // repository -> count
+    const failedDeployItems = [];
 
     const startTs = startUtc.getTime();
     const endTs = endUtc.getTime();
@@ -155,6 +167,7 @@ module.exports = async function (context, req) {
       const finishedTime = row.FinishedTime || '';
       const ts = Date.parse(finishedTime);
       if (isNaN(ts) || ts < startTs || ts >= endTs) return;
+      if (buildScope === 'related' && !isDeploymentRelatedToPr(row, relatedPrIds)) return;
 
       totalDeploys++;
       const status = String(row.Status || '').toLowerCase();
@@ -167,6 +180,7 @@ module.exports = async function (context, req) {
         if (repo && repo !== 'Unknown') {
           repoFailedDeploys[repo] = (repoFailedDeploys[repo] || 0) + 1;
         }
+        failedDeployItems.push(buildFailedDeployItem(row));
       } else if (status === 'inprogress') {
         inProgressDeploys++;
       }
@@ -195,6 +209,12 @@ module.exports = async function (context, req) {
         start: startIso,
         end: endIso
       },
+      scope: {
+        actionScope: actionScope,
+        buildScope: buildScope,
+        user: actionScope === 'mine' ? currentUser : '',
+        relatedPrCount: relatedPrIds.size
+      },
       stats: {
         totalPrs: uniquePrs.size,
         totalActions: totalActions,
@@ -210,7 +230,10 @@ module.exports = async function (context, req) {
         deploySuccessRate: deploySuccessRate
       },
       topActiveRepos: topActiveRepos,
-      topFailedRepos: topFailedRepos
+      topFailedRepos: topFailedRepos,
+      failedDeployItems: failedDeployItems
+        .sort((a, b) => (Date.parse(b.finishedTime || '') || 0) - (Date.parse(a.finishedTime || '') || 0))
+        .slice(0, 10)
     });
 
   } catch (err) {
@@ -282,4 +305,76 @@ function parseCsv(csvText) {
   }
 
   return data;
+}
+
+function isSameUser(logUser, currentUserAliases) {
+  const left = normalizeUser(logUser);
+  const aliases = Array.isArray(currentUserAliases) ? currentUserAliases : [currentUserAliases];
+  return !!left && aliases.some(alias => left === normalizeUser(alias));
+}
+
+function normalizeUser(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function buildUserAliases(principal) {
+  const aliases = new Set();
+  if (principal && principal.userDetails) aliases.add(principal.userDetails);
+  const claims = principal && Array.isArray(principal.claims) ? principal.claims : [];
+  const usefulClaimNames = new Set([
+    'name',
+    'emails',
+    'preferred_username',
+    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name',
+    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress',
+    'http://schemas.microsoft.com/identity/claims/displayname'
+  ]);
+  claims.forEach(claim => {
+    const typ = String(claim && claim.typ || '').toLowerCase();
+    if (usefulClaimNames.has(typ) && claim && claim.val) aliases.add(claim.val);
+  });
+  return Array.from(aliases).filter(Boolean);
+}
+
+function isDeploymentRelatedToPr(row, relatedPrIds) {
+  if (!relatedPrIds || relatedPrIds.size === 0) return false;
+  const candidates = [
+    row.PrId,
+    row.PR_ID,
+    row.PullRequestId,
+    row.PullRequest,
+    extractPrId(row.Branch),
+    extractPrId(row.CommitMessage),
+    extractPrId(row.BuildTags),
+    extractPrId(row.AdoBuildUrl)
+  ];
+  return candidates.some(value => value && relatedPrIds.has(String(value)));
+}
+
+function buildFailedDeployItem(row) {
+  return {
+    prId: row.PrId || row.PR_ID || row.PullRequestId || extractPrId(row.Branch) || extractPrId(row.CommitMessage) || '',
+    repo: row.RepoName || 'Unknown',
+    branch: row.Branch || '',
+    status: row.Status || '',
+    buildNumber: row.BuildNumber || '',
+    finishedTime: row.FinishedTime || '',
+    triggeredBy: row.TriggeredBy || '',
+    buildUrl: row.AdoBuildUrl || ''
+  };
+}
+
+function extractPrId(value) {
+  const text = String(value || '');
+  const patterns = [
+    /pullrequest\/(\d+)/i,
+    /pull request[^\d]*(\d+)/i,
+    /\bpr[ #:_-]*(\d+)\b/i,
+    /refs\/pull\/(\d+)\//i
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) return match[1];
+  }
+  return '';
 }

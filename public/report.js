@@ -128,8 +128,12 @@ async function loadReport() {
   const year = document.getElementById('filterYear').value;
   const month = document.getElementById('filterMonth').value;
   const day = document.getElementById('filterDay').value;
+  const actionScope = (document.getElementById('filterActionScope') || {}).value || 'all';
+  const buildScope = (document.getElementById('filterBuildScope') || {}).value || 'all';
 
-  let queryPath = `/api/report-summary?type=${type}&year=${year}&month=${month}`;
+  let queryPath = `/api/report-summary?type=${type}&year=${year}&month=${month}` +
+    `&actionScope=${encodeURIComponent(actionScope)}` +
+    `&buildScope=${encodeURIComponent(buildScope)}`;
   if (type === 'daily') {
     queryPath += `&day=${day}`;
   }
@@ -170,8 +174,15 @@ function clearStatsUi() {
 
   const activeList = document.getElementById('activeReposList');
   const failedList = document.getElementById('failedReposList');
+  const failedBuildsList = document.getElementById('failedBuildsList');
+  const scopeNote = document.getElementById('reportScopeNote');
   if (activeList) activeList.innerHTML = '<div class="empty-state">— ไม่มีข้อมูลสรุปสถิติ —</div>';
   if (failedList) failedList.innerHTML = '<div class="empty-state">— ไม่มีข้อมูลสรุปสถิติ —</div>';
+  if (failedBuildsList) failedBuildsList.innerHTML = '<div class="empty-state">— ไม่มีข้อมูลบิลด์พังในช่วงที่เลือก —</div>';
+  if (scopeNote) {
+    scopeNote.hidden = true;
+    scopeNote.textContent = '';
+  }
 }
 
 // ทำลายออบเจ็กต์กราฟตัวเก่า
@@ -189,6 +200,7 @@ function destroyCharts() {
 // เรนเดอร์ข้อมูลสถิติ ตัวเลข กราฟ และอันดับ Repository
 function renderStatsUi(data) {
   const stats = data.stats || {};
+  renderScopeNote(data);
   
   // 1) อัปเดต KPI Cards
   setText('statTotalPrs', String(stats.totalPrs || 0));
@@ -329,6 +341,72 @@ function renderStatsUi(data) {
       }).join('');
     }
   }
+
+  renderFailedBuilds(data.failedDeployItems || []);
+}
+
+function renderScopeNote(data) {
+  const scopeNote = document.getElementById('reportScopeNote');
+  if (!scopeNote) return;
+  const scope = data.scope || {};
+  const actionText = scope.actionScope === 'mine'
+    ? 'PR actions: เฉพาะของฉัน'
+    : 'PR actions: ทั้งหมด';
+  const buildText = scope.buildScope === 'related'
+    ? 'Staging builds: เฉพาะ build ที่สัมพันธ์กับ PR ในรายงาน'
+    : 'Staging builds: ทั้งหมดบน Staging';
+  const relatedText = scope.buildScope === 'related'
+    ? ' | PR ที่ใช้จับคู่: ' + (scope.relatedPrCount || 0)
+    : '';
+  scopeNote.hidden = false;
+  scopeNote.textContent = actionText + ' | ' + buildText + relatedText;
+}
+
+function renderFailedBuilds(items) {
+  const list = document.getElementById('failedBuildsList');
+  if (!list) return;
+  if (!Array.isArray(items) || items.length === 0) {
+    list.innerHTML = '<div class="empty-state">— ไม่มีข้อมูลบิลด์พังในช่วงที่เลือก —</div>';
+    return;
+  }
+
+  list.innerHTML = items.map(item => {
+    const prText = item.prId ? '#' + item.prId : 'N/A';
+    const buildText = item.buildNumber || 'Open build';
+    const buildLink = item.buildUrl
+      ? `<a class="failed-build-link" href="${escapeHtml(item.buildUrl)}" target="_blank" rel="noopener">${escapeHtml(buildText)}</a>`
+      : `<span class="failed-build-value">${escapeHtml(buildText)}</span>`;
+    return `<div class="failed-build-item">
+      <div>
+        <span class="failed-build-label">PR</span>
+        <span class="failed-build-value">${escapeHtml(prText)}</span>
+      </div>
+      <div>
+        <span class="failed-build-label">Repository</span>
+        <span class="failed-build-value" title="${escapeHtml(item.repo || '-')}">${escapeHtml(item.repo || '-')}</span>
+      </div>
+      <div>
+        <span class="failed-build-label">Branch</span>
+        <span class="failed-build-value" title="${escapeHtml(item.branch || '-')}">${escapeHtml(item.branch || '-')}</span>
+      </div>
+      <div>
+        <span class="failed-build-label">Finished</span>
+        <span class="failed-build-value">${escapeHtml(formatShortDate(item.finishedTime))}</span>
+      </div>
+      <div>${buildLink}</div>
+    </div>`;
+  }).join('');
+}
+
+function formatShortDate(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('th-TH', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+    timeZone: 'Asia/Bangkok'
+  });
 }
 
 // เริ่มต้นเรียกทำงานสคริปต์

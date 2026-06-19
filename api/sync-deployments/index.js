@@ -120,7 +120,7 @@ module.exports = async function (context, req) {
 
     const years = Object.keys(buildsByYear).filter(y => y !== 'Unknown');
     const headers = [
-      'PipelineName', 'RepoName', 'Branch', 'Environment', 'BuildNumber',
+      'PipelineName', 'RepoName', 'Branch', 'Environment', 'PrId', 'BuildNumber',
       'Status', 'FinishedTime', 'TriggeredBy', 'CommitHash', 'CommitMessage',
       'BuildTags', 'AdoBuildUrl'
     ];
@@ -174,6 +174,7 @@ module.exports = async function (context, req) {
         const triggeredBy = b.requestedFor && b.requestedFor.displayName || '';
         const commitHash = b.sourceVersion || '';
         const commitMessage = b.triggerInfo && (b.triggerInfo['ci.message'] || b.triggerInfo['wip.message']) || '';
+        const prId = b.triggerInfo && (b.triggerInfo['pr.number'] || b.triggerInfo['pr.id']) || '';
         const tags = b.tags ? b.tags.join(', ') : '';
         const buildUrl = b._links && b._links.web && b._links.web.href || '';
 
@@ -182,6 +183,7 @@ module.exports = async function (context, req) {
           RepoName: repoName,
           Branch: cleanBranch,
           Environment: 'Staging',
+          PrId: prId,
           BuildNumber: b.buildNumber || '',
           Status: displayStatus,
           FinishedTime: finishedTime,

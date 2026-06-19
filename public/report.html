@@ -81,6 +81,20 @@
             <!-- Will be populated dynamically -->
           </select>
         </div>
+        <div class="filter-field">
+          <span>ขอบเขต PR Actions</span>
+          <select id="filterActionScope">
+            <option value="all">ทั้งหมด (All users)</option>
+            <option value="mine">เฉพาะของฉัน (My actions only)</option>
+          </select>
+        </div>
+        <div class="filter-field">
+          <span>ขอบเขต Staging Builds</span>
+          <select id="filterBuildScope">
+            <option value="all">ทั้งหมดบน Staging</option>
+            <option value="related">เฉพาะที่สัมพันธ์กับ PR ในรายงาน</option>
+          </select>
+        </div>
         <div class="filter-actions">
           <button id="btnLoadReport" class="primary-button" style="display: inline-flex; align-items: center; gap: 6px;">
             <span>📊</span>
@@ -90,6 +104,7 @@
       </div>
 
       <div id="reportResult" hidden></div>
+      <div id="reportScopeNote" class="scope-note" hidden></div>
 
       <!-- Stats Summary Cards Grid -->
       <div class="stats-grid">
@@ -144,6 +159,13 @@
             <!-- Will be rendered dynamically -->
             <div class="empty-state">— ไม่มีข้อมูลสรุปสถิติ —</div>
           </div>
+        </div>
+      </div>
+
+      <div class="detail-card">
+        <h3>Recent Failed Staging Builds</h3>
+        <div id="failedBuildsList" class="failed-builds-list">
+          <div class="empty-state">— ไม่มีข้อมูลบิลด์พังในช่วงที่เลือก —</div>
         </div>
       </div>
       

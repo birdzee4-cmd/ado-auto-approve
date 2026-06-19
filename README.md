@@ -74,7 +74,7 @@ flowchart LR
 | Audit Logs | `/logs.html` | ค้นหา SharePoint Log ตาม PR, action, source, keyword |
 | System Health | `/health.html` | ตรวจ Backend, ADO, SharePoint, Teams, Daily Summary, Last Sync/Notification |
 | Forbidden | `/403.html` | แสดงเมื่อผู้ใช้ไม่มีสิทธิ์ |
-| Report | `/report.html` | ดูรายงานสรุปสถิติผลการดำเนินงานและสถิติ (รายวัน/รายเดือน) พร้อมระบบซิงก์ข้อมูลบิลด์อัตโนมัติเบื้องหลัง (Background Sync) เมื่อโหลดหน้าเว็บ |
+| Report | `/report.html` | ดูรายงานสรุปสถิติผลการดำเนินงานและสถิติ (รายวัน/รายเดือน) พร้อมตัวกรอง All/My actions, scope ของ Staging builds, รายการ failed build ล่าสุด และระบบซิงก์ข้อมูลบิลด์อัตโนมัติเบื้องหลัง |
 
 ## Dashboard Behavior
 
@@ -736,7 +736,7 @@ node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json'
 | Approval Hold | ปรับเปลี่ยนสถานะ Hold / Unlock และจำกัด Action การควบคุมของ PR ได้ถูกต้อง |
 | Deploy History | แสดงและค้นหาประวัติการ Deploy Staging ย้อนหลัง คัดกรองตาม Repository, Branch และดึงไฟล์ CSV จาก SharePoint |
 | Build Diagnostics | ตรวจสอบ Timeline วิเคราะห์หา Failed Task และแปลรายละเอียดออกมาได้อย่างถูกต้องพร้อมส่ง Teams |
-| Report | แสดงผลสถิติการอนุมัติ, อัตรา Auto-Approve, อัตราสำเร็จของบิลด์ (รายวัน/รายเดือน) โดยทำการคัดกรองข้ามพวก scheduled task ของระบบ และซิงก์ข้อมูลเบื้องหลังสำเร็จ |
+| Report | แสดงผลสถิติการอนุมัติ, อัตรา Auto-Approve, อัตราสำเร็จของบิลด์ (รายวัน/รายเดือน), filter scope ของผู้ใช้/บิลด์ และรายการ Staging build failed ล่าสุด โดยคัดกรองข้ามพวก scheduled task ของระบบและซิงก์ข้อมูลเบื้องหลังสำเร็จ |
 | SharePoint Log | action ผ่านเว็บมี log |
 | Audit Logs | ค้นหาได้และเรียงล่าสุดก่อน |
 | Daily Summary | ส่ง Teams เวลา 18:00 ผ่าน Logic Apps และไม่ duplicate |
