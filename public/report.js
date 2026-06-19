@@ -24,6 +24,7 @@ async function init() {
   const filterMonth = document.getElementById('filterMonth');
   const filterDay = document.getElementById('filterDay');
 
+  if (filterType) filterType.value = 'daily';
   if (filterYear) filterYear.value = String(currentYear);
   if (filterMonth) filterMonth.value = String(currentMonth);
 
@@ -52,6 +53,7 @@ async function init() {
   // สร้างรายชื่อตัวเลือกวันที่
   populateDays(currentYear, currentMonth, currentDay);
   populateHourOptions();
+  handleTypeChange();
   
   // โหลดรายงานรอบแรก
   await loadReport();
