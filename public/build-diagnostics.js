@@ -72,14 +72,20 @@ function renderPage(data) {
   document.getElementById('diagTime').textContent = formatDate(data.analyzedAt);
 
   // Set Title & Description
-  document.getElementById('diagTitle').textContent = data.diagnostics.title || 'ไม่ระบุหัวข้อปัญหา';
-  document.getElementById('diagDescription').textContent = data.diagnostics.description || '-';
+  const diagnostics = data.diagnostics || {};
+  document.getElementById('diagTitle').textContent = diagnostics.title || 'ไม่ระบุหัวข้อปัญหา';
+  document.getElementById('diagDescription').textContent = diagnostics.description || '-';
+
+  renderRootCause(diagnostics);
+  renderExactError(diagnostics.exactError);
+  renderImpactChain(diagnostics.impactChain);
+  renderWarnings(diagnostics.warnings);
 
   // Set Snippet with line numbers
   const snippetEl = document.getElementById('rawLogSnippet');
   if (snippetEl) {
-    const rawText = data.diagnostics.snippet || '';
-    const startNum = data.diagnostics.startLineNumber || 1;
+    const rawText = diagnostics.snippet || '';
+    const startNum = diagnostics.startLineNumber || 1;
     const lines = rawText.split(/\r?\n/);
     snippetEl.innerHTML = '';
     
@@ -107,7 +113,7 @@ function renderPage(data) {
   const listEl = document.getElementById('solutionsList');
   listEl.innerHTML = '';
   
-  const solutions = data.diagnostics.solutions || [];
+  const solutions = diagnostics.solutions || [];
   solutions.forEach((sol, idx) => {
     const item = document.createElement('div');
     item.className = 'solution-item';
@@ -129,6 +135,120 @@ function renderPage(data) {
 
   // Show Teams Button
   document.getElementById('btnSendToTeams').style.display = 'inline-flex';
+}
+
+function renderRootCause(diagnostics) {
+  const card = document.getElementById('rootCauseCard');
+  const summaryEl = document.getElementById('rootCauseSummary');
+  if (!card || !summaryEl) return;
+
+  const summary = diagnostics.rootCauseSummary || '';
+  if (!summary) {
+    card.hidden = true;
+    return;
+  }
+
+  summaryEl.textContent = summary;
+  card.hidden = false;
+}
+
+function renderExactError(exactError) {
+  const card = document.getElementById('exactErrorCard');
+  const grid = document.getElementById('exactErrorGrid');
+  if (!card || !grid) return;
+
+  grid.innerHTML = '';
+  if (!exactError || typeof exactError !== 'object') {
+    card.hidden = true;
+    return;
+  }
+
+  const location = formatExactLocation(exactError);
+  const rows = [
+    ['File', location],
+    ['Command', exactError.command],
+    ['Message', exactError.message],
+    ['Source', exactError.sourceUrl]
+  ].filter((row) => row[1]);
+
+  if (Array.isArray(exactError.packages) && exactError.packages.length) {
+    rows.push(['Packages', exactError.packages.map((pkg) => `${pkg.name} ${pkg.version}`).join(' / ')]);
+  }
+
+  if (!rows.length) {
+    card.hidden = true;
+    return;
+  }
+
+  rows.forEach(([label, value]) => {
+    const item = document.createElement('div');
+    item.className = 'exact-error-item';
+
+    const labelEl = document.createElement('span');
+    labelEl.className = 'exact-error-label';
+    labelEl.textContent = label;
+
+    const valueEl = document.createElement('code');
+    valueEl.className = 'exact-error-value';
+    valueEl.textContent = value;
+
+    item.appendChild(labelEl);
+    item.appendChild(valueEl);
+    grid.appendChild(item);
+  });
+
+  card.hidden = false;
+}
+
+function renderImpactChain(impactChain) {
+  const card = document.getElementById('impactChainCard');
+  const list = document.getElementById('impactChainList');
+  if (!card || !list) return;
+
+  list.innerHTML = '';
+  if (!Array.isArray(impactChain) || impactChain.length === 0) {
+    card.hidden = true;
+    return;
+  }
+
+  impactChain.forEach((impact) => {
+    const item = document.createElement('li');
+    item.textContent = impact;
+    list.appendChild(item);
+  });
+
+  card.hidden = false;
+}
+
+function renderWarnings(warnings) {
+  const card = document.getElementById('warningsCard');
+  const list = document.getElementById('warningsList');
+  if (!card || !list) return;
+
+  list.innerHTML = '';
+  if (!Array.isArray(warnings) || warnings.length === 0) {
+    card.hidden = true;
+    return;
+  }
+
+  warnings.forEach((warning) => {
+    const pill = document.createElement('span');
+    pill.className = 'warning-pill';
+    pill.textContent = warning;
+    list.appendChild(pill);
+  });
+
+  card.hidden = false;
+}
+
+function formatExactLocation(exactError) {
+  if (!exactError || !exactError.file) return '';
+  let location = exactError.file;
+  if (exactError.line) {
+    location += `:${exactError.line}`;
+    if (exactError.column) location += `:${exactError.column}`;
+  }
+  return location;
 }
 
 function formatMarkdownDetails(text) {

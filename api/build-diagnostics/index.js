@@ -17,6 +17,20 @@ module.exports = async function (context, req) {
     };
   }
 
+  function mdCell(value) {
+    return String(value || '-').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+  }
+
+  function formatLocation(exactError) {
+    if (!exactError || !exactError.file) return '';
+    let location = exactError.file;
+    if (exactError.line) {
+      location += `:${exactError.line}`;
+      if (exactError.column) location += `:${exactError.column}`;
+    }
+    return location;
+  }
+
   try {
     // ---- 1) ตรวจสอบความถูกต้องของการ Authentication ----
     if (!req.headers || !req.headers['x-ms-client-principal']) {
@@ -190,10 +204,41 @@ module.exports = async function (context, req) {
         message += `\n🔗 **[เปิดดูหน้าวิเคราะห์บน Dashboard](${diagWebUrl})**\n\n`;
       }
 
-      message += `### 🔍 วิเคราะห์ปัญหา (Diagnostics)\n`;
-      message += `**ปัญหา:** ${diagnostics.title}\n\n`;
-      message += `**รายละเอียด:** ${diagnostics.description}\n\n`;
-      message += `#### 🛠️ แนวทางแก้ไข\n`;
+      const exactError = diagnostics.exactError || {};
+      const exactLocation = formatLocation(exactError);
+      const failedCommand = exactError.command || '';
+
+      message += `### 🔍 วิเคราะห์สาเหตุหลัก\n`;
+      message += `${diagnostics.rootCauseSummary || diagnostics.description || diagnostics.title}\n\n`;
+      message += `| Field | Value |\n`;
+      message += `|---|---|\n`;
+      message += `| Failed Step | ${mdCell(failedTask.name)} |\n`;
+      message += `| Root Cause Key | ${mdCell(diagnostics.errorKey)} |\n`;
+      if (diagnostics.failureLayer) message += `| Failure Layer | ${mdCell(diagnostics.failureLayer)} |\n`;
+      if (failedCommand) message += `| Failed Command | \`${mdCell(failedCommand)}\` |\n`;
+      if (exactLocation) message += `| File | \`${mdCell(exactLocation)}\` |\n`;
+      if (exactError.message) message += `| Message | ${mdCell(exactError.message)} |\n`;
+      message += `\n`;
+
+      const impactChain = Array.isArray(diagnostics.impactChain) ? diagnostics.impactChain : [];
+      if (impactChain.length) {
+        message += `### ผลกระทบต่อเนื่อง\n`;
+        for (const impact of impactChain) {
+          message += `- ${impact}\n`;
+        }
+        message += `\n`;
+      }
+
+      const warnings = Array.isArray(diagnostics.warnings) ? diagnostics.warnings : [];
+      if (warnings.length) {
+        message += `### คำเตือนที่ไม่ใช่สาเหตุหลัก\n`;
+        for (const warning of warnings) {
+          message += `- ${warning}\n`;
+        }
+        message += `\n`;
+      }
+
+      message += `### แนวทางแก้ไข\n`;
       for (const sol of diagnostics.solutions) {
         message += `* **${sol.title}**\n${sol.details}\n\n`;
       }
@@ -260,8 +305,13 @@ module.exports = async function (context, req) {
       diagnostics: {
         matched: diagnostics.matched,
         errorKey: diagnostics.errorKey,
+        failureLayer: diagnostics.failureLayer,
         title: diagnostics.title,
         description: diagnostics.description,
+        rootCauseSummary: diagnostics.rootCauseSummary,
+        exactError: diagnostics.exactError,
+        impactChain: diagnostics.impactChain,
+        warnings: diagnostics.warnings,
         solutions: diagnostics.solutions,
         snippet: diagnostics.snippet,
         startLineNumber: diagnostics.startLineNumber

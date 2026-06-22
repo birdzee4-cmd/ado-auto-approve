@@ -7,6 +7,20 @@
  */
 
 const catalog = {
+  "NEXT_TURBOPACK_DUPLICATE_IDENTIFIER": {
+    title: "Next.js/Turbopack build failed inside Docker",
+    description: "Next.js/Turbopack compile ไม่ผ่านระหว่างรันคำสั่ง build ภายใน Docker เนื่องจากพบชื่อ function/export หรือ identifier ซ้ำในซอร์สโค้ด",
+    solutions: [
+      {
+        title: "วิธีแก้ไข: ลบหรือเปลี่ยนชื่อ identifier ที่ซ้ำ",
+        details: "เปิดไฟล์ที่ระบุใน Failure Location แล้วตรวจสอบ function/export/import ที่ชื่อซ้ำกัน จากนั้นลบรายการที่ซ้ำหรือเปลี่ยนชื่อให้ไม่ชนกัน"
+      },
+      {
+        title: "ตรวจสอบ export ซ้ำในไฟล์เดียวกัน",
+        details: "กรณี Turbopack แจ้ง `the name ... is defined multiple times` มักเกิดจากการประกาศ function/const หรือ export ชื่อเดียวกันมากกว่าหนึ่งครั้งในไฟล์เดียวกัน"
+      }
+    ]
+  },
   "NU3012": {
     title: "NuGet Package Signature Verification Failed (Certificate Revoked)",
     description: "แพ็กเกจ NuGet ถูกเพิกถอนใบรับรองดิจิทัลความปลอดภัย (Certificate Revoked) ทำให้ NuGet Client ปฏิเสธการดาวน์โหลดในขณะรัน `dotnet restore` ตามมาตรฐาน NuGet Signature Verification",
@@ -145,106 +159,356 @@ const catalog = {
   }
 };
 
+function sanitizeLog(logText) {
+  const text = String(logText || '')
+    .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '')
+    .replace(/\u001b\][^\u0007]*(?:\u0007|\u001b\\)/g, '');
+
+  const seenDockerNoise = new Set();
+  const dockerNoisePattern = /(failed to solve|executor failed running|The process '\/usr\/bin\/docker' failed|docker failed with exit code|ERROR: failed to build|##\[error\]Dockerfile:)/i;
+
+  return text
+    .split(/\r?\n/)
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return true;
+      if (!dockerNoisePattern.test(trimmed)) return true;
+      const key = trimmed.replace(/\s+/g, ' ');
+      if (seenDockerNoise.has(key)) return false;
+      seenDockerNoise.add(key);
+      return true;
+    })
+    .join('\n');
+}
+
+function normalizePath(filePath) {
+  return String(filePath || '').replace(/^["']|["']$/g, '');
+}
+
+function stripLeadingDotSlash(filePath) {
+  return normalizePath(filePath).replace(/^\.\//, '');
+}
+
+function findFailedCommand(text) {
+  const dockerRunMatches = Array.from(text.matchAll(/(?:^|\n)(?:#\d+\s+\d+\.\d+\s+)?(?:RUN\s+|>\s+\[.*?\]\s+RUN\s+)([^\r\n]+)/gi));
+  if (dockerRunMatches.length) {
+    const command = dockerRunMatches[dockerRunMatches.length - 1][1].trim();
+    return command.replace(/\\\s*$/g, '').trim();
+  }
+
+  const commandMatches = [
+    /The command ['"]([^'"]+)['"] returned a non-zero code/i,
+    /process "\/bin\/sh -c ([^"]+)" did not complete successfully/i,
+    /executor failed running \[\/bin\/sh -c ([^\]]+)\]/i
+  ];
+
+  for (const pattern of commandMatches) {
+    const match = text.match(pattern);
+    if (match) return match[1].trim();
+  }
+
+  return '';
+}
+
+function collectWarnings(text) {
+  const warnings = [];
+  const seen = new Set();
+  text.split(/\r?\n/).forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    if (/npm audit|vulnerabilit(?:y|ies)|npm WARN|warning/i.test(trimmed)) {
+      const key = trimmed.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        warnings.push(trimmed);
+      }
+    }
+  });
+  return warnings.slice(0, 8);
+}
+
+function findActionableLineIndex(lines) {
+  const priorityPatterns = [
+    /(?:^|\s)\.?[A-Za-z0-9_./\\-]+\.(?:ts|tsx|js|jsx|cs|csproj|fs|vb|json|config|props|targets):\d+:\d+/i,
+    /error NU3012/i,
+    /error TS\d{4}/i,
+    /error CS\d{4}/i,
+    /Build error occurred/i,
+    /Turbopack build failed/i,
+    /the name `[^`]+` is defined multiple times/i
+  ];
+
+  for (const pattern of priorityPatterns) {
+    const idx = lines.findIndex((line) => pattern.test(line));
+    if (idx >= 0) return idx;
+  }
+
+  const wrapperOnly = /(The process '\/usr\/bin\/docker' failed|failed to solve|executor failed running|docker failed with exit code|##\[error\]Dockerfile:)/i;
+  const idx = lines.findIndex((line) => {
+    const l = line.toLowerCase();
+    return (
+      (l.includes('error') || l.includes('failed') || l.includes('exception') || l.includes('fatal') || l.includes('##[error]')) &&
+      !l.includes('npm warn') &&
+      !l.includes('warning') &&
+      !wrapperOnly.test(line)
+    );
+  });
+
+  return idx;
+}
+
+function selectSnippet(text) {
+  const lines = String(text || '').split(/\r?\n/);
+  const actionableIdx = findActionableLineIndex(lines);
+
+  if (actionableIdx >= 0) {
+    const start = Math.max(0, actionableIdx - 3);
+    const end = Math.min(lines.length, actionableIdx + 10);
+    return {
+      snippet: lines.slice(start, end).join('\n'),
+      startLineNumber: start + 1
+    };
+  }
+
+  const start = Math.max(0, lines.length - 15);
+  return {
+    snippet: lines.slice(start).join('\n'),
+    startLineNumber: start + 1
+  };
+}
+
+function buildResult(errorKey, overrides, text, warnings) {
+  const info = catalog[errorKey] || {};
+  const snippetResult = selectSnippet(text);
+  return Object.assign({
+    matched: true,
+    errorKey: errorKey,
+    failureLayer: overrides.failureLayer || 'build',
+    title: info.title || overrides.title || 'Build Error',
+    description: info.description || overrides.description || '',
+    rootCauseSummary: overrides.rootCauseSummary || info.description || '',
+    exactError: overrides.exactError || null,
+    impactChain: overrides.impactChain || [],
+    warnings: warnings || [],
+    solutions: info.solutions || [],
+    snippet: snippetResult.snippet,
+    startLineNumber: snippetResult.startLineNumber
+  }, overrides);
+}
+
+function diagnoseTurbopackDuplicateIdentifier(text, warnings) {
+  if (!/Turbopack build failed/i.test(text) || !/the name `[^`]+` is defined multiple times/i.test(text)) {
+    return null;
+  }
+
+  const nameMatch = text.match(/the name `([^`]+)` is defined multiple times/i);
+  const fileMatch = text.match(/(\.?\/?[A-Za-z0-9_./\\-]+\.(?:ts|tsx|js|jsx)):(\d+):(\d+)/);
+  const identifier = nameMatch ? nameMatch[1] : '';
+  const file = fileMatch ? normalizePath(fileMatch[1]) : '';
+  const line = fileMatch ? Number(fileMatch[2]) : null;
+  const column = fileMatch ? Number(fileMatch[3]) : null;
+  const command = findFailedCommand(text) || 'npm run build';
+  const location = file ? `${stripLeadingDotSlash(file)}${line ? `:${line}${column ? `:${column}` : ''}` : ''}` : '';
+
+  return buildResult('NEXT_TURBOPACK_DUPLICATE_IDENTIFIER', {
+    failureLayer: 'nextjs',
+    rootCauseSummary: location && identifier
+      ? `Build fail เพราะ Next.js/Turbopack compile ไม่ผ่าน เนื่องจากไฟล์ ${location} มี function/export ชื่อ ${identifier} ซ้ำ`
+      : 'Build fail เพราะ Next.js/Turbopack compile ไม่ผ่าน เนื่องจากพบชื่อ identifier ซ้ำในซอร์สโค้ด',
+    exactError: {
+      file: file || null,
+      line: line,
+      column: column,
+      command: command,
+      message: nameMatch ? nameMatch[0] : 'the same name is defined multiple times'
+    },
+    impactChain: [
+      `${command} failed`,
+      'Docker build failed',
+      'Push image skipped'
+    ]
+  }, text, warnings);
+}
+
+function diagnoseNu3012(text, warnings) {
+  if (!/error NU3012/i.test(text)) return null;
+
+  const packageMatches = Array.from(text.matchAll(/Package ['"]([^'"]+)\s+([^'"]+)['"]/gi));
+  const packages = [];
+  const seen = new Set();
+  packageMatches.forEach((match) => {
+    const label = `${match[1]} ${match[2]}`;
+    if (!seen.has(label)) {
+      seen.add(label);
+      packages.push({ name: match[1], version: match[2] });
+    }
+  });
+
+  const sourceMatch = text.match(/NU3012:[^\n]*(https?:\/\/\S+)/i) || text.match(/from source ['"]([^'"]+)['"]/i);
+  const projectMatch = text.match(/([A-Za-z0-9_./\\-]+\.csproj)(?:\s*:|\])/i);
+  const revokedMatch = text.match(/(Revoked:[^\r\n]+|certificate revoked|A certificate chain processed.*revoked[^\r\n]*)/i);
+  const rawCommand = findFailedCommand(text) || 'dotnet restore';
+  const command = /dotnet\s+restore/i.test(rawCommand) ? 'dotnet restore' : rawCommand;
+  const packageText = packages.length
+    ? packages.map((pkg) => `${pkg.name} ${pkg.version}`).join(' / ')
+    : 'NuGet package';
+
+  return buildResult('NU3012', {
+    failureLayer: 'nuget',
+    rootCauseSummary: `Build fail ตอน dotnet restore เพราะ NuGet package signature validation ไม่ผ่าน โดย package ${packageText} ใช้ certificate ที่ถูก revoke`,
+    exactError: {
+      file: projectMatch ? normalizePath(projectMatch[1]) : null,
+      line: null,
+      column: null,
+      command: command,
+      message: revokedMatch ? revokedMatch[1].trim() : 'NuGet package signature validation failed because a certificate was revoked',
+      packages: packages,
+      sourceUrl: sourceMatch ? sourceMatch[1].replace(/[),.;]+$/, '') : null
+    },
+    impactChain: [
+      `${command} failed`,
+      'Docker build failed',
+      'Push image skipped'
+    ]
+  }, text, warnings);
+}
+
+function diagnoseSpecificCompiler(text, warnings) {
+  const turbopack = diagnoseTurbopackDuplicateIdentifier(text, warnings);
+  if (turbopack) return turbopack;
+
+  const nu3012 = diagnoseNu3012(text, warnings);
+  if (nu3012) return nu3012;
+
+  if (/error CS\d{4}:/i.test(text)) {
+    return buildResult('CS_COMPILE_ERROR', {
+      failureLayer: 'dotnet',
+      rootCauseSummary: 'Build fail เพราะ C# compiler ตรวจพบ compile error ในซอร์สโค้ด'
+    }, text, warnings);
+  }
+
+  if (/error TS\d{4}:|failed to type check|type error:/i.test(text)) {
+    return buildResult('TS_COMPILE_ERROR', {
+      failureLayer: 'typescript',
+      rootCauseSummary: 'Build fail เพราะ TypeScript compiler ตรวจพบ type หรือ compile error ในซอร์สโค้ด'
+    }, text, warnings);
+  }
+
+  if (text.includes("npm ERR! code ERESOLVE") || text.includes("npm ERR! peer")) {
+    return buildResult('NPM_CONFLICT', {
+      failureLayer: 'npm',
+      rootCauseSummary: 'Build fail เพราะ npm dependency resolution พบ package peer dependency ที่ชนกัน'
+    }, text, warnings);
+  }
+
+  if (/\d+\s+problems?\s+\(\d+\s+errors?/i.test(text)) {
+    return buildResult('ESLINT_ERROR', {
+      failureLayer: 'lint',
+      rootCauseSummary: 'Build fail เพราะ linter ตรวจพบ error ในซอร์สโค้ด'
+    }, text, warnings);
+  }
+
+  return null;
+}
+
+function diagnoseFailedCommand(text, warnings) {
+  const command = findFailedCommand(text);
+  if (!command) return null;
+
+  if (/npm\s+run\s+build/i.test(command)) {
+    return buildResult('DOCKER_BUILD_ERROR', {
+      failureLayer: 'docker',
+      rootCauseSummary: `Docker build failed เพราะคำสั่งภายใน Dockerfile รันไม่สำเร็จ: ${command}`,
+      exactError: {
+        file: null,
+        line: null,
+        column: null,
+        command: command,
+        message: 'Dockerfile RUN command failed'
+      },
+      impactChain: [
+        `${command} failed`,
+        'Docker build failed',
+        'Push image skipped'
+      ]
+    }, text, warnings);
+  }
+
+  return null;
+}
+
+function diagnoseDockerWrapper(text, warnings) {
+  if (/failed to build|failed to solve: process|docker failed with exit code|The process '\/usr\/bin\/docker' failed/i.test(text)) {
+    return buildResult('DOCKER_BUILD_ERROR', {
+      failureLayer: 'docker',
+      rootCauseSummary: 'Docker build failed ระหว่างสร้าง container image แต่ log ไม่พบ compiler error ที่เฉพาะเจาะจงกว่า',
+      impactChain: [
+        'Docker build failed',
+        'Push image skipped'
+      ]
+    }, text, warnings);
+  }
+  return null;
+}
+
 /**
  * ทำการวิเคราะห์ข้อความ Log และส่งคำวินิจฉัยกลับ
  * @param {string} logText - ข้อความใน Log ทั้งหมด
  * @returns {object} ผลการวินิจฉัย
  */
 function diagnoseLog(logText) {
-  const text = String(logText || '');
-  const lines = text.split(/\r?\n/);
-  
-  // 1. ค้นหาคีย์เวิร์ดของความผิดพลาดใน Catalog
+  const text = sanitizeLog(logText);
+  const warnings = collectWarnings(text);
+
+  const prioritizedResult =
+    diagnoseSpecificCompiler(text, warnings) ||
+    diagnoseFailedCommand(text, warnings) ||
+    diagnoseDockerWrapper(text, warnings);
+
+  if (prioritizedResult) return prioritizedResult;
+
   let matchedKey = null;
-  for (const key of Object.keys(catalog)) {
-    if (text.includes(key)) {
-      matchedKey = key;
-      break;
-    }
+  if (/automatic merge failed|merge conflict/i.test(text)) {
+    matchedKey = "GIT_MERGE_CONFLICT";
+  } else if (/timed out|timeout|operation was canceled/i.test(text)) {
+    matchedKey = "TIMEOUT";
+  } else if (/(failed|failure)\s+:[^\n]*test|assert\.fail|expected[^\n]*actual/i.test(text)) {
+    matchedKey = "UNIT_TEST_FAILURE";
   }
 
-  // 2. ค้นหาความผิดพลาดด้วย Regex Patterns
-  if (!matchedKey) {
-    if (/error CS\d{4}:/i.test(text)) {
-      matchedKey = "CS_COMPILE_ERROR";
-    } else if (/error TS\d{4}:|failed to type check|type error:/i.test(text)) {
-      matchedKey = "TS_COMPILE_ERROR";
-    } else if (/automatic merge failed|merge conflict/i.test(text)) {
-      matchedKey = "GIT_MERGE_CONFLICT";
-    } else if (/timed out|timeout|operation was canceled/i.test(text)) {
-      matchedKey = "TIMEOUT";
-    } else if (/(failed|failure)\s+:[^\n]*test|assert\.fail|expected[^\n]*actual/i.test(text)) {
-      matchedKey = "UNIT_TEST_FAILURE";
-    } else if (/\d+\s+problems?\s+\(\d+\s+errors?/i.test(text)) {
-      matchedKey = "ESLINT_ERROR";
-    } else if (/failed to build|failed to solve: process|docker failed with exit code/i.test(text)) {
-      matchedKey = "DOCKER_BUILD_ERROR";
-    } else if (text.includes("npm ERR! code ERESOLVE") || text.includes("npm ERR! peer")) {
-      matchedKey = "NPM_CONFLICT";
-    }
-  }
-
-  // 3. ดึง Log Snippet ตรงจุดพัง (Fallback scan)
-  // สแกนหาบรรทัดที่มีข้อผิดพลาด เช่น error, fail, fatal, exception
-  const errorLineIndices = [];
-  lines.forEach((line, idx) => {
-    const l = line.toLowerCase();
-    if (
-      (l.includes('error') || l.includes('failed') || l.includes('exception') || l.includes('fatal') || l.includes('##[error]')) &&
-      !l.includes('npm warn') && !l.includes('warning')
-    ) {
-      errorLineIndices.push(idx);
-    }
-  });
-
-  let snippet = '';
-  let startLineNumber = 1;
-  if (errorLineIndices.length > 0) {
-    // ดึงช่วงรอบๆ บรรทัดที่พังบรรทัดแรกมาแสดง (ก่อนหน้า 2 บรรทัด, ถัดไป 8 บรรทัด)
-    const firstErrIdx = errorLineIndices[0];
-    const start = Math.max(0, firstErrIdx - 2);
-    const end = Math.min(lines.length, firstErrIdx + 8);
-    snippet = lines.slice(start, end).join('\n');
-    startLineNumber = start + 1;
-  } else {
-    // หากสแกนไม่เจอบรรทัดที่มีคีย์เวิร์ดพัง ให้ตัดเอา 15 บรรทัดสุดท้ายมาแสดง
-    const start = Math.max(0, lines.length - 15);
-    snippet = lines.slice(start).join('\n');
-    startLineNumber = start + 1;
-  }
-
-  // 4. ผูกผลลัพธ์
   if (matchedKey && catalog[matchedKey]) {
-    const info = catalog[matchedKey];
-    return {
-      matched: true,
-      errorKey: matchedKey,
-      title: info.title,
-      description: info.description,
-      solutions: info.solutions,
-      snippet: snippet,
-      startLineNumber: startLineNumber
-    };
+    return buildResult(matchedKey, {
+      failureLayer: 'build',
+      rootCauseSummary: catalog[matchedKey].description
+    }, text, warnings);
   }
+
+  const snippetResult = selectSnippet(text);
 
   // กรณีไม่แมตช์รหัสปัญหาใดๆ ในสารบบ (Fallback Response)
   return {
     matched: false,
     errorKey: "GENERIC_ERROR",
+    failureLayer: "generic",
     title: "Unclassified Build Error (พบจุดข้อผิดพลาดของระบบ)",
     description: "ระบบบิลด์ล้มเหลวระหว่างขั้นตอนรันคำสั่ง กรุณาตรวจรายละเอียดข้อผิดพลาดจากบรรทัด Log ดิบด้านล่างเพื่อหาสาเหตุ",
+    rootCauseSummary: "ระบบบิลด์ล้มเหลว แต่ยังไม่พบ pattern ที่จำแนกสาเหตุหลักได้ชัดเจน",
+    exactError: null,
+    impactChain: [],
+    warnings: warnings,
     solutions: [
       {
         title: "แนวทางแก้ไข",
         details: "1. ตรวจสอบข้อความแจ้งเตือนสีแดงในส่วนของ Log ดิบด้านล่าง\n2. เปิดดูรายละเอียดบิลด์ตัวเต็มที่ Azure DevOps เพื่อตรวจสอบขั้นตอนก่อนหน้า"
       }
     ],
-    snippet: snippet,
-    startLineNumber: startLineNumber
+    snippet: snippetResult.snippet,
+    startLineNumber: snippetResult.startLineNumber
   };
 }
 
 module.exports = {
   catalog,
-  diagnoseLog
+  diagnoseLog,
+  sanitizeLog
 };

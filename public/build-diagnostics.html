@@ -92,6 +92,30 @@
           <p id="diagDescription" class="analysis-desc">คำอธิบายรายละเอียดปัญหาภาษาไทย...</p>
         </div>
 
+        <!-- Root Cause Summary -->
+        <div id="rootCauseCard" class="root-cause-card" hidden>
+          <span class="section-kicker">Root Cause Summary</span>
+          <p id="rootCauseSummary" class="root-cause-summary"></p>
+        </div>
+
+        <!-- Exact Error / Failure Location -->
+        <div id="exactErrorCard" class="exact-error-card" hidden>
+          <span class="section-kicker">Failure Location</span>
+          <div id="exactErrorGrid" class="exact-error-grid"></div>
+        </div>
+
+        <!-- Impact Chain -->
+        <div id="impactChainCard" class="impact-chain-card" hidden>
+          <span class="section-kicker">Impact Chain</span>
+          <ul id="impactChainList" class="impact-chain-list"></ul>
+        </div>
+
+        <!-- Non-blocking Warnings -->
+        <div id="warningsCard" class="warnings-card" hidden>
+          <span class="section-kicker">Non-blocking Warnings</span>
+          <div id="warningsList" class="warnings-list"></div>
+        </div>
+
         <!-- Solutions Section -->
         <div class="solutions-section">
           <h2>🛠️ แนวทางแก้ไข (Actionable Solutions)</h2>
