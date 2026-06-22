@@ -434,10 +434,12 @@ Body ตัวอย่าง:
 - Query Azure DevOps REST API หา build ที่ `completed` และ `failed` ในช่วงเวลาล่าสุด
 - Default lookback คือ 30 นาที และดึงสูงสุด 100 builds
 - กรองเฉพาะ pipeline ที่มีคำว่า `stg` และ branch ที่ขึ้นต้นด้วย `refs/heads/staging`
+- สำหรับ build ที่ยังไม่เคยแจ้งเตือน ระบบจะดึง timeline/log แล้ววิเคราะห์ root cause ด้วย diagnostics catalog เดียวกับหน้า `/build-diagnostics.html?buildId=...`
+- Teams message จะแสดง root cause summary, error key, failed command, file/line/column, impact chain, warnings และแนวทางแก้ไขถ้าวิเคราะห์ได้
 - ส่ง Teams หนึ่งครั้งต่อ build ด้วย `Event_Key` รูปแบบ `teams:build-failed:<buildId>`
 - บันทึก SharePoint Log ด้วย source `ADO REST Build Failure Scan`
 
-แนะนำให้ตั้ง Logic Apps เรียกทุก 5-10 นาที โดยให้ `lookbackMinutes` มากกว่ารอบ schedule เล็กน้อย เช่น schedule ทุก 10 นาที ใช้ lookback 30 นาที เพื่อกันช่วงที่ scheduler delay และให้ duplicate guard กันการส่งซ้ำ
+แนะนำให้ตั้ง Logic Apps เรียกทุก 5 นาที โดยใช้ workflow แบบประหยัด cost เพียง 2 steps: Recurrence + HTTP POST และให้ `lookbackMinutes` มากกว่ารอบ schedule เล็กน้อย เช่น schedule ทุก 5 นาที ใช้ lookback 30 นาที เพื่อกันช่วงที่ scheduler delay และให้ duplicate guard กันการส่งซ้ำ
 
 สำหรับทดสอบโดยไม่ส่ง Teams ให้ใส่:
 

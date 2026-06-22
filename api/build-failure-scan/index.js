@@ -9,6 +9,7 @@
 const ado = require('../shared/ado-client');
 const sp = require('../shared/sharepoint-client');
 const teams = require('../shared/teams-notifier');
+const diagnosticsCatalog = require('../shared/build-diagnostics-catalog');
 
 module.exports = async function (context, req) {
   function jsonResponse(status, payload) {
@@ -74,7 +75,7 @@ async function scanBuildFailures(context, options) {
 
   for (const build of candidates) {
     const notifyResult = options.dryRun
-      ? { skipped: true, reason: 'dry_run', eventKey: 'teams:build-failed:' + build.id }
+      ? await buildDryRunResult(context, build)
       : await notifyBuildFailureOnce(context, cfg, build);
     if (notifyResult && notifyResult.ok) sent += 1;
     else skipped += 1;
@@ -86,7 +87,8 @@ async function scanBuildFailures(context, options) {
       branch: build.sourceBranch || '',
       result: build.result || '',
       finishTime: build.finishTime || '',
-      notification: notifyResult
+      notification: notifyResult,
+      diagnostics: notifyResult && notifyResult.diagnostics || null
     });
   }
 
@@ -124,7 +126,8 @@ async function notifyBuildFailureOnce(context, cfg, build) {
       return { skipped: true, reason: 'duplicate', eventKey: eventKey };
     }
 
-    const message = buildTeamsMessage(cfg, build);
+    const diagnosticInfo = await getBuildDiagnosticsForBuild(context, buildId);
+    const message = buildTeamsMessage(cfg, build, diagnosticInfo);
     const teamsResult = await teams.notifyTeams(process.env.TEAMS_WEBHOOK_URL, message);
     if (!teamsResult.ok) {
       if (context && context.log && context.log.warn) {
@@ -153,7 +156,11 @@ async function notifyBuildFailureOnce(context, cfg, build) {
       adoBuildUrl: buildUrl
     }));
 
-    return { ok: true, eventKey: eventKey };
+    return {
+      ok: true,
+      eventKey: eventKey,
+      diagnostics: summarizeDiagnosticsForResponse(diagnosticInfo)
+    };
   } catch (e) {
     if (context && context.log && context.log.warn) {
       context.log.warn('Build failure notification skipped/failed: ' + e.message);
@@ -162,7 +169,111 @@ async function notifyBuildFailureOnce(context, cfg, build) {
   }
 }
 
-function buildTeamsMessage(cfg, build) {
+async function buildDryRunResult(context, build) {
+  const buildId = build && build.id;
+  const eventKey = 'teams:build-failed:' + buildId;
+  const diagnosticInfo = buildId
+    ? await getBuildDiagnosticsForBuild(context, buildId)
+    : { ok: false, reason: 'missing_build_id' };
+  return {
+    skipped: true,
+    reason: 'dry_run',
+    eventKey: eventKey,
+    diagnostics: summarizeDiagnosticsForResponse(diagnosticInfo)
+  };
+}
+
+async function getBuildDiagnosticsForBuild(context, buildId) {
+  try {
+    const timelineResult = await ado.getBuildTimeline(buildId);
+    if (!timelineResult.ok) {
+      return {
+        ok: false,
+        reason: 'timeline_fetch_failed',
+        status: timelineResult.status
+      };
+    }
+
+    const records = timelineResult.body && Array.isArray(timelineResult.body.records)
+      ? timelineResult.body.records
+      : [];
+    let failedTask = records.find(r => r && r.type === 'Task' && r.state === 'completed' && r.result === 'failed' && r.log);
+    if (!failedTask) {
+      failedTask = records.find(r => r && r.state === 'completed' && r.result === 'failed' && r.log);
+    }
+    if (!failedTask || !failedTask.log || !failedTask.log.id) {
+      return {
+        ok: false,
+        reason: 'failed_task_log_not_found'
+      };
+    }
+
+    const logResult = await ado.getBuildLog(buildId, failedTask.log.id);
+    if (!logResult.ok) {
+      return {
+        ok: false,
+        reason: 'log_fetch_failed',
+        status: logResult.status,
+        failedTask: summarizeFailedTask(failedTask)
+      };
+    }
+
+    const rawLogText = normalizeLogBody(logResult.body);
+    const diagnostics = diagnosticsCatalog.diagnoseLog(rawLogText);
+    return {
+      ok: true,
+      failedTask: summarizeFailedTask(failedTask),
+      diagnostics: diagnostics
+    };
+  } catch (e) {
+    if (context && context.log && context.log.warn) {
+      context.log.warn('Build diagnostics enrichment failed for build ' + buildId + ': ' + e.message);
+    }
+    return {
+      ok: false,
+      reason: 'diagnostics_exception',
+      error: e.message
+    };
+  }
+}
+
+function normalizeLogBody(body) {
+  if (typeof body === 'string') return body;
+  if (body && Array.isArray(body.value)) return body.value.join('\n');
+  return JSON.stringify(body || '');
+}
+
+function summarizeFailedTask(task) {
+  return {
+    id: task && task.id || '',
+    name: task && task.name || '',
+    type: task && task.type || '',
+    startTime: task && task.startTime || '',
+    finishTime: task && task.finishTime || ''
+  };
+}
+
+function summarizeDiagnosticsForResponse(diagnosticInfo) {
+  if (!diagnosticInfo || !diagnosticInfo.ok || !diagnosticInfo.diagnostics) {
+    return diagnosticInfo ? {
+      ok: false,
+      reason: diagnosticInfo.reason || 'not_available',
+      status: diagnosticInfo.status || undefined,
+      error: diagnosticInfo.error || undefined
+    } : null;
+  }
+  const diagnostics = diagnosticInfo.diagnostics;
+  return {
+    ok: true,
+    failedTask: diagnosticInfo.failedTask || null,
+    errorKey: diagnostics.errorKey,
+    failureLayer: diagnostics.failureLayer,
+    rootCauseSummary: diagnostics.rootCauseSummary,
+    exactError: diagnostics.exactError
+  };
+}
+
+function buildTeamsMessage(cfg, build, diagnosticInfo) {
   const buildId = build.id || '';
   const buildNumber = build.buildNumber || '';
   const pipelineName = build.definition && build.definition.name || '';
@@ -190,10 +301,69 @@ function buildTeamsMessage(cfg, build) {
   ];
   if (requestedBy) lines.push('| **Triggered by** | ' + safe(requestedBy) + ' |');
   if (commit) lines.push('| **Commit** | `' + safe(commit.substring(0, 12)) + '` |');
+
+  appendDiagnosticsSection(lines, diagnosticInfo);
+
   if (diagnosticsUrl) lines.push('', '🔗 **[เปิดดูหน้าวิเคราะห์บน Dashboard](' + diagnosticsUrl + ')**');
   if (!diagnosticsUrl && buildUrl) lines.push('', '🔗 **[Open Build in Azure DevOps](' + buildUrl + ')**');
   if (cfg && cfg.project) lines.push('', '_Source: ADO REST polling_');
   return lines.join('\n');
+}
+
+function appendDiagnosticsSection(lines, diagnosticInfo) {
+  if (!diagnosticInfo || !diagnosticInfo.ok || !diagnosticInfo.diagnostics) {
+    if (diagnosticInfo && diagnosticInfo.reason) {
+      lines.push('', '### 🔍 วิเคราะห์สาเหตุหลัก', 'ไม่สามารถดึง log เพื่อวิเคราะห์ root cause ได้ในรอบ polling นี้: `' + safe(diagnosticInfo.reason) + '`');
+    }
+    return;
+  }
+
+  const diagnostics = diagnosticInfo.diagnostics;
+  const exactError = diagnostics.exactError || {};
+  const exactLocation = formatLocation(exactError);
+  const failedCommand = exactError.command || '';
+  const failedStep = diagnosticInfo.failedTask && diagnosticInfo.failedTask.name || '';
+
+  lines.push('', '### 🔍 วิเคราะห์สาเหตุหลัก');
+  lines.push(diagnostics.rootCauseSummary || diagnostics.description || diagnostics.title || 'พบ build failure แต่ไม่พบรายละเอียด root cause เพิ่มเติม');
+  lines.push('', '| Field | Value |', '|---|---|');
+  if (failedStep) lines.push('| Failed Step | ' + safe(failedStep) + ' |');
+  lines.push('| Root Cause Key | ' + safe(diagnostics.errorKey || '-') + ' |');
+  if (diagnostics.failureLayer) lines.push('| Failure Layer | ' + safe(diagnostics.failureLayer) + ' |');
+  if (failedCommand) lines.push('| Failed Command | `' + safe(failedCommand) + '` |');
+  if (exactLocation) lines.push('| File | `' + safe(exactLocation) + '` |');
+  if (exactError.message) lines.push('| Message | ' + safe(exactError.message) + ' |');
+
+  const impactChain = Array.isArray(diagnostics.impactChain) ? diagnostics.impactChain : [];
+  if (impactChain.length) {
+    lines.push('', '### ผลกระทบต่อเนื่อง');
+    impactChain.forEach(item => lines.push('- ' + safe(item)));
+  }
+
+  const warnings = Array.isArray(diagnostics.warnings) ? diagnostics.warnings : [];
+  if (warnings.length) {
+    lines.push('', '### คำเตือนที่ไม่ใช่สาเหตุหลัก');
+    warnings.forEach(item => lines.push('- ' + safe(item)));
+  }
+
+  const solutions = Array.isArray(diagnostics.solutions) ? diagnostics.solutions : [];
+  if (solutions.length) {
+    lines.push('', '### แนวทางแก้ไข');
+    solutions.forEach(sol => {
+      lines.push('* **' + safe(sol.title) + '**');
+      if (sol.details) lines.push(safe(sol.details), '');
+    });
+  }
+}
+
+function formatLocation(exactError) {
+  if (!exactError || !exactError.file) return '';
+  let location = exactError.file;
+  if (exactError.line) {
+    location += ':' + exactError.line;
+    if (exactError.column) location += ':' + exactError.column;
+  }
+  return location;
 }
 
 function parseOptions(body) {
