@@ -439,7 +439,7 @@ Body ตัวอย่าง:
 - ส่ง Teams หนึ่งครั้งต่อ build ด้วย `Event_Key` รูปแบบ `teams:build-failed:<buildId>`
 - บันทึก SharePoint Log ด้วย source `ADO REST Build Failure Scan`
 
-แนะนำให้ตั้ง Logic Apps เรียกทุก 5 นาที โดยใช้ workflow แบบประหยัด cost เพียง 2 steps: Recurrence + HTTP POST และให้ `lookbackMinutes` มากกว่ารอบ schedule เล็กน้อย เช่น schedule ทุก 5 นาที ใช้ lookback 30 นาที เพื่อกันช่วงที่ scheduler delay และให้ duplicate guard กันการส่งซ้ำ
+แนะนำให้ตั้ง Logic Apps เรียกทุก 30 นาที โดยใช้ workflow แบบประหยัด cost เพียง 2 steps: Recurrence + HTTP POST และใช้ `lookbackMinutes` 30 นาที เพื่อให้อยู่ใต้ free tier ประมาณ 2,880 executions/เดือน จาก free tier 4,000 actions/เดือน พร้อมให้ duplicate guard กันการส่งซ้ำ
 
 สำหรับทดสอบโดยไม่ส่ง Teams ให้ใส่:
 
