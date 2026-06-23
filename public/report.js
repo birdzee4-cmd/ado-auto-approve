@@ -6,6 +6,7 @@ import {
 // เก็บออบเจ็กต์ Chart เพื่อใช้ทำลาย (destroy) ก่อนสร้างใหม่
 let approveChartInstance = null;
 let buildChartInstance = null;
+let failedBuildsRenderToken = 0;
 
 // ตั้งค่าเมื่อโหลดหน้าจอ
 async function init() {
@@ -446,18 +447,22 @@ function formatReportRange(range) {
 function renderFailedBuilds(items) {
   const list = document.getElementById('failedBuildsList');
   if (!list) return;
+  failedBuildsRenderToken += 1;
+  const renderToken = failedBuildsRenderToken;
+
   if (!Array.isArray(items) || items.length === 0) {
     list.innerHTML = '<div class="empty-state">— ไม่มีข้อมูลบิลด์พังในช่วงที่เลือก —</div>';
     return;
   }
 
-  list.innerHTML = items.map(item => {
+  list.innerHTML = items.map((item, index) => {
     const prText = item.prId ? '#' + item.prId : 'N/A';
     const buildText = item.buildNumber || 'Open build';
+    const buildId = getBuildIdFromUrl(item.buildUrl);
     const buildLink = item.buildUrl
       ? `<a class="failed-build-link" href="${escapeHtml(item.buildUrl)}" target="_blank" rel="noopener" title="${escapeHtml(buildText)}">${escapeHtml(buildText)}</a>`
       : `<span class="failed-build-value failed-build-value--compact" title="${escapeHtml(buildText)}">${escapeHtml(buildText)}</span>`;
-    return `<div class="failed-build-item">
+    return `<div class="failed-build-item" data-build-id="${escapeHtml(buildId)}" data-build-index="${index}">
       <div class="failed-build-cell failed-build-cell--pr">
         <span class="failed-build-label">PR</span>
         <span class="failed-build-value failed-build-value--compact" title="${escapeHtml(prText)}">${escapeHtml(prText)}</span>
@@ -475,8 +480,71 @@ function renderFailedBuilds(items) {
         <span class="failed-build-value failed-build-value--compact" title="${escapeHtml(formatShortDate(item.finishedTime))}">${escapeHtml(formatShortDate(item.finishedTime))}</span>
       </div>
       <div class="failed-build-cell failed-build-cell--build">${buildLink}</div>
+      <div class="failed-build-analysis" data-analysis-for="${escapeHtml(String(index))}">
+        ${buildId ? renderAnalysisLoading() : ''}
+      </div>
     </div>`;
   }).join('');
+
+  hydrateFailedBuildDiagnostics(items, renderToken);
+}
+
+function renderAnalysisLoading() {
+  return `<div class="failed-build-analysis-card failed-build-analysis-card--loading">
+    <span class="failed-build-analysis-kicker">Analysis</span>
+    <p class="failed-build-analysis-text">กำลังดึงรายละเอียดปัญหา...</p>
+  </div>`;
+}
+
+async function hydrateFailedBuildDiagnostics(items, renderToken) {
+  await Promise.all(items.map(async (item, index) => {
+    const buildId = getBuildIdFromUrl(item && item.buildUrl);
+    if (!buildId) return;
+
+    try {
+      const result = await safeFetchJson('/api/build-diagnostics?buildId=' + encodeURIComponent(buildId) + '&suppressAutoNotify=true');
+      if (renderToken !== failedBuildsRenderToken) return;
+
+      const diagnostics = result && result.ok && result.data && result.data.ok
+        ? result.data.diagnostics || {}
+        : null;
+      renderFailedBuildAnalysis(index, diagnostics);
+    } catch (err) {
+      if (renderToken !== failedBuildsRenderToken) return;
+      renderFailedBuildAnalysis(index, null);
+    }
+  }));
+}
+
+function renderFailedBuildAnalysis(index, diagnostics) {
+  const target = document.querySelector(`[data-analysis-for="${String(index)}"]`);
+  if (!target) return;
+
+  if (!diagnostics) {
+    target.innerHTML = '';
+    return;
+  }
+
+  const title = diagnostics.title || '';
+  const description = diagnostics.description || '';
+  const rootCauseSummary = diagnostics.rootCauseSummary || '';
+
+  if (!title && !description && !rootCauseSummary) {
+    target.innerHTML = '';
+    return;
+  }
+
+  target.innerHTML = `<div class="failed-build-analysis-card">
+    ${title ? `<div class="failed-build-analysis-title" title="${escapeHtml(title)}">${escapeHtml(title)}</div>` : ''}
+    ${description ? `<p class="failed-build-analysis-text" title="${escapeHtml(description)}">${escapeHtml(description)}</p>` : ''}
+    ${rootCauseSummary ? `<p class="failed-build-analysis-root" title="${escapeHtml(rootCauseSummary)}">${escapeHtml(rootCauseSummary)}</p>` : ''}
+  </div>`;
+}
+
+function getBuildIdFromUrl(value) {
+  const text = String(value || '');
+  const match = text.match(/[?&]buildId=(\d+)/i) || text.match(/\/build\/results\?buildId=(\d+)/i);
+  return match ? match[1] : '';
 }
 
 function formatShortDate(value) {

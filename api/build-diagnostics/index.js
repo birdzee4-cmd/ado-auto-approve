@@ -108,12 +108,13 @@ module.exports = async function (context, req) {
 
     // ---- 6) ส่งแจ้งเตือนเข้า Teams หากมีการร้องขอ หรือมี Build Error และยังไม่เคยแจ้งเตือน ----
     const sendToTeams = query.sendToTeams === 'true' || body.sendToTeams === true;
+    const suppressAutoNotify = query.suppressAutoNotify === 'true' || body.suppressAutoNotify === true;
     const teamsWebhookUrl = process.env.TEAMS_WEBHOOK_URL;
     let shouldNotify = false;
 
     if (sendToTeams) {
       shouldNotify = true;
-    } else if (failedTask && teamsWebhookUrl) {
+    } else if (!suppressAutoNotify && failedTask && teamsWebhookUrl) {
       const eventKey = `teams:build-failed:${buildId}`;
       try {
         const existing = await sp.getLogByEventKey(eventKey);
