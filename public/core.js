@@ -155,7 +155,29 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 async function safeFetchJson(url, options) {
-  const resp = await fetch(url, options || {});
+  const fetchOptions = Object.assign({}, options || {});
+  const timeoutMs = Number(fetchOptions.timeoutMs) || 0;
+  delete fetchOptions.timeoutMs;
+
+  let timeoutId = null;
+  if (timeoutMs > 0 && !fetchOptions.signal && typeof AbortController !== 'undefined') {
+    const controller = new AbortController();
+    fetchOptions.signal = controller.signal;
+    timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  }
+
+  let resp;
+  try {
+    resp = await fetch(url, fetchOptions);
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      throw new Error('Request timeout after ' + Math.round(timeoutMs / 1000) + 's');
+    }
+    throw err;
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId);
+  }
+
   const text = await resp.text();
   const contentType = resp.headers.get('Content-Type') || '';
   let data = null, parseError = null;

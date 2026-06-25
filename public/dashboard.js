@@ -13,12 +13,22 @@ import {
 
 let currentPrForAction = null;
 let _allPrs = [];
+let _checkPrsInFlight = false;
+const AUTO_CONSOLE_MAX_ENTRIES = 100;
 
 
 
 // ===== Check PRs =====
 async function checkPrs(isSilent) {
   if (!document.getElementById('prTableContainer')) return;
+  if (_checkPrsInFlight) {
+    if (isSilent && window._autoMode && window._autoMode !== 'normal') {
+      writeToAutoConsole('Skipped automatic scan because the previous scan is still running.', 'info');
+    }
+    return;
+  }
+
+  _checkPrsInFlight = true;
   if (!isSilent) {
     setButtonLoading('btnCheckPrs', true, 'Loading...');
     
@@ -35,7 +45,7 @@ async function checkPrs(isSilent) {
   }
 
   try {
-    const r = await safeFetchJson('/api/list-prs');
+    const r = await safeFetchJson('/api/list-prs', { timeoutMs: 55000 });
     if (r.parseError) {
       if (!isSilent) showBox('prResult', '<div class="test-result result-error">❌ Backend ตอบไม่ใช่ JSON (HTTP ' + r.status + ')</div>');
       return;
@@ -68,8 +78,13 @@ async function checkPrs(isSilent) {
     );
     if (document.getElementById('systemHealthSummary')) checkHealthStatus();
   } catch (err) {
-    if (!isSilent) showBox('prResult', '<div class="test-result result-error">❌ ' + escapeHtml(err.message) + '</div>');
+    if (!isSilent) {
+      showBox('prResult', '<div class="test-result result-error">❌ ' + escapeHtml(err.message) + '</div>');
+    } else if (window._autoMode && window._autoMode !== 'normal') {
+      writeToAutoConsole('Automatic scan failed: ' + err.message, 'error');
+    }
   } finally {
+    _checkPrsInFlight = false;
     if (!isSilent) {
       resetCheckPrsButton();
     }
@@ -1216,6 +1231,10 @@ window.changeAutoMode = async function(mode) {
 function startAutoPoller() {
   stopAutoPoller();
   window._autoPollerInterval = setInterval(() => {
+    if (_checkPrsInFlight) {
+      writeToAutoConsole('Skipped automatic scan because the previous scan is still running.', 'info');
+      return;
+    }
     writeToAutoConsole('Running automatic scan...', 'info');
     checkPrs(true);
   }, 60000);
@@ -1329,6 +1348,9 @@ function writeToAutoConsole(message, type) {
   }
 
   consoleLog.appendChild(entry);
+  while (consoleLog.children.length > AUTO_CONSOLE_MAX_ENTRIES) {
+    consoleLog.removeChild(consoleLog.firstElementChild);
+  }
   consoleLog.scrollTop = consoleLog.scrollHeight;
 }
 
