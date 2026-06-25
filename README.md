@@ -453,6 +453,46 @@ Body ตัวอย่าง:
 }
 ```
 
+### Hourly Background Log Sync
+
+ระบบรองรับ background reconciliation job เพื่อเติม audit log ที่อาจตกหล่น โดยไม่ต้องเปิดหน้า `/logs.html` หรือ Dashboard ค้างไว้
+
+Endpoint:
+
+```text
+POST /api/hourly-log-sync
+```
+
+Header:
+
+```text
+x-hourly-sync-token: <HOURLY_SYNC_TOKEN หรือ DAILY_SUMMARY_TOKEN>
+```
+
+Body ตัวอย่างสำหรับ Azure Logic Apps Consumption:
+
+```json
+{
+  "lookbackHours": 48,
+  "maxPrs": 100
+}
+```
+
+หลักการทำงาน:
+
+- Logic Apps Consumption เรียกทุก 1 ชั่วโมง ด้วย HTTP action
+- ดึง Active PR และ Completed PR ย้อนหลังตาม `lookbackHours` ที่ target branch ขึ้นต้นด้วย `ADO_TARGET_BRANCH`
+- ตรวจ external reviewer vote จาก Azure DevOps แล้วเขียน SharePoint log เฉพาะรายการที่ยังไม่มี
+- กันข้อมูลซ้ำด้วย `Event_Key = ado-sync:vote:<prId>:<identity>:<vote>`
+- เขียน summary log ต่อชั่วโมงด้วย action `Hourly Log Sync`
+- ไม่ต้องเปิด Application Insights / Azure Monitor เพิ่ม; ตรวจสถานะจาก SharePoint summary log และ Logic Apps run history
+
+Free-tier guard:
+
+- Workflow ควรมีเพียง Recurrence + HTTP เป็นหลัก
+- รอบทุก 1 ชั่วโมงจะประมาณ 1,440 Logic Apps actions ต่อเดือน ซึ่งต่ำกว่า free grant 4,000 actions/month
+- Managed API execution ประมาณ 720 ครั้งต่อเดือน ซึ่งต่ำกว่า Azure Functions free grant มาก
+
 ### Daily PR Summary
 
 ระบบรองรับการส่งสรุปภาพรวมรายวัน (Daily Summary) ไปยัง 2 ช่องทางหลักตามรอบเวลาที่กำหนด:
@@ -501,6 +541,7 @@ Routes สำคัญ:
 | `/api/sync-deployments` | `anonymous` + header/query token |
 | `/api/exception-scan` | `anonymous` + header token |
 | `/api/build-failure-scan` | `anonymous` + header token |
+| `/api/hourly-log-sync` | `anonymous` + header token |
 | `/api/log-retention-cleanup` | `anonymous` + header token |
 | `/api/webhook` | `anonymous` + basic auth |
 
@@ -553,6 +594,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/line-daily-summary` | POST | endpoint สำหรับ Logic Apps LINE Daily Summary scheduler (ส่ง 23:59 น.) |
 | `/api/exception-scan` | POST | endpoint สำหรับสแกน Build/Policy failed จาก approval logs |
 | `/api/build-failure-scan` | POST | endpoint สำหรับ Logic Apps polling หา Build failed จาก Azure DevOps REST API โดยตรง |
+| `/api/hourly-log-sync` | POST | endpoint สำหรับ Logic Apps hourly background reconciliation เติม external vote log ที่ตกหล่น |
 | `/api/log-retention-cleanup` | POST | endpoint สำหรับ archive/export/delete SharePoint logs เก่ากว่า retention window |
 | `/api/webhook` | POST | legacy/webhook notification endpoint |
 
@@ -640,6 +682,7 @@ api/shared/attention.js
 | `DAILY_SUMMARY_TOKEN` | For daily summary | token ที่ Logic Apps ส่งมาใน header |
 | `EXCEPTION_SCAN_TOKEN` | No | token สำหรับ `/api/exception-scan`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
 | `BUILD_FAILURE_SCAN_TOKEN` | No | token สำหรับ `/api/build-failure-scan`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
+| `HOURLY_SYNC_TOKEN` | No | token สำหรับ `/api/hourly-log-sync`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
 | `LOG_RETENTION_TOKEN` | No | token สำหรับ `/api/log-retention-cleanup`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
 | `LOG_RETENTION_DAYS` | No | default `180` |
 | `LOG_RETENTION_BATCH_LIMIT` | No | default `500`, max `1000` |
@@ -752,6 +795,8 @@ node --check api\shared\line-notifier.js
 node --check api\daily-summary\index.js
 node --check api\line-daily-summary\index.js
 node --check api\exception-scan\index.js
+node --check api\build-failure-scan\index.js
+node --check api\hourly-log-sync\index.js
 node --check api\log-retention-cleanup\index.js
 node --check api\webhook\index.js
 node -e "JSON.parse(require('fs').readFileSync('staticwebapp.config.json','utf8')); console.log('SWA root config JSON: OK')"

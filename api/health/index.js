@@ -47,6 +47,7 @@ module.exports = async function (context, req) {
   checks.push(checkDailySummaryConfig());
   checks.push(checkLineConfig());
   checks.push(checkLineDailySummaryConfig());
+  checks.push(checkHourlySyncConfig());
 
   const lastNotification = sharePointResult.recentLogs
     ? findLastNotification(sharePointResult.recentLogs)
@@ -56,6 +57,9 @@ module.exports = async function (context, req) {
     : null;
   const lastRetentionCleanup = sharePointResult.recentLogs
     ? findLastRetentionCleanup(sharePointResult.recentLogs)
+    : null;
+  const lastHourlySync = sharePointResult.recentLogs
+    ? findLastHourlySync(sharePointResult.recentLogs)
     : null;
 
   const rollup = checks.some(c => c.status === 'error')
@@ -77,6 +81,7 @@ module.exports = async function (context, req) {
       lastNotification: lastNotification,
       lastExceptionScan: lastExceptionScan,
       lastRetentionCleanup: lastRetentionCleanup,
+      lastHourlySync: lastHourlySync,
       schedule: {
         dailySummary: {
           enabled: !!process.env.DAILY_SUMMARY_TOKEN && !!process.env.TEAMS_WEBHOOK_URL,
@@ -91,6 +96,13 @@ module.exports = async function (context, req) {
           timeZone: 'Asia/Bangkok',
           localTime: '23:59',
           nextRunAt: getNextDailySummaryRun(generatedAt, 23, 59)
+        },
+        hourlyLogSync: {
+          enabled: !!(process.env.HOURLY_SYNC_TOKEN || process.env.DAILY_SUMMARY_TOKEN),
+          scheduler: 'Azure Logic Apps Consumption',
+          timeZone: 'Asia/Bangkok',
+          frequency: 'Every 1 hour',
+          nextRunAt: getNextHourlyRun(generatedAt)
         }
       },
       message: 'ADO Auto-Approve API health checked'
@@ -209,6 +221,23 @@ function checkLineDailySummaryConfig() {
   });
 }
 
+function checkHourlySyncConfig() {
+  const startedAt = Date.now();
+  const token = process.env.HOURLY_SYNC_TOKEN || process.env.DAILY_SUMMARY_TOKEN || '';
+  if (!token) {
+    return buildCheck('hourly-log-sync', 'Hourly Log Sync', 'warning', 'HOURLY_SYNC_TOKEN is not configured', startedAt, {
+      scheduler: 'Azure Logic Apps Consumption',
+      schedule: 'Every 1 hour',
+      freeTierGuard: 'Recurrence + HTTP only'
+    });
+  }
+  return buildCheck('hourly-log-sync', 'Hourly Log Sync', 'ok', 'Hourly sync token is configured', startedAt, {
+    scheduler: 'Azure Logic Apps Consumption',
+    schedule: 'Every 1 hour',
+    freeTierGuard: 'No Application Insights required'
+  });
+}
+
 function findLastNotification(logItems) {
   for (const item of logItems || []) {
     const fields = item.fields || {};
@@ -283,6 +312,33 @@ function findLastRetentionCleanup(logItems) {
   return null;
 }
 
+function findLastHourlySync(logItems) {
+  for (const item of logItems || []) {
+    const fields = item.fields || {};
+    const action = String(fields.Action || '');
+    const source = String(fields.Log_Source || fields.Source || '');
+    const title = String(fields.Title || '');
+    const eventKey = String(fields.Event_Key || '');
+    const text = [action, source, title, eventKey].join(' ').toLowerCase();
+    if (action !== 'Hourly Log Sync' && !text.includes('hourly log sync') && !eventKey.startsWith('hourly-sync:summary:')) continue;
+    const parsed = parseHourlySyncReason(fields.Reason || '');
+    return {
+      at: item.createdDateTime || fields.Last_Checked_At || item.lastModifiedDateTime || '',
+      result: fields.Result || '',
+      reason: fields.Reason || '',
+      source: source || 'Logic Apps Hourly Sync',
+      checkedPrs: parsed.checkedPrs,
+      checkedVotes: parsed.checkedVotes,
+      inserted: parsed.inserted,
+      skipped: parsed.skipped,
+      errors: parsed.errors,
+      lookbackHours: parsed.lookbackHours,
+      target: parsed.target
+    };
+  }
+  return null;
+}
+
 function parseExceptionScanReason(reason) {
   const text = String(reason || '');
   return {
@@ -301,6 +357,19 @@ function parseRetentionCleanupReason(reason) {
     deleted: matchNumber(text, /Deleted\s+(\d+)/i),
     retentionDays: matchNumber(text, /Retention\s+(\d+)\s+days/i),
     archivePath: matchText(text, /Archive:\s*(.+)$/i)
+  };
+}
+
+function parseHourlySyncReason(reason) {
+  const text = String(reason || '');
+  return {
+    checkedPrs: matchNumber(text, /Checked PRs\s+(\d+)/i),
+    checkedVotes: matchNumber(text, /Checked votes\s+(\d+)/i),
+    inserted: matchNumber(text, /Inserted\s+(\d+)/i),
+    skipped: matchNumber(text, /Skipped\s+(\d+)/i),
+    errors: matchNumber(text, /Errors\s+(\d+)/i),
+    lookbackHours: matchNumber(text, /Lookback\s+(\d+)h/i),
+    target: matchText(text, /Target\s+([^|]+)/i)
   };
 }
 
@@ -348,6 +417,13 @@ function getNextDailySummaryRun(nowIso, targetHour, targetMinute) {
   ) - offsetMs;
   if (runUtcMs <= now.getTime()) runUtcMs += 24 * 60 * 60 * 1000;
   return new Date(runUtcMs).toISOString();
+}
+
+function getNextHourlyRun(nowIso) {
+  const next = new Date(nowIso);
+  next.setUTCMinutes(0, 0, 0);
+  next.setUTCHours(next.getUTCHours() + 1);
+  return next.toISOString();
 }
 
 function logWarn(context, message) {

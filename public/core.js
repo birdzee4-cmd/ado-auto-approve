@@ -770,6 +770,24 @@ function renderSystemHealth(data) {
     } : {}
   }));
 
+  const lastHourlySync = data.lastHourlySync || null;
+  const hourlySyncStatus = getHourlySyncHealthStatus(lastHourlySync);
+  cards.push(buildHealthCard({
+    key: 'last-hourly-sync',
+    label: 'Last Hourly Sync',
+    status: hourlySyncStatus,
+    message: lastHourlySync && lastHourlySync.at
+      ? formatDate(lastHourlySync.at)
+      : 'ยังไม่พบ hourly sync log',
+    detail: lastHourlySync ? {
+      result: lastHourlySync.result,
+      checkedPrs: lastHourlySync.checkedPrs,
+      inserted: lastHourlySync.inserted,
+      skipped: lastHourlySync.skipped,
+      lookbackHours: lastHourlySync.lookbackHours
+    } : {}
+  }));
+
   const lastRetentionCleanup = data.lastRetentionCleanup || null;
   const retentionCleanupStatus = getRetentionCleanupHealthStatus(lastRetentionCleanup);
   cards.push(buildHealthCard({
@@ -803,6 +821,15 @@ function renderSystemHealth(data) {
     status: data.schedule && data.schedule.lineDailySummary && data.schedule.lineDailySummary.enabled ? 'ok' : 'warning',
     message: nextLineRun ? formatDate(nextLineRun) : 'LINE daily summary schedule not ready',
     detail: { schedule: '23:59 Asia/Bangkok' }
+  }));
+
+  const nextHourlyRun = data.schedule && data.schedule.hourlyLogSync && data.schedule.hourlyLogSync.nextRunAt;
+  cards.push(buildHealthCard({
+    key: 'next-hourly-sync',
+    label: 'Next Hourly Sync',
+    status: data.schedule && data.schedule.hourlyLogSync && data.schedule.hourlyLogSync.enabled ? 'ok' : 'warning',
+    message: nextHourlyRun ? formatDate(nextHourlyRun) : 'Hourly sync schedule not ready',
+    detail: { schedule: 'Every 1 hour' }
   }));
 
   if (grid) grid.innerHTML = cards.join('');
@@ -863,6 +890,15 @@ function getRetentionCleanupHealthStatus(cleanup) {
   const reason = String(cleanup.reason || '').toLowerCase();
   if (result.includes('error') || result.includes('fail') || reason.includes('failed')) return 'error';
   if (result.includes('warn') || reason.includes('delete errors')) return 'warning';
+  return 'ok';
+}
+
+function getHourlySyncHealthStatus(sync) {
+  if (!sync || !sync.at) return 'warning';
+  const ageMs = Date.now() - Date.parse(sync.at);
+  if (!Number.isFinite(ageMs)) return 'warning';
+  if (ageMs > 2 * 60 * 60 * 1000) return 'warning';
+  if (Number(sync.errors || 0) > 0) return 'warning';
   return 'ok';
 }
 
@@ -942,6 +978,7 @@ export {
   renderSystemHealthError,
   buildHealthSummary,
   getExceptionScanHealthStatus,
+  getHourlySyncHealthStatus,
   getRetentionCleanupHealthStatus,
   buildHealthCard,
   formatHealthDetail,
