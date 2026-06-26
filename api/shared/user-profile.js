@@ -12,7 +12,7 @@ async function getUserProfile(email) {
   const sp = require('./sharepoint-client');
   const token = await sp.getAccessToken();
   const path = '/v1.0/users/' + encodeURIComponent(normalizedEmail) +
-    '?$select=displayName,givenName,surname,mail,userPrincipalName';
+    '?$select=displayName,givenName,surname,mail,userPrincipalName,jobTitle,department';
   const result = await graphRequest(path, token);
   if (!result.ok) {
     const error = new Error('Graph user profile lookup returned HTTP ' + result.status);
@@ -24,7 +24,9 @@ async function getUserProfile(email) {
     displayName: result.body.displayName || '',
     givenName: result.body.givenName || '',
     surname: result.body.surname || '',
-    email: result.body.mail || result.body.userPrincipalName || normalizedEmail
+    email: result.body.mail || result.body.userPrincipalName || normalizedEmail,
+    jobTitle: result.body.jobTitle || '',
+    department: result.body.department || ''
   };
   profileCache.set(normalizedEmail, {
     expiresAt: Date.now() + CACHE_TTL_MS,

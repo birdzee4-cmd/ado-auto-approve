@@ -314,7 +314,7 @@ window.openHistoryModal = async function(prId) {
       html += '<tr>' +
         '<td>' + formatDate(it.createdAt) + '</td>' +
         '<td><span class="' + actionClass + '">' + escapeHtml(it.Action || '-') + '</span></td>' +
-        '<td>' + escapeHtml(it.User || '-') + '</td>' +
+        '<td>' + renderHistoryUserCell(it) + '</td>' +
         '<td>' + escapeHtml(it.Log_Source || it.Source || 'Dashboard') + '</td>' +
         '<td>' + escapeHtml(it.Result || '-') + '</td>' +
         '<td>' + escapeHtml(buildText) + '</td>' +
@@ -330,6 +330,25 @@ window.openHistoryModal = async function(prId) {
       '<div style="color:#dc2626">❌ ' + escapeHtml(err.message) + '</div>';
   }
 };
+
+function renderHistoryUserCell(item) {
+  const rawUser = String(item && item.User || '').trim();
+  const email = String(item && item.User_Email || '').trim() || rawUser;
+  const displayName = String(item && item.User_Display_Name || '').trim();
+  const jobTitle = String(item && item.User_Job_Title || '').trim();
+  const department = String(item && item.User_Department || '').trim();
+  const position = [jobTitle, department].filter(Boolean).join(' · ');
+
+  if (!displayName && !position) {
+    return '<span class="history-user-email">' + escapeHtml(rawUser || '-') + '</span>';
+  }
+
+  return '<div class="history-user-cell">' +
+    '<div class="history-user-name">' + escapeHtml(displayName || rawUser || '-') + '</div>' +
+    (position ? '<div class="history-user-position">' + escapeHtml(position) + '</div>' : '') +
+    (email ? '<div class="history-user-email">' + escapeHtml(email) + '</div>' : '') +
+    '</div>';
+}
 
 
 

@@ -508,6 +508,35 @@ body::after {
 .history-table th:nth-child(3),
 .history-table td:nth-child(3) { width: 180px; overflow-wrap: anywhere; }
 
+.history-user-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.history-user-name {
+  color: #111827;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.history-user-position {
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.history-user-email {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
 .history-table th:nth-child(4),
 .history-table td:nth-child(4) { width: 130px; white-space: nowrap; }
 

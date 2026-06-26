@@ -66,6 +66,7 @@ module.exports = async function (context, req) {
     const mergedItems = items
       .concat(liveResult.items)
       .sort(compareHistoryItems);
+    const profileResult = await enrichHistoryUserProfiles(context, mergedItems);
 
     jsonResponse(200, {
       ok: true,
@@ -75,6 +76,8 @@ module.exports = async function (context, req) {
       liveVoteCount: liveResult.items.length,
       liveVoteStatus: liveResult.status,
       liveVoteError: liveResult.error || '',
+      userProfileStatus: profileResult.status,
+      userProfileError: profileResult.error || '',
       items: mergedItems
     });
 
@@ -83,6 +86,55 @@ module.exports = async function (context, req) {
     jsonResponse(500, { ok: false, error: 'Unexpected server error', detail: err.message });
   }
 };
+
+async function enrichHistoryUserProfiles(context, items) {
+  const list = Array.isArray(items) ? items : [];
+  if (!list.length || process.env.HISTORY_USER_PROFILE_LOOKUP === 'false') {
+    return { status: 'disabled' };
+  }
+
+  let profiles;
+  try {
+    profiles = require('../shared/user-profile');
+  } catch (e) {
+    return { status: 'skipped', error: 'Failed to load user-profile: ' + e.message };
+  }
+
+  const emails = Array.from(new Set(list
+    .map(item => extractEmail(item && item.User))
+    .filter(Boolean)))
+    .slice(0, 25);
+  if (!emails.length) return { status: 'no_email' };
+
+  const byEmail = {};
+  const errors = [];
+  for (const email of emails) {
+    try {
+      const profile = await profiles.getUserProfile(email);
+      if (profile) byEmail[email] = profile;
+    } catch (e) {
+      errors.push(email + ': ' + e.message);
+    }
+  }
+
+  for (const item of list) {
+    const email = extractEmail(item && item.User);
+    const profile = email ? byEmail[email] : null;
+    if (!profile) continue;
+    item.User_Email = profile.email || email;
+    item.User_Display_Name = profile.displayName || '';
+    item.User_Job_Title = profile.jobTitle || '';
+    item.User_Department = profile.department || '';
+  }
+
+  if (errors.length && context && context.log && context.log.warn) {
+    context.log.warn('History user profile lookup completed with errors: ' + errors.slice(0, 3).join(' | '));
+  }
+  return {
+    status: errors.length === emails.length ? 'lookup_failed' : 'ok',
+    error: errors.slice(0, 3).join(' | ')
+  };
+}
 
 async function getLiveReviewerVoteItems(context, prId, existingItems) {
   if (process.env.ADO_HISTORY_LIVE_VOTES === 'false') {
@@ -181,6 +233,13 @@ function buildPrUrl(pr) {
   if (!org || !project || !repoName || !pr || !pr.pullRequestId) return '';
   return 'https://dev.azure.com/' + encodeURIComponent(org) + '/' + encodeURIComponent(project) +
     '/_git/' + encodeURIComponent(repoName) + '/pullrequest/' + encodeURIComponent(String(pr.pullRequestId));
+}
+
+function extractEmail(value) {
+  const text = String(value || '').trim().toLowerCase();
+  if (!text) return '';
+  const match = text.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i);
+  return match ? match[0].toLowerCase() : '';
 }
 
 function normalizeIdentity(value) {
