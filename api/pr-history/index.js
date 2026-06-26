@@ -140,7 +140,7 @@ function buildLiveVoteItem(pr, reviewer, checkedAt) {
     Target_Branch: pr.targetRefName || '',
     Result: state.result,
     Reason: 'Current Azure DevOps reviewer vote snapshot; not yet persisted in SharePoint log',
-    Log_Source: 'Azure DevOps Live',
+    Log_Source: 'ADO Snapshot',
     Event_Key: 'ado-live:vote:' + pr.pullRequestId + ':' + reviewerKey + ':' + vote,
     ADO_PR_URL: buildPrUrl(pr),
     isLiveVote: true,
