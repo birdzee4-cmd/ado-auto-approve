@@ -86,6 +86,52 @@ function handleAdoAuthRequired(responseData) {
   return false;
 }
 
+function consumeAdoAuthCallbackResult() {
+  const params = new URLSearchParams(window.location.search || '');
+  if (!params.has('adoConnected') && !params.has('adoError')) return;
+
+  const connected = params.get('adoConnected') === '1';
+  const error = params.get('adoError') || '';
+  const statusConnected = !!(window._adoAuthStatus && window._adoAuthStatus.connected);
+  if (connected && statusConnected) {
+    showAdoAuthNotice('success', 'Azure DevOps connected', 'พร้อมดำเนินการ Approve / Reject / Approve Release ด้วยบัญชี Azure DevOps ของคุณแล้ว');
+  } else if (connected) {
+    showAdoAuthNotice('error', 'Azure DevOps connection needs attention', 'ระบบกลับมาจาก OAuth แล้ว แต่ยังตรวจ token ไม่พบ กรุณากด Connect Azure DevOps อีกครั้ง');
+  } else {
+    showAdoAuthNotice('error', 'Azure DevOps connection failed', error || 'กรุณาลอง Connect Azure DevOps อีกครั้ง');
+  }
+
+  params.delete('adoConnected');
+  params.delete('adoError');
+  const nextQuery = params.toString();
+  const nextUrl = window.location.pathname + (nextQuery ? '?' + nextQuery : '') + window.location.hash;
+  window.history.replaceState({}, document.title, nextUrl);
+}
+
+function showAdoAuthNotice(type, title, detail) {
+  const existing = document.getElementById('adoAuthNotice');
+  if (existing) existing.remove();
+
+  const notice = document.createElement('div');
+  notice.id = 'adoAuthNotice';
+  notice.className = 'ado-auth-notice ado-auth-notice-' + (type === 'error' ? 'error' : 'success');
+  notice.setAttribute('role', type === 'error' ? 'alert' : 'status');
+  notice.innerHTML =
+    '<div class="ado-auth-notice-icon">' + (type === 'error' ? '!' : '✓') + '</div>' +
+    '<div class="ado-auth-notice-body">' +
+      '<div class="ado-auth-notice-title">' + escapeHtml(title) + '</div>' +
+      '<div class="ado-auth-notice-detail">' + escapeHtml(detail || '') + '</div>' +
+    '</div>' +
+    '<button type="button" class="ado-auth-notice-close" aria-label="Dismiss Azure DevOps connection message">×</button>';
+
+  const closeBtn = notice.querySelector('.ado-auth-notice-close');
+  if (closeBtn) closeBtn.addEventListener('click', () => notice.remove());
+  document.body.appendChild(notice);
+  window.setTimeout(() => {
+    if (notice.isConnected) notice.remove();
+  }, type === 'error' ? 9000 : 6000);
+}
+
 
 
 // ===== Check PRs =====
@@ -1616,6 +1662,7 @@ async function evaluateAutoApprovals(prs) {
   bind('btnConnectAdo', startAdoConnect);
   bind('btnDisconnectAdo', disconnectAdo);
   await loadAdoAuthStatus();
+  consumeAdoAuthCallbackResult();
   
   // Intercept page reload/navigation when auto mode is active
   window.addEventListener('beforeunload', (e) => {

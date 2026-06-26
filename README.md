@@ -19,6 +19,8 @@ Production URL:
 - Azure Functions runtime ใช้ Node.js 22
 - Authentication ใช้ Microsoft Entra ID ผ่าน Static Web Apps Auth
 - Authorization ของ action สำคัญใช้ role `it_support_approve`
+- Azure DevOps action สำคัญใช้ delegated user identity หลังผู้ใช้กด Connect Azure DevOps
+- การอ่านคิว PR / Build / Policy / Release lookup ยังใช้ `ADO_PAT` แบบ service credential เพื่อให้ Dashboard เห็นคิวกลางอย่างสม่ำเสมอ
 - Dashboard หลักเป็น read/action page สำหรับ Active PR Queue และ Release approval ที่รอ action
 - MergeCode / MergeCodeProduction ถูกแยกเป็น manual workflow บน Azure DevOps
 - Activity เป็นหน้าดู approval log ล่าสุด 24 ชั่วโมง พร้อม filter และ paging
@@ -50,6 +52,7 @@ flowchart LR
   Frontend --> API["Azure Functions API<br/>Node.js 22"]
   API --> ADO["Azure DevOps REST API"]
   API --> Release["Azure DevOps Release API"]
+  API --> TokenStore["Azure Table<br/>Encrypted ADO user tokens"]
   API --> SP["SharePoint List<br/>ADO AutoApprove Log"]
   API --> Teams["Teams Webhook"]
   Logic["Azure Logic Apps<br/>18:00 Asia/Bangkok"] --> API
@@ -95,6 +98,32 @@ flowchart LR
 - Attention: New, Waiting, Warning, Critical, Stale, Manual
 - My Approval: สถานะ vote ของผู้ใช้ปัจจุบัน
 - Actions: Approve, Reject, Approve Release, History, Open ADO / Open Release ตามสิทธิ์และสถานะ
+
+### Azure DevOps Connection / Identity Policy
+
+หน้า Dashboard มีสถานะ `Azure DevOps` พร้อมปุ่ม Connect / Disconnect สำหรับผูกบัญชี Azure DevOps ของผู้ใช้ที่ login อยู่
+
+นโยบายปัจจุบัน:
+
+- Read path ใช้ `ADO_PAT` เป็น service credential สำหรับดึงรายการ PR, reviewers, build status, policy status, release lookup, background sync และ health check
+- Write/action path ใช้ delegated user token หลัง Connect Azure DevOps ได้แก่ Approve PR, Reject PR และ Approve Release
+- SharePoint Log บันทึกผู้ดำเนินการจาก Static Web Apps identity และ action ใน Azure DevOps จะเกิดด้วย Azure DevOps identity ของผู้ใช้ที่ connect
+- ถ้า token หมดอายุหรือ refresh ไม่สำเร็จ backend จะตอบ `428` พร้อม `connectUrl` และหน้า Dashboard จะพาผู้ใช้กลับไป Connect ใหม่
+- Disconnect จะลบ token reference cookie และ token record ใน server-side token store ถ้าเปิดใช้งาน
+
+เหตุผลที่ read path ยังใช้ PAT:
+
+- Dashboard ต้องแสดงคิวกลางให้ทีมเห็นเหมือนกัน แม้ผู้ใช้แต่ละคนมีสิทธิ์ Azure DevOps ไม่เท่ากัน
+- Background jobs เช่น Daily Summary, Exception Scan, Hourly Sync และ Build Failure Scan ไม่มี interactive user token
+- ลดความเสี่ยงช่วง migration หลังเปิด delegated action แล้ว โดยแยก read consistency ออกจาก write audit identity
+
+เป้าหมายระยะถัดไปถ้าจะย้ายไป user identity มากขึ้น:
+
+1. เพิ่ม feature flag เช่น `ADO_READ_IDENTITY_MODE=service|delegated|hybrid`
+2. เริ่มจาก endpoint interactive ที่มีผู้ใช้แน่นอน เช่น `/api/list-prs`, `/api/merge-lookup`, `/api/build-diagnostics`
+3. ทำ fallback แบบ hybrid: ลอง delegated token ก่อน ถ้าไม่มี token หรือสิทธิ์อ่านไม่พอ ให้ fallback เป็น PAT พร้อม log source ชัดเจน
+4. คง background jobs ไว้กับ service credential หรือทำ service principal แยก เพราะไม่มี browser session
+5. เก็บ telemetry/log ว่า endpoint ไหนอ่านด้วย user token หรือ PAT เพื่อดูผลกระทบก่อนปิด fallback
 
 ### Active PR Queue
 
@@ -354,7 +383,7 @@ Checks หลัก:
 
 - Auth: ผู้ใช้ login ได้
 - Backend: API runtime, uptime, Node version
-- Azure DevOps: PAT/config เชื่อมต่อได้
+- Azure DevOps: service PAT/config สำหรับ read path เชื่อมต่อได้
 - SharePoint Log: site/list/read recent logs ได้
 - Teams Webhook: webhook URL ถูก config
 - Daily Summary: token และ scheduler พร้อม
@@ -577,16 +606,15 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/ado-auth-status` | GET | ตรวจสถานะ Azure DevOps connection ของ browser/user ปัจจุบัน |
 | `/api/ado-auth-disconnect` | POST | ลบ token reference cookie และ token record ใน server-side store |
 | `/api/list-prs` | GET | ดึง Active PR Queue และ Activity lookup เมื่อส่ง `includeActivity=true` |
-| `/api/approve-pr` | POST | Approve PR ปกติ, set auto-complete, log SharePoint |
-| `/api/reject-pr` | POST | Reject PR ปกติ, log SharePoint |
-| `/api/approve-release` | POST | Approve Azure DevOps Classic Release pre-deploy approval ที่ยัง pending และ log SharePoint |
+| `/api/approve-pr` | POST | Approve PR ปกติด้วย Azure DevOps identity ของผู้ใช้ที่ Connect แล้ว, set auto-complete, log SharePoint |
+| `/api/reject-pr` | POST | Reject PR ปกติด้วย Azure DevOps identity ของผู้ใช้ที่ Connect แล้ว, log SharePoint |
+| `/api/approve-release` | POST | Approve Azure DevOps Classic Release pre-deploy approval ที่ยัง pending ด้วย Azure DevOps identity ของผู้ใช้ที่ Connect แล้ว และ log SharePoint |
 | `/api/approval-hold` | POST | ตั้งค่า Hold หรือ Release สถานะระงับการอนุมัติของ PR บน Dashboard |
 | `/api/auto-approve-settings` | GET/POST | ดึงหรืออัปเดตการตั้งค่าโหมด Guarded Auto Approve |
 | `/api/build-diagnostics` | GET/POST | วิเคราะห์ Timeline และเนื้อหา Log ความล้มเหลวของ Build พร้อมบันทึก/ส่งแจ้งเตือน Teams |
 | `/api/deploy-history` | GET | ดึงข้อมูลประวัติการ Deploy จากไฟล์ CSV บน SharePoint |
 | `/api/sync-deployments` | GET/POST | ดึงและประสานประวัติการรัน Build & Deploy จาก Azure DevOps บันทึกเก็บเป็นไฟล์ CSV ตามปีบน SharePoint (โดยคัดกรองยกเว้นพวก Scheduled/Infrastructure system tasks ที่มีชื่อ Pipeline มีคำว่า `schedule` หรือ `scripts` ออกโดยอัตโนมัติ) |
 | `/api/report-summary` | GET | ดึงข้อมูลรายงานสรุปสถิติผลการดำเนินงาน (การอนุมัติ, อัตรา Auto-Approve, อัตราความสำเร็จของบิลด์) |
-| `/api/create-tag` | POST | สร้าง Git Tag ใน Azure DevOps ชี้ไปยัง Commit SHA ที่กำหนด |
 | `/api/pr-history/{prId}` | GET | อ่าน history ของ PR จาก SharePoint |
 | `/api/logs` | GET | อ่าน audit logs จาก SharePoint |
 | `/api/health` | GET | ตรวจ authenticated system health หลัง login |
@@ -655,14 +683,14 @@ api/shared/attention.js
 |---|---:|---|
 | `ADO_ORGANIZATION` | Yes | organization จาก `dev.azure.com/<org>` |
 | `ADO_PROJECT` | Yes | Azure DevOps project |
-| `ADO_PAT` | Yes | PAT สำหรับอ่าน PR, vote, policy, build และ Classic Release approval |
+| `ADO_PAT` | Yes | Service credential สำหรับ read path: อ่าน PR, reviewers, policy, build, release lookup, health check และ background jobs; action Approve / Reject / Approve Release ใช้ delegated user token หลัง Connect Azure DevOps |
 | `ADO_TARGET_BRANCH` | No | default `refs/heads/staging` |
 | `ADO_REVIEWER_GROUP` | No | default `IT Support Approve` |
 | `ADO_EXTERNAL_LOG_SYNC` | No | set `false` เพื่อปิด external vote sync log |
 
 ### Azure DevOps Delegated User Tokens
 
-ใช้สำหรับให้ปุ่ม Approve / Reject / Approve Release ดำเนินการด้วย Azure DevOps identity ของผู้ที่ login จริง แทน PAT ส่วนตัว
+ใช้สำหรับให้ปุ่ม Approve / Reject / Approve Release ดำเนินการด้วย Azure DevOps identity ของผู้ที่ login จริง แทน PAT/service account
 
 | Variable | Required | Description |
 |---|---:|---|
@@ -679,6 +707,7 @@ api/shared/attention.js
 - Access token / refresh token ถูกเก็บใน Azure Table แบบ encrypted record
 - หากไม่มี Storage connection string ระบบจะ fallback เป็น encrypted HttpOnly cookie เพื่อไม่ให้ flow ใช้งานไม่ได้ แต่ production ระยะยาวควรตั้ง Storage ให้ครบ
 - App Registration ต้องมี Web Redirect URI ตรงกับ `ADO_AUTH_REDIRECT_URI` และมี Azure DevOps delegated permissions ที่ admin consent แล้ว
+- หลัง callback สำเร็จ Dashboard จะแสดงข้อความ Connected และ clean query `adoConnected=1` ออกจาก URL อัตโนมัติ
 
 ### Auth / Role
 
@@ -812,11 +841,16 @@ node --check api\logs\index.js
 node --check api\merge-lookup\index.js
 node --check api\approval-hold\index.js
 node --check api\auto-approve-settings\index.js
+node --check api\ado-auth-start\index.js
+node --check api\ado-auth-callback\index.js
+node --check api\ado-auth-status\index.js
+node --check api\ado-auth-disconnect\index.js
+node --check api\shared\ado-user-token.js
+node --check api\shared\ado-token-store.js
 node --check api\build-diagnostics\index.js
 node --check api\deploy-history\index.js
 node --check api\sync-deployments\index.js
 node --check api\report-summary\index.js
-node --check api\create-tag\index.js
 node --check api\shared\line-notifier.js
 node --check api\daily-summary\index.js
 node --check api\line-daily-summary\index.js
@@ -844,6 +878,7 @@ node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json'
 | Area | Expected |
 |---|---|
 | Login | ผู้ใช้ login ผ่าน Entra ID ได้ |
+| ADO Connect | ผู้ใช้ Connect Azure DevOps ได้, กลับมา Dashboard พร้อม success notice, และสถานะแสดง Connected |
 | Role | ผู้ใช้ `IT Support Approve` เห็น action ที่ควรเห็น |
 | No role | ผู้ใช้ไม่มี role ไม่เห็น Approve / Reject |
 | Load PR | Dashboard โหลด PR ได้และปุ่มกลับเป็น `Refresh PR` |
@@ -859,6 +894,7 @@ node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json'
 | Build Diagnostics | ตรวจสอบ Timeline วิเคราะห์หา Failed Task และแปลรายละเอียดออกมาได้อย่างถูกต้องพร้อมส่ง Teams |
 | Report | แสดงผลสถิติการอนุมัติ, อัตรา Auto-Approve, อัตราสำเร็จของบิลด์ (รายวัน/รายเดือน), filter scope ของผู้ใช้/บิลด์ และรายการ Staging build failed ล่าสุด โดยคัดกรองข้ามพวก scheduled task ของระบบและซิงก์ข้อมูลเบื้องหลังสำเร็จ |
 | SharePoint Log | action ผ่านเว็บมี log |
+| User Identity Action | Approve / Reject / Approve Release ใน Azure DevOps แสดง identity ของผู้ใช้ที่ Connect ไม่ใช่ service PAT |
 | Audit Logs | ค้นหาได้และเรียงล่าสุดก่อน |
 | Daily Summary | ส่ง Teams เวลา 18:00 ผ่าน Logic Apps และไม่ duplicate |
 | Health | ตรวจ Backend, ADO, SharePoint, Teams, Daily Summary ได้ |
@@ -873,17 +909,42 @@ node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json'
 - `ADO_ORGANIZATION`
 - `ADO_PROJECT`
 - `ADO_PAT`
-- PAT หมดอายุหรือ scope ไม่พอ
+- PAT หมดอายุหรือ scope อ่านข้อมูลไม่พอ
 - target branch / reviewer group ถูกต้องหรือไม่
+
+หมายเหตุ: การโหลดคิว PR ปัจจุบันยังใช้ `ADO_PAT` เป็น read/service credential แม้ action จะใช้ delegated user token แล้ว
 
 ### Approve / Reject ไม่ขึ้น
 
 ตรวจ:
 
 - ผู้ใช้มี role `it_support_approve` หรือไม่
+- ผู้ใช้ Connect Azure DevOps แล้วหรือยัง
 - PR เป็น MergeCode หรือไม่
 - ผู้ใช้ vote ไปแล้วหรือยัง
 - Static Web Apps role invitation / role assignment ถูกต้องหรือไม่
+
+### Connect Azure DevOps ไม่สำเร็จ
+
+ตรวจ:
+
+- `AAD_TENANT_ID`, `AAD_CLIENT_ID`, `AAD_CLIENT_SECRET`
+- `ADO_AUTH_REDIRECT_URI` ตรงกับ Web Redirect URI ใน App Registration ทุกตัวอักษร
+- App Registration มี Azure DevOps delegated permissions และ admin consent แล้ว
+- browser ไม่บล็อก cookie ของ domain Static Web Apps
+- `ADO_TOKEN_COOKIE_SECRET` และ `ADO_TOKEN_STORE_SECRET` ไม่เปลี่ยนไปมาระหว่าง deploy โดยไม่ตั้งใจ
+- ถ้าใช้ server-side token store ให้ตรวจ `ADO_TOKEN_STORAGE_CONNECTION_STRING` หรือ `AzureWebJobsStorage` และ Azure Table `AdoUserTokens`
+
+### Approve / Reject แจ้งว่า Azure DevOps connection required
+
+สาเหตุหลักคือ delegated token ไม่มี, หมดอายุ, refresh ไม่ผ่าน หรือ token record ถูกลบ
+
+แนวทางแก้:
+
+1. กด Connect Azure DevOps ใหม่จาก Dashboard
+2. ถ้ายังไม่หาย ให้ Disconnect แล้ว Connect ใหม่
+3. ตรวจ token store และ App Registration permissions
+4. ตรวจว่า Azure DevOps account ของผู้ใช้มีสิทธิ์ใน project/repository/release approval จริง
 
 ### SharePoint Log ไม่ขึ้น
 
@@ -962,7 +1023,9 @@ git ls-remote --heads origin main staging
 ## ข้อจำกัดและความเสี่ยง
 
 - MergeCode / MergeCodeProduction ต้องทำ manual บน Azure DevOps เพื่อความปลอดภัย
-- ถ้า ADO PAT หมดอายุ ระบบจะอ่าน PR / vote / build ไม่ได้
+- ถ้า `ADO_PAT` หมดอายุ ระบบจะอ่าน PR / Build / Policy / Release lookup และ background jobs ไม่ได้
+- ถ้า delegated user token หมดอายุหรือ refresh ไม่ผ่าน ผู้ใช้ต้อง Connect Azure DevOps ใหม่ก่อนทำ Approve / Reject / Approve Release
+- ถ้าย้าย read path ไป delegated user identity เต็มรูปแบบ ต้องระวังว่าผู้ใช้แต่ละคนอาจเห็น PR/Release ไม่เท่ากันตามสิทธิ์ Azure DevOps
 - ถ้า Graph permission หรือ SharePoint config มีปัญหา action อาจสำเร็จแต่ log ไม่ครบ
 - Staging CI/CD mapping เป็น snapshot จาก CSV ต้อง regenerate เมื่อข้อมูลต้นทางเปลี่ยน
 - Daily Summary มี duplicate guard แต่ถ้ามีการเปลี่ยน `Event_Key` logic อาจทำให้ส่งซ้ำได้
@@ -975,6 +1038,8 @@ ADO Auto-Approve เป็นระบบช่วยรวมงานอนุ
 หลักการสำคัญของระบบคือ:
 
 - PR ปกติทำผ่าน Dashboard ได้
+- action สำคัญใน Azure DevOps ทำด้วย delegated user identity หลัง Connect Azure DevOps
+- read path และ background jobs ยังใช้ service credential เพื่อให้คิวกลางมีความสม่ำเสมอ
 - PR MergeCode / MergeCodeProduction ต้องทำ manual บน Azure DevOps
 - ข้อมูล log และ health ต้องตรวจสอบย้อนหลังได้
 - notification ต้องลด noise และเน้นเหตุการณ์ที่ต้องสนใจ

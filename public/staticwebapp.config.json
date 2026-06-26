@@ -36,7 +36,6 @@
     { "route": "/api/ado-auth-callback", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/ado-auth-status", "methods": ["GET"], "allowedRoles": ["authenticated"] },
     { "route": "/api/ado-auth-disconnect", "methods": ["POST"], "allowedRoles": ["authenticated"] },
-    { "route": "/api/create-tag", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },
     { "route": "/api/approve-pr", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },
     { "route": "/api/approve-release", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },
     { "route": "/api/approval-hold", "methods": ["POST"], "allowedRoles": ["it_support_approve"] },

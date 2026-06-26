@@ -327,7 +327,9 @@ async function listActivePRs(targetBranch) {
 }
 
 /**
- * ดึง ID ของ bot user (จาก PAT) — ใช้สำหรับ vote
+ * ดึง identity ของ connection ปัจจุบัน
+ * - ถ้าส่ง options.accessToken จะได้ Azure DevOps user identity ของผู้ใช้ที่ connect
+ * - ถ้าไม่ส่ง options จะ fallback เป็น PAT/service account
  */
 async function getConnectionData(options) {
   const { org } = getConfig();
@@ -619,39 +621,11 @@ async function getPendingReleaseApprovals(reviewerGroup) {
   return approvals;
 }
 
-async function getRepositoryIdByName(repoName) {
-  const { org, project } = getConfig();
-  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories?api-version=7.0`;
-  const result = await adoRequest('GET', path);
-  if (!result.ok || !result.body || !Array.isArray(result.body.value)) {
-    throw new Error('Failed to list ADO repositories: ' + result.status);
-  }
-  const repos = result.body.value;
-  const match = repos.find(r => r.name.toLowerCase() === repoName.toLowerCase());
-  if (!match) {
-    throw new Error(`Repository with name "${repoName}" not found in project`);
-  }
-  return match.id;
-}
-
 async function listGitRefs(repositoryId, filterPrefix) {
   const { org, project } = getConfig();
   const filter = filterPrefix ? `&filter=${encodeURIComponent(filterPrefix)}` : '';
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${encodeURIComponent(repositoryId)}/refs?api-version=7.0${filter}`;
   return adoRequest('GET', path);
-}
-
-async function createGitRef(repositoryId, refName, commitSha) {
-  const { org, project } = getConfig();
-  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${encodeURIComponent(repositoryId)}/refs?api-version=7.0`;
-  const body = [
-    {
-      name: refName.startsWith('refs/') ? refName : `refs/tags/${refName}`,
-      newObjectId: commitSha,
-      oldObjectId: '0000000000000000000000000000000000000000'
-    }
-  ];
-  return adoRequest('POST', path, body);
 }
 
 async function getBuildTimeline(buildId) {
@@ -692,9 +666,7 @@ module.exports = {
   getLatestReleaseApprovalForBuild,
   summarizeReleaseApproval,
   getPendingReleaseApprovals,
-  getRepositoryIdByName,
   listGitRefs,
-  createGitRef,
   getBuildTimeline,
   getBuildLog
 };

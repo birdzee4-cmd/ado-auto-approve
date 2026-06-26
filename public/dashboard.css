@@ -237,6 +237,94 @@
   color: #b45309 !important;
 }
 
+.ado-auth-notice {
+  position: fixed;
+  top: 88px;
+  right: 24px;
+  z-index: 1000;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 28px;
+  gap: 12px;
+  width: min(420px, calc(100vw - 32px));
+  padding: 14px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #d1fae5;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+  color: #1f2937;
+  animation: adoNoticeIn 0.18s ease-out;
+}
+
+.ado-auth-notice-success {
+  border-color: #bbf7d0;
+}
+
+.ado-auth-notice-error {
+  border-color: #fecaca;
+}
+
+.ado-auth-notice-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  font-weight: 800;
+  background: #dcfce7;
+  color: #047857;
+}
+
+.ado-auth-notice-error .ado-auth-notice-icon {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.ado-auth-notice-body {
+  min-width: 0;
+}
+
+.ado-auth-notice-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 3px;
+}
+
+.ado-auth-notice-detail {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #4b5563;
+}
+
+.ado-auth-notice-close {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.ado-auth-notice-close:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+@keyframes adoNoticeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -493,6 +581,12 @@
 }
 
 @media (max-width: 640px) {
+  .ado-auth-notice {
+    top: 12px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+  }
   .dashboard {
     width: 100%;
     padding: 16px;
