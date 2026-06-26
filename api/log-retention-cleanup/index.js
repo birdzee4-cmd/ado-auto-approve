@@ -160,7 +160,7 @@ async function runRetentionCleanup(context, options) {
 function parseOptions(body) {
   const payload = body && typeof body === 'object' ? body : {};
   return {
-    retentionDays: Math.min(Math.max(Number(payload.retentionDays || process.env.LOG_RETENTION_DAYS || 180), 30), 3650),
+    retentionDays: Math.min(Math.max(Number(payload.retentionDays || process.env.LOG_RETENTION_DAYS || 365), 30), 3650),
     maxItems: Math.min(Math.max(Number(payload.maxItems || process.env.LOG_RETENTION_BATCH_LIMIT || 500), 1), 1000),
     archiveFolder: String(payload.archiveFolder || process.env.LOG_ARCHIVE_FOLDER || 'ADO AutoApprove Archive').trim(),
     dryRun: payload.dryRun !== false,

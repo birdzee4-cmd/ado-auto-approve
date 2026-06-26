@@ -26,7 +26,7 @@ Production URL:
 - Activity เป็นหน้าดู approval log ล่าสุด 24 ชั่วโมง พร้อม filter และ paging
 - Audit Logs อ่านจาก SharePoint และเรียงล่าสุดก่อน
 - Daily Summary ส่งผ่าน Azure Logic Apps Consumption เวลา 18:00 Asia/Bangkok
-- SharePoint Log Retention รองรับ archive/export ก่อน cleanup โดย default เก็บ 180 วัน
+- SharePoint Log Retention รองรับ archive/export ก่อน cleanup โดย default เก็บ 365 วัน
 - Branch backup ล่าสุดใช้ `staging` ตัวพิมพ์เล็กเท่านั้น
 
 ## วัตถุประสงค์
@@ -330,7 +330,7 @@ Column สำคัญที่ใช้:
 
 ### SharePoint Log Retention / Cleanup
 
-ระบบรองรับ retention policy สำหรับ SharePoint Log โดยแนวทางหลักคือเก็บข้อมูลใน List 180 วัน และ archive เป็น CSV ก่อน delete
+ระบบรองรับ retention policy สำหรับ SharePoint Log โดยแนวทางหลักคือเก็บข้อมูลใน List 365 วัน และ archive เป็น CSV ก่อน delete
 
 Endpoint:
 
@@ -349,7 +349,7 @@ Body สำหรับ dry run:
 ```json
 {
   "dryRun": true,
-  "retentionDays": 180,
+  "retentionDays": 365,
   "maxItems": 500
 }
 ```
@@ -359,7 +359,7 @@ Body สำหรับ cleanup จริง:
 ```json
 {
   "dryRun": false,
-  "retentionDays": 180,
+  "retentionDays": 365,
   "maxItems": 500,
   "deleteAfterArchive": true
 }
@@ -812,7 +812,7 @@ api/shared/attention.js
 | `BUILD_FAILURE_SCAN_TOKEN` | No | token สำหรับ `/api/build-failure-scan`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
 | `HOURLY_SYNC_TOKEN` | No | token สำหรับ `/api/hourly-log-sync`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
 | `LOG_RETENTION_TOKEN` | No | token สำหรับ `/api/log-retention-cleanup`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
-| `LOG_RETENTION_DAYS` | No | default `180` |
+| `LOG_RETENTION_DAYS` | No | default `365` |
 | `LOG_RETENTION_BATCH_LIMIT` | No | default `500`, max `1000` |
 | `LOG_ARCHIVE_FOLDER` | No | default `ADO AutoApprove Archive` |
 | `TABLE_RETENTION_TOKEN` | No | token สำหรับ `/api/table-retention-cleanup`; ถ้าไม่ตั้งจะ fallback ไปใช้ `LOG_RETENTION_TOKEN` / `DAILY_SUMMARY_TOKEN` |

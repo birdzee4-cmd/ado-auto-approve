@@ -21,7 +21,7 @@
 - **Audit Logs Search:** หน้าค้นหาและตรวจสอบประวัติการทำรายการ (Audit Log) ค้นหาตาม PR ID, Action, Source และคำค้นหาต่างๆ ย้อนหลังจาก SharePoint List
 - **System Health:** หน้าแสดงสถานะระบบ (Connectivity, Token, API Runtime) พร้อมปุ่มคำสั่งทดสอบการส่ง Teams Notification, Daily Summary และ Exception Scan
 - **Teams Notifications & Daily Summary:** ส่งการแจ้งเตือนเมื่อเกิดความเสียหายหรือขัดข้อง (Build/Policy Failed) ไปยัง Microsoft Teams และส่งสรุปผลการทำงานรายวันตอน 18:00 (Daily PR Summary)
-- **SharePoint Log Retention:** ระบบสแกนล้าง log เก่าเกิน 180 วันอัตโนมัติ โดยทำการบีบอัดเป็น CSV อัปโหลดไปยัง Document Library ของ SharePoint ก่อนลบข้อมูลใน List
+- **SharePoint Log Retention:** ระบบสแกนล้าง log เก่าเกิน 365 วันอัตโนมัติ โดยทำการบีบอัดเป็น CSV อัปโหลดไปยัง Document Library ของ SharePoint ก่อนลบข้อมูลใน List
 - **ความปลอดภัยด้านนโยบาย:** **ไม่แตะต้อง Work Item / Worklist** หรือกระบวนการนอกขอบเขต ตามเงื่อนไขความปลอดภัยและสิทธิ์ PAT ที่จำกัด
 
 ---
@@ -428,7 +428,7 @@ Azure Static Web Apps (อัปเดตไฟล์ HTML/CSS และ API Run
 ### 7.5 Audit & Compliance
 
 - **บันทึกประวัติละเอียด:** ทุกความเคลื่อนไหวผ่านแดชบอร์ดจะบันทึกลง SharePoint List (มี Columns ครอบคลุมถึง 17 มิติ เช่น PR_ID, Action, User, Repository, Result, Reason, Target_Branch, Build_Status, Policy_Status, Last_Checked_At ฯลฯ)
-- **Log Retention Policy:** มีระบบ archive ข้อมูล log ใน SharePoint List ที่มีอายุเกิน 180 วัน ออกมาเป็นไฟล์ CSV (UTF-8 BOM เพื่อรองรับการเปิดใน Excel) เก็บลงใน SharePoint Document Library โฟลเดอร์ `ADO AutoApprove Archive` แล้วล้างข้อมูล List เก่าเพื่อควบคุมความเร็วและความจุในการคิวรี
+- **Log Retention Policy:** มีระบบ archive ข้อมูล log ใน SharePoint List ที่มีอายุเกิน 365 วัน ออกมาเป็นไฟล์ CSV (UTF-8 BOM เพื่อรองรับการเปิดใน Excel) เก็บลงใน SharePoint Document Library โฟลเดอร์ `ADO AutoApprove Archive` แล้วล้างข้อมูล List เก่าเพื่อควบคุมความเร็วและความจุในการคิวรี
 
 ---
 
@@ -481,7 +481,7 @@ Azure Static Web Apps (อัปเดตไฟล์ HTML/CSS และ API Run
   - **หน้าแดชบอร์ดและหน้าย่อย:** เพิ่มหน้า Activity (ประวัติ 24 ชั่วโมง), Merge Lookup (จับคู่และค้นหา CI/CD target branch จากไฟล์ CSV Mapping ~2,891 รายการ), Audit Logs (ระบบค้นหา log SharePoint) และหน้า System Health
   - **การอนุมัติ Release:** ระบบ Approve Classic Release (pre-deploy) โดยตรงผ่านหน้าเว็บ พร้อม Guardrails ป้องกัน
   - **การสแกนและสรุปรายงาน:** ตั้งเวลาทริกเกอร์ exception scan เมื่อ build/policy ล้มเหลว และระบบ Daily summary ส่งหา Teams รายวันตอน 18:00
-  - **ระบบล้างและจัดเก็บข้อมูล:** ฟังก์ชัน Log Retention Cleanup สแกนเก็บ CSV และลบ log เก่าเกิน 180 วันอัตโนมัติ
+  - **ระบบล้างและจัดเก็บข้อมูล:** ฟังก์ชัน Log Retention Cleanup สแกนเก็บ CSV และลบ log เก่าเกิน 365 วันอัตโนมัติ
 
 ### 🔜 แผนพัฒนาเพิ่มเติมในอนาคต (Roadmap)
 
