@@ -14,6 +14,7 @@ import {
 let currentPrForAction = null;
 let _allPrs = [];
 let _checkPrsInFlight = false;
+let _autoScanConsecutiveFailures = 0;
 const AUTO_CONSOLE_MAX_ENTRIES = 100;
 window._adoAuthStatus = {
   connected: false,
@@ -164,6 +165,9 @@ async function checkPrs(isSilent) {
     const r = await safeFetchJson('/api/list-prs', { timeoutMs: 55000 });
     if (r.parseError) {
       if (!isSilent) showBox('prResult', '<div class="test-result result-error">❌ Backend ตอบไม่ใช่ JSON (HTTP ' + r.status + ')</div>');
+      else if (window._autoMode && window._autoMode !== 'normal') {
+        logAutoScanFailure(describeAutoScanHttpFailure(r, null));
+      }
       return;
     }
     if (!r.ok || !r.data || !r.data.ok) {
@@ -171,10 +175,13 @@ async function checkPrs(isSilent) {
       if (!isSilent) {
         showBox('prResult', '<div class="test-result result-error">❌ ' + escapeHtml(d.error || 'Unknown') +
           '<br/><small>' + escapeHtml(d.hint || d.detail || '') + '</small></div>');
+      } else if (window._autoMode && window._autoMode !== 'normal') {
+        logAutoScanFailure(describeAutoScanHttpFailure(r, d));
       }
       return;
     }
     const d = r.data;
+    resetAutoScanFailureState();
     saveLastSync(d);
     const mergeCodeCount = (d.prs || []).filter(isMergeCodePr).length;
     const attention = d.attentionSummary || {};
@@ -197,7 +204,7 @@ async function checkPrs(isSilent) {
     if (!isSilent) {
       showBox('prResult', '<div class="test-result result-error">❌ ' + escapeHtml(err.message) + '</div>');
     } else if (window._autoMode && window._autoMode !== 'normal') {
-      writeToAutoConsole('Automatic scan failed: ' + err.message, 'error');
+      logAutoScanFailure(describeAutoScanException(err));
     }
   } finally {
     _checkPrsInFlight = false;
@@ -205,6 +212,60 @@ async function checkPrs(isSilent) {
       resetCheckPrsButton();
     }
   }
+}
+
+function resetAutoScanFailureState() {
+  if (_autoScanConsecutiveFailures > 0 && window._autoMode && window._autoMode !== 'normal') {
+    writeToAutoConsole('Automatic scan recovered after ' + _autoScanConsecutiveFailures + ' failed attempt(s).', 'info');
+  }
+  _autoScanConsecutiveFailures = 0;
+}
+
+function logAutoScanFailure(message) {
+  _autoScanConsecutiveFailures += 1;
+  const suffix = _autoScanConsecutiveFailures > 1
+    ? ' (consecutive failures: ' + _autoScanConsecutiveFailures + ')'
+    : '';
+  writeToAutoConsole(message + suffix, 'error');
+}
+
+function describeAutoScanException(err) {
+  const message = err && err.message ? String(err.message) : 'Unknown browser/network error';
+  const lower = message.toLowerCase();
+
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return 'Automatic scan paused: browser is offline. No approval was sent.';
+  }
+  if (lower.includes('request timeout')) {
+    return 'Automatic scan timed out while calling /api/list-prs. The backend may be busy or warming up. No approval was sent.';
+  }
+  if (lower.includes('failed to fetch') || lower.includes('networkerror')) {
+    return 'Automatic scan could not reach /api/list-prs. Likely a brief network, deploy, or Functions warm-up interruption. No approval was sent.';
+  }
+  return 'Automatic scan failed before receiving an API response: ' + message + '. No approval was sent.';
+}
+
+function describeAutoScanHttpFailure(response, data) {
+  const status = response && response.status ? Number(response.status) : 0;
+  const d = data || {};
+  const detail = d.error || d.hint || d.detail || response && response.parseError || '';
+
+  if (status === 401 || status === 403) {
+    return 'Automatic scan could not continue because the browser session is not authorized (HTTP ' + status + '). Refresh or sign in again. No approval was sent.';
+  }
+  if (status === 428) {
+    return 'Automatic scan needs Azure DevOps connection refresh (HTTP 428). Connect Azure DevOps again before auto approve can continue.';
+  }
+  if (status === 429) {
+    return 'Automatic scan was rate-limited by an upstream service (HTTP 429). It will retry on the next interval. No approval was sent.';
+  }
+  if (status >= 500) {
+    return 'Automatic scan reached /api/list-prs but the backend returned HTTP ' + status + '. It will retry on the next interval. ' + (detail ? 'Detail: ' + detail : 'No approval was sent.');
+  }
+  if (response && response.parseError) {
+    return 'Automatic scan reached /api/list-prs but received a non-JSON response (HTTP ' + (status || '-') + '). This can happen during auth redirect or deploy warm-up. No approval was sent.';
+  }
+  return 'Automatic scan reached /api/list-prs but did not receive an OK response' + (status ? ' (HTTP ' + status + ')' : '') + '. ' + (detail || 'No approval was sent.');
 }
 
 function renderPrSummaryBanner(d, attention, mergeCodeCount) {
