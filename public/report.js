@@ -424,7 +424,7 @@ function renderScopeNote(data) {
     : 'PR actions: ทั้งหมด';
   const buildText = scope.buildScope === 'related'
     ? 'Staging builds: เฉพาะ Build ของ PR ที่แสดงในรายงาน'
-    : 'Staging builds: ทั้งหมดบน Staging';
+    : 'Staging builds: ทั้งหมดบน Staging Pipeline';
   const relatedText = scope.buildScope === 'related'
     ? ' | PR ที่ใช้จับคู่: ' + (scope.relatedPrCount || 0)
     : '';

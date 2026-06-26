@@ -91,12 +91,11 @@ module.exports = async function (context, req) {
 
     context.log(`Total builds fetched: ${uniqueBuilds.length}`);
 
-    // 3) กรองเฉพาะประวัติการ Build ของ branch staging และไม่ใช่พวก schedule / devops scripts ของระบบ
+    // 3) กรองเฉพาะประวัติการ Build ของ Staging pipeline และไม่ใช่พวก schedule / devops scripts ของระบบ
     const filteredBuilds = uniqueBuilds.filter(b => {
       const pipelineName = (b.definition && b.definition.name || '').toLowerCase();
-      if (!pipelineName.includes('stg')) return false;
       if (pipelineName.includes('schedule') || pipelineName.includes('scripts')) return false;
-      return isStagingBranchName(b.sourceBranch);
+      return isStagingPipelineName(pipelineName);
     });
 
     context.log(`Staging builds count: ${filteredBuilds.length}`);
@@ -149,7 +148,7 @@ module.exports = async function (context, req) {
           const pipelineName = (row.PipelineName || '').toLowerCase();
           return !pipelineName.includes('schedule') &&
             !pipelineName.includes('scripts') &&
-            isStagingBranchName(row.Branch);
+            isStagingPipelineName(pipelineName);
         });
       }
 
@@ -254,7 +253,7 @@ module.exports = async function (context, req) {
       const pipelineName = (row.PipelineName || '').toLowerCase();
       return !pipelineName.includes('schedule') &&
         !pipelineName.includes('scripts') &&
-        isStagingBranchName(row.Branch);
+        isStagingPipelineName(pipelineName);
     });
 
     cleanCombinedRows.sort((a, b) => new Date(b.FinishedTime) - new Date(a.FinishedTime));
@@ -314,13 +313,9 @@ function inferRepoNameFromPipeline(pipelineName) {
     .trim();
 }
 
-function isStagingBranchName(value) {
+function isStagingPipelineName(value) {
   const text = String(value || '').trim().toLowerCase();
-  const clean = text.replace(/^refs\/heads\//, '');
-  return clean === 'staging' ||
-    clean.startsWith('staging/') ||
-    clean === 'stg' ||
-    clean.startsWith('stg/');
+  return text.includes('stg') || text.includes('staging');
 }
 
 /**

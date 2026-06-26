@@ -459,22 +459,18 @@ function getDeploymentKey(row) {
 function isStagingBuild(build) {
   const pipelineName = String(build && build.definition && build.definition.name || '').toLowerCase();
   if (pipelineName.includes('schedule') || pipelineName.includes('scripts')) return false;
-  return isStagingBranchName(build && build.sourceBranch);
+  return isStagingPipelineName(pipelineName);
 }
 
 function isStagingDeploymentRow(row) {
   const pipelineName = String(row && row.PipelineName || '').toLowerCase();
   if (pipelineName.includes('schedule') || pipelineName.includes('scripts')) return false;
-  return isStagingBranchName(row && row.Branch);
+  return isStagingPipelineName(pipelineName);
 }
 
-function isStagingBranchName(value) {
+function isStagingPipelineName(value) {
   const text = String(value || '').trim().toLowerCase();
-  const clean = text.replace(/^refs\/heads\//, '');
-  return clean === 'staging' ||
-    clean.startsWith('staging/') ||
-    clean === 'stg' ||
-    clean.startsWith('stg/');
+  return text.includes('stg') || text.includes('staging');
 }
 
 function mapBuildToDeploymentRow(build) {
