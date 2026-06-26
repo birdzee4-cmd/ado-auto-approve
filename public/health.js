@@ -1,7 +1,7 @@
 import {
   safeFetchJson, escapeHtml, showBox, setButtonLoading,
-  bind, formatDate, initPage, checkHealthStatus,
-  renderSystemHealth, renderSystemHealthError
+  bind, initPage, checkHealthStatus,
+  renderSystemHealth
 } from './core.js';
 
 // Helper to show test results (re-implemented local helper from monolithic showResult)
@@ -114,5 +114,4 @@ async function testExceptionScan() {
   bind('btnTestExceptionScan', testExceptionScan);
   bind('btnTestHealth', testHealth);
   bind('btnRefreshHealth', checkHealthStatus);
-  await checkHealthStatus();
 })();
