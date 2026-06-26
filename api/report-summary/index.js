@@ -106,6 +106,7 @@ module.exports = async function (context, req) {
     const uniquePrs = new Set();
     const repoPrCount = {}; // repository -> Set of unique PRs
     const relatedPrIds = new Set();
+    const relatedRepoKeys = new Set();
 
     logs.forEach(item => {
       const fields = item.fields || {};
@@ -122,6 +123,7 @@ module.exports = async function (context, req) {
       if (repo && repo !== 'Daily Summary' && repo !== 'Daily Summary Test') {
         if (!repoPrCount[repo]) repoPrCount[repo] = new Set();
         repoPrCount[repo].add(prId);
+        relatedRepoKeys.add(normalizeRepoKey(repo));
       }
 
       const action = String(fields.Action || '').toLowerCase();
@@ -187,11 +189,12 @@ module.exports = async function (context, req) {
     deployments.forEach(row => {
       const pipelineName = (row.PipelineName || '').toLowerCase();
       if (pipelineName.includes('schedule') || pipelineName.includes('scripts')) return;
+      if (!isStagingDeploymentRow(row)) return;
 
       const finishedTime = row.FinishedTime || '';
       const ts = Date.parse(finishedTime);
       if (isNaN(ts) || ts < startTs || ts >= endTs) return;
-      if (buildScope === 'related' && !isDeploymentRelatedToPr(row, relatedPrIds)) return;
+      if (buildScope === 'related' && !isDeploymentRelatedToReport(row, relatedPrIds, relatedRepoKeys)) return;
 
       totalDeploys++;
       const status = String(row.Status || '').toLowerCase();
@@ -240,7 +243,8 @@ module.exports = async function (context, req) {
         actionScope: actionScope,
         buildScope: buildScope,
         user: actionScope === 'mine' ? currentUser : '',
-        relatedPrCount: relatedPrIds.size
+        relatedPrCount: relatedPrIds.size,
+        relatedRepoCount: relatedRepoKeys.size
       },
       stats: {
         totalPrs: uniquePrs.size,
@@ -386,9 +390,20 @@ function buildUserAliases(principal) {
   return Array.from(aliases).filter(Boolean);
 }
 
-function isDeploymentRelatedToPr(row, relatedPrIds) {
+function isDeploymentRelatedToReport(row, relatedPrIds, relatedRepoKeys) {
   if (!relatedPrIds || relatedPrIds.size === 0) return false;
-  const candidates = [
+  const candidates = getDeploymentPrCandidates(row);
+  if (candidates.some(value => value && relatedPrIds.has(String(value)))) return true;
+
+  const hasPrSignal = candidates.some(Boolean);
+  if (hasPrSignal) return false;
+
+  const repoKey = normalizeRepoKey(getDeploymentRepoName(row));
+  return !!repoKey && relatedRepoKeys && relatedRepoKeys.has(repoKey);
+}
+
+function getDeploymentPrCandidates(row) {
+  return [
     row.PrId,
     row.PR_ID,
     row.PullRequestId,
@@ -398,7 +413,6 @@ function isDeploymentRelatedToPr(row, relatedPrIds) {
     extractPrId(row.BuildTags),
     extractPrId(row.AdoBuildUrl)
   ];
-  return candidates.some(value => value && relatedPrIds.has(String(value)));
 }
 
 async function fetchLiveDeployments(context, startIso, endIso) {
@@ -444,13 +458,23 @@ function getDeploymentKey(row) {
 
 function isStagingBuild(build) {
   const pipelineName = String(build && build.definition && build.definition.name || '').toLowerCase();
-  const branchName = String(build && build.sourceBranch || '').toLowerCase();
   if (pipelineName.includes('schedule') || pipelineName.includes('scripts')) return false;
-  return pipelineName.includes('stg') ||
-    pipelineName.includes('staging') ||
-    branchName.startsWith('refs/heads/staging') ||
-    branchName.includes('/staging') ||
-    branchName.includes('/stg');
+  return isStagingBranchName(build && build.sourceBranch);
+}
+
+function isStagingDeploymentRow(row) {
+  const pipelineName = String(row && row.PipelineName || '').toLowerCase();
+  if (pipelineName.includes('schedule') || pipelineName.includes('scripts')) return false;
+  return isStagingBranchName(row && row.Branch);
+}
+
+function isStagingBranchName(value) {
+  const text = String(value || '').trim().toLowerCase();
+  const clean = text.replace(/^refs\/heads\//, '');
+  return clean === 'staging' ||
+    clean.startsWith('staging/') ||
+    clean === 'stg' ||
+    clean.startsWith('stg/');
 }
 
 function mapBuildToDeploymentRow(build) {
