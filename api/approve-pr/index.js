@@ -12,10 +12,12 @@
  */
 
 module.exports = async function (context, req) {
+  const responseHeaders = {};
   function jsonResponse(status, payload) {
+    const headers = Object.assign({ 'Content-Type': 'application/json; charset=utf-8' }, responseHeaders);
     context.res = {
       status: status,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      headers: headers,
       body: JSON.stringify(payload)
     };
   }
@@ -29,6 +31,19 @@ module.exports = async function (context, req) {
     }
 
     const userEmail = auth.getUserEmail(roleCheck.principal);
+    const delegated = require('../shared/ado-user-token');
+    const userToken = await delegated.getValidAccessToken(req, roleCheck.principal);
+    if (!userToken.ok) {
+      jsonResponse(userToken.status || 428, {
+        ok: false,
+        error: userToken.error || 'Azure DevOps connection required',
+        hint: 'Connect Azure DevOps from Dashboard before approving as your own account.',
+        connectUrl: '/api/ado-auth-start?returnTo=/dashboard.html'
+      });
+      return;
+    }
+    if (userToken.setCookie) responseHeaders['Set-Cookie'] = userToken.setCookie;
+    const userAdoAuth = { accessToken: userToken.accessToken };
 
     let body = req.body;
     if (typeof body === 'string') {
@@ -43,15 +58,15 @@ module.exports = async function (context, req) {
 
     const ado = require('../shared/ado-client');
 
-    let botUserId;
+    let approverUserId;
     try {
-      const conn = await ado.getConnectionData();
+      const conn = await ado.getConnectionData(userAdoAuth);
       if (!conn.ok || !conn.body.authenticatedUser) {
-        throw new Error('Cannot get bot user identity');
+        throw new Error('Cannot get Azure DevOps user identity');
       }
-      botUserId = conn.body.authenticatedUser.id;
+      approverUserId = conn.body.authenticatedUser.id;
     } catch (e) {
-      jsonResponse(500, { ok: false, error: 'Failed to identify bot user', detail: e.message });
+      jsonResponse(500, { ok: false, error: 'Failed to identify Azure DevOps user', detail: e.message });
       return;
     }
 
@@ -126,9 +141,10 @@ module.exports = async function (context, req) {
 
     // 3) Set Auto-Complete (merge existing options + uncheck Release Notes)
     const existingOptions = pr.completionOptions || {};
-    const acResult = await ado.setAutoComplete(prId, repositoryId, botUserId, {
+    const acResult = await ado.setAutoComplete(prId, repositoryId, approverUserId, {
       existingOptions: existingOptions,
-      releaseNotesIgnoreIds: releaseNotesIgnoreIds
+      releaseNotesIgnoreIds: releaseNotesIgnoreIds,
+      requestOptions: userAdoAuth
     });
     const autoCompleteOk = acResult.ok;
     if (!autoCompleteOk) {
@@ -136,7 +152,7 @@ module.exports = async function (context, req) {
     }
 
     // 4) Vote = 10
-    const voteResult = await ado.approvePR(prId, repositoryId, botUserId);
+    const voteResult = await ado.approvePR(prId, repositoryId, approverUserId, userAdoAuth);
     if (!voteResult.ok) {
       jsonResponse(502, {
         ok: false,

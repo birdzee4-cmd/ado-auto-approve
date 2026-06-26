@@ -8,10 +8,12 @@
  */
 
 module.exports = async function (context, req) {
+  const responseHeaders = {};
   function jsonResponse(status, payload) {
+    const headers = Object.assign({ 'Content-Type': 'application/json; charset=utf-8' }, responseHeaders);
     context.res = {
       status: status,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      headers: headers,
       body: JSON.stringify(payload)
     };
   }
@@ -25,6 +27,19 @@ module.exports = async function (context, req) {
     }
 
     const userEmail = auth.getUserEmail(roleCheck.principal);
+    const delegated = require('../shared/ado-user-token');
+    const userToken = await delegated.getValidAccessToken(req, roleCheck.principal);
+    if (!userToken.ok) {
+      jsonResponse(userToken.status || 428, {
+        ok: false,
+        error: userToken.error || 'Azure DevOps connection required',
+        hint: 'Connect Azure DevOps from Dashboard before rejecting as your own account.',
+        connectUrl: '/api/ado-auth-start?returnTo=/dashboard.html'
+      });
+      return;
+    }
+    if (userToken.setCookie) responseHeaders['Set-Cookie'] = userToken.setCookie;
+    const userAdoAuth = { accessToken: userToken.accessToken };
 
     let body = req.body;
     if (typeof body === 'string') {
@@ -45,13 +60,15 @@ module.exports = async function (context, req) {
 
     const ado = require('../shared/ado-client');
 
-    // bot identity
-    let botUserId;
+    let approverUserId;
     try {
-      const conn = await ado.getConnectionData();
-      botUserId = conn.body.authenticatedUser.id;
+      const conn = await ado.getConnectionData(userAdoAuth);
+      if (!conn.ok || !conn.body.authenticatedUser) {
+        throw new Error('Cannot get Azure DevOps user identity');
+      }
+      approverUserId = conn.body.authenticatedUser.id;
     } catch (e) {
-      jsonResponse(500, { ok: false, error: 'Failed to identify bot user', detail: e.message });
+      jsonResponse(500, { ok: false, error: 'Failed to identify Azure DevOps user', detail: e.message });
       return;
     }
 
@@ -95,7 +112,7 @@ module.exports = async function (context, req) {
     }
 
     // Vote = -10
-    const voteResult = await ado.rejectPR(prId, repositoryId, botUserId);
+    const voteResult = await ado.rejectPR(prId, repositoryId, approverUserId, userAdoAuth);
     if (!voteResult.ok) {
       jsonResponse(502, {
         ok: false,

@@ -19,12 +19,12 @@ function getConfig() {
   return { org, project, pat };
 }
 
-function adoRequest(method, path, body) {
-  return adoHostRequest('dev.azure.com', method, path, body);
+function adoRequest(method, path, body, options) {
+  return adoHostRequest('dev.azure.com', method, path, body, options);
 }
 
-function releaseRequest(method, path, body) {
-  return adoHostRequest('vsrm.dev.azure.com', method, path, body);
+function releaseRequest(method, path, body, options) {
+  return adoHostRequest('vsrm.dev.azure.com', method, path, body, options);
 }
 
 async function executeWithRetry(requestFn, maxRetries = 3, initialDelay = 500) {
@@ -51,13 +51,15 @@ async function executeWithRetry(requestFn, maxRetries = 3, initialDelay = 500) {
   }
 }
 
-function adoHostRequest(hostname, method, path, body) {
-  return executeWithRetry(() => makeSingleAdoHostRequest(hostname, method, path, body));
+function adoHostRequest(hostname, method, path, body, options) {
+  return executeWithRetry(() => makeSingleAdoHostRequest(hostname, method, path, body, options));
 }
 
-function makeSingleAdoHostRequest(hostname, method, path, body) {
+function makeSingleAdoHostRequest(hostname, method, path, body, options) {
   const { pat } = getConfig();
-  const auth = 'Basic ' + Buffer.from(':' + pat).toString('base64');
+  const auth = options && options.accessToken
+    ? 'Bearer ' + options.accessToken
+    : 'Basic ' + Buffer.from(':' + pat).toString('base64');
   const data = body ? JSON.stringify(body) : null;
 
   return new Promise((resolve, reject) => {
@@ -111,19 +113,19 @@ async function listReleasesByBuildId(buildId, top) {
   return releaseRequest('GET', path);
 }
 
-async function getRelease(releaseId) {
+async function getRelease(releaseId, options) {
   const { org, project } = getConfig();
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/releases/${encodeURIComponent(String(releaseId))}?api-version=7.1`;
-  return releaseRequest('GET', path);
+  return releaseRequest('GET', path, null, options);
 }
 
-async function approveReleaseApproval(approvalId, comments) {
+async function approveReleaseApproval(approvalId, comments, options) {
   const { org, project } = getConfig();
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/approvals/${encodeURIComponent(String(approvalId))}?api-version=7.1`;
   return releaseRequest('PATCH', path, {
     status: 'approved',
     comments: comments || 'Approved from ADO Auto-Approve Dashboard'
-  });
+  }, options);
 }
 
 async function getLatestReleaseApprovalForBuild(buildId, reviewerGroup) {
@@ -327,10 +329,10 @@ async function listActivePRs(targetBranch) {
 /**
  * ดึง ID ของ bot user (จาก PAT) — ใช้สำหรับ vote
  */
-async function getConnectionData() {
+async function getConnectionData(options) {
   const { org } = getConfig();
   const path = `/${encodeURIComponent(org)}/_apis/connectionData`;
-  return adoRequest('GET', path);
+  return adoRequest('GET', path, null, options);
 }
 
 /**
@@ -521,25 +523,25 @@ function summarizePolicyEvaluations(evaluations, statuses) {
 /**
  * Vote = 10 (Approved) สำหรับ bot user บน PR นี้
  */
-async function approvePR(prId, repositoryId, botUserId) {
+async function approvePR(prId, repositoryId, botUserId, options) {
   const { org, project } = getConfig();
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repositoryId}/pullRequests/${prId}/reviewers/${botUserId}?api-version=7.0`;
   return adoRequest('PUT', path, {
     vote: 10,
     isRequired: false
-  });
+  }, options);
 }
 
 /**
  * Vote = -10 (Rejected)
  */
-async function rejectPR(prId, repositoryId, botUserId) {
+async function rejectPR(prId, repositoryId, botUserId, options) {
   const { org, project } = getConfig();
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repositoryId}/pullRequests/${prId}/reviewers/${botUserId}?api-version=7.0`;
   return adoRequest('PUT', path, {
     vote: -10,
     isRequired: false
-  });
+  }, options);
 }
 
 /**
@@ -558,6 +560,7 @@ async function setAutoComplete(prId, repositoryId, botUserId, options) {
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repositoryId}/pullRequests/${prId}?api-version=7.0`;
 
   options = options || {};
+  const requestOptions = options.requestOptions || {};
   const existing = options.existingOptions || {};
   const ignoreIds = Array.isArray(options.releaseNotesIgnoreIds) ? options.releaseNotesIgnoreIds.slice() : [];
 
@@ -577,7 +580,7 @@ async function setAutoComplete(prId, repositoryId, botUserId, options) {
   return adoRequest('PATCH', path, {
     autoCompleteSetBy: { id: botUserId },
     completionOptions: completionOptions
-  });
+  }, requestOptions);
 }
 
 /**

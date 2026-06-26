@@ -56,6 +56,17 @@
             <div class="info-value" id="userRole">-</div>
           </div>
         </div>
+        <div class="info-item ado-connect-item">
+          <div class="info-icon">🔐</div>
+          <div class="info-content">
+            <div class="info-label">Azure DevOps</div>
+            <div class="info-value" id="adoConnectionStatus">Checking...</div>
+            <div class="ado-connect-actions">
+              <button type="button" id="btnConnectAdo" class="btn-ado-connect">Connect</button>
+              <button type="button" id="btnDisconnectAdo" class="btn-ado-disconnect" hidden>Disconnect</button>
+            </div>
+          </div>
+        </div>
         <div class="info-item">
           <div class="info-icon">🕒</div>
           <div class="info-content">
@@ -202,7 +213,7 @@
           <li>เปิด <strong>Set Auto-Complete</strong> ก่อน โดยใช้ <strong>Merge (no fast forward)</strong></li>
           <li>⭐ <strong>Uncheck "Release Notes"</strong> optional check (ถ้ามี)</li>
           <li>เคารพการตั้งค่า completionOptions อื่นที่ผู้เปิด PR ตั้งไว้</li>
-          <li>ส่ง Vote = 10 (Approved) ในนามของ Bot</li>
+          <li>ส่ง Vote = 10 (Approved) ในนาม Azure DevOps account ของผู้ที่ login</li>
           <li>บันทึก log ลง SharePoint</li>
           <li><strong>ไม่</strong> แตะ Work Item / Worklist</li>
         </ul>

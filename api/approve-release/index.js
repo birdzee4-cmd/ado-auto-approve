@@ -8,10 +8,12 @@
  */
 
 module.exports = async function (context, req) {
+  const responseHeaders = {};
   function jsonResponse(status, payload) {
+    const headers = Object.assign({ 'Content-Type': 'application/json; charset=utf-8' }, responseHeaders);
     context.res = {
       status: status,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      headers: headers,
       body: JSON.stringify(payload)
     };
   }
@@ -25,6 +27,20 @@ module.exports = async function (context, req) {
     }
 
     const userEmail = auth.getUserEmail(roleCheck.principal);
+    const delegated = require('../shared/ado-user-token');
+    const userToken = await delegated.getValidAccessToken(req, roleCheck.principal);
+    if (!userToken.ok) {
+      jsonResponse(userToken.status || 428, {
+        ok: false,
+        error: userToken.error || 'Azure DevOps connection required',
+        hint: 'Connect Azure DevOps from Dashboard before approving release as your own account.',
+        connectUrl: '/api/ado-auth-start?returnTo=/dashboard.html'
+      });
+      return;
+    }
+    if (userToken.setCookie) responseHeaders['Set-Cookie'] = userToken.setCookie;
+    const userAdoAuth = { accessToken: userToken.accessToken };
+
     let body = req.body;
     if (typeof body === 'string') {
       try { body = JSON.parse(body); } catch (e) { body = {}; }
@@ -85,7 +101,7 @@ module.exports = async function (context, req) {
 
     const comments = 'Approved from ADO Auto-Approve Dashboard by ' + userEmail +
       (prId ? ' for PR #' + prId : '');
-    const approveResult = await ado.approveReleaseApproval(approvalId, comments);
+    const approveResult = await ado.approveReleaseApproval(approvalId, comments, userAdoAuth);
     if (!approveResult.ok) {
       jsonResponse(502, {
         ok: false,

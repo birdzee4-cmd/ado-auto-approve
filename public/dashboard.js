@@ -15,6 +15,76 @@ let currentPrForAction = null;
 let _allPrs = [];
 let _checkPrsInFlight = false;
 const AUTO_CONSOLE_MAX_ENTRIES = 100;
+window._adoAuthStatus = {
+  connected: false,
+  checked: false
+};
+
+async function loadAdoAuthStatus() {
+  const statusEl = document.getElementById('adoConnectionStatus');
+  const connectBtn = document.getElementById('btnConnectAdo');
+  const disconnectBtn = document.getElementById('btnDisconnectAdo');
+  if (statusEl) statusEl.textContent = 'Checking...';
+  try {
+    const r = await safeFetchJson('/api/ado-auth-status');
+    const d = r.data || {};
+    const connected = !!(r.ok && d.ok && d.connected);
+    window._adoAuthStatus = {
+      connected: connected,
+      checked: true,
+      user: d.user || '',
+      reason: d.reason || '',
+      expiresAt: d.expiresAt || ''
+    };
+    if (statusEl) {
+      statusEl.textContent = connected
+        ? 'Connected as ' + (d.user || 'Azure DevOps user')
+        : 'Not connected';
+      statusEl.className = 'info-value ' + (connected ? 'ado-connected' : 'ado-not-connected');
+    }
+    if (connectBtn) connectBtn.hidden = connected;
+    if (disconnectBtn) disconnectBtn.hidden = !connected;
+  } catch (e) {
+    window._adoAuthStatus = { connected: false, checked: true, reason: e.message };
+    if (statusEl) {
+      statusEl.textContent = 'Unable to check';
+      statusEl.className = 'info-value ado-not-connected';
+    }
+    if (connectBtn) connectBtn.hidden = false;
+    if (disconnectBtn) disconnectBtn.hidden = true;
+  }
+}
+
+function startAdoConnect() {
+  const returnTo = window.location.pathname + window.location.search;
+  window.location.href = '/api/ado-auth-start?returnTo=' + encodeURIComponent(returnTo || '/dashboard.html');
+}
+
+async function disconnectAdo() {
+  if (!confirm('Disconnect Azure DevOps from this browser session?')) return;
+  await safeFetchJson('/api/ado-auth-disconnect', { method: 'POST' });
+  await loadAdoAuthStatus();
+}
+
+async function ensureAdoConnected() {
+  if (!window._adoAuthStatus || !window._adoAuthStatus.checked) {
+    await loadAdoAuthStatus();
+  }
+  if (window._adoAuthStatus && window._adoAuthStatus.connected) return true;
+  if (confirm('ต้อง Connect Azure DevOps ก่อน เพื่อ Approve ด้วยชื่อบัญชีของคุณเอง\n\nต้องการ Connect ตอนนี้ไหม?')) {
+    startAdoConnect();
+  }
+  return false;
+}
+
+function handleAdoAuthRequired(responseData) {
+  const connectUrl = responseData && responseData.connectUrl || '/api/ado-auth-start?returnTo=/dashboard.html';
+  if (confirm('ต้อง Connect Azure DevOps ก่อน เพื่อดำเนินการด้วยชื่อบัญชีของคุณเอง\n\nต้องการ Connect ตอนนี้ไหม?')) {
+    window.location.href = connectUrl;
+    return true;
+  }
+  return false;
+}
 
 
 
@@ -844,7 +914,8 @@ function getPrFromTable(prId) {
 
 
 // ===== Approve Modal =====
-window.openApproveModal = function(prId, repositoryId) {
+window.openApproveModal = async function(prId, repositoryId) {
+  if (!(await ensureAdoConnected())) return;
   const prData = getPrFromTable(prId);
   if (!prData) return;
   if (isApprovalHeld(prData)) {
@@ -875,6 +946,9 @@ async function doApprove() {
     });
     if (r.parseError || !r.ok || !r.data || !r.data.ok) {
       const d = r.data || {};
+      if (r.status === 428 || d.connectUrl) {
+        if (handleAdoAuthRequired(d)) return;
+      }
       alert('❌ Approve ไม่สำเร็จ:\n' + (d.error || 'Unknown') + '\n\n' + (d.detail || d.hint || ''));
     } else {
       const ignoredText = r.data.releaseNotesIgnored > 0
@@ -895,6 +969,7 @@ async function doApprove() {
 }
 
 window.approveRelease = async function(prId) {
+  if (!(await ensureAdoConnected())) return;
   const pr = (window._prCache || {})[prId];
   const release = pr && pr.releaseApproval || {};
   if (isApprovalHeld(pr)) {
@@ -930,6 +1005,9 @@ window.approveRelease = async function(prId) {
     });
     if (r.parseError || !r.ok || !r.data || !r.data.ok) {
       const d = r.data || {};
+      if (r.status === 428 || d.connectUrl) {
+        if (handleAdoAuthRequired(d)) return;
+      }
       alert('❌ Approve Release ไม่สำเร็จ:\n' + (d.error || 'Unknown') + '\n\n' + (d.detail || d.hint || ''));
       return;
     }
@@ -944,7 +1022,8 @@ window.approveRelease = async function(prId) {
 
 
 // ===== Reject Modal =====
-window.openRejectModal = function(prId, repositoryId) {
+window.openRejectModal = async function(prId, repositoryId) {
+  if (!(await ensureAdoConnected())) return;
   const prData = getPrFromTable(prId);
   if (!prData) return;
   if (isApprovalHeld(prData)) {
@@ -981,6 +1060,9 @@ async function doReject() {
     });
     if (r.parseError || !r.ok || !r.data || !r.data.ok) {
       const d = r.data || {};
+      if (r.status === 428 || d.connectUrl) {
+        if (handleAdoAuthRequired(d)) return;
+      }
       alert('❌ Reject ไม่สำเร็จ:\n' + (d.error || 'Unknown'));
     } else {
       alert('✅ Reject สำเร็จ!\n\nPR #' + r.data.prId + '\nLog: ' + r.data.logStatus);
@@ -1531,6 +1613,9 @@ async function evaluateAutoApprovals(prs) {
   bind('btnConfirmApprove', doApprove);
   bind('btnConfirmReject', doReject);
   bind('btnConfirmHold', doHold);
+  bind('btnConnectAdo', startAdoConnect);
+  bind('btnDisconnectAdo', disconnectAdo);
+  await loadAdoAuthStatus();
   
   // Intercept page reload/navigation when auto mode is active
   window.addEventListener('beforeunload', (e) => {

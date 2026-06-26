@@ -195,6 +195,48 @@
   margin: 0;
 }
 
+.ado-connect-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.btn-ado-connect,
+.btn-ado-disconnect {
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-ado-connect {
+  background: #2563eb;
+  color: #fff;
+}
+
+.btn-ado-connect:hover {
+  background: #1d4ed8;
+}
+
+.btn-ado-disconnect {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.btn-ado-disconnect:hover {
+  background: #e5e7eb;
+}
+
+.ado-connected {
+  color: #047857 !important;
+}
+
+.ado-not-connected {
+  color: #b45309 !important;
+}
+
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -2475,4 +2517,4 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 
-
+
