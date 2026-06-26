@@ -423,7 +423,7 @@ function renderScopeNote(data) {
     ? 'PR actions: เฉพาะของฉัน'
     : 'PR actions: ทั้งหมด';
   const buildText = scope.buildScope === 'related'
-    ? 'Staging builds: เฉพาะ build ที่สัมพันธ์กับ PR ในรายงาน'
+    ? 'Staging builds: เฉพาะ Build ของ PR ที่แสดงในรายงาน'
     : 'Staging builds: ทั้งหมดบน Staging';
   const relatedText = scope.buildScope === 'related'
     ? ' | PR ที่ใช้จับคู่: ' + (scope.relatedPrCount || 0)
