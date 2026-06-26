@@ -13,6 +13,9 @@
 
 module.exports = async function (context, req) {
   const responseHeaders = {};
+  let approvalLock = null;
+  let approvalLockStore = null;
+  let approvalLockFinished = false;
   function jsonResponse(status, payload) {
     const headers = Object.assign({ 'Content-Type': 'application/json; charset=utf-8' }, responseHeaders);
     context.res = {
@@ -123,6 +126,40 @@ module.exports = async function (context, req) {
       return;
     }
 
+    approvalLockStore = require('../shared/approval-lock-store');
+    try {
+      approvalLock = await approvalLockStore.acquireLock('approve-pr', prId, userEmail, {
+        repositoryId: repositoryId,
+        autoApproved: body && body.autoApproved === true
+      });
+    } catch (e) {
+      context.log.error('Approval lock acquire failed:', e);
+      jsonResponse(503, {
+        ok: false,
+        error: 'Approval lock is unavailable',
+        detail: e.message,
+        hint: 'Approval was not sent to Azure DevOps. Check Azure Table Storage configuration.'
+      });
+      return;
+    }
+
+    if (!approvalLock.acquired) {
+      if (approvalLock.completed) {
+        jsonResponse(200, Object.assign({
+          prId: prId,
+          user: userEmail,
+          lockStatus: 'completed'
+        }, approvalLock.response));
+      } else {
+        jsonResponse(409, Object.assign({
+          prId: prId,
+          user: userEmail,
+          lockStatus: 'processing'
+        }, approvalLock.response));
+      }
+      return;
+    }
+
     // 2) ดึง Branch Policies เพื่อหา Release Notes
     let releaseNotesIgnoreIds = [];
     let policiesFetched = false;
@@ -154,6 +191,11 @@ module.exports = async function (context, req) {
     // 4) Vote = 10
     const voteResult = await ado.approvePR(prId, repositoryId, approverUserId, userAdoAuth);
     if (!voteResult.ok) {
+      await safeFailLock(context, approvalLockStore, approvalLock, {
+        status: 'vote_failed',
+        message: 'Vote failed: HTTP ' + voteResult.status
+      });
+      approvalLockFinished = true;
       jsonResponse(502, {
         ok: false,
         error: 'Failed to approve in ADO',
@@ -202,6 +244,13 @@ module.exports = async function (context, req) {
       logStatus = 'failed: ' + e.message;
     }
 
+    await safeCompleteLock(context, approvalLockStore, approvalLock, {
+      status: 'approved',
+      message: resultText,
+      user: userEmail
+    });
+    approvalLockFinished = true;
+
     jsonResponse(200, {
       ok: true,
       message: 'PR approved successfully',
@@ -212,10 +261,17 @@ module.exports = async function (context, req) {
       releaseNotesIgnored: releaseNotesIgnoreIds.length,
       statusSnapshot: statusSnapshot,
       logStatus: logStatus,
+      lockOperationId: approvalLock.operationId,
       timestamp: new Date().toISOString()
     });
 
   } catch (err) {
+    if (approvalLock && approvalLock.acquired && !approvalLockFinished) {
+      await safeFailLock(context, approvalLockStore, approvalLock, {
+        status: 'unexpected_error',
+        message: err.message
+      });
+    }
     context.log.error('Unexpected error:', err);
     jsonResponse(500, { ok: false, error: 'Unexpected server error', detail: err.message });
   }
@@ -272,6 +328,24 @@ async function notifyOperationFailed(context, opts) {
     context.log.warn('Teams failure notification skipped:', e.message);
     return { ok: false, error: e.message };
   }
+}
+
+async function safeCompleteLock(context, store, lock, result) {
+  try {
+    if (store && lock && lock.acquired) return await store.completeLock(lock, result);
+  } catch (e) {
+    context.log.warn('Approval lock complete failed:', e.message);
+  }
+  return { ok: false };
+}
+
+async function safeFailLock(context, store, lock, result) {
+  try {
+    if (store && lock && lock.acquired) return await store.failLock(lock, result);
+  } catch (e) {
+    context.log.warn('Approval lock fail update failed:', e.message);
+  }
+  return { ok: false };
 }
 
 function getPrUrl(pr) {

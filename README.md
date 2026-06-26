@@ -53,6 +53,7 @@ flowchart LR
   API --> ADO["Azure DevOps REST API"]
   API --> Release["Azure DevOps Release API"]
   API --> TokenStore["Azure Table<br/>Encrypted ADO user tokens"]
+  API --> LockStore["Azure Table<br/>Approval action locks"]
   API --> SP["SharePoint List<br/>ADO AutoApprove Log"]
   API --> Teams["Teams Webhook"]
   Logic["Azure Logic Apps<br/>18:00 Asia/Bangkok"] --> API
@@ -637,6 +638,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `api/shared/ado-client.js` | Azure DevOps REST API client |
 | `api/shared/ado-user-token.js` | Azure DevOps delegated OAuth/token lifecycle helper |
 | `api/shared/ado-token-store.js` | Azure Table encrypted server-side token store |
+| `api/shared/approval-lock-store.js` | Azure Table distributed lock / idempotency store for approve actions |
 | `api/shared/sharepoint-client.js` | Microsoft Graph / SharePoint List client |
 | `api/shared/auth.js` | role / principal helper |
 | `api/shared/attention.js` | PR aging / stuck / attention logic |
@@ -708,6 +710,24 @@ api/shared/attention.js
 - หากไม่มี Storage connection string ระบบจะ fallback เป็น encrypted HttpOnly cookie เพื่อไม่ให้ flow ใช้งานไม่ได้ แต่ production ระยะยาวควรตั้ง Storage ให้ครบ
 - App Registration ต้องมี Web Redirect URI ตรงกับ `ADO_AUTH_REDIRECT_URI` และมี Azure DevOps delegated permissions ที่ admin consent แล้ว
 - หลัง callback สำเร็จ Dashboard จะแสดงข้อความ Connected และ clean query `adoConnected=1` ออกจาก URL อัตโนมัติ
+
+### Approval Action Locks
+
+ใช้ Azure Table Storage เป็น distributed lock เพื่อกันผู้ใช้หลายคนหรือหลาย Azure Function instance อนุมัติ PR / Release เดียวกันพร้อมกัน
+
+| Variable | Required | Description |
+|---|---:|---|
+| `APPROVAL_LOCK_STORAGE_CONNECTION_STRING` | Recommended | Azure Storage connection string สำหรับ lock store; ถ้าไม่ตั้งจะ fallback ไป `AzureWebJobsStorage` / `AZURE_STORAGE_CONNECTION_STRING` |
+| `APPROVAL_LOCK_TABLE` | No | Azure Table name สำหรับ lock store, default `ApprovalLocks` |
+| `APPROVAL_LOCK_TTL_SECONDS` | No | อายุ lock ระหว่าง processing, default `120` วินาที |
+| `APPROVAL_LOCK_COMPLETED_TTL_SECONDS` | No | อายุ idempotency record หลัง approve สำเร็จ, default `600` วินาที |
+| `APPROVAL_LOCK_FAILED_TTL_SECONDS` | No | อายุ failed record ก่อน retry ได้, default `15` วินาที |
+
+หมายเหตุ:
+
+- `/api/approve-pr` lock ด้วย `PartitionKey=approve-pr`, `RowKey=<prId>` ก่อนยิง `setAutoComplete` และ `approvePR`
+- `/api/approve-release` lock ด้วย `PartitionKey=approve-release`, `RowKey=<approvalId>` ก่อนยิง Release approval
+- ถ้า lock store ใช้งานไม่ได้ API จะตอบ `503` และไม่ส่ง approval ไป Azure DevOps เพื่อหลีกเลี่ยงการ approve แบบไม่มีกันชน
 
 ### Auth / Role
 

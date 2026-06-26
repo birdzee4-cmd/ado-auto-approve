@@ -9,6 +9,9 @@
 
 module.exports = async function (context, req) {
   const responseHeaders = {};
+  let approvalLock = null;
+  let approvalLockStore = null;
+  let approvalLockFinished = false;
   function jsonResponse(status, payload) {
     const headers = Object.assign({ 'Content-Type': 'application/json; charset=utf-8' }, responseHeaders);
     context.res = {
@@ -99,10 +102,54 @@ module.exports = async function (context, req) {
       return;
     }
 
+    approvalLockStore = require('../shared/approval-lock-store');
+    try {
+      approvalLock = await approvalLockStore.acquireLock('approve-release', approvalId, userEmail, {
+        prId: prId,
+        releaseId: releaseId,
+        environmentName: current.environmentName || body.environmentName || ''
+      });
+    } catch (e) {
+      context.log.error('Release approval lock acquire failed:', e);
+      jsonResponse(503, {
+        ok: false,
+        error: 'Approval lock is unavailable',
+        detail: e.message,
+        hint: 'Release approval was not sent to Azure DevOps. Check Azure Table Storage configuration.'
+      });
+      return;
+    }
+
+    if (!approvalLock.acquired) {
+      if (approvalLock.completed) {
+        jsonResponse(200, Object.assign({
+          prId: prId,
+          releaseId: releaseId,
+          approvalId: approvalId,
+          user: userEmail,
+          lockStatus: 'completed'
+        }, approvalLock.response));
+      } else {
+        jsonResponse(409, Object.assign({
+          prId: prId,
+          releaseId: releaseId,
+          approvalId: approvalId,
+          user: userEmail,
+          lockStatus: 'processing'
+        }, approvalLock.response));
+      }
+      return;
+    }
+
     const comments = 'Approved from ADO Auto-Approve Dashboard by ' + userEmail +
       (prId ? ' for PR #' + prId : '');
     const approveResult = await ado.approveReleaseApproval(approvalId, comments, userAdoAuth);
     if (!approveResult.ok) {
+      await safeFailLock(context, approvalLockStore, approvalLock, {
+        status: 'release_approval_failed',
+        message: 'Release approval failed: HTTP ' + approveResult.status
+      });
+      approvalLockFinished = true;
       jsonResponse(502, {
         ok: false,
         error: 'Failed to approve release in Azure DevOps',
@@ -140,6 +187,13 @@ module.exports = async function (context, req) {
       adoBuildUrl: current.releaseUrl || body.releaseUrl || ''
     });
 
+    await safeCompleteLock(context, approvalLockStore, approvalLock, {
+      status: 'release_approved',
+      message: 'Release approval approved',
+      user: userEmail
+    });
+    approvalLockFinished = true;
+
     jsonResponse(200, {
       ok: true,
       prId: prId,
@@ -149,9 +203,16 @@ module.exports = async function (context, req) {
       environmentName: current.environmentName || body.environmentName || '',
       releaseUrl: current.releaseUrl || body.releaseUrl || '',
       logStatus: logResult.ok ? 'logged' : 'failed: HTTP ' + logResult.status,
+      lockOperationId: approvalLock.operationId,
       timestamp: new Date().toISOString()
     });
   } catch (err) {
+    if (approvalLock && approvalLock.acquired && !approvalLockFinished) {
+      await safeFailLock(context, approvalLockStore, approvalLock, {
+        status: 'unexpected_error',
+        message: err.message
+      });
+    }
     context.log.error('Unexpected approve-release error:', err);
     jsonResponse(500, { ok: false, error: 'Unexpected server error', detail: err.message });
   }
@@ -177,4 +238,22 @@ async function getApprovalHoldState(context, prId) {
     context.log.warn('Approval Hold check failed:', e.message);
     return { active: false, error: e.message };
   }
+}
+
+async function safeCompleteLock(context, store, lock, result) {
+  try {
+    if (store && lock && lock.acquired) return await store.completeLock(lock, result);
+  } catch (e) {
+    context.log.warn('Release approval lock complete failed:', e.message);
+  }
+  return { ok: false };
+}
+
+async function safeFailLock(context, store, lock, result) {
+  try {
+    if (store && lock && lock.acquired) return await store.failLock(lock, result);
+  } catch (e) {
+    context.log.warn('Release approval lock fail update failed:', e.message);
+  }
+  return { ok: false };
 }
