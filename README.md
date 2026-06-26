@@ -376,6 +376,57 @@ Body สำหรับ cleanup จริง:
 
 แนะนำให้ Azure Logic Apps Consumption เรียก endpoint นี้เดือนละครั้ง เช่น วันที่ 1 เวลา 01:00 Asia/Bangkok
 
+### Azure Table Retention / Cleanup
+
+ระบบรองรับ cleanup สำหรับ Azure Table ที่ระบบสร้างเองเท่านั้น เพื่อลดข้อมูลค้างและลดการเก็บ token/lock เกินจำเป็น:
+
+- `ApprovalLocks`: ลบ record ที่ `expiresAt` เก่าเกิน retention window, default 7 วัน
+- `AdoUserTokens`: ลบ encrypted token record ที่ `expiresAt` เก่าเกิน retention window, default 90 วัน
+- ไม่แตะ Azure Functions host/system tables
+
+Endpoint:
+
+```text
+POST /api/table-retention-cleanup
+```
+
+Header:
+
+```text
+x-table-retention-token: <TABLE_RETENTION_TOKEN หรือ LOG_RETENTION_TOKEN หรือ DAILY_SUMMARY_TOKEN>
+```
+
+Body สำหรับ dry run:
+
+```json
+{
+  "dryRun": true,
+  "lockRetentionDays": 7,
+  "tokenRetentionDays": 90,
+  "maxItems": 500
+}
+```
+
+Body สำหรับ cleanup จริง:
+
+```json
+{
+  "dryRun": false,
+  "lockRetentionDays": 7,
+  "tokenRetentionDays": 90,
+  "maxItems": 500
+}
+```
+
+หลักการทำงาน:
+
+- Scan เฉพาะ table `ApprovalLocks` และ `AdoUserTokens`
+- Delete เฉพาะ entity ที่หมดอายุเกิน cutoff ตาม retention ที่กำหนด
+- Default ของ endpoint คือ `dryRun=true` เพื่อป้องกันการลบโดยไม่ตั้งใจ
+- บันทึก summary log กลับเข้า SharePoint ด้วย action `Table Retention Cleanup`
+
+แนะนำให้ Azure Logic Apps Consumption เรียกวันละครั้งหรือสัปดาห์ละครั้ง โดยส่ง `dryRun=false` เมื่อยืนยันผล dry run แล้ว
+
 ## System Health
 
 หน้า `/health.html` แสดงรายละเอียดสถานะระบบ
@@ -573,6 +624,7 @@ Routes สำคัญ:
 | `/api/build-failure-scan` | `anonymous` + header token |
 | `/api/hourly-log-sync` | `anonymous` + header token |
 | `/api/log-retention-cleanup` | `anonymous` + header token |
+| `/api/table-retention-cleanup` | `anonymous` + header token |
 | `/api/webhook` | `anonymous` + basic auth |
 
 Role display:
@@ -629,6 +681,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/build-failure-scan` | POST | endpoint สำหรับ Logic Apps polling หา Build failed จาก Azure DevOps REST API โดยตรง |
 | `/api/hourly-log-sync` | POST | endpoint สำหรับ Logic Apps hourly background reconciliation เติม external vote log ที่ตกหล่น |
 | `/api/log-retention-cleanup` | POST | endpoint สำหรับ archive/export/delete SharePoint logs เก่ากว่า retention window |
+| `/api/table-retention-cleanup` | POST | endpoint สำหรับลบ Azure Table records เก่าของ `ApprovalLocks` และ `AdoUserTokens` |
 | `/api/webhook` | POST | legacy/webhook notification endpoint |
 
 ## Important Shared Modules
@@ -762,6 +815,10 @@ api/shared/attention.js
 | `LOG_RETENTION_DAYS` | No | default `180` |
 | `LOG_RETENTION_BATCH_LIMIT` | No | default `500`, max `1000` |
 | `LOG_ARCHIVE_FOLDER` | No | default `ADO AutoApprove Archive` |
+| `TABLE_RETENTION_TOKEN` | No | token สำหรับ `/api/table-retention-cleanup`; ถ้าไม่ตั้งจะ fallback ไปใช้ `LOG_RETENTION_TOKEN` / `DAILY_SUMMARY_TOKEN` |
+| `TABLE_RETENTION_LOCK_DAYS` | No | default `7`, ลบ `ApprovalLocks` ที่หมดอายุเกินจำนวนวันนี้ |
+| `TABLE_RETENTION_TOKEN_DAYS` | No | default `90`, ลบ `AdoUserTokens` ที่หมดอายุเกินจำนวนวันนี้ |
+| `TABLE_RETENTION_BATCH_LIMIT` | No | default `500`, max `1000` |
 
 ### LINE / Notification
 
@@ -878,6 +935,7 @@ node --check api\exception-scan\index.js
 node --check api\build-failure-scan\index.js
 node --check api\hourly-log-sync\index.js
 node --check api\log-retention-cleanup\index.js
+node --check api\table-retention-cleanup\index.js
 node --check api\webhook\index.js
 node -e "JSON.parse(require('fs').readFileSync('staticwebapp.config.json','utf8')); console.log('SWA root config JSON: OK')"
 node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json','utf8')); console.log('SWA public config JSON: OK')"

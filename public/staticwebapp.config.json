@@ -53,6 +53,7 @@
     { "route": "/api/build-failure-scan", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/hourly-log-sync", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/log-retention-cleanup", "methods": ["POST"], "allowedRoles": ["anonymous"] },
+    { "route": "/api/table-retention-cleanup", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/webhook", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/.auth/login/github", "statusCode": 404 },
     { "route": "/.auth/login/twitter", "statusCode": 404 }

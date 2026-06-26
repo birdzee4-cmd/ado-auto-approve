@@ -827,6 +827,23 @@ function renderSystemHealth(data) {
     } : {}
   }));
 
+  const lastTableRetentionCleanup = data.lastTableRetentionCleanup || null;
+  const tableRetentionCleanupStatus = getRetentionCleanupHealthStatus(lastTableRetentionCleanup);
+  cards.push(buildHealthCard({
+    key: 'last-table-retention-cleanup',
+    label: 'Last Table Cleanup',
+    status: tableRetentionCleanupStatus,
+    message: lastTableRetentionCleanup && lastTableRetentionCleanup.at
+      ? formatDate(lastTableRetentionCleanup.at)
+      : 'ยังไม่พบ table cleanup log',
+    detail: lastTableRetentionCleanup ? {
+      result: lastTableRetentionCleanup.result,
+      matched: lastTableRetentionCleanup.matched,
+      deleted: lastTableRetentionCleanup.deleted,
+      dryRun: lastTableRetentionCleanup.dryRun
+    } : {}
+  }));
+
   const nextRun = data.schedule && data.schedule.dailySummary && data.schedule.dailySummary.nextRunAt;
   cards.push(buildHealthCard({
     key: 'next-summary',

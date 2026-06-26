@@ -58,6 +58,9 @@ module.exports = async function (context, req) {
   const lastRetentionCleanup = sharePointResult.recentLogs
     ? findLastRetentionCleanup(sharePointResult.recentLogs)
     : null;
+  const lastTableRetentionCleanup = sharePointResult.recentLogs
+    ? findLastTableRetentionCleanup(sharePointResult.recentLogs)
+    : null;
   const lastHourlySync = sharePointResult.recentLogs
     ? findLastHourlySync(sharePointResult.recentLogs)
     : null;
@@ -81,6 +84,7 @@ module.exports = async function (context, req) {
       lastNotification: lastNotification,
       lastExceptionScan: lastExceptionScan,
       lastRetentionCleanup: lastRetentionCleanup,
+      lastTableRetentionCleanup: lastTableRetentionCleanup,
       lastHourlySync: lastHourlySync,
       schedule: {
         dailySummary: {
@@ -103,6 +107,14 @@ module.exports = async function (context, req) {
           timeZone: 'Asia/Bangkok',
           frequency: 'Every 1 hour',
           nextRunAt: getNextHourlyRun(generatedAt)
+        },
+        tableRetentionCleanup: {
+          enabled: !!(process.env.TABLE_RETENTION_TOKEN || process.env.LOG_RETENTION_TOKEN || process.env.DAILY_SUMMARY_TOKEN),
+          scheduler: 'Azure Logic Apps Consumption',
+          timeZone: 'Asia/Bangkok',
+          frequency: 'Daily or weekly',
+          lockRetentionDays: Number(process.env.TABLE_RETENTION_LOCK_DAYS || 7),
+          tokenRetentionDays: Number(process.env.TABLE_RETENTION_TOKEN_DAYS || 90)
         }
       },
       message: 'ADO Auto-Approve API health checked'
@@ -312,6 +324,30 @@ function findLastRetentionCleanup(logItems) {
   return null;
 }
 
+function findLastTableRetentionCleanup(logItems) {
+  for (const item of logItems || []) {
+    const fields = item.fields || {};
+    const action = String(fields.Action || '');
+    const source = String(fields.Log_Source || fields.Source || '');
+    const title = String(fields.Title || '');
+    const text = [action, source, title].join(' ').toLowerCase();
+    if (action !== 'Table Retention Cleanup' && !text.includes('table retention cleanup')) continue;
+    const parsed = parseTableRetentionCleanupReason(fields.Reason || '');
+    return {
+      at: item.createdDateTime || fields.Last_Checked_At || item.lastModifiedDateTime || '',
+      result: fields.Result || '',
+      reason: fields.Reason || '',
+      source: source || 'Logic Apps Table Retention Cleanup',
+      matched: parsed.matched,
+      deleted: parsed.deleted,
+      lockRetentionDays: parsed.lockRetentionDays,
+      tokenRetentionDays: parsed.tokenRetentionDays,
+      dryRun: parsed.dryRun
+    };
+  }
+  return null;
+}
+
 function findLastHourlySync(logItems) {
   for (const item of logItems || []) {
     const fields = item.fields || {};
@@ -357,6 +393,17 @@ function parseRetentionCleanupReason(reason) {
     deleted: matchNumber(text, /Deleted\s+(\d+)/i),
     retentionDays: matchNumber(text, /Retention\s+(\d+)\s+days/i),
     archivePath: matchText(text, /Archive:\s*(.+)$/i)
+  };
+}
+
+function parseTableRetentionCleanupReason(reason) {
+  const text = String(reason || '');
+  return {
+    lockRetentionDays: matchNumber(text, /Locks retention\s+(\d+)\s+days/i),
+    tokenRetentionDays: matchNumber(text, /Tokens retention\s+(\d+)\s+days/i),
+    matched: matchNumber(text, /Matched\s+(\d+)/i),
+    deleted: matchNumber(text, /Deleted\s+(\d+)/i),
+    dryRun: matchText(text, /Dry run\s+([^|]+)/i)
   };
 }
 
