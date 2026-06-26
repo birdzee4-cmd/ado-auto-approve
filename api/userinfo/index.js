@@ -29,12 +29,26 @@ module.exports = async function (context, req) {
 
     const email = getValue('email') ||
                   getValue('preferred_username') ||
+                  getValue('upn') ||
                   getValue('http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress') ||
+                  getValue('http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn') ||
                   principal.userDetails;
-    let name = getValue('name') ||
-               getValue('http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name') ||
-               principal.userDetails;
-    let profileSource = name && name !== principal.userDetails ? 'auth-claim' : 'email-fallback';
+    const givenName = getValue('given_name') ||
+                      getValue('http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname');
+    const surname = getValue('family_name') ||
+                    getValue('surname') ||
+                    getValue('http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname');
+    const claimName = getValue('name') ||
+                      getValue('display_name') ||
+                      getValue('http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name') ||
+                      [givenName, surname].filter(Boolean).join(' ');
+    const derivedName = buildDisplayNameFromEmail(email);
+    let name = claimName || derivedName || principal.userDetails;
+    let profileSource = claimName
+      ? 'auth-claim'
+      : derivedName
+      ? 'email-derived'
+      : 'email-fallback';
     if (process.env.GRAPH_USER_PROFILE_LOOKUP === 'true') {
       try {
         const profile = await require('../shared/user-profile').getUserProfile(email);
@@ -77,3 +91,15 @@ module.exports = async function (context, req) {
     };
   }
 };
+
+function buildDisplayNameFromEmail(email) {
+  const localPart = String(email || '').split('@')[0].trim();
+  if (!localPart) return '';
+  const words = localPart
+    .replace(/[._-]+/g, ' ')
+    .split(/\s+/)
+    .map(part => part.trim())
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase());
+  return words.join(' ');
+}
