@@ -32,7 +32,8 @@ module.exports = async function (context, req) {
       connected: true,
       user: token.record.userDetails || principal.userDetails || '',
       connectedAt: token.record.connectedAt || '',
-      expiresAt: token.record.expiresAt ? new Date(token.record.expiresAt).toISOString() : ''
+      expiresAt: token.record.expiresAt ? new Date(token.record.expiresAt).toISOString() : '',
+      tokenSource: token.tokenSource || 'unknown'
     }, token.setCookie);
   } catch (err) {
     context.log.error('ADO auth status failed:', err);

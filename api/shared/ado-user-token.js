@@ -202,8 +202,34 @@ function buildTokenRecord(tokenBody, principal) {
   };
 }
 
-function tokenCookie(record) {
+function legacyTokenCookie(record) {
   return makeCookie(TOKEN_COOKIE, seal(record), 30 * 24 * 60 * 60);
+}
+
+async function createTokenCookie(record, principal) {
+  const store = require('./ado-token-store');
+  if (!store.isEnabled()) {
+    return legacyTokenCookie(record);
+  }
+
+  const tokenRef = store.makeTokenRef(principal || record);
+  await store.saveTokenRecord(tokenRef, record);
+  return makeReferenceCookie({
+    tokenRef,
+    userId: record.userId || '',
+    userDetails: record.userDetails || '',
+    connectedAt: record.connectedAt || ''
+  });
+}
+
+function makeReferenceCookie(reference) {
+  return makeCookie(TOKEN_COOKIE, seal({
+    v: 2,
+    tokenRef: reference.tokenRef,
+    userId: reference.userId || '',
+    userDetails: reference.userDetails || '',
+    connectedAt: reference.connectedAt || ''
+  }), 30 * 24 * 60 * 60);
 }
 
 function readTokenRecord(req) {
@@ -215,7 +241,20 @@ function readTokenRecord(req) {
 }
 
 async function getValidAccessToken(req, principal) {
-  const record = readTokenRecord(req);
+  const cookieRecord = readTokenRecord(req);
+  const store = require('./ado-token-store');
+  let record = cookieRecord;
+
+  if (cookieRecord && cookieRecord.tokenRef) {
+    if (!store.isEnabled()) {
+      return { ok: false, status: 428, error: 'Azure DevOps token store is not configured' };
+    }
+    record = await store.getTokenRecord(cookieRecord.tokenRef);
+    if (!record) {
+      return { ok: false, status: 428, error: 'Azure DevOps connection expired or was removed' };
+    }
+  }
+
   if (!record || !record.accessToken) {
     return { ok: false, status: 428, error: 'Azure DevOps connection required' };
   }
@@ -223,7 +262,14 @@ async function getValidAccessToken(req, principal) {
     return { ok: false, status: 428, error: 'Azure DevOps connection belongs to another user' };
   }
   if (Date.now() < Number(record.expiresAt || 0) - 5 * 60 * 1000) {
-    return { ok: true, accessToken: record.accessToken, record };
+    const migrationCookie = await maybeMigrateLegacyCookie(cookieRecord, record, principal);
+    return {
+      ok: true,
+      accessToken: record.accessToken,
+      record,
+      tokenSource: cookieRecord && cookieRecord.tokenRef ? 'server-store' : 'encrypted-cookie',
+      setCookie: migrationCookie || undefined
+    };
   }
   if (!record.refreshToken) {
     return { ok: false, status: 428, error: 'Azure DevOps connection expired' };
@@ -244,12 +290,48 @@ async function getValidAccessToken(req, principal) {
     refresh_token: refreshed.body.refresh_token || record.refreshToken
   }, principal);
   next.connectedAt = record.connectedAt || next.connectedAt;
+  const setCookie = cookieRecord && cookieRecord.tokenRef && store.isEnabled()
+    ? await saveRefreshedServerRecord(cookieRecord.tokenRef, next)
+    : await createTokenCookie(next, principal);
   return {
     ok: true,
     accessToken: next.accessToken,
     record: next,
-    setCookie: tokenCookie(next)
+    tokenSource: store.isEnabled() ? 'server-store' : 'encrypted-cookie',
+    setCookie: setCookie
   };
+}
+
+async function maybeMigrateLegacyCookie(cookieRecord, record, principal) {
+  if (!cookieRecord || cookieRecord.tokenRef) return null;
+  const store = require('./ado-token-store');
+  if (!store.isEnabled()) return null;
+  return createTokenCookie(record, principal);
+}
+
+async function saveRefreshedServerRecord(tokenRef, record) {
+  const store = require('./ado-token-store');
+  await store.saveTokenRecord(tokenRef, record);
+  return makeReferenceCookie({
+    tokenRef,
+    userId: record.userId || '',
+    userDetails: record.userDetails || '',
+    connectedAt: record.connectedAt || ''
+  });
+}
+
+async function disconnect(req, principal) {
+  const store = require('./ado-token-store');
+  const cookieRecord = readTokenRecord(req);
+  const tokenRef = cookieRecord && cookieRecord.tokenRef
+    ? cookieRecord.tokenRef
+    : store.isEnabled()
+      ? store.makeTokenRef(principal || cookieRecord || {})
+      : '';
+  if (tokenRef && store.isEnabled()) {
+    await store.deleteTokenRecord(tokenRef);
+  }
+  return clearCookie(TOKEN_COOKIE);
 }
 
 module.exports = {
@@ -259,8 +341,10 @@ module.exports = {
   readState,
   exchangeCode,
   buildTokenRecord,
-  tokenCookie,
+  tokenCookie: legacyTokenCookie,
+  createTokenCookie,
   clearCookie,
   readTokenRecord,
-  getValidAccessToken
+  getValidAccessToken,
+  disconnect
 };

@@ -1,5 +1,7 @@
 {
   "name": "ado-auto-approve-api",
   "version": "1.0.0",
-  "dependencies": {}
+  "dependencies": {
+    "@azure/data-tables": "^13.3.1"
+  }
 }

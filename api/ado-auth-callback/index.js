@@ -64,13 +64,14 @@ module.exports = async function (context, req) {
     }
 
     const record = delegated.buildTokenRecord(tokenResult.body, principal);
+    const tokenCookie = await delegated.createTokenCookie(record, principal);
     const returnLocation = appendQuery(statePayload.returnTo || '/dashboard.html', 'adoConnected=1');
     context.res = {
       status: 302,
       headers: {
         Location: returnLocation,
         'Set-Cookie': [
-          delegated.tokenCookie(record),
+          tokenCookie,
           delegated.clearCookie(delegated.STATE_COOKIE)
         ],
         'Cache-Control': 'no-store'

@@ -572,6 +572,10 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | API | Method | Purpose |
 |---|---|---|
 | `/api/userinfo` | GET | คืน user, roles, permissions |
+| `/api/ado-auth-start` | GET | เริ่ม Azure DevOps delegated OAuth flow สำหรับ user ที่ login |
+| `/api/ado-auth-callback` | GET | OAuth callback สำหรับแลก code เป็น token และบันทึก token cache |
+| `/api/ado-auth-status` | GET | ตรวจสถานะ Azure DevOps connection ของ browser/user ปัจจุบัน |
+| `/api/ado-auth-disconnect` | POST | ลบ token reference cookie และ token record ใน server-side store |
 | `/api/list-prs` | GET | ดึง Active PR Queue และ Activity lookup เมื่อส่ง `includeActivity=true` |
 | `/api/approve-pr` | POST | Approve PR ปกติ, set auto-complete, log SharePoint |
 | `/api/reject-pr` | POST | Reject PR ปกติ, log SharePoint |
@@ -603,6 +607,8 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | File | Purpose |
 |---|---|
 | `api/shared/ado-client.js` | Azure DevOps REST API client |
+| `api/shared/ado-user-token.js` | Azure DevOps delegated OAuth/token lifecycle helper |
+| `api/shared/ado-token-store.js` | Azure Table encrypted server-side token store |
 | `api/shared/sharepoint-client.js` | Microsoft Graph / SharePoint List client |
 | `api/shared/auth.js` | role / principal helper |
 | `api/shared/attention.js` | PR aging / stuck / attention logic |
@@ -653,6 +659,26 @@ api/shared/attention.js
 | `ADO_TARGET_BRANCH` | No | default `refs/heads/staging` |
 | `ADO_REVIEWER_GROUP` | No | default `IT Support Approve` |
 | `ADO_EXTERNAL_LOG_SYNC` | No | set `false` เพื่อปิด external vote sync log |
+
+### Azure DevOps Delegated User Tokens
+
+ใช้สำหรับให้ปุ่ม Approve / Reject / Approve Release ดำเนินการด้วย Azure DevOps identity ของผู้ที่ login จริง แทน PAT ส่วนตัว
+
+| Variable | Required | Description |
+|---|---:|---|
+| `ADO_AUTH_REDIRECT_URI` | Yes | OAuth callback เช่น `https://mango-wave-09cff3700.7.azurestaticapps.net/api/ado-auth-callback` |
+| `ADO_TOKEN_STORAGE_CONNECTION_STRING` | Recommended | Azure Storage connection string สำหรับเก็บ encrypted access/refresh token แบบ server-side; ถ้าไม่ตั้งจะ fallback ไป `AzureWebJobsStorage` / `AZURE_STORAGE_CONNECTION_STRING` |
+| `ADO_TOKEN_TABLE_NAME` | No | Azure Table name สำหรับ token cache, default `AdoUserTokens` |
+| `ADO_TOKEN_STORE_SECRET` | Recommended | secret สำหรับเข้ารหัส token record ใน Azure Table; ถ้าไม่ตั้งจะ fallback ไป `ADO_TOKEN_COOKIE_SECRET` / `AAD_CLIENT_SECRET` |
+| `ADO_TOKEN_COOKIE_SECRET` | Recommended | secret สำหรับเข้ารหัส HttpOnly cookie ที่เก็บ token reference และ OAuth state |
+| `ADO_AUTH_SCOPE` | No | default `499b84ac-1321-427f-aa17-267ca6975798/.default offline_access openid profile email` |
+
+หมายเหตุ:
+
+- Cookie ฝั่ง browser เก็บเฉพาะ encrypted token reference เมื่อมี server-side token store
+- Access token / refresh token ถูกเก็บใน Azure Table แบบ encrypted record
+- หากไม่มี Storage connection string ระบบจะ fallback เป็น encrypted HttpOnly cookie เพื่อไม่ให้ flow ใช้งานไม่ได้ แต่ production ระยะยาวควรตั้ง Storage ให้ครบ
+- App Registration ต้องมี Web Redirect URI ตรงกับ `ADO_AUTH_REDIRECT_URI` และมี Azure DevOps delegated permissions ที่ admin consent แล้ว
 
 ### Auth / Role
 
