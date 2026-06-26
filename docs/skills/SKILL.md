@@ -6,27 +6,27 @@
 
 ## 📚 สารบัญและหัวข้อสกิลเฉพาะด้าน
 
-### 1. 💻 [ทักษะและการพัฒนา JavaScript & Node.js](file:///d:/Github/ado-auto-approve/ado-auto-approve/SKILL-JavaScript.md)
+### 1. 💻 [ทักษะและการพัฒนา JavaScript & Node.js](SKILL-JavaScript.md)
 
 * **ครอบคลุม:** มาตรฐานการเขียน Vanilla JS (ES2017+) บนฝั่ง Client และการจัดการโค้ดบน Azure Functions Node.js 22 (Backend)
 * **ประเด็นหลัก:** นโยบาย Zero Dependency, การจัดการ Error แบบ lazy loading / try-catch, และมาตรฐาน JSON/HTTP Status Code Response
 
-### 2. 🎨 [ทักษะการออกแบบและการจัดสไตล์ด้วย CSS](file:///d:/Github/ado-auto-approve/ado-auto-approve/SKILL-CSS.md)
+### 2. 🎨 [ทักษะการออกแบบและการจัดสไตล์ด้วย CSS](SKILL-CSS.md)
 
 * **ครอบคลุม:** การจัดหน้าตาและ UI/UX ของระบบให้มีความพรีเมียม สวยงาม และ Responsive
 * **ประเด็นหลัก:** การเขียน Vanilla CSS เท่านั้น (ห้ามใช้ Tailwind/Bootstrap), การใช้ชุดสี HSL, sleek dark modes, micro-animations, และการทำ Confirm Dialog เพื่อลดข้อผิดพลาด
 
-### 3. ☁️ [ทักษะการเชื่อมต่อ SharePoint & Microsoft Graph](file:///d:/Github/ado-auto-approve/ado-auto-approve/SKILL-SharePoint.md)
+### 3. ☁️ [ทักษะการเชื่อมต่อ SharePoint & Microsoft Graph](SKILL-SharePoint.md)
 
 * **ครอบคลุม:** การเชื่อมต่ออ่าน/เขียน SharePoint Online Lists และ Drive ผ่าน Microsoft Graph REST API
 * **ประเด็นหลัก:** วิธีการดึงและแคช OAuth Client Credentials Token, การสร้างคอลัมน์อัตโนมัติ, การทำงานของ Log Retention Cleanup และการอัปโหลดไฟล์ Archive CSV
 
-### 4. 🚀 [ทักษะการเชื่อมต่อ Azure DevOps REST API](file:///d:/Github/ado-auto-approve/ado-auto-approve/SKILL-AzureDevOps.md)
+### 4. 🚀 [ทักษะการเชื่อมต่อ Azure DevOps REST API](SKILL-AzureDevOps.md)
 
 * **ครอบคลุม:** การดึงข้อมูล PR, การจัดการโหวต, การตั้งค่า Auto-Complete, และการอนุมัติ Classic Release Pipeline
 * **ประเด็นหลัก:** ค่าและกลไกการโหวต PR (vote score), Release Approval Pending checking logic, การหลีกเลี่ยงการแก้ไข Worklist และข้อกำหนด Manual Workflow สำหรับ MergeCode
 
-### 5. 🔒 [กฎความปลอดภัยและการควบคุมสิทธิ์ (Security)](file:///d:/Github/ado-auto-approve/ado-auto-approve/SKILL-Security.md)
+### 5. 🔒 [กฎความปลอดภัยและการควบคุมสิทธิ์ (Security)](SKILL-Security.md)
 
 * **ครอบคลุม:** กฎความปลอดภัยของระบบและการตรวจสอบสิทธิ์การทำรายการ
 * **ประเด็นหลัก:** การเช็คสิทธิ์ role `it_support_approve`, การกรอง Target branch (Staging check), การยืนยันสิทธิ์ Token ในการทำงานแบบ Cron job และ Timing Attack Protection

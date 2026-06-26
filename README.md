@@ -64,6 +64,8 @@ flowchart LR
 | Document | Purpose |
 |---|---|
 | `docs/approve-release-workflow.md` | แผนภาพและ guardrails ของ workflow Approve Release |
+| `docs/TECH-REPORT-TH.md` | รายงานสรุปเทคโนโลยี สถาปัตยกรรม และภาพรวมค่าใช้จ่าย |
+| `docs/skills/SKILL.md` | ศูนย์รวมคู่มือกฎเกณฑ์และทักษะการพัฒนาของโปรเจกต์ |
 
 ## Main Pages
 
