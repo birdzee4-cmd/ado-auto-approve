@@ -15,6 +15,7 @@
 
 const sp = require('../shared/sharepoint-client');
 const auth = require('../shared/auth');
+const ado = require('../shared/ado-client');
 
 module.exports = async function (context, req) {
   function jsonResponse(status, payload) {
@@ -162,12 +163,22 @@ module.exports = async function (context, req) {
       context.log.error(`SharePoint returned HTTP ${csvResult.status} when fetching ${deployHistoryFilePath}`);
     }
 
+    if (type === 'daily') {
+      try {
+        const liveDeployments = await fetchLiveDeployments(context, startIso, endIso);
+        deployments = mergeDeploymentRows(deployments, liveDeployments);
+        context.log(`Merged live daily ADO builds into report data: ${liveDeployments.length} live rows, ${deployments.length} total rows.`);
+      } catch (e) {
+        context.log.warn('Live daily build enrichment skipped: ' + e.message);
+      }
+    }
+
     // 7) คัดกรองและประมวลผลข้อมูลการ Deploy ในช่วงเวลาที่เลือก
     let totalDeploys = 0;
     let succeededDeploys = 0;
     let failedDeploys = 0;
     let inProgressDeploys = 0;
-    const repoFailedDeploys = {}; // repository -> count
+    const repoFailedDeploys = {}; // normalized repository -> { repo, count }
     const failedDeployItems = [];
 
     const startTs = startUtc.getTime();
@@ -188,10 +199,14 @@ module.exports = async function (context, req) {
 
       if (status === 'succeeded') {
         succeededDeploys++;
-      } else if (status === 'failed' || status === 'canceled') {
+      } else if (isFailedStatus(status)) {
         failedDeploys++;
         if (repo && repo !== 'Unknown') {
-          repoFailedDeploys[repo] = (repoFailedDeploys[repo] || 0) + 1;
+          const repoKey = normalizeRepoKey(repo);
+          if (!repoFailedDeploys[repoKey]) {
+            repoFailedDeploys[repoKey] = { repo: repo, count: 0 };
+          }
+          repoFailedDeploys[repoKey].count += 1;
         }
         failedDeployItems.push(buildFailedDeployItem(row));
       } else if (status === 'inprogress') {
@@ -204,10 +219,7 @@ module.exports = async function (context, req) {
       : 0;
 
     // จัดอันดับ Top Repository ที่มี Build ล้มเหลวบ่อยสุด
-    const topFailedRepos = Object.keys(repoFailedDeploys).map(repoName => ({
-      repo: repoName,
-      count: repoFailedDeploys[repoName]
-    }))
+    const topFailedRepos = Object.values(repoFailedDeploys)
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
@@ -389,6 +401,99 @@ function isDeploymentRelatedToPr(row, relatedPrIds) {
   return candidates.some(value => value && relatedPrIds.has(String(value)));
 }
 
+async function fetchLiveDeployments(context, startIso, endIso) {
+  const result = await ado.listBuilds({
+    minTime: startIso,
+    maxTime: endIso,
+    top: 1000
+  });
+  if (!result.ok || !result.body || !Array.isArray(result.body.value)) {
+    throw new Error('ADO live build lookup returned HTTP ' + result.status);
+  }
+
+  const rows = result.body.value
+    .filter(isStagingBuild)
+    .map(mapBuildToDeploymentRow);
+  if (context && context.log) {
+    const failed = rows.filter(row => isFailedStatus(row.Status)).length;
+    context.log(`Live daily staging builds fetched: ${rows.length}, failed/canceled: ${failed}`);
+  }
+  return rows;
+}
+
+function mergeDeploymentRows(existingRows, liveRows) {
+  const map = new Map();
+  for (const row of Array.isArray(existingRows) ? existingRows : []) {
+    map.set(getDeploymentKey(row), row);
+  }
+  for (const row of Array.isArray(liveRows) ? liveRows : []) {
+    map.set(getDeploymentKey(row), row);
+  }
+  return Array.from(map.values());
+}
+
+function getDeploymentKey(row) {
+  const buildId = extractBuildId(row && row.AdoBuildUrl) || row && row.BuildId || '';
+  if (buildId) return 'build:' + buildId;
+  return [
+    row && row.PipelineName || '',
+    row && row.BuildNumber || '',
+    row && row.FinishedTime || ''
+  ].join('|').toLowerCase();
+}
+
+function isStagingBuild(build) {
+  const pipelineName = String(build && build.definition && build.definition.name || '').toLowerCase();
+  const branchName = String(build && build.sourceBranch || '').toLowerCase();
+  if (pipelineName.includes('schedule') || pipelineName.includes('scripts')) return false;
+  return pipelineName.includes('stg') ||
+    pipelineName.includes('staging') ||
+    branchName.startsWith('refs/heads/staging') ||
+    branchName.includes('/staging') ||
+    branchName.includes('/stg');
+}
+
+function mapBuildToDeploymentRow(build) {
+  const pipelineName = build && build.definition && build.definition.name || '';
+  const status = String(build && build.status || '');
+  const result = String(build && build.result || '');
+  return {
+    PipelineName: pipelineName,
+    RepoName: build && build.repository && build.repository.name || inferRepoNameFromPipeline(pipelineName),
+    Branch: build && build.sourceBranch ? String(build.sourceBranch).replace('refs/heads/', '') : '',
+    Environment: 'Staging',
+    PrId: build && build.triggerInfo && (build.triggerInfo['pr.number'] || build.triggerInfo['pr.id']) || '',
+    BuildNumber: build && build.buildNumber || '',
+    Status: normalizeBuildStatus(status, result),
+    FinishedTime: build && (build.finishTime || build.queueTime || build.startTime) || '',
+    TriggeredBy: build && build.requestedFor && build.requestedFor.displayName || '',
+    CommitHash: build && build.sourceVersion || '',
+    CommitMessage: build && build.triggerInfo && (build.triggerInfo['ci.message'] || build.triggerInfo['wip.message']) || '',
+    BuildTags: build && Array.isArray(build.tags) ? build.tags.join(', ') : '',
+    AdoBuildUrl: build && build._links && build._links.web && build._links.web.href || '',
+    BuildId: build && build.id || ''
+  };
+}
+
+function normalizeBuildStatus(status, result) {
+  const statusText = String(status || '').toLowerCase();
+  const resultText = String(result || '').toLowerCase();
+  if (statusText === 'completed') {
+    if (resultText === 'succeeded') return 'Succeeded';
+    if (resultText === 'failed') return 'Failed';
+    if (resultText === 'canceled') return 'Canceled';
+    if (resultText === 'partiallysucceeded') return 'Partially Succeeded';
+    return result || status || '';
+  }
+  if (statusText === 'inprogress') return 'InProgress';
+  return status || '';
+}
+
+function isFailedStatus(status) {
+  const value = String(status || '').toLowerCase();
+  return value === 'failed' || value === 'canceled';
+}
+
 function buildFailedDeployItem(row) {
   return {
     prId: row.PrId || row.PR_ID || row.PullRequestId || extractPrId(row.Branch) || extractPrId(row.CommitMessage) || '',
@@ -400,6 +505,12 @@ function buildFailedDeployItem(row) {
     triggeredBy: row.TriggeredBy || '',
     buildUrl: row.AdoBuildUrl || ''
   };
+}
+
+function extractBuildId(value) {
+  const text = String(value || '');
+  const match = text.match(/[?&]buildId=(\d+)/i) || text.match(/\/build\/results\?buildId=(\d+)/i);
+  return match ? match[1] : '';
 }
 
 function extractPrId(value) {
@@ -422,6 +533,17 @@ function getDeploymentRepoName(row) {
   if (direct) return direct;
   const inferred = inferRepoNameFromPipeline(row && row.PipelineName);
   return inferred || 'Unknown';
+}
+
+function normalizeRepoKey(repoName) {
+  return String(repoName || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^refs\/heads\//, '')
+    .replace(/^(stg|ph|vn|my|id)[_\s-]+/i, '')
+    .replace(/[_\s-]+docker-ci$/i, '')
+    .replace(/[_\s-]+ci$/i, '')
+    .replace(/[_\s-]+/g, ' ');
 }
 
 function inferRepoNameFromPipeline(pipelineName) {
