@@ -175,7 +175,7 @@ https://ado-auto-approve-xxxxx.azurestaticapps.net/.auth/login/aad/callback
 ## 4.1 ใส่ค่า Tenant ID ในโค้ด
 
 1. กลับไปที่ GitHub repo ของคุณ
-2. เปิดไฟล์ `staticwebapp.config.json` → คลิกไอคอนดินสอ (Edit)
+2. เปิดไฟล์ `public/staticwebapp.config.json` → คลิกไอคอนดินสอ (Edit)
 3. หาบรรทัด:
    ```json
    "openIdIssuer": "https://login.microsoftonline.com/__AAD_TENANT_ID__/v2.0",
@@ -220,7 +220,7 @@ https://ado-auto-approve-xxxxx.azurestaticapps.net/.auth/login/aad/callback
 - กลับไปขั้นตอน 3.2 → แก้ Redirect URI ให้ตรงกับ URL ของ Static Web App **เป๊ะๆ**
 
 ## ❌ "We couldn't sign you in" / "Tenant ID invalid"
-- Tenant ID ใน `staticwebapp.config.json` ผิด
+- Tenant ID ใน `public/staticwebapp.config.json` ผิด
 - กลับไปขั้นตอน 4.1 → ตรวจสอบค่า
 
 ## ❌ หน้าเว็บแสดงเป็น "404"

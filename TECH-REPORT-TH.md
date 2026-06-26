@@ -238,7 +238,7 @@ ado-auto-approve/
 ├── docs/                            ← โฟลเดอร์เก็บเอกสารเพิ่มเติม
 │   └── [approve-release-workflow.md](file:///d:/Github/ado-auto-approve/ado-auto-approve/docs/approve-release-workflow.md)  แผนภาพแสดงขั้นตอนการอนุมัติ Release
 │
-├── [staticwebapp.config.json](file:///d:/Github/ado-auto-approve/ado-auto-approve/staticwebapp.config.json)         ระบบ Routing, Authentication และ Security Headers สำหรับ SWA
+├── [public/staticwebapp.config.json](file:///d:/Github/ado-auto-approve/ado-auto-approve/public/staticwebapp.config.json) ระบบ Routing, Authentication และ Security Headers สำหรับ SWA
 ├── [README.md](file:///d:/Github/ado-auto-approve/ado-auto-approve/README.md)                        เอกสารคู่มือระบบหลักภาษาไทย
 ├── [SKILL.md](file:///d:/Github/ado-auto-approve/ado-auto-approve/SKILL.md)                         คู่มือ Developer Skill การแก้ไขปรับปรุงระบบ
 └── [TECH-REPORT-TH.md](file:///d:/Github/ado-auto-approve/ado-auto-approve/TECH-REPORT-TH.md)                รายงานเทคโนโลยีฉบับนี้

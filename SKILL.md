@@ -52,7 +52,6 @@ node --check api\logs\index.js
 node --check api\merge-lookup\index.js
 
 # 2. ตรวจสอบ syntax ไฟล์ config ของ Azure Static Web App
-node -e "JSON.parse(require('fs').readFileSync('staticwebapp.config.json','utf8')); console.log('SWA root config JSON: OK')"
 node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json','utf8')); console.log('SWA public config JSON: OK')"
 ```
 

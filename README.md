@@ -937,7 +937,6 @@ node --check api\hourly-log-sync\index.js
 node --check api\log-retention-cleanup\index.js
 node --check api\table-retention-cleanup\index.js
 node --check api\webhook\index.js
-node -e "JSON.parse(require('fs').readFileSync('staticwebapp.config.json','utf8')); console.log('SWA root config JSON: OK')"
 node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json','utf8')); console.log('SWA public config JSON: OK')"
 ```
 
