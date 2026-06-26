@@ -952,19 +952,20 @@ window.openReviewersModal = function(prId) {
   const a = data.approval || {};
   let summaryHtml =
     '<div class="rev-summary-row"><strong>Status:</strong> ' + voteStatusText(a.status) + '</div>' +
-    '<div class="rev-summary-row"><strong>Approved:</strong> ' + (a.approvedCount || 0) + ' / ' + (a.requiredCount || 0) + '</div>' +
-    '<div class="rev-summary-row"><strong>Branch Policy minimum:</strong> ' +
-      (a.minApproversFromPolicy || 0) +
-      (data.policyFetched ? '' : ' <em style="color:#dc2626">(policy fetch failed)</em>') + '</div>' +
-    '<div class="rev-summary-row"><strong>Required reviewers in PR:</strong> ' +
+    '<div class="rev-summary-row"><strong>Approved:</strong> ' + (a.approvedCount || 0) + ' / ' + (a.requiredCount || 0) + '</div>';
+  if (data.policyFetched) {
+    summaryHtml += '<div class="rev-summary-row"><strong>Branch Policy minimum:</strong> ' +
+      (a.minApproversFromPolicy || 0) + '</div>';
+  }
+  summaryHtml += '<div class="rev-summary-row"><strong>Required reviewers in PR:</strong> ' +
       (a.requiredReviewerApproved || 0) + ' / ' + (a.requiredReviewerTotal || 0) + ' approved</div>';
   if (Array.isArray(a.requiredPendingNames) && a.requiredPendingNames.length > 0) {
-    summaryHtml += '<div class="rev-summary-row"><strong>Pending required:</strong> ' +
-      escapeHtml(a.requiredPendingNames.join(', ')) + '</div>';
+    summaryHtml += '<div class="rev-summary-row rev-summary-alert"><strong>Pending required:</strong> ' +
+      renderNameChips(a.requiredPendingNames, 'required-pending-chip') + '</div>';
   }
   if (Array.isArray(a.requiredRejectedNames) && a.requiredRejectedNames.length > 0) {
-    summaryHtml += '<div class="rev-summary-row"><strong>Rejected required:</strong> ' +
-      escapeHtml(a.requiredRejectedNames.join(', ')) + '</div>';
+    summaryHtml += '<div class="rev-summary-row rev-summary-rejected"><strong>Rejected required:</strong> ' +
+      renderNameChips(a.requiredRejectedNames, 'required-rejected-chip') + '</div>';
   }
   document.getElementById('reviewersSummary').innerHTML = summaryHtml;
 
@@ -988,7 +989,12 @@ window.openReviewersModal = function(prId) {
       else if (v <= -10) { voteIcon = '❌'; voteText = 'Rejected'; voteClass = 'log-rejected'; }
       const typeIcon = r.isContainer ? '👥 Group' : '👤 Person';
       const reqBadge = r.isRequired ? '<span class="req-badge">REQUIRED</span>' : '<span style="color:#9ca3af">optional</span>';
-      listHtml += '<tr>' +
+      const rowClass = r.isRequired && v <= -10
+        ? ' class="reviewer-row-required-rejected"'
+        : r.isRequired && v < 10
+        ? ' class="reviewer-row-required-pending"'
+        : '';
+      listHtml += '<tr' + rowClass + '>' +
         '<td>' + escapeHtml(r.displayName || '-') + '</td>' +
         '<td>' + typeIcon + '</td>' +
         '<td>' + reqBadge + '</td>' +
@@ -1000,6 +1006,12 @@ window.openReviewersModal = function(prId) {
   document.getElementById('reviewersList').innerHTML = listHtml;
   openModal('reviewersModal');
 };
+
+function renderNameChips(names, className) {
+  return names
+    .map(name => '<span class="' + className + '">' + escapeHtml(name) + '</span>')
+    .join(' ');
+}
 
 function voteStatusText(s) {
   if (s === 'complete') return '<span class="log-approved">🟢 Complete (พร้อม merge)</span>';
