@@ -244,6 +244,7 @@ async function getValidAccessToken(req, principal) {
   const cookieRecord = readTokenRecord(req);
   const store = require('./ado-token-store');
   let record = cookieRecord;
+  let recoveredTokenRef = '';
 
   if (cookieRecord && cookieRecord.tokenRef) {
     if (!store.isEnabled()) {
@@ -255,6 +256,11 @@ async function getValidAccessToken(req, principal) {
     }
   }
 
+  if (!record && store.isEnabled() && principal) {
+    recoveredTokenRef = store.makeTokenRef(principal);
+    record = await store.getTokenRecord(recoveredTokenRef);
+  }
+
   if (!record || !record.accessToken) {
     return { ok: false, status: 428, error: 'Azure DevOps connection required' };
   }
@@ -262,12 +268,17 @@ async function getValidAccessToken(req, principal) {
     return { ok: false, status: 428, error: 'Azure DevOps connection belongs to another user' };
   }
   if (Date.now() < Number(record.expiresAt || 0) - 5 * 60 * 1000) {
-    const migrationCookie = await maybeMigrateLegacyCookie(cookieRecord, record, principal);
+    const recoveryCookie = recoveredTokenRef
+      ? await makeReferenceCookieForTokenRef(recoveredTokenRef, record)
+      : null;
+    const migrationCookie = recoveryCookie || await maybeMigrateLegacyCookie(cookieRecord, record, principal);
     return {
       ok: true,
       accessToken: record.accessToken,
       record,
-      tokenSource: cookieRecord && cookieRecord.tokenRef ? 'server-store' : 'encrypted-cookie',
+      tokenSource: recoveredTokenRef
+        ? 'server-store-recovered'
+        : cookieRecord && cookieRecord.tokenRef ? 'server-store' : 'encrypted-cookie',
       setCookie: migrationCookie || undefined
     };
   }
@@ -290,14 +301,15 @@ async function getValidAccessToken(req, principal) {
     refresh_token: refreshed.body.refresh_token || record.refreshToken
   }, principal);
   next.connectedAt = record.connectedAt || next.connectedAt;
-  const setCookie = cookieRecord && cookieRecord.tokenRef && store.isEnabled()
-    ? await saveRefreshedServerRecord(cookieRecord.tokenRef, next)
+  const activeTokenRef = cookieRecord && cookieRecord.tokenRef || recoveredTokenRef;
+  const setCookie = activeTokenRef && store.isEnabled()
+    ? await saveRefreshedServerRecord(activeTokenRef, next)
     : await createTokenCookie(next, principal);
   return {
     ok: true,
     accessToken: next.accessToken,
     record: next,
-    tokenSource: store.isEnabled() ? 'server-store' : 'encrypted-cookie',
+    tokenSource: recoveredTokenRef ? 'server-store-recovered' : store.isEnabled() ? 'server-store' : 'encrypted-cookie',
     setCookie: setCookie
   };
 }
@@ -312,6 +324,10 @@ async function maybeMigrateLegacyCookie(cookieRecord, record, principal) {
 async function saveRefreshedServerRecord(tokenRef, record) {
   const store = require('./ado-token-store');
   await store.saveTokenRecord(tokenRef, record);
+  return makeReferenceCookieForTokenRef(tokenRef, record);
+}
+
+function makeReferenceCookieForTokenRef(tokenRef, record) {
   return makeReferenceCookie({
     tokenRef,
     userId: record.userId || '',
