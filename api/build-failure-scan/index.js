@@ -126,8 +126,9 @@ async function notifyBuildFailureOnce(context, cfg, build) {
       return { skipped: true, reason: 'duplicate', eventKey: eventKey };
     }
 
+    const prInfo = await getBuildPullRequestInfo(context, cfg, build);
     const diagnosticInfo = await getBuildDiagnosticsForBuild(context, buildId);
-    const message = buildTeamsMessage(cfg, build, diagnosticInfo);
+    const message = buildTeamsMessage(cfg, build, diagnosticInfo, prInfo);
     const teamsResult = await teams.notifyTeams(process.env.TEAMS_WEBHOOK_URL, message);
     if (!teamsResult.ok) {
       if (context && context.log && context.log.warn) {
@@ -140,11 +141,11 @@ async function notifyBuildFailureOnce(context, cfg, build) {
     const pipelineName = build.definition && build.definition.name || '';
     const repoName = build.repository && build.repository.name || '';
     await sp.addLogItem(sp.buildLogFields({
-      prId: 0,
+      prId: prInfo.prId || 0,
       action: 'Build Failed Alert',
       user: build.requestedFor && build.requestedFor.displayName || 'System',
       repository: repoName,
-      prTitle: 'Build Failed Alert: ' + pipelineName + ' - ' + (build.buildNumber || buildId),
+      prTitle: prInfo.prTitle || ('Build Failed Alert: ' + pipelineName + ' - ' + (build.buildNumber || buildId)),
       targetBranch: build.sourceBranch || '',
       result: 'Alert Sent',
       reason: 'Auto Teams notification sent for build ' + buildId + ' from ADO REST polling.',
@@ -159,6 +160,7 @@ async function notifyBuildFailureOnce(context, cfg, build) {
     return {
       ok: true,
       eventKey: eventKey,
+      pr: summarizePrInfoForResponse(prInfo),
       diagnostics: summarizeDiagnosticsForResponse(diagnosticInfo)
     };
   } catch (e) {
@@ -175,10 +177,14 @@ async function buildDryRunResult(context, build) {
   const diagnosticInfo = buildId
     ? await getBuildDiagnosticsForBuild(context, buildId)
     : { ok: false, reason: 'missing_build_id' };
+  const prInfo = buildId
+    ? await getBuildPullRequestInfo(context, ado.getConfig(), build)
+    : { prId: '' };
   return {
     skipped: true,
     reason: 'dry_run',
     eventKey: eventKey,
+    pr: summarizePrInfoForResponse(prInfo),
     diagnostics: summarizeDiagnosticsForResponse(diagnosticInfo)
   };
 }
@@ -273,7 +279,7 @@ function summarizeDiagnosticsForResponse(diagnosticInfo) {
   };
 }
 
-function buildTeamsMessage(cfg, build, diagnosticInfo) {
+function buildTeamsMessage(cfg, build, diagnosticInfo, prInfo) {
   const buildId = build.id || '';
   const buildNumber = build.buildNumber || '';
   const pipelineName = build.definition && build.definition.name || '';
@@ -299,6 +305,12 @@ function buildTeamsMessage(cfg, build, diagnosticInfo) {
     '| **Result** | ' + safe(build.result || '-') + ' |',
     '| **Finished** | ' + safe(finished || '-') + ' |'
   ];
+  if (prInfo && prInfo.prId) {
+    const prLabel = '#' + safe(prInfo.prId);
+    lines.push('| **PR ID** | ' + (prInfo.prUrl ? '[' + prLabel + '](' + prInfo.prUrl + ')' : prLabel) + ' |');
+    if (prInfo.prTitle) lines.push('| **PR Title** | ' + safe(prInfo.prTitle) + ' |');
+    if (prInfo.prAuthor) lines.push('| **PR Author** | ' + safe(prInfo.prAuthor) + ' |');
+  }
   if (requestedBy) lines.push('| **Triggered by** | ' + safe(requestedBy) + ' |');
   if (commit) lines.push('| **Commit** | `' + safe(commit.substring(0, 12)) + '` |');
 
@@ -308,6 +320,139 @@ function buildTeamsMessage(cfg, build, diagnosticInfo) {
   if (!diagnosticsUrl && buildUrl) lines.push('', '🔗 **[Open Build in Azure DevOps](' + buildUrl + ')**');
   if (cfg && cfg.project) lines.push('', '_Source: ADO REST polling_');
   return lines.join('\n');
+}
+
+async function getBuildPullRequestInfo(context, cfg, build) {
+  const buildPrId = getBuildPrId(build);
+  let prInfo = buildPrId ? { prId: buildPrId } : { prId: '' };
+
+  if (!prInfo.prId && build && build.sourceVersion) {
+    prInfo = await findPullRequestByCommit(context, cfg, build);
+  }
+
+  if (!prInfo.prId) return prInfo;
+  return enrichPullRequestInfo(context, cfg, build, prInfo.prId);
+}
+
+function getBuildPrId(build) {
+  const triggerInfo = build && build.triggerInfo || {};
+  const direct = triggerInfo['pr.number'] ||
+    triggerInfo['pr.id'] ||
+    triggerInfo['MSTFS.PullRequestId'] ||
+    extractPrId(triggerInfo['ci.message']) ||
+    extractPrId(triggerInfo['wip.message']) ||
+    extractPrId(build && build.sourceBranch) ||
+    extractPrId(build && build.buildNumber);
+  return direct ? String(direct) : '';
+}
+
+async function findPullRequestByCommit(context, cfg, build) {
+  const commit = String(build && build.sourceVersion || '').toLowerCase();
+  if (!commit) return { prId: '' };
+  const statuses = ['active', 'completed'];
+  for (const status of statuses) {
+    try {
+      const path = '/' + encodeURIComponent(cfg.org) + '/' + encodeURIComponent(cfg.project) +
+        '/_apis/git/pullrequests?api-version=7.0' +
+        '&searchCriteria.status=' + encodeURIComponent(status) +
+        '&$top=200';
+      const result = await ado.adoRequest('GET', path);
+      const prs = result.ok && result.body && Array.isArray(result.body.value)
+        ? result.body.value
+        : [];
+      const matched = prs.find(pr => pullRequestMatchesBuild(pr, build, commit));
+      if (matched) {
+        return {
+          prId: String(matched.pullRequestId || matched.codeReviewId || ''),
+          prTitle: matched.title || '',
+          prAuthor: matched.createdBy && matched.createdBy.displayName || '',
+          repositoryName: matched.repository && matched.repository.name || ''
+        };
+      }
+    } catch (e) {
+      if (context && context.log && context.log.warn) {
+        context.log.warn('Build PR lookup failed for status ' + status + ': ' + e.message);
+      }
+    }
+  }
+  return { prId: '' };
+}
+
+function pullRequestMatchesBuild(pr, build, commit) {
+  if (!pr || !commit) return false;
+  const repoName = String(build && build.repository && build.repository.name || '').toLowerCase();
+  const prRepoName = String(pr.repository && pr.repository.name || '').toLowerCase();
+  if (repoName && prRepoName && repoName !== prRepoName) return false;
+
+  const targetRef = String(pr.targetRefName || '').toLowerCase();
+  const buildBranch = String(build && build.sourceBranch || '').toLowerCase();
+  if (targetRef && buildBranch && targetRef !== buildBranch) return false;
+
+  const commitCandidates = [
+    pr.lastMergeSourceCommit && pr.lastMergeSourceCommit.commitId,
+    pr.lastMergeTargetCommit && pr.lastMergeTargetCommit.commitId,
+    pr.lastMergeCommit && pr.lastMergeCommit.commitId
+  ].map(value => String(value || '').toLowerCase()).filter(Boolean);
+
+  return commitCandidates.some(value => value === commit || value.startsWith(commit) || commit.startsWith(value));
+}
+
+async function enrichPullRequestInfo(context, cfg, build, prId) {
+  const repoName = build && build.repository && build.repository.name || '';
+  const fallbackUrl = buildPrUrl(cfg, repoName, prId);
+  try {
+    const prResult = await ado.getPullRequest(prId);
+    if (prResult.ok && prResult.body) {
+      const pr = prResult.body;
+      const resolvedRepo = repoName || pr.repository && pr.repository.name || '';
+      return {
+        prId: String(prId),
+        prTitle: pr.title || '',
+        prAuthor: pr.createdBy && pr.createdBy.displayName || '',
+        prUrl: buildPrUrl(cfg, resolvedRepo, prId) || fallbackUrl
+      };
+    }
+  } catch (e) {
+    if (context && context.log && context.log.warn) {
+      context.log.warn('Build PR enrichment failed for PR #' + prId + ': ' + e.message);
+    }
+  }
+  return {
+    prId: String(prId),
+    prUrl: fallbackUrl
+  };
+}
+
+function buildPrUrl(cfg, repoName, prId) {
+  if (!cfg || !cfg.org || !cfg.project || !repoName || !prId) return '';
+  return 'https://dev.azure.com/' + encodeURIComponent(cfg.org) + '/' + encodeURIComponent(cfg.project) +
+    '/_git/' + encodeURIComponent(repoName) + '/pullrequest/' + encodeURIComponent(String(prId));
+}
+
+function summarizePrInfoForResponse(prInfo) {
+  if (!prInfo || !prInfo.prId) return null;
+  return {
+    prId: prInfo.prId,
+    prTitle: prInfo.prTitle || '',
+    prAuthor: prInfo.prAuthor || '',
+    prUrl: prInfo.prUrl || ''
+  };
+}
+
+function extractPrId(value) {
+  const text = String(value || '');
+  const patterns = [
+    /pullrequest\/(\d+)/i,
+    /pull request[^\d]*(\d+)/i,
+    /\bpr[ #:_-]*(\d+)\b/i,
+    /refs\/pull\/(\d+)\//i,
+    /refs\/pull\/(\d+)/i
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) return match[1];
+  }
+  return '';
 }
 
 function appendDiagnosticsSection(lines, diagnosticInfo) {
