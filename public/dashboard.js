@@ -162,7 +162,8 @@ async function checkPrs(isSilent) {
   }
 
   try {
-    const r = await safeFetchJson('/api/list-prs', { timeoutMs: 55000 });
+    const listPrsUrl = isSilent ? '/api/list-prs?scanOnly=true' : '/api/list-prs';
+    const r = await safeFetchJson(listPrsUrl, { timeoutMs: 55000 });
     if (r.parseError) {
       if (!isSilent) showBox('prResult', '<div class="test-result result-error">❌ Backend ตอบไม่ใช่ JSON (HTTP ' + r.status + ')</div>');
       else if (window._autoMode && window._autoMode !== 'normal') {

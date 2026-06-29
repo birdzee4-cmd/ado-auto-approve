@@ -59,6 +59,7 @@ module.exports = async function (context, req) {
     const activityPageSize = Math.min(Math.max(Number(req.query && req.query.activityPageSize) || completedDisplayLimit, 1), 25);
     const activityStatus = normalizeFilter(req.query && req.query.activityStatus);
     const activitySource = normalizeFilter(req.query && req.query.activitySource);
+    const scanOnly = req.query && String(req.query.scanOnly || '').toLowerCase() === 'true';
     const branchBuildCache = {};
     const releaseLookupCache = {};
 
@@ -192,14 +193,14 @@ module.exports = async function (context, req) {
     const recentlyApprovedPrs = approvedLookup.rows;
     const completedPrs = recentlyApprovedPrs;
 
-    const activeNotificationResult = includeActivity
-      ? { ok: true, checked: 0, sent: 0, skipped: true, reason: 'Skipped on activity page request' }
+    const activeNotificationResult = includeActivity || scanOnly
+      ? { ok: true, checked: 0, sent: 0, skipped: true, reason: scanOnly ? 'Skipped on scan-only dashboard request' : 'Skipped on activity page request' }
       : await syncExceptionNotifications(context, prs, { scope: 'active' });
-    const completedNotificationResult = includeActivity
-      ? { ok: true, checked: 0, sent: 0, skipped: true, reason: 'Skipped on activity page request' }
+    const completedNotificationResult = includeActivity || scanOnly
+      ? { ok: true, checked: 0, sent: 0, skipped: true, reason: scanOnly ? 'Skipped on scan-only dashboard request' : 'Skipped on activity page request' }
       : await syncExceptionNotifications(context, completedPrs, { scope: 'recently-completed' });
-    const syncResult = includeActivity
-      ? { ok: true, checked: 0, logged: 0, skipped: true, reason: 'Skipped on activity page request' }
+    const syncResult = includeActivity || scanOnly
+      ? { ok: true, checked: 0, logged: 0, skipped: true, reason: scanOnly ? 'Skipped on scan-only dashboard request' : 'Skipped on activity page request' }
       : await syncExternalVoteLogs(context, prs.concat(completedPrs), currentUser);
 
     jsonResponse(200, {
@@ -212,6 +213,7 @@ module.exports = async function (context, req) {
       project: project,
       targetBranch: stagingPrefix,
       reviewerGroup: reviewerGroup,
+      scanOnly: scanOnly,
       completedLookbackHours: completedLookbackHours,
       fetchedAt: new Date().toISOString(),
       prs: prs,
