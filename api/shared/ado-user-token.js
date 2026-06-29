@@ -240,7 +240,8 @@ function readTokenRecord(req) {
   }
 }
 
-async function getValidAccessToken(req, principal) {
+async function getValidAccessToken(req, principal, options) {
+  const allowStoreRecovery = !!(options && options.allowStoreRecovery);
   const cookieRecord = readTokenRecord(req);
   const store = require('./ado-token-store');
   let record = cookieRecord;
@@ -256,7 +257,7 @@ async function getValidAccessToken(req, principal) {
     }
   }
 
-  if (!record && store.isEnabled() && principal) {
+  if (!record && allowStoreRecovery && store.isEnabled() && principal) {
     recoveredTokenRef = store.makeTokenRef(principal);
     record = await store.getTokenRecord(recoveredTokenRef);
   }

@@ -27,7 +27,11 @@ async function loadAdoAuthStatus() {
   const disconnectBtn = document.getElementById('btnDisconnectAdo');
   if (statusEl) statusEl.textContent = 'Checking...';
   try {
-    const r = await safeFetchJson('/api/ado-auth-status');
+    const params = new URLSearchParams(window.location.search || '');
+    const statusUrl = params.get('adoConnected') === '1'
+      ? '/api/ado-auth-status?recover=1'
+      : '/api/ado-auth-status';
+    const r = await safeFetchJson(statusUrl);
     const d = r.data || {};
     const connected = !!(r.ok && d.ok && d.connected);
     window._adoAuthStatus = {

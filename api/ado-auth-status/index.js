@@ -17,7 +17,8 @@ module.exports = async function (context, req) {
     }
 
     const delegated = require('../shared/ado-user-token');
-    const token = await delegated.getValidAccessToken(req, principal);
+    const allowStoreRecovery = req.query && req.query.recover === '1';
+    const token = await delegated.getValidAccessToken(req, principal, { allowStoreRecovery });
     if (!token.ok) {
       jsonResponse(200, {
         ok: true,
