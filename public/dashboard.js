@@ -43,7 +43,14 @@ async function loadAdoAuthStatus() {
         : 'Not connected';
       statusEl.className = 'info-value ' + (connected ? 'ado-connected' : 'ado-not-connected');
     }
-    if (connectBtn) connectBtn.hidden = connected;
+    if (connectBtn) {
+      connectBtn.hidden = false;
+      connectBtn.textContent = connected ? 'Reconnect' : 'Connect';
+      connectBtn.setAttribute(
+        'aria-label',
+        connected ? 'Reconnect Azure DevOps' : 'Connect Azure DevOps'
+      );
+    }
     if (disconnectBtn) disconnectBtn.hidden = !connected;
   } catch (e) {
     window._adoAuthStatus = { connected: false, checked: true, reason: e.message };
@@ -51,7 +58,11 @@ async function loadAdoAuthStatus() {
       statusEl.textContent = 'Unable to check';
       statusEl.className = 'info-value ado-not-connected';
     }
-    if (connectBtn) connectBtn.hidden = false;
+    if (connectBtn) {
+      connectBtn.hidden = false;
+      connectBtn.textContent = 'Connect';
+      connectBtn.setAttribute('aria-label', 'Connect Azure DevOps');
+    }
     if (disconnectBtn) disconnectBtn.hidden = true;
   }
 }

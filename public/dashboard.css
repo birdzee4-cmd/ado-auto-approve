@@ -197,6 +197,7 @@
 
 .ado-connect-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
 }
@@ -206,9 +207,11 @@
   border: 0;
   border-radius: 6px;
   padding: 7px 12px;
+  min-height: 34px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .btn-ado-connect {
@@ -603,6 +606,23 @@
   }
   .welcome-card h1 {
     font-size: 22px;
+  }
+  .ado-connect-item {
+    align-items: flex-start;
+  }
+  .ado-connect-item .info-content,
+  .ado-connect-actions {
+    width: 100%;
+  }
+  .ado-connect-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .btn-ado-connect,
+  .btn-ado-disconnect {
+    width: 100%;
+    min-height: 44px;
+    font-size: 13px;
   }
   .page-header,
   .status-header {
