@@ -48,6 +48,7 @@ module.exports = async function (context, req) {
   checks.push(checkLineConfig());
   checks.push(checkLineDailySummaryConfig());
   checks.push(checkHourlySyncConfig());
+  checks.push(await checkApprovalLockStore(context));
 
   const lastNotification = sharePointResult.recentLogs
     ? findLastNotification(sharePointResult.recentLogs)
@@ -248,6 +249,24 @@ function checkHourlySyncConfig() {
     schedule: 'Every 1 hour',
     freeTierGuard: 'No Application Insights required'
   });
+}
+
+async function checkApprovalLockStore(context) {
+  const startedAt = Date.now();
+  try {
+    const lockStore = require('../shared/approval-lock-store');
+    const cfg = lockStore.getConfig();
+    await lockStore.ensureTable();
+    return buildCheck('approval-lock', 'Approval Lock Store', 'ok', 'Azure Table lock store is ready', startedAt, {
+      tableName: cfg.tableName,
+      configured: true
+    });
+  } catch (e) {
+    logWarn(context, 'Approval lock health check failed: ' + e.message);
+    return buildCheck('approval-lock', 'Approval Lock Store', 'error', e.message, startedAt, {
+      configured: false
+    });
+  }
 }
 
 function findLastNotification(logItems) {

@@ -6,6 +6,7 @@ let tableReady = false;
 
 function getConfig() {
   const connectionString = process.env.APPROVAL_LOCK_STORAGE_CONNECTION_STRING ||
+    process.env.ADO_TOKEN_STORAGE_CONNECTION_STRING ||
     process.env.AzureWebJobsStorage ||
     process.env.AZURE_STORAGE_CONNECTION_STRING;
   const tableName = process.env.APPROVAL_LOCK_TABLE || 'ApprovalLocks';
@@ -14,7 +15,7 @@ function getConfig() {
   const failedTtlSeconds = parseInt(process.env.APPROVAL_LOCK_FAILED_TTL_SECONDS || '15', 10);
 
   if (!connectionString) {
-    throw new Error('Missing APPROVAL_LOCK_STORAGE_CONNECTION_STRING, AzureWebJobsStorage, or AZURE_STORAGE_CONNECTION_STRING');
+    throw new Error('Missing APPROVAL_LOCK_STORAGE_CONNECTION_STRING, ADO_TOKEN_STORAGE_CONNECTION_STRING, AzureWebJobsStorage, or AZURE_STORAGE_CONNECTION_STRING');
   }
 
   return {
@@ -272,5 +273,6 @@ module.exports = {
   acquireLock,
   completeLock,
   failLock,
-  getConfig
+  getConfig,
+  ensureTable
 };
