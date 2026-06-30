@@ -17,7 +17,7 @@
     </div>
     <div class="nav-right">
       <span id="authStatusText" class="user-name" style="display: none; border-color: var(--bz-yellow);">Checking status...</span>
-      <a href="/.auth/login/aad?post_login_redirect_uri=/dashboard.html" id="navPortalBtn" class="logout-button btn-3d" style="padding: 8px 20px; font-size: 13px; box-shadow: 0 3px 0 #b37700;">
+      <a href="/.auth/login/aad?post_login_redirect_uri=/applications.html" id="navPortalBtn" class="logout-button btn-3d" style="padding: 8px 20px; font-size: 13px; box-shadow: 0 3px 0 #b37700;">
         Portal Sign In
       </a>
     </div>
@@ -35,10 +35,10 @@
         <div class="logo">
           <img src="/assets/buzzebees-icon.png" alt="BUZZEBEES" class="login-logo" />
         </div>
-        <h1 style="font-size: 28px; font-weight: 700; margin-bottom: 12px;">ADO Auto-Approve</h1>
-        <p class="subtitle" style="margin-bottom: 32px; line-height: 1.6;">ระบบอนุมัติ Pull Request อัตโนมัติ<br/>สำหรับ Staging Branch</p>
+        <h1 style="font-size: 28px; font-weight: 700; margin-bottom: 12px;">Buzzebees Internal Applications</h1>
+        <p class="subtitle" style="margin-bottom: 32px; line-height: 1.6;">ADO Auto-Approve และ App Service Portal<br/>สำหรับ internal operation</p>
 
-        <a href="/.auth/login/aad?post_login_redirect_uri=/dashboard.html" class="login-button" id="heroPortalBtn">
+        <a href="/.auth/login/aad?post_login_redirect_uri=/applications.html" class="login-button" id="heroPortalBtn">
           <svg id="microsoftIcon" width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0; margin-right: 8px;">
             <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
             <rect x="10" y="1" width="9" height="9" fill="#7FBA00"/>
@@ -126,13 +126,13 @@
           
           const portalBtn = document.getElementById('navPortalBtn');
           portalBtn.innerText = 'Enter Portal';
-          portalBtn.href = '/dashboard.html';
+          portalBtn.href = '/applications.html';
 
           const heroBtn = document.getElementById('heroPortalBtn');
           if (heroBtn) {
-            heroBtn.href = '/dashboard.html';
+            heroBtn.href = '/applications.html';
             const btnText = document.getElementById('loginBtnText');
-            if (btnText) btnText.innerText = 'Go to Dashboard';
+            if (btnText) btnText.innerText = 'Go to Applications';
             const msIcon = document.getElementById('microsoftIcon');
             if (msIcon) msIcon.style.display = 'none';
           }

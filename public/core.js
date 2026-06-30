@@ -13,7 +13,8 @@ try {
 window._currentUser = {
   roles: [],
   requiredRole: 'it_support_approve',
-  canApprovePrs: false
+  canApprovePrs: false,
+  canManageAppServices: false
 };
 
 async function initPage() {
@@ -45,6 +46,7 @@ async function initPage() {
         window._currentUser.roles = roles;
         window._currentUser.requiredRole = userData.requiredRole || window._currentUser.requiredRole;
         window._currentUser.canApprovePrs = !!(userData.permissions && userData.permissions.canApprovePrs);
+        window._currentUser.canManageAppServices = !!(userData.permissions && userData.permissions.canManageAppServices);
         setText('userRole', formatDisplayRoles(roles));
       }
     } catch (e) {
@@ -84,6 +86,7 @@ function setText(id, text) {
 function formatDisplayRoles(roles) {
   const roleLabels = {
     it_support_approve: 'IT Support Approve',
+    tester_appservice_manager: 'Tester App Service Manager',
     admin: 'Admin'
   };
   const systemRoles = new Set(['anonymous', 'authenticated']);

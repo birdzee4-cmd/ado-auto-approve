@@ -65,6 +65,7 @@ module.exports = async function (context, req) {
                 principal.userId;
     const userRoles = auth.getUserRoles(principal);
     const requiredRole = auth.getRequiredApproverRole();
+    const appServiceRole = process.env.APP_SERVICE_PORTAL_ROLE || 'tester_appservice_manager';
 
     context.res = {
       status: 200,
@@ -78,7 +79,8 @@ module.exports = async function (context, req) {
         userRoles: userRoles,
         requiredRole: requiredRole,
         permissions: {
-          canApprovePrs: auth.hasRole(principal, requiredRole)
+          canApprovePrs: auth.hasAnyRole(principal, [requiredRole, 'admin']),
+          canManageAppServices: auth.hasAnyRole(principal, [appServiceRole, 'admin'])
         }
       }
     };

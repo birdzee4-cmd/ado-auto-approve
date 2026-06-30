@@ -1208,7 +1208,10 @@ function buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTar
 
 function hasApprovalRole(currentUser) {
   const roles = currentUser && Array.isArray(currentUser.roles) ? currentUser.roles : [];
-  return roles.some(role => String(role || '').toLowerCase() === 'it_support_approve');
+  return roles.some(role => {
+    const value = String(role || '').toLowerCase();
+    return value === 'it_support_approve' || value === 'admin';
+  });
 }
 
 function findCurrentUserReviewer(reviewers, currentUser) {

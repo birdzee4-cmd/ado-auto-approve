@@ -24,7 +24,18 @@ function getRequiredApproverRole() {
 function hasRole(principal, requiredRole) {
   const target = String(requiredRole || '').trim().toLowerCase();
   if (!target) return true;
-  return getUserRoles(principal).some(role => role.toLowerCase() === target);
+  const roles = getUserRoles(principal).map(role => role.toLowerCase());
+  if (target === 'it_support_approve' && roles.includes('admin')) return true;
+  return roles.some(role => role === target);
+}
+
+function hasAnyRole(principal, requiredRoles) {
+  const targets = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles];
+  const normalized = targets
+    .map(role => String(role || '').trim())
+    .filter(Boolean);
+  if (normalized.length === 0) return true;
+  return normalized.some(role => hasRole(principal, role));
 }
 
 function requireRole(context, req, requiredRole) {
@@ -66,6 +77,47 @@ function requireRole(context, req, requiredRole) {
   };
 }
 
+function requireAnyRole(context, req, requiredRoles) {
+  const principal = parseClientPrincipal(req.headers);
+  if (!principal) {
+    return {
+      ok: false,
+      status: 401,
+      body: {
+        ok: false,
+        error: 'Authentication required'
+      }
+    };
+  }
+
+  const expectedRoles = (Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles])
+    .map(role => String(role || '').trim())
+    .filter(Boolean);
+  if (!hasAnyRole(principal, expectedRoles)) {
+    if (context && context.log && context.log.warn) {
+      context.log.warn('Forbidden: missing one of roles ' + expectedRoles.join(', '));
+    }
+    return {
+      ok: false,
+      status: 403,
+      body: {
+        ok: false,
+        error: 'Forbidden',
+        hint: 'Your account does not have one of the required roles: ' + expectedRoles.join(', '),
+        requiredRoles: expectedRoles,
+        userRoles: getUserRoles(principal)
+      }
+    };
+  }
+
+  return {
+    ok: true,
+    principal: principal,
+    userRoles: getUserRoles(principal),
+    requiredRoles: expectedRoles
+  };
+}
+
 function getUserEmail(principal) {
   return (principal && principal.userDetails) || 'Unknown User';
 }
@@ -75,6 +127,8 @@ module.exports = {
   getUserRoles,
   getRequiredApproverRole,
   hasRole,
+  hasAnyRole,
   requireRole,
+  requireAnyRole,
   getUserEmail
 };

@@ -14,12 +14,17 @@
       </div>
       <h1 style="color:#dc2626">Access Forbidden</h1>
       <p class="subtitle">
-        You do not have permission to access ADO Auto-Approve.<br/>
-        Please contact your administrator to request access.
+        You do not have permission to access this application.<br/>
+        Please choose another available application or contact your administrator.
       </p>
-      <a href="/.auth/logout?post_logout_redirect_uri=/" class="login-button">
-        <span>Sign out</span>
-      </a>
+      <div style="display:grid;gap:10px">
+        <a href="/applications.html" class="login-button">
+          <span>Back to Applications</span>
+        </a>
+        <a href="/.auth/logout?post_logout_redirect_uri=/" class="secondary-button" style="min-height:46px">
+          <span>Sign out</span>
+        </a>
+      </div>
     </div>
   </div>
 </body>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Applications - Buzzebees Internal Tools</title>
+  <link rel="stylesheet" href="/core.css" />
+  <link rel="stylesheet" href="/applications.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-left">
+      <img src="/assets/buzzebees-icon.png" alt="BUZZEBEES" class="nav-icon" />
+      <span class="brand">Buzzebees Internal Applications</span>
+    </div>
+    <div class="nav-right">
+      <span id="userName" class="user-name">Loading...</span>
+      <a href="/.auth/logout?post_logout_redirect_uri=/" class="logout-button">Sign out</a>
+      <img src="/assets/buzzebees-powered.png" alt="Powered by BUZZEBEES" class="nav-logo" />
+    </div>
+  </nav>
+
+  <main class="applications-page halftone-bg">
+    <section class="apps-shell">
+      <div class="apps-header">
+        <div>
+          <p class="apps-kicker">Single sign-on portal</p>
+          <h1>Choose an application</h1>
+          <p class="apps-subtitle">Only applications assigned to your Microsoft Entra role are shown.</p>
+        </div>
+        <div class="apps-user-panel">
+          <span id="displayName">-</span>
+          <small id="userEmail">-</small>
+          <small id="userRole">-</small>
+        </div>
+      </div>
+
+      <div id="appsStatus" class="apps-status" hidden></div>
+      <div id="appsGrid" class="apps-grid" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <script type="module" src="/applications.js"></script>
+</body>
+</html>

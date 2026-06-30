@@ -2,6 +2,8 @@
   "name": "ado-auto-approve-api",
   "version": "1.0.0",
   "dependencies": {
-    "@azure/data-tables": "^13.3.1"
+    "@azure/arm-appservice": "^19.0.0",
+    "@azure/data-tables": "^13.3.1",
+    "@azure/identity": "^4.13.1"
   }
 }

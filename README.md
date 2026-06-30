@@ -1114,6 +1114,66 @@ git ls-remote --heads origin main staging
 - Daily Summary มี duplicate guard แต่ถ้ามีการเปลี่ยน `Event_Key` logic อาจทำให้ส่งซ้ำได้
 - Azure DevOps policy บางแบบอาจไม่สะท้อนใน PR statuses โดยตรง จึงมี fallback branch build สำหรับ MergeCode
 
+## App Service Portal
+
+App Service Portal เป็น application ใหม่ใน Static Web App เดิม ใช้ Microsoft Entra ID เดียวกับ ADO Auto-Approve และเข้าใช้งานผ่าน `/applications.html`
+
+### Routes และ role
+
+- `/applications.html` เปิดให้ `authenticated` เพื่อแสดง launcher หรือ empty state หลัง login
+- ADO Auto-Approve pages/APIs จำกัด role `it_support_approve` และ `admin`
+- `/portal.html`, `/api/appservices`, `/api/appservice-settings`, `/api/restart-appservice` จำกัด role `tester_appservice_manager` และ `admin`
+- Frontend role check ใช้เพื่อ UX เท่านั้น ทุก App Service API ต้องตรวจ role และ resource scope ใน backend เสมอ
+
+### App Service scope
+
+ระบบจัดการเฉพาะ Buzzebees Staging App Services ใน scope นี้:
+
+```text
+Subscription: f9bca0f4-1e5b-487f-a2ef-a6578a936ef1
+Resource group: Default-STG-TH-ServicesBackEnd-All-Group
+App name prefix: stg-
+```
+
+App ที่ไม่ขึ้นต้นด้วย `stg-` หรืออยู่นอก resource group นี้ต้องไม่ถูก list, read settings, หรือ restart ผ่าน portal
+
+### Environment variables
+
+| Name | Required | Default / Notes |
+| --- | --- | --- |
+| `AZURE_TENANT_ID` | Yes | `36f04887-ce29-484c-900e-f23ad3f60b77` |
+| `APP_SERVICE_SUBSCRIPTION_ID` | No | default `f9bca0f4-1e5b-487f-a2ef-a6578a936ef1` |
+| `APP_SERVICE_RESOURCE_GROUP` | No | default `Default-STG-TH-ServicesBackEnd-All-Group` |
+| `APP_SERVICE_NAME_PREFIX` | No | default `stg-` |
+| `APP_SERVICE_PORTAL_ROLE` | No | default `tester_appservice_manager` |
+| `APP_SERVICE_CACHE_TTL_SECONDS` | No | default `60` |
+| `APP_SERVICE_RESTART_COOLDOWN_SECONDS` | No | default `300` |
+| `APP_SERVICE_SHAREPOINT_HOSTNAME` | No | fallback to `SHAREPOINT_HOSTNAME` |
+| `APP_SERVICE_SHAREPOINT_SITE_PATH` | No | fallback to `SHAREPOINT_SITE_PATH` |
+| `APP_SERVICE_SHAREPOINT_LIST_NAME` | No | default `App Service Portal Log` |
+| `APP_SERVICE_SHAREPOINT_AUTO_CREATE_COLUMNS` | No | set `false` ถ้าจัดเตรียม columns เอง |
+
+App Service audit ใช้ Graph app credential ชุดเดิมได้ถ้ามีอยู่แล้ว: `AAD_TENANT_ID`, `AAD_CLIENT_ID`, `AAD_CLIENT_SECRET`
+
+### Azure และ SharePoint setup
+
+1. Enable System-Assigned Managed Identity ให้ Static Web Apps API / Azure Functions host
+2. Assign RBAC ที่ scope resource group `Default-STG-TH-ServicesBackEnd-All-Group`
+3. Preferred custom role actions:
+   - `Microsoft.Web/sites/read`
+   - `Microsoft.Web/sites/config/read`
+   - `Microsoft.Web/sites/restart/action`
+4. ถ้าต้องใช้ built-in role ชั่วคราว ให้ใช้ `Website Contributor` scoped เฉพาะ resource group หรือ selected apps เท่านั้น
+5. Configure Static Web Apps authentication roles: `it_support_approve`, `tester_appservice_manager`, `admin`
+6. สร้าง SharePoint List ชื่อ `App Service Portal Log`
+
+### Audit policy
+
+- Settings read log ต้องเก็บเฉพาะ setting key names ไม่เก็บ values
+- Restart log ต้องเก็บ app service name, user, roles, result, reason, timestamp/event key
+- App Service audit ต้องแยกจาก ADO Auto-Approve log
+- ห้าม log setting values ใน SharePoint, Function logs, browser console, `localStorage`, หรือ `sessionStorage`
+
 ## Summary
 
 ADO Auto-Approve เป็นระบบช่วยรวมงานอนุมัติ PR บน staging ให้ทีมเห็นในหน้าเดียว พร้อม action ที่ควบคุมสิทธิ์, audit trail บน SharePoint, notification เฉพาะเรื่องสำคัญ, daily summary และเครื่องมือค้นหา CI/CD สำหรับ PR ประเภท Merge
