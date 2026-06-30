@@ -18,7 +18,7 @@ Production URL:
 - ระบบ deploy บน Azure Static Web Apps
 - Azure Functions runtime ใช้ Node.js 22
 - Authentication ใช้ Microsoft Entra ID ผ่าน Static Web Apps Auth
-- Authorization ของ action สำคัญใช้ role `it_support_approve`
+- Authorization ของหน้าเว็บและ user-facing API ใช้ role `it_support_approve`; ผู้ใช้ที่ login แล้วมีเพียง `authenticated` จะถูกส่งไปหน้า 403
 - Azure DevOps action สำคัญใช้ delegated user identity หลังผู้ใช้กด Connect Azure DevOps
 - การอ่านคิว PR / Build / Policy / Release lookup ยังใช้ `ADO_PAT` แบบ service credential เพื่อให้ Dashboard เห็นคิวกลางอย่างสม่ำเสมอ
 - Dashboard หลักเป็น read/action page สำหรับ Active PR Queue และ Release approval ที่รอ action
@@ -130,11 +130,11 @@ flowchart LR
 
 ### Active PR Queue
 
-ใช้สำหรับงานที่ยังรอ approval อยู่ ผู้ใช้ที่มี role `it_support_approve` จะเห็นปุ่ม action เฉพาะเมื่อยัง vote ได้
+ใช้สำหรับงานที่ยังรอ approval อยู่ ผู้ใช้ที่มี role `it_support_approve` เท่านั้นจึงจะเข้า Dashboard และเห็นปุ่ม action เฉพาะเมื่อยัง vote ได้
 
 เงื่อนไข action:
 
-- ถ้าผู้ใช้ไม่มี role `it_support_approve` จะไม่แสดง Approve / Reject
+- ถ้าผู้ใช้ไม่มี role `it_support_approve` จะเข้า ADO Auto-Approve ไม่ได้และถูกส่งไปหน้า 403
 - ถ้าผู้ใช้ approve/reject ไปแล้ว จะแสดง `Vote submitted`
 - ถ้าเป็น MergeCode / MergeCodeProduction จะแสดง `Manual in Azure DevOps`
 - ถ้างานไม่ใช่ reviewer ของผู้ใช้ จะแสดงสถานะที่เหมาะสมและไม่เปิด action ที่ไม่ควรทำ
@@ -605,17 +605,21 @@ Routes สำคัญ:
 
 | Route | Allowed roles |
 |---|---|
-| `/dashboard.html` | `authenticated` |
-| `/merge.html` | `authenticated` |
-| `/logs.html` | `authenticated` |
-| `/health.html` | `authenticated` |
-| `/report.html` | `authenticated` |
-| `/api/list-prs` | `authenticated` |
-| `/api/merge-lookup` | `authenticated` |
-| `/api/logs` | `authenticated` |
-| `/api/report-summary` | `authenticated` |
-| `/api/pr-history/*` | `authenticated` |
-| `/api/health` | `authenticated` |
+| `/dashboard.html` | `it_support_approve` |
+| `/activity.html` | `it_support_approve` |
+| `/merge.html` | `it_support_approve` |
+| `/logs.html` | `it_support_approve` |
+| `/health.html` | `it_support_approve` |
+| `/report.html` | `it_support_approve` |
+| `/deploy-history.html` | `it_support_approve` |
+| `/build-diagnostics.html` | `it_support_approve` |
+| `/api/userinfo` | `it_support_approve` |
+| `/api/list-prs` | `it_support_approve` |
+| `/api/merge-lookup` | `it_support_approve` |
+| `/api/logs` | `it_support_approve` |
+| `/api/report-summary` | `it_support_approve` |
+| `/api/pr-history/*` | `it_support_approve` |
+| `/api/health` | `it_support_approve` |
 | `/api/approve-pr` | `it_support_approve` |
 | `/api/reject-pr` | `it_support_approve` |
 | `/api/approve-release` | `it_support_approve` |
@@ -633,7 +637,7 @@ Role display:
 
 - System roles เช่น `anonymous`, `authenticated` ถูกซ่อนจาก UI
 - `it_support_approve` แสดงเป็น `IT Support Approve`
-- ถ้าไม่มี approval role จะแสดงเป็น authenticated user แต่ไม่เปิดปุ่ม action
+- ถ้าไม่มี approval role ผู้ใช้จะไม่สามารถเข้า ADO Auto-Approve ได้ และ Static Web Apps จะ redirect ไป `/403.html`
 
 ## User Profile / Display Name
 
@@ -672,7 +676,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/report-summary` | GET | ดึงข้อมูลรายงานสรุปสถิติผลการดำเนินงาน (การอนุมัติ, อัตรา Auto-Approve, อัตราความสำเร็จของบิลด์) |
 | `/api/pr-history/{prId}` | GET | อ่าน history ของ PR จาก SharePoint |
 | `/api/logs` | GET | อ่าน audit logs จาก SharePoint |
-| `/api/health` | GET | ตรวจ authenticated system health หลัง login |
+| `/api/health` | GET | ตรวจ system health หลัง login สำหรับผู้ใช้ที่มี role `it_support_approve` |
 | `/api/merge-lookup` | GET | ค้นหา CI/CD ของ Merge PR |
 | `/api/test-notification` | POST | ทดสอบ Teams notification |
 | `/api/test-daily-summary` | POST | ทดสอบ Daily Summary |
@@ -959,7 +963,7 @@ node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json'
 | Login | ผู้ใช้ login ผ่าน Entra ID ได้ |
 | ADO Connect | ผู้ใช้ Connect Azure DevOps ได้, กลับมา Dashboard พร้อม success notice, และสถานะแสดง Connected |
 | Role | ผู้ใช้ `IT Support Approve` เห็น action ที่ควรเห็น |
-| No role | ผู้ใช้ไม่มี role ไม่เห็น Approve / Reject |
+| No role | ผู้ใช้ login แล้วแต่ไม่มี `it_support_approve` ถูก redirect ไปหน้า 403 และเรียก user-facing API ไม่ได้ |
 | Load PR | Dashboard โหลด PR ได้และปุ่มกลับเป็น `Refresh PR` |
 | Active PR Queue | แสดง PR ที่รอ approval ถูกต้อง |
 | My Approval | แสดง `You approved`, `Vote submitted`, หรือสถานะรออนุมัติถูกต้อง |
