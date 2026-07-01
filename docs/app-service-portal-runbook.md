@@ -13,6 +13,27 @@
 - Managed Identity principal ID: `69558ef6-ab36-4b6b-a110-9e7a68669465`
 - RBAC status: `Website Contributor` assigned on `Default-STG-TH-ServicesBackEnd-All-Group`
 
+## Current Managed API Limitation
+
+The Static Web Apps managed API runtime currently exposes Managed Identity endpoint variables, but not the secret/header required to request an ARM token:
+
+```text
+identityEndpoint=yes
+identityHeader=no
+msiEndpoint=yes
+msiSecret=no
+```
+
+Direct token probing returns:
+
+```text
+ManagedIdentityTokenError status=403
+```
+
+This means the App Service Portal backend cannot reliably call Azure Resource Manager from the integrated SWA API host. The next implementation plan is to keep the Static Web App as `Standard`, move the `api` backend to a linked Azure Function App on the Consumption plan, and grant RBAC to the Function App managed identity.
+
+See `docs/function-app-api-migration-plan.md`.
+
 ## App Service Scope
 
 The portal must manage only this staging scope:
