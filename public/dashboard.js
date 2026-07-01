@@ -1304,6 +1304,32 @@ window._autoCountdownInterval = null;
 window._autoPrApprovedCount = 0;
 window._autoReleaseApprovedCount = 0;
 window._processingAutoApprovals = {};
+window._autoCompletedPrApprovals = loadAutoPrApprovalSet();
+
+function loadAutoPrApprovalSet() {
+  try {
+    const values = JSON.parse(sessionStorage.getItem('autoCompletedPrApprovals') || '[]');
+    return new Set(Array.isArray(values) ? values.map(String) : []);
+  } catch (e) {
+    return new Set();
+  }
+}
+
+function rememberAutoPrApproval(prId) {
+  const key = String(prId || '');
+  if (!key) return;
+  window._autoCompletedPrApprovals.add(key);
+  sessionStorage.setItem('autoCompletedPrApprovals', JSON.stringify(Array.from(window._autoCompletedPrApprovals)));
+}
+
+function hasCompletedAutoPrApproval(prId) {
+  return window._autoCompletedPrApprovals.has(String(prId || ''));
+}
+
+function resetAutoPrApprovalMemory() {
+  window._autoCompletedPrApprovals = new Set();
+  sessionStorage.removeItem('autoCompletedPrApprovals');
+}
 
 async function initAutoApprove() {
   const panel = document.getElementById('autoApprovePanel');
@@ -1327,6 +1353,7 @@ async function initAutoApprove() {
     // Reset sessionStorage stats
     sessionStorage.removeItem('autoPrApprovedCount');
     sessionStorage.removeItem('autoReleaseApprovedCount');
+    resetAutoPrApprovalMemory();
     window._autoPrApprovedCount = 0;
     window._autoReleaseApprovedCount = 0;
 
@@ -1418,12 +1445,14 @@ window.changeAutoMode = async function(mode) {
       
       sessionStorage.removeItem('autoPrApprovedCount');
       sessionStorage.removeItem('autoReleaseApprovedCount');
+      resetAutoPrApprovalMemory();
       window._autoPrApprovedCount = 0;
       window._autoReleaseApprovedCount = 0;
     } else {
       if (mode === 'active') {
         window._autoPrApprovedCount = 0;
         window._autoReleaseApprovedCount = 0;
+        resetAutoPrApprovalMemory();
         sessionStorage.setItem('autoPrApprovedCount', 0);
         sessionStorage.setItem('autoReleaseApprovedCount', 0);
         updateStatsUI();
@@ -1526,6 +1555,7 @@ async function handleAutoExpiry() {
   
   sessionStorage.removeItem('autoPrApprovedCount');
   sessionStorage.removeItem('autoReleaseApprovedCount');
+  resetAutoPrApprovalMemory();
   window._autoPrApprovedCount = 0;
   window._autoReleaseApprovedCount = 0;
 
@@ -1583,6 +1613,7 @@ async function evaluateAutoApprovals(prs) {
 
   const eligiblePrs = list.filter(pr => {
     if (typeof pr.id === 'string' && pr.id.startsWith('R')) return false;
+    if (hasCompletedAutoPrApproval(pr.id)) return false;
     
     const targetRef = String(pr.targetBranch || '').toLowerCase();
     
@@ -1654,6 +1685,7 @@ async function evaluateAutoApprovals(prs) {
       return;
     }
     for (const pr of eligiblePrs) {
+      if (hasCompletedAutoPrApproval(pr.id)) continue;
       if (window._processingAutoApprovals[pr.id]) continue;
       window._processingAutoApprovals[pr.id] = true;
       
@@ -1670,10 +1702,16 @@ async function evaluateAutoApprovals(prs) {
         });
 
         if (response.ok && response.data && response.data.ok) {
-          window._autoPrApprovedCount += 1;
-          sessionStorage.setItem('autoPrApprovedCount', window._autoPrApprovedCount);
-          updateStatsUI();
-          writeToAutoConsole(`PR #${pr.id} - อนุมัติสำเร็จ! (Auto-Complete: ${response.data.autoComplete ? 'เปิดใช้งาน' : 'ข้าม'})`, 'active');
+          rememberAutoPrApproval(pr.id);
+          if (response.data.skipped || response.data.lockStatus === 'completed') {
+            const by = response.data.approvedBy || response.data.user || 'another approver';
+            writeToAutoConsole(`PR #${pr.id} - ข้าม เพราะมีการอนุมัติไปแล้วโดย ${by}`, 'info');
+          } else {
+            window._autoPrApprovedCount += 1;
+            sessionStorage.setItem('autoPrApprovedCount', window._autoPrApprovedCount);
+            updateStatsUI();
+            writeToAutoConsole(`PR #${pr.id} - อนุมัติสำเร็จ! (Auto-Complete: ${response.data.autoComplete ? 'เปิดใช้งาน' : 'ข้าม'})`, 'active');
+          }
         } else {
           const d = response.data || {};
           writeToAutoConsole(`PR #${pr.id} - อนุมัติไม่สำเร็จ: ${d.error || 'Unknown error'}`, 'error');

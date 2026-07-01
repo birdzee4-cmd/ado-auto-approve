@@ -115,6 +115,24 @@ module.exports = async function (context, req) {
       return;
     }
 
+    const existingReviewer = findReviewerById(pr.reviewers, approverUserId);
+    const alreadyApprovedByUser = existingReviewer && Number(existingReviewer.vote) >= 10;
+    const autoCompleteAlreadySet = !!(pr.autoCompleteSetBy && pr.autoCompleteSetBy.id);
+    if (alreadyApprovedByUser && autoCompleteAlreadySet) {
+      jsonResponse(200, {
+        ok: true,
+        skipped: true,
+        message: 'PR was already approved and auto-complete is already set',
+        prId: prId,
+        user: userEmail,
+        approvedBy: existingReviewer.uniqueName || existingReviewer.displayName || userEmail,
+        autoComplete: true,
+        lockStatus: 'already-completed',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
     const holdState = await getApprovalHoldState(context, prId);
     if (holdState.active) {
       jsonResponse(423, {
@@ -279,6 +297,16 @@ module.exports = async function (context, req) {
 
 function isMergeCodeBranch(refName) {
   return String(refName || '').toLowerCase().includes('mergecode');
+}
+
+function findReviewerById(reviewers, reviewerId) {
+  const list = Array.isArray(reviewers) ? reviewers : [];
+  const target = String(reviewerId || '').toLowerCase();
+  if (!target) return null;
+  return list.find(reviewer =>
+    reviewer &&
+    String(reviewer.id || '').toLowerCase() === target
+  ) || null;
 }
 
 async function getApprovalHoldState(context, prId) {
