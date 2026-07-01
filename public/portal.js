@@ -222,7 +222,9 @@ function formatDiagnostics(diagnostics) {
   if (diagnostics.code) parts.push('code=' + diagnostics.code);
   if (diagnostics.statusCode) parts.push('status=' + diagnostics.statusCode);
   parts.push('identityEndpoint=' + (diagnostics.hasIdentityEndpoint ? 'yes' : 'no'));
+  parts.push('identityHeader=' + (diagnostics.hasIdentityHeader ? 'yes' : 'no'));
   parts.push('msiEndpoint=' + (diagnostics.hasMsiEndpoint ? 'yes' : 'no'));
+  parts.push('msiSecret=' + (diagnostics.hasMsiSecret ? 'yes' : 'no'));
   return parts.length ? ' [' + parts.join(', ') + ']' : '';
 }
 

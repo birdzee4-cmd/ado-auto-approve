@@ -43,14 +43,121 @@ function getClient() {
 }
 
 function getCredential(cfg) {
-  const hasManagedIdentityEndpoint = !!process.env.IDENTITY_ENDPOINT || !!process.env.MSI_ENDPOINT;
-  if (hasManagedIdentityEndpoint) {
-    const { ManagedIdentityCredential } = require('@azure/identity');
-    return new ManagedIdentityCredential();
-  }
+  const rawManagedIdentity = createRawManagedIdentityCredential();
+  if (rawManagedIdentity) return rawManagedIdentity;
 
   const { DefaultAzureCredential } = require('@azure/identity');
   return new DefaultAzureCredential({ tenantId: cfg.tenantId });
+}
+
+function createRawManagedIdentityCredential() {
+  const identityEndpoint = process.env.IDENTITY_ENDPOINT;
+  const identityHeader = process.env.IDENTITY_HEADER;
+  const msiEndpoint = process.env.MSI_ENDPOINT;
+  const msiSecret = process.env.MSI_SECRET;
+
+  if (identityEndpoint && identityHeader) {
+    return {
+      getToken: async (scopes) => getManagedIdentityToken({
+        endpoint: identityEndpoint,
+        headerName: 'X-IDENTITY-HEADER',
+        headerValue: identityHeader,
+        apiVersion: '2019-08-01',
+        scopes
+      })
+    };
+  }
+
+  if (msiEndpoint && msiSecret) {
+    return {
+      getToken: async (scopes) => getManagedIdentityToken({
+        endpoint: msiEndpoint,
+        headerName: 'secret',
+        headerValue: msiSecret,
+        apiVersion: '2017-09-01',
+        scopes
+      })
+    };
+  }
+
+  return null;
+}
+
+async function getManagedIdentityToken(options) {
+  const resource = getResourceFromScopes(options.scopes);
+  const tokenUrl = new URL(options.endpoint);
+  tokenUrl.searchParams.set('api-version', options.apiVersion);
+  tokenUrl.searchParams.set('resource', resource);
+
+  const response = await requestJson(tokenUrl, {
+    [options.headerName]: options.headerValue,
+    'Accept': 'application/json'
+  });
+
+  if (!response || !response.access_token) {
+    const err = new Error('Managed Identity endpoint did not return an access token');
+    err.name = 'ManagedIdentityTokenError';
+    throw err;
+  }
+
+  return {
+    token: response.access_token,
+    expiresOnTimestamp: getExpiresOnTimestamp(response)
+  };
+}
+
+function getResourceFromScopes(scopes) {
+  const first = Array.isArray(scopes) ? scopes[0] : scopes;
+  const value = String(first || 'https://management.azure.com/.default');
+  return value.endsWith('/.default') ? value.slice(0, -'/.default'.length) + '/' : value;
+}
+
+function getExpiresOnTimestamp(response) {
+  if (response.expires_on) {
+    const numeric = Number(response.expires_on);
+    if (Number.isFinite(numeric)) return numeric * 1000;
+    const parsed = Date.parse(response.expires_on);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  const expiresIn = Number(response.expires_in || 3600);
+  return Date.now() + Math.max(60, expiresIn) * 1000;
+}
+
+function requestJson(url, headers) {
+  return new Promise((resolve, reject) => {
+    const transport = url.protocol === 'http:' ? require('http') : require('https');
+    const req = transport.request(url, {
+      method: 'GET',
+      headers
+    }, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => { body += chunk; });
+      res.on('end', () => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          const err = new Error('Managed Identity token request failed with status ' + res.statusCode);
+          err.name = 'ManagedIdentityTokenError';
+          err.statusCode = res.statusCode;
+          reject(err);
+          return;
+        }
+
+        try {
+          resolve(JSON.parse(body || '{}'));
+        } catch (parseErr) {
+          parseErr.name = 'ManagedIdentityTokenParseError';
+          reject(parseErr);
+        }
+      });
+    });
+
+    req.on('error', (err) => {
+      err.name = err.name || 'ManagedIdentityTokenRequestError';
+      reject(err);
+    });
+    req.end();
+  });
 }
 
 async function listAllowedAppServices(forceRefresh) {

@@ -59,6 +59,7 @@ function getSafeDiagnostics(err) {
     hasIdentityEndpoint: !!process.env.IDENTITY_ENDPOINT,
     hasIdentityHeader: !!process.env.IDENTITY_HEADER,
     hasMsiEndpoint: !!process.env.MSI_ENDPOINT,
+    hasMsiSecret: !!process.env.MSI_SECRET,
     hasAzureTenantId: !!process.env.AZURE_TENANT_ID,
     hasAppServiceSubscriptionId: !!process.env.APP_SERVICE_SUBSCRIPTION_ID,
     hasAppServiceResourceGroup: !!process.env.APP_SERVICE_RESOURCE_GROUP
