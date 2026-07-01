@@ -35,12 +35,22 @@ function createPublicError(statusCode, message) {
 
 function getClient() {
   if (cachedClient) return cachedClient;
-  const { DefaultAzureCredential } = require('@azure/identity');
   const { WebSiteManagementClient } = require('@azure/arm-appservice');
   const cfg = getConfig();
-  const credential = new DefaultAzureCredential({ tenantId: cfg.tenantId });
+  const credential = getCredential(cfg);
   cachedClient = new WebSiteManagementClient(credential, cfg.subscriptionId);
   return cachedClient;
+}
+
+function getCredential(cfg) {
+  const hasManagedIdentityEndpoint = !!process.env.IDENTITY_ENDPOINT || !!process.env.MSI_ENDPOINT;
+  if (hasManagedIdentityEndpoint) {
+    const { ManagedIdentityCredential } = require('@azure/identity');
+    return new ManagedIdentityCredential();
+  }
+
+  const { DefaultAzureCredential } = require('@azure/identity');
+  return new DefaultAzureCredential({ tenantId: cfg.tenantId });
 }
 
 async function listAllowedAppServices(forceRefresh) {
