@@ -100,6 +100,18 @@ module.exports = async function (context, req) {
       return;
     }
 
+    const reviewerGroup = process.env.ADO_REVIEWER_GROUP || 'IT Support Approve';
+    const approvedGroupReviewer = findReviewerGroupByName(pr.reviewers, reviewerGroup);
+    if (hasApprovalRole(roleCheck.principal) && approvedGroupReviewer && Number(approvedGroupReviewer.vote) >= 10) {
+      jsonResponse(409, {
+        ok: false,
+        error: 'Reviewer group already approved this PR',
+        detail: 'Refresh the Dashboard. Your reviewer group vote has already been submitted.',
+        approvedBy: approvedGroupReviewer.displayName || reviewerGroup
+      });
+      return;
+    }
+
     const holdState = await getApprovalHoldState(context, prId);
     if (holdState.active) {
       jsonResponse(423, {
@@ -183,6 +195,25 @@ module.exports = async function (context, req) {
 
 function isMergeCodeBranch(refName) {
   return String(refName || '').toLowerCase().includes('mergecode');
+}
+
+function findReviewerGroupByName(reviewers, groupName) {
+  const list = Array.isArray(reviewers) ? reviewers : [];
+  const target = String(groupName || '').toLowerCase().trim();
+  if (!target) return null;
+  return list.find(reviewer =>
+    reviewer &&
+    reviewer.isContainer === true &&
+    String(reviewer.displayName || '').toLowerCase().includes(target)
+  ) || null;
+}
+
+function hasApprovalRole(principal) {
+  const roles = principal && Array.isArray(principal.userRoles) ? principal.userRoles : [];
+  return roles.some(role => {
+    const value = String(role || '').toLowerCase();
+    return value === 'it_support_approve' || value === 'admin';
+  });
 }
 
 async function getApprovalHoldState(context, prId) {

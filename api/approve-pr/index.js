@@ -135,6 +135,22 @@ module.exports = async function (context, req) {
     const existingReviewer = findReviewerById(pr.reviewers, approverUserId);
     const alreadyApprovedByUser = existingReviewer && Number(existingReviewer.vote) >= 10;
     const autoCompleteAlreadySet = !!(pr.autoCompleteSetBy && pr.autoCompleteSetBy.id);
+    const reviewerGroup = process.env.ADO_REVIEWER_GROUP || 'IT Support Approve';
+    const approvedGroupReviewer = findReviewerGroupByName(pr.reviewers, reviewerGroup);
+    if (hasApprovalRole(roleCheck.principal) && approvedGroupReviewer && Number(approvedGroupReviewer.vote) >= 10) {
+      jsonResponse(200, {
+        ok: true,
+        skipped: true,
+        message: 'Reviewer group already approved this PR',
+        prId: prId,
+        user: userEmail,
+        approvedBy: approvedGroupReviewer.displayName || reviewerGroup,
+        autoComplete: autoCompleteAlreadySet,
+        lockStatus: 'group-already-approved',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
     if (alreadyApprovedByUser && autoCompleteAlreadySet) {
       jsonResponse(200, {
         ok: true,
@@ -333,6 +349,25 @@ function findApprovedReviewer(reviewers) {
     reviewer.isContainer !== true &&
     Number(reviewer.vote) >= 10
   ) || null;
+}
+
+function findReviewerGroupByName(reviewers, groupName) {
+  const list = Array.isArray(reviewers) ? reviewers : [];
+  const target = String(groupName || '').toLowerCase().trim();
+  if (!target) return null;
+  return list.find(reviewer =>
+    reviewer &&
+    reviewer.isContainer === true &&
+    String(reviewer.displayName || '').toLowerCase().includes(target)
+  ) || null;
+}
+
+function hasApprovalRole(principal) {
+  const roles = principal && Array.isArray(principal.userRoles) ? principal.userRoles : [];
+  return roles.some(role => {
+    const value = String(role || '').toLowerCase();
+    return value === 'it_support_approve' || value === 'admin';
+  });
 }
 
 async function getApprovalHoldState(context, prId) {

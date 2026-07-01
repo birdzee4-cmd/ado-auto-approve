@@ -876,7 +876,7 @@ async function buildPrRow(context, pr, currentUser, org, project, branchBuildCac
   const repositoryId = pr.repository && pr.repository.id;
   const isMergeCodeTarget = isMergeCodeBranch(pr.targetRefName);
   const approval = buildApprovalSummary(reviewers);
-  const myApproval = buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTarget);
+  const myApproval = buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTarget, reviewerGroup);
   const statusSnapshot = await getStatusSnapshot(context, ado, pr, repositoryId, isMergeCodeTarget, branchBuildCache);
   const releaseApproval = skipRelease
     ? { status: 'skipped', label: 'Release skipped' }
@@ -1225,7 +1225,7 @@ function mapReviewer(reviewer) {
   };
 }
 
-function buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTarget) {
+function buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTarget, reviewerGroup) {
   if (isMergeCodeTarget) {
     return {
       status: 'manual',
@@ -1241,6 +1241,8 @@ function buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTar
   const vote = myReviewer ? Number(myReviewer.vote) || 0 : 0;
   const waitingOthers = Math.max((approval.requiredCount || 0) - (approval.approvedCount || 0), 0);
   const canApproveAsGroup = hasApprovalRole(currentUser);
+  const groupReviewer = canApproveAsGroup ? findReviewerGroup(reviewers, reviewerGroup) : null;
+  const groupVote = groupReviewer ? Number(groupReviewer.vote) || 0 : 0;
 
   if (vote >= 10) {
     return {
@@ -1249,6 +1251,17 @@ function buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTar
       detail: waitingOthers > 0 ? 'Waiting others: ' + waitingOthers : 'All required approved',
       vote: vote,
       matched: true,
+      waitingOthers: waitingOthers
+    };
+  }
+  if (groupVote >= 10) {
+    return {
+      status: 'approved',
+      label: 'Group approved',
+      detail: waitingOthers > 0 ? 'Waiting other groups: ' + waitingOthers : 'All required approved',
+      vote: groupVote,
+      matched: true,
+      matchedGroup: groupReviewer.displayName || reviewerGroup || '',
       waitingOthers: waitingOthers
     };
   }
@@ -1262,6 +1275,17 @@ function buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTar
       waitingOthers: waitingOthers
     };
   }
+  if (groupVote === 5) {
+    return {
+      status: 'suggestions',
+      label: 'Group approved with suggestions',
+      detail: waitingOthers > 0 ? 'Waiting other groups: ' + waitingOthers : 'All required approved',
+      vote: groupVote,
+      matched: true,
+      matchedGroup: groupReviewer.displayName || reviewerGroup || '',
+      waitingOthers: waitingOthers
+    };
+  }
   if (vote <= -10) {
     return {
       status: 'rejected',
@@ -1269,6 +1293,17 @@ function buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTar
       detail: 'Review needed',
       vote: vote,
       matched: true,
+      waitingOthers: waitingOthers
+    };
+  }
+  if (groupVote <= -10) {
+    return {
+      status: 'rejected',
+      label: 'Group rejected',
+      detail: 'Review needed',
+      vote: groupVote,
+      matched: true,
+      matchedGroup: groupReviewer.displayName || reviewerGroup || '',
       waitingOthers: waitingOthers
     };
   }
@@ -1282,6 +1317,17 @@ function buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTar
       waitingOthers: waitingOthers
     };
   }
+  if (groupVote === -5) {
+    return {
+      status: 'waiting-author',
+      label: 'Group waiting for author',
+      detail: 'Group requested changes',
+      vote: groupVote,
+      matched: true,
+      matchedGroup: groupReviewer.displayName || reviewerGroup || '',
+      waitingOthers: waitingOthers
+    };
+  }
 
   return {
     status: myReviewer || canApproveAsGroup ? 'not-approved' : 'not-reviewer',
@@ -1291,6 +1337,17 @@ function buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTar
     matched: !!myReviewer,
     waitingOthers: waitingOthers
   };
+}
+
+function findReviewerGroup(reviewers, groupName) {
+  const list = Array.isArray(reviewers) ? reviewers : [];
+  const target = String(groupName || '').toLowerCase().trim();
+  if (!target) return null;
+  return list.find(reviewer =>
+    reviewer &&
+    reviewer.isContainer === true &&
+    String(reviewer.displayName || '').toLowerCase().includes(target)
+  ) || null;
 }
 
 function hasApprovalRole(currentUser) {

@@ -101,6 +101,7 @@ flowchart LR
 - Attention: New, Waiting, Warning, Critical, Stale, Manual
 - My Approval: สถานะ vote ของผู้ใช้ปัจจุบัน
 - Actions: Approve, Reject, Approve Release, History, Open ADO / Open Release ตามสิทธิ์และสถานะ
+- ถ้า reviewer group ของผู้ใช้ เช่น `[Buzzebees]\IT Support Approve` vote แล้ว สมาชิกใน group เดียวกันจะเห็นเป็น `Group approved` / `Vote submitted` ไม่แสดงปุ่ม Approve / Reject ซ้ำ
 
 ### Azure DevOps Connection / Identity Policy
 
@@ -141,7 +142,7 @@ flowchart LR
 เงื่อนไข action:
 
 - ถ้าผู้ใช้ไม่มี role `it_support_approve` จะเข้า ADO Auto-Approve ไม่ได้และถูกส่งไปหน้า 403
-- ถ้าผู้ใช้ approve/reject ไปแล้ว จะแสดง `Vote submitted`
+- ถ้าผู้ใช้หรือ reviewer group ของผู้ใช้ approve/reject ไปแล้ว จะแสดง `Vote submitted`
 - ถ้าเป็น MergeCode / MergeCodeProduction จะแสดง `Manual in Azure DevOps`
 - ถ้างานไม่ใช่ reviewer ของผู้ใช้ จะแสดงสถานะที่เหมาะสมและไม่เปิด action ที่ไม่ควรทำ
 - ถ้า PR approval complete แล้ว แต่มี `Release approval pending` จะยังอยู่ใน Active Queue เพื่อให้กด `Approve Release`
