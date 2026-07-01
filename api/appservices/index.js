@@ -36,7 +36,8 @@ module.exports = async function (context, req) {
       ok: false,
       error: 'Failed to list App Services',
       detail,
-      scopeHint: 'Managed Identity must have Reader on the configured App Service resource group.'
+      scopeHint: 'Managed Identity must have Reader on the configured App Service resource group.',
+      diagnostics: getSafeDiagnostics(err)
     });
   }
 };
@@ -47,9 +48,19 @@ function getPublicErrorDetail(err) {
 }
 
 function sanitizeError(err) {
+  return getSafeDiagnostics(err);
+}
+
+function getSafeDiagnostics(err) {
   return {
     statusCode: err && err.statusCode,
     code: err && err.code,
-    name: err && err.name
+    name: err && err.name,
+    hasIdentityEndpoint: !!process.env.IDENTITY_ENDPOINT,
+    hasIdentityHeader: !!process.env.IDENTITY_HEADER,
+    hasMsiEndpoint: !!process.env.MSI_ENDPOINT,
+    hasAzureTenantId: !!process.env.AZURE_TENANT_ID,
+    hasAppServiceSubscriptionId: !!process.env.APP_SERVICE_SUBSCRIPTION_ID,
+    hasAppServiceResourceGroup: !!process.env.APP_SERVICE_RESOURCE_GROUP
   };
 }

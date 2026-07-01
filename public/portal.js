@@ -39,9 +39,10 @@ async function loadApps(forceRefresh) {
     const r = await safeFetchJson(url, { timeoutMs: 45000 });
     if (!r.ok || !r.data || !r.data.ok) {
       const d = r.data || {};
+      const diagnosticText = formatDiagnostics(d.diagnostics);
       allApps = [];
       renderApps();
-      setStatus(d.detail || d.error || 'App Service API is not ready. Check Managed Identity, RBAC, and environment variables.', 'error');
+      setStatus((d.detail || d.error || 'App Service API is not ready. Check Managed Identity, RBAC, and environment variables.') + diagnosticText, 'error');
       updateScope(d.scope || null);
       return;
     }
@@ -212,6 +213,17 @@ function setSettingsStatus(message, type) {
   if (type) el.classList.add(type);
   el.hidden = !message;
   el.textContent = message || '';
+}
+
+function formatDiagnostics(diagnostics) {
+  if (!diagnostics || typeof diagnostics !== 'object') return '';
+  const parts = [];
+  if (diagnostics.name) parts.push('name=' + diagnostics.name);
+  if (diagnostics.code) parts.push('code=' + diagnostics.code);
+  if (diagnostics.statusCode) parts.push('status=' + diagnostics.statusCode);
+  parts.push('identityEndpoint=' + (diagnostics.hasIdentityEndpoint ? 'yes' : 'no'));
+  parts.push('msiEndpoint=' + (diagnostics.hasMsiEndpoint ? 'yes' : 'no'));
+  return parts.length ? ' [' + parts.join(', ') + ']' : '';
 }
 
 (async function initPortal() {
