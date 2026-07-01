@@ -115,6 +115,23 @@ module.exports = async function (context, req) {
       return;
     }
 
+    const autoApprovedRequest = body && body.autoApproved === true;
+    const approvedReviewer = findApprovedReviewer(pr.reviewers);
+    if (autoApprovedRequest && approvedReviewer) {
+      jsonResponse(200, {
+        ok: true,
+        skipped: true,
+        message: 'PR already has an approval; auto-approve skipped',
+        prId: prId,
+        user: userEmail,
+        approvedBy: approvedReviewer.uniqueName || approvedReviewer.displayName || approvedReviewer.id || 'another reviewer',
+        autoComplete: !!(pr.autoCompleteSetBy && pr.autoCompleteSetBy.id),
+        lockStatus: 'already-approved',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
     const existingReviewer = findReviewerById(pr.reviewers, approverUserId);
     const alreadyApprovedByUser = existingReviewer && Number(existingReviewer.vote) >= 10;
     const autoCompleteAlreadySet = !!(pr.autoCompleteSetBy && pr.autoCompleteSetBy.id);
@@ -243,7 +260,7 @@ module.exports = async function (context, req) {
     }
 
     // 5) Log SharePoint
-    const autoApproved = body && body.autoApproved === true;
+    const autoApproved = autoApprovedRequest;
     const actionName = autoApproved ? 'Auto Approved' : 'Approved';
     let logStatus = 'skipped';
     const resultText = (autoCompleteOk ? 'Success (auto-complete enabled' : 'Vote OK (auto-complete failed') +
@@ -306,6 +323,15 @@ function findReviewerById(reviewers, reviewerId) {
   return list.find(reviewer =>
     reviewer &&
     String(reviewer.id || '').toLowerCase() === target
+  ) || null;
+}
+
+function findApprovedReviewer(reviewers) {
+  const list = Array.isArray(reviewers) ? reviewers : [];
+  return list.find(reviewer =>
+    reviewer &&
+    reviewer.isContainer !== true &&
+    Number(reviewer.vote) >= 10
   ) || null;
 }
 
