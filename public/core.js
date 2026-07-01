@@ -368,7 +368,9 @@ function saveLastSync(data) {
       completedTotalMatched: activityIncluded ? data && data.completedTotalMatched : previous.completedTotalMatched,
       recentlyApprovedCount: activityIncluded ? data && data.completedTotalMatched : previous.recentlyApprovedCount,
       reviewerGroup: data && data.reviewerGroup,
-      targetBranch: data && data.targetBranch
+      targetBranch: data && data.targetBranch,
+      readSource: data && data.readSource,
+      readIdentity: data && data.readIdentity
     };
     localStorage.setItem('adoDashboardLastSync', JSON.stringify(payload));
   } catch (e) {}

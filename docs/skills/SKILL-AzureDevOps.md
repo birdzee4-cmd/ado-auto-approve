@@ -4,9 +4,11 @@
 
 ---
 
-## 🔑 1. การร้องขอข้อมูลและจัดการสิทธิ์ผ่าน PAT
+## 🔑 1. การร้องขอข้อมูลและจัดการสิทธิ์ผ่าน Azure DevOps identity
 
-*   **Authentication:** ใช้ Personal Access Token (PAT) ที่มีสิทธิ์เฉพาะทางในการเขียนอ่านรหัสและทำงานร่วมกับ Release Pipeline
+*   **Dashboard PR Queue:** ใช้ Azure DevOps Connected user token ของผู้ใช้ที่ login เพื่ออ่านรายการ PR ตามสิทธิ์ repository จริงของผู้ใช้คนนั้น
+*   **Action:** Approve / Reject / Approve Release ใช้ Azure DevOps Connected user token เพื่อให้ audit ใน Azure DevOps เป็นชื่อผู้ใช้จริง
+*   **System/background read path:** ใช้ Personal Access Token (PAT) เฉพาะงานที่ไม่มี interactive user token เช่น background sync, health check และ release/system lookup บางจุด
 *   **Security Control:** สิทธิ์ของ PAT ต้องจำกัดขอบเขต (Scope) ไว้แคบที่สุดเท่าที่เป็นไปได้:
     *   `Code (Read & Write)` สำหรับจัดการ Pull Requests
     *   `Release (Read, Write & Manage)` สำหรับตรวจสอบและอนุมัติ Classic Release Pipelines

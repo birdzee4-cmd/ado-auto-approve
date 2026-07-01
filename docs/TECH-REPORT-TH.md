@@ -140,8 +140,8 @@
 
 | API | Version | บทบาท | Authentication |
 |---|---|---|---|
-| **Azure DevOps REST API** | 7.0 | ดึงข้อมูล PR, Vote สิทธิ์ของผู้ใช้, และสั่ง Auto-Complete target | Basic Auth + Personal Access Token (PAT) |
-| **Azure DevOps Release API** | 7.0 | ดึงข้อมูลประวัติ Classic Release และอนุมัติ deployment pre-approvals | Basic Auth + Personal Access Token (PAT) |
+| **Azure DevOps REST API** | 7.0 | ดึงข้อมูล PR สำหรับ Dashboard ตามสิทธิ์ผู้ใช้, Vote สิทธิ์ของผู้ใช้, และสั่ง Auto-Complete target | OAuth Bearer token ของ Azure DevOps Connected user สำหรับ Dashboard/action; PAT สำหรับ system/background read path |
+| **Azure DevOps Release API** | 7.0 | ดึงข้อมูลประวัติ Classic Release และอนุมัติ deployment pre-approvals | OAuth Bearer token สำหรับ action ของผู้ใช้; PAT สำหรับ release/system lookup บางจุด |
 | **Microsoft Graph API** | v1.0 | จัดการบันทึก/อ่าน SharePoint List, ค้นหา User Profile Display Name, จัดเก็บไฟล์ CSV Archive | OAuth 2.0 Bearer Token (Client Credentials) |
 | **C-Toss Webhook Bot** | custom | ส่งการแจ้งเตือนการเกิด Exception และ Daily Summary เข้า Teams | URL-based token |
 
@@ -160,7 +160,7 @@
 | **HTTPS / TLS 1.2+** | เข้ารหัสการสื่อสารข้อมูลทั้งหมดที่รับส่งผ่าน Network |
 | **HMAC Signature Verification** | ป้องกัน Payload Spoofing สำหรับการตรวจสอบ Webhook payloads |
 | **HTTP Basic Auth** | สำหรับตรวจสอบความถูกต้องของ REST API Webhook (หากมี) |
-| **Personal Access Token (PAT)** | กำหนด Scope สิทธิ์แคบที่สุด: `Code (Read & Write)` และ `Release (Read, Write & Manage)` เท่านั้น |
+| **Personal Access Token (PAT)** | ใช้เป็น service credential สำหรับ system/background read path และ release/system lookup บางจุด โดยกำหนด Scope สิทธิ์แคบที่สุด: `Code (Read & Write)` และ `Release (Read, Write & Manage)` เท่านั้น |
 | **Graph Client Secret** | บันทึกเฉพาะใน Azure Configuration ป้องกันรั่วไหล |
 | **Constant-time string comparison** | ป้องกัน Timing Attack ในกระบวนการยืนยันรหัสผ่าน / basic auth token |
 | **Security Headers** | บังคับใช้ HSTS, X-Content-Type-Options: nosniff, X-Frame-Options: DENY และป้องกัน Clickjacking |

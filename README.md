@@ -20,7 +20,7 @@ Production URL:
 - Authentication ใช้ Microsoft Entra ID ผ่าน Static Web Apps Auth
 - Authorization ของหน้าเว็บและ user-facing API ใช้ role `it_support_approve`; ผู้ใช้ที่ login แล้วมีเพียง `authenticated` จะถูกส่งไปหน้า 403
 - Azure DevOps action สำคัญใช้ delegated user identity หลังผู้ใช้กด Connect Azure DevOps
-- การอ่านคิว PR / Build / Policy / Release lookup ยังใช้ `ADO_PAT` แบบ service credential เพื่อให้ Dashboard เห็นคิวกลางอย่างสม่ำเสมอ
+- การอ่านคิว PR บน Dashboard ใช้ Azure DevOps Connected user token เพื่อให้เห็นตามสิทธิ์ repository จริงของผู้ใช้ ส่วน system/background jobs และ release/system lookup บางจุดยังใช้ `ADO_PAT` แบบ service credential
 - Dashboard หลักเป็น read/action page สำหรับ Active PR Queue และ Release approval ที่รอ action
 - MergeCode / MergeCodeProduction ถูกแยกเป็น manual workflow บน Azure DevOps
 - Activity เป็นหน้าดู approval log ล่าสุด 24 ชั่วโมง พร้อม filter และ paging
@@ -108,25 +108,31 @@ flowchart LR
 
 นโยบายปัจจุบัน:
 
-- Read path ใช้ `ADO_PAT` เป็น service credential สำหรับดึงรายการ PR, reviewers, build status, policy status, release lookup, background sync และ health check
+- Dashboard PR Queue (`/api/list-prs`) ใช้ delegated Azure DevOps user token หลัง Connect Azure DevOps เพื่อดึงรายการ PR, reviewers, build status และ policy status ตามสิทธิ์ repo ของผู้ใช้คนนั้น
+- System/background read path เช่น Daily Summary, Exception Scan, Hourly Sync, Build Failure Scan, health check และ release/system lookup บางจุดยังใช้ `ADO_PAT` เป็น service credential
 - Write/action path ใช้ delegated user token หลัง Connect Azure DevOps ได้แก่ Approve PR, Reject PR และ Approve Release
 - SharePoint Log บันทึกผู้ดำเนินการจาก Static Web Apps identity และ action ใน Azure DevOps จะเกิดด้วย Azure DevOps identity ของผู้ใช้ที่ connect
-- ถ้า token หมดอายุหรือ refresh ไม่สำเร็จ backend จะตอบ `428` พร้อม `connectUrl` และหน้า Dashboard จะพาผู้ใช้กลับไป Connect ใหม่
+- ถ้า Azure DevOps connected token หมดอายุหรือ refresh ไม่สำเร็จ backend จะตอบ `428` พร้อม `connectUrl` และหน้า Dashboard จะพาผู้ใช้กลับไป Connect ใหม่
 - Disconnect จะลบ token reference cookie และ token record ใน server-side token store ถ้าเปิดใช้งาน
 
-เหตุผลที่ read path ยังใช้ PAT:
+เหตุผลที่ Dashboard PR Queue ใช้ delegated user token:
 
-- Dashboard ต้องแสดงคิวกลางให้ทีมเห็นเหมือนกัน แม้ผู้ใช้แต่ละคนมีสิทธิ์ Azure DevOps ไม่เท่ากัน
+- ลดเคส Dashboard แสดง PR ที่ผู้ใช้ไม่มีสิทธิ์อ่านหรือไม่มีสิทธิ์ action จริงใน Azure DevOps
+- ถ้าผู้ใช้ไม่มีสิทธิ์ repo ใด repo หนึ่ง Dashboard จะไม่แสดง PR จาก repo นั้น เหมือนที่ Azure DevOps แสดง `Repository not found`
+- หน้า Dashboard แสดง `Queue Loaded As` เพื่อบอกว่า queue รอบนั้นอ่านด้วย Azure DevOps identity ใด
+- `/api/list-prs` ดึง active PR แบบ pagination แทนการจำกัดแค่ `$top=100`
+
+เหตุผลที่บาง read path ยังใช้ PAT:
+
 - Background jobs เช่น Daily Summary, Exception Scan, Hourly Sync และ Build Failure Scan ไม่มี interactive user token
-- ลดความเสี่ยงช่วง migration หลังเปิด delegated action แล้ว โดยแยก read consistency ออกจาก write audit identity
+- Release/system lookup บางจุดต้องเป็นมุมมองกลางของระบบและไม่ควร block PR queue หลักถ้าผู้ใช้ไม่มี release permission
 
-เป้าหมายระยะถัดไปถ้าจะย้ายไป user identity มากขึ้น:
+เป้าหมายระยะถัดไป:
 
-1. เพิ่ม feature flag เช่น `ADO_READ_IDENTITY_MODE=service|delegated|hybrid`
-2. เริ่มจาก endpoint interactive ที่มีผู้ใช้แน่นอน เช่น `/api/list-prs`, `/api/merge-lookup`, `/api/build-diagnostics`
-3. ทำ fallback แบบ hybrid: ลอง delegated token ก่อน ถ้าไม่มี token หรือสิทธิ์อ่านไม่พอ ให้ fallback เป็น PAT พร้อม log source ชัดเจน
+1. เพิ่ม diagnostics endpoint สำหรับ PR รายตัว เช่น `/api/pr-diagnostics?prId=...`
+2. พิจารณาย้าย `/api/merge-lookup` และ `/api/build-diagnostics` ไป delegated user identity แบบมี fallback
+3. ทำข้อความ error ให้ชัดเมื่อผู้ใช้ไม่มีสิทธิ์ repo, project หรือ release approval
 4. คง background jobs ไว้กับ service credential หรือทำ service principal แยก เพราะไม่มี browser session
-5. เก็บ telemetry/log ว่า endpoint ไหนอ่านด้วย user token หรือ PAT เพื่อดูผลกระทบก่อนปิด fallback
 
 ### Active PR Queue
 
@@ -437,7 +443,7 @@ Checks หลัก:
 
 - Auth: ผู้ใช้ login ได้
 - Backend: API runtime, uptime, Node version
-- Azure DevOps: service PAT/config สำหรับ read path เชื่อมต่อได้
+- Azure DevOps: service PAT/config สำหรับ system/background read path เชื่อมต่อได้ และ Last Sync แสดง queue ที่โหลดด้วย Connected user
 - SharePoint Log: site/list/read recent logs ได้
 - Teams Webhook: webhook URL ถูก config
 - Daily Summary: token และ scheduler พร้อม
@@ -664,7 +670,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/ado-auth-callback` | GET | OAuth callback สำหรับแลก code เป็น token และบันทึก token cache |
 | `/api/ado-auth-status` | GET | ตรวจสถานะ Azure DevOps connection ของ browser/user ปัจจุบัน |
 | `/api/ado-auth-disconnect` | POST | ลบ token reference cookie และ token record ใน server-side store |
-| `/api/list-prs` | GET | ดึง Active PR Queue และ Activity lookup เมื่อส่ง `includeActivity=true` |
+| `/api/list-prs` | GET | ดึง Active PR Queue ด้วย Azure DevOps Connected user token ตามสิทธิ์ repo ของผู้ใช้, ทำ pagination active PR และ Activity lookup เมื่อส่ง `includeActivity=true`; ถ้ายังไม่ Connect จะตอบ `428` |
 | `/api/approve-pr` | POST | Approve PR ปกติด้วย Azure DevOps identity ของผู้ใช้ที่ Connect แล้ว, set auto-complete, log SharePoint |
 | `/api/reject-pr` | POST | Reject PR ปกติด้วย Azure DevOps identity ของผู้ใช้ที่ Connect แล้ว, log SharePoint |
 | `/api/approve-release` | POST | Approve Azure DevOps Classic Release pre-deploy approval ที่ยัง pending ด้วย Azure DevOps identity ของผู้ใช้ที่ Connect แล้ว และ log SharePoint |
@@ -744,7 +750,7 @@ api/shared/attention.js
 |---|---:|---|
 | `ADO_ORGANIZATION` | Yes | organization จาก `dev.azure.com/<org>` |
 | `ADO_PROJECT` | Yes | Azure DevOps project |
-| `ADO_PAT` | Yes | Service credential สำหรับ read path: อ่าน PR, reviewers, policy, build, release lookup, health check และ background jobs; action Approve / Reject / Approve Release ใช้ delegated user token หลัง Connect Azure DevOps |
+| `ADO_PAT` | Yes | Service credential สำหรับ system/background read path เช่น release/system lookup, health check, daily/exception/hourly sync และ fallback บางจุด; Dashboard PR Queue และ action Approve / Reject / Approve Release ใช้ delegated user token หลัง Connect Azure DevOps |
 | `ADO_TARGET_BRANCH` | No | default `refs/heads/staging` |
 | `ADO_REVIEWER_GROUP` | No | default `IT Support Approve` |
 | `ADO_EXTERNAL_LOG_SYNC` | No | set `false` เพื่อปิด external vote sync log |
@@ -991,11 +997,13 @@ node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json'
 
 - `ADO_ORGANIZATION`
 - `ADO_PROJECT`
-- `ADO_PAT`
-- PAT หมดอายุหรือ scope อ่านข้อมูลไม่พอ
+- ผู้ใช้ Connect Azure DevOps แล้วหรือยัง
+- Azure DevOps connected user token หมดอายุหรือ refresh ไม่ผ่านหรือไม่
+- ผู้ใช้มีสิทธิ์อ่าน project/repository ใน Azure DevOps หรือไม่
 - target branch / reviewer group ถูกต้องหรือไม่
+- ถ้าเป็น system/background job ให้ตรวจ `ADO_PAT` และ scope อ่านข้อมูล
 
-หมายเหตุ: การโหลดคิว PR ปัจจุบันยังใช้ `ADO_PAT` เป็น read/service credential แม้ action จะใช้ delegated user token แล้ว
+หมายเหตุ: การโหลดคิว PR บน Dashboard ใช้ Azure DevOps Connected user token แล้ว ดังนั้นผู้ใช้แต่ละคนอาจเห็น PR ไม่เท่ากันตามสิทธิ์ repository จริง
 
 ### Approve / Reject ไม่ขึ้น
 
@@ -1106,9 +1114,9 @@ git ls-remote --heads origin main staging
 ## ข้อจำกัดและความเสี่ยง
 
 - MergeCode / MergeCodeProduction ต้องทำ manual บน Azure DevOps เพื่อความปลอดภัย
-- ถ้า `ADO_PAT` หมดอายุ ระบบจะอ่าน PR / Build / Policy / Release lookup และ background jobs ไม่ได้
-- ถ้า delegated user token หมดอายุหรือ refresh ไม่ผ่าน ผู้ใช้ต้อง Connect Azure DevOps ใหม่ก่อนทำ Approve / Reject / Approve Release
-- ถ้าย้าย read path ไป delegated user identity เต็มรูปแบบ ต้องระวังว่าผู้ใช้แต่ละคนอาจเห็น PR/Release ไม่เท่ากันตามสิทธิ์ Azure DevOps
+- ถ้า `ADO_PAT` หมดอายุ ระบบ background jobs, health check และ release/system lookup บางจุดอาจอ่านข้อมูลไม่ได้
+- ถ้า delegated user token หมดอายุหรือ refresh ไม่ผ่าน ผู้ใช้ต้อง Connect Azure DevOps ใหม่ก่อนโหลด Dashboard PR Queue หรือทำ Approve / Reject / Approve Release
+- Dashboard PR Queue เป็นมุมมองตามสิทธิ์ Azure DevOps ของผู้ใช้แต่ละคน จึงอาจเห็น PR ไม่เท่ากันถ้า repo permission ไม่เท่ากัน
 - ถ้า Graph permission หรือ SharePoint config มีปัญหา action อาจสำเร็จแต่ log ไม่ครบ
 - Staging CI/CD mapping เป็น snapshot จาก CSV ต้อง regenerate เมื่อข้อมูลต้นทางเปลี่ยน
 - Daily Summary มี duplicate guard แต่ถ้ามีการเปลี่ยน `Event_Key` logic อาจทำให้ส่งซ้ำได้
@@ -1182,7 +1190,7 @@ ADO Auto-Approve เป็นระบบช่วยรวมงานอนุ
 
 - PR ปกติทำผ่าน Dashboard ได้
 - action สำคัญใน Azure DevOps ทำด้วย delegated user identity หลัง Connect Azure DevOps
-- read path และ background jobs ยังใช้ service credential เพื่อให้คิวกลางมีความสม่ำเสมอ
+- Dashboard PR Queue อ่านด้วย delegated user identity หลัง Connect Azure DevOps ส่วน background jobs และ system lookup ยังใช้ service credential
 - PR MergeCode / MergeCodeProduction ต้องทำ manual บน Azure DevOps
 - ข้อมูล log และ health ต้องตรวจสอบย้อนหลังได้
 - notification ต้องลด noise และเน้นเหตุการณ์ที่ต้องสนใจ

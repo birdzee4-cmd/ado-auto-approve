@@ -2,12 +2,12 @@
  * GET /api/list-prs
  *
  * ดึง active Pull Requests ที่ target = staging branch จาก Azure DevOps
- * โดยใช้ Personal Access Token (PAT)
+ * โดยใช้ Azure DevOps connected user token สำหรับ Dashboard queue
  *
  * Environment variables:
  *   ADO_ORGANIZATION  =  ชื่อ organization (จาก URL: dev.azure.com/<org>)
  *   ADO_PROJECT       =  ชื่อ project
- *   ADO_PAT           =  Personal Access Token (scope: Code Read)
+ *   ADO_PAT           =  Personal Access Token สำหรับ release/system fallback บางจุด
  *   ADO_TARGET_BRANCH =  (optional) default: refs/heads/staging
  *                        ใช้เป็น prefix match — รองรับ Staging/VN, Staging/api ฯลฯ
  *
@@ -22,10 +22,11 @@ const mergePipelineMap = require('../shared/merge-pipeline-map');
 const approvalHold = require('../shared/approval-hold');
 
 module.exports = async function (context, req) {
+  const responseHeaders = {};
   function jsonResponse(status, payload) {
     context.res = {
       status: status,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      headers: Object.assign({ 'Content-Type': 'application/json; charset=utf-8' }, responseHeaders),
       body: JSON.stringify(payload)
     };
   }
@@ -42,6 +43,8 @@ module.exports = async function (context, req) {
     }
 
     // ---- 2) ตรวจ env vars ----
+    const auth = require('../shared/auth');
+    const principal = auth.parseClientPrincipal(req.headers);
     const currentUser = getCurrentUser(req.headers['x-ms-client-principal']);
     const org = process.env.ADO_ORGANIZATION;
     const project = process.env.ADO_PROJECT;
@@ -76,23 +79,41 @@ module.exports = async function (context, req) {
       return;
     }
 
+    const delegated = require('../shared/ado-user-token');
+    const userToken = await delegated.getValidAccessToken(req, principal, { allowStoreRecovery: true });
+    if (!userToken.ok) {
+      jsonResponse(userToken.status || 428, {
+        ok: false,
+        error: userToken.error || 'Azure DevOps connection required',
+        hint: 'Connect Azure DevOps from Dashboard before loading the PR queue. The queue is filtered by your Azure DevOps repository permissions.',
+        detail: userToken.detail || '',
+        connectUrl: '/api/ado-auth-start?returnTo=/dashboard.html'
+      });
+      return;
+    }
+    if (userToken.setCookie) responseHeaders['Set-Cookie'] = userToken.setCookie;
+    const readAuth = { accessToken: userToken.accessToken };
+    const readIdentity = userToken.record && (userToken.record.userDetails || userToken.record.userId) ||
+      currentUser.userDetails ||
+      'Azure DevOps connected user';
+
     // ---- 3) เรียก ADO REST API ----
     // [แก้ไข] ลบ searchCriteria.targetRefName ออก — ดึงทุก active PR มาก่อน
     // แล้วค่อย filter ด้วย prefix ใน step 4 แทน
-    const apiPath = '/' + encodeURIComponent(org) + '/' + encodeURIComponent(project) +
-      '/_apis/git/pullrequests?api-version=7.0' +
-      '&searchCriteria.status=active' +
-      '&$top=100';
-
-    const result = await callAdoApi('dev.azure.com', apiPath, pat);
+    const result = await listActivePullRequests(org, project, readAuth);
 
     if (!result.ok) {
-      jsonResponse(result.status === 401 ? 401 : 502, {
+      const passthroughStatus = [401, 403, 404].includes(Number(result.status))
+        ? Number(result.status)
+        : 502;
+      jsonResponse(passthroughStatus, {
         ok: false,
         error: 'ADO API returned ' + result.status,
         detail: (result.body || '').substring(0, 500),
         hint: result.status === 401
-          ? 'PAT ไม่ถูกต้องหรือหมดอายุ — สร้างใหม่และอัปเดต ADO_PAT'
+          ? 'Azure DevOps connection ไม่ถูกต้องหรือหมดอายุ — กด Connect Azure DevOps อีกครั้ง'
+          : result.status === 403
+          ? 'Azure DevOps account นี้ไม่มีสิทธิ์อ่าน project หรือ repository บางส่วน'
           : result.status === 404
           ? 'ตรวจ ADO_ORGANIZATION และ ADO_PROJECT ว่าสะกดถูก'
           : 'ดู detail ด้านบนเพื่อหาสาเหตุ'
@@ -213,6 +234,9 @@ module.exports = async function (context, req) {
       project: project,
       targetBranch: stagingPrefix,
       reviewerGroup: reviewerGroup,
+      readSource: 'connected-user',
+      readIdentity: readIdentity,
+      activePrPagesFetched: result.pagesFetched || 1,
       scanOnly: scanOnly,
       completedLookbackHours: completedLookbackHours,
       fetchedAt: new Date().toISOString(),
@@ -250,11 +274,68 @@ module.exports = async function (context, req) {
 };
 
 /**
- * เรียก ADO REST API ด้วย Basic Auth (PAT)
+ * ดึง active PR แบบแบ่งหน้าโดยใช้ Azure DevOps connected user token
  */
-function callAdoApi(hostname, path, pat) {
+async function listActivePullRequests(org, project, authOptions) {
+  const pageSize = Math.min(Math.max(Number(process.env.ADO_PR_LIST_PAGE_SIZE) || 100, 25), 500);
+  const maxPages = Math.min(Math.max(Number(process.env.ADO_PR_LIST_MAX_PAGES) || 10, 1), 50);
+  const all = [];
+  let continuationToken = '';
+  let pagesFetched = 0;
+  let lastResult = null;
+
+  for (let page = 0; page < maxPages; page++) {
+    const params = [
+      'api-version=7.0',
+      'searchCriteria.status=active',
+      '$top=' + encodeURIComponent(String(pageSize))
+    ];
+    if (continuationToken) {
+      params.push('continuationToken=' + encodeURIComponent(continuationToken));
+    }
+    const apiPath = '/' + encodeURIComponent(org) + '/' + encodeURIComponent(project) +
+      '/_apis/git/pullrequests?' + params.join('&');
+    const result = await callAdoApi('dev.azure.com', apiPath, authOptions);
+    lastResult = result;
+    if (!result.ok) return Object.assign({}, result, { pagesFetched });
+
+    let data;
+    try {
+      data = JSON.parse(result.body || '{}');
+    } catch (e) {
+      return Object.assign({}, result, { ok: false, status: 502, body: result.body || '', pagesFetched });
+    }
+
+    const values = Array.isArray(data.value) ? data.value : [];
+    all.push(...values);
+    pagesFetched += 1;
+
+    continuationToken = getHeader(result.headers, 'x-ms-continuationtoken');
+    if (!continuationToken || values.length === 0) break;
+  }
+
+  return {
+    ok: true,
+    status: lastResult ? lastResult.status : 200,
+    body: JSON.stringify({ count: all.length, value: all }),
+    pagesFetched
+  };
+}
+
+function getHeader(headers, name) {
+  const source = headers || {};
+  const target = String(name || '').toLowerCase();
+  return source[target] || source[name] || '';
+}
+
+/**
+ * เรียก ADO REST API ด้วย Bearer token หรือ Basic Auth (PAT)
+ */
+function callAdoApi(hostname, path, authOptions) {
   return new Promise((resolve, reject) => {
-    const auth = 'Basic ' + Buffer.from(':' + pat).toString('base64');
+    const auth = authOptions && authOptions.accessToken
+      ? 'Bearer ' + authOptions.accessToken
+      : 'Basic ' + Buffer.from(':' + String(authOptions || '')).toString('base64');
 
     const options = {
       hostname: hostname,
@@ -272,10 +353,16 @@ function callAdoApi(hostname, path, pat) {
       let body = '';
       res.on('data', chunk => body += chunk);
       res.on('end', () => {
+        const headers = {};
+        Object.keys(res.headers || {}).forEach(key => {
+          const value = res.headers[key];
+          headers[String(key).toLowerCase()] = Array.isArray(value) ? value.join(',') : String(value || '');
+        });
         resolve({
           ok: res.statusCode >= 200 && res.statusCode < 300,
           status: res.statusCode,
-          body: body
+          body: body,
+          headers: headers
         });
       });
     });

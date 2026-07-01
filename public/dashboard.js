@@ -307,6 +307,8 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
   }
 
   const fetchedStr = new Date(d.fetchedAt).toLocaleString('th-TH');
+  const readIdentity = d.readIdentity || 'Azure DevOps connected user';
+  const readSource = d.readSource === 'connected-user' ? 'Connected User' : (d.readSource || 'Service');
 
   let cardsHtml = '';
 
@@ -346,6 +348,15 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
     '</div>' +
   '</div>';
 
+  cardsHtml += '<div class="summary-card">' +
+    '<span class="card-icon">👤</span>' +
+    '<div class="card-body">' +
+      '<span class="card-label">Queue Loaded As</span>' +
+      '<strong class="card-value" title="' + escapeHtml(readIdentity) + '">' + escapeHtml(readSource) + '</strong>' +
+      '<span class="card-note">' + escapeHtml(readIdentity) + '</span>' +
+    '</div>' +
+  '</div>';
+
   // Optional: MergeCode Card
   if (mergeCodeCount > 0) {
     cardsHtml += '<div class="summary-card mergecode-card">' +
@@ -360,7 +371,7 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
 
   return '<div class="test-result result-success pr-summary-banner">' +
     '<div class="summary-main-line">✅ Found <strong>' + d.count + '</strong> PR waiting approve</div>' +
-    '<div class="summary-sub-line">from ' + d.totalActive + ' total active PRs in <code>' + escapeHtml(d.targetBranch) + '</code></div>' +
+    '<div class="summary-sub-line">from ' + d.totalActive + ' visible active PRs in <code>' + escapeHtml(d.targetBranch) + '</code></div>' +
     '<div class="summary-cards-container">' +
       cardsHtml +
     '</div>' +

@@ -2562,6 +2562,15 @@ h1, h2, h3, h4, h5, h6 {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.card-note {
+  max-width: 100%;
+  color: #6b5a43;
+  font-size: 11px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .card-badges {
   display: flex;
   flex-wrap: wrap;
