@@ -39,7 +39,6 @@ flowchart LR
   Frontend --> AdoApi["Existing SWA managed API<br/>ADO Auto-Approve endpoints"]
   Frontend --> PortalProxy["SWA proxy<br/>3 App Service Portal endpoints"]
   PortalProxy --> FunctionApp["Azure Function App<br/>Consumption Plan<br/>Portal API only"]
-  FunctionApp --> ADO["Azure DevOps APIs"]
   FunctionApp --> SP["SharePoint / Graph"]
   FunctionApp --> ARM["Azure Resource Manager"]
   ARM --> AppServices["stg-* App Services<br/>Default-STG-TH-ServicesBackEnd-All-Group"]
@@ -83,7 +82,7 @@ Azure Front Door add-on: not enabled
 ### In Scope
 
 - สร้าง Azure Function App แยกบน Consumption Plan
-- Deploy โค้ด `api` เดิมไป Function App
+- Deploy เฉพาะโค้ด `appservice-api` และ shared modules ที่ App Service Portal ใช้ไป Function App
 - เปิด System-Assigned Managed Identity ที่ Function App
 - Assign RBAC ให้ Function App identity ไปที่:
 
@@ -91,8 +90,8 @@ Azure Front Door add-on: not enabled
 /subscriptions/f9bca0f4-1e5b-487f-a2ef-a6578a936ef1/resourceGroups/Default-STG-TH-ServicesBackEnd-All-Group
 ```
 
-- Link Function App เป็น backend API ของ Static Web App
-- ปรับ GitHub Actions ให้ deploy frontend ไป SWA และ deploy backend ไป Function App
+- ตั้งค่า SWA managed API ให้ proxy เฉพาะ 3 App Service Portal endpoints ไป Function App ผ่าน `APP_SERVICE_FUNCTION_BASE_URL`
+- ใช้ GitHub Actions workflow แยกสำหรับ deploy `appservice-api` ไป Function App โดยไม่แก้ workflow SWA เดิม
 - ปรับ diagnostics/runbook ให้ตรงกับ architecture ใหม่
 - ทดสอบ ADO Auto-Approve เดิมและ App Service Portal
 
@@ -111,10 +110,10 @@ Azure Front Door add-on: not enabled
 ```text
 Resource group: rg-ado-auto-approve
 Region: Southeast Asia หรือ region เดียวกับ resource group ปัจจุบัน
-Function App name: func-ado-auto-approve-api
+Function App name: func-ado-auto-approve-appservice-api
 Plan: Consumption
 Runtime: Node.js 22 ถ้ารองรับใน Azure Functions ณ ตอนสร้าง; fallback Node.js 20 ถ้าจำเป็น
-Storage account: stadoautoapproveapi<unique suffix>
+Storage account: stadoappsvcapi<unique suffix>
 Managed Identity: System-assigned
 Application Insights: optional; ถ้าเปิด ให้ตั้ง sampling/retention เพื่อลด cost
 ```
@@ -123,28 +122,7 @@ Application Insights: optional; ถ้าเปิด ให้ตั้ง samp
 
 ## Required Function App Settings
 
-ต้อง copy settings จาก SWA API configuration ไป Function App โดยไม่พิมพ์ secret ลงเอกสารหรือ log:
-
-### Shared ADO Auto-Approve Settings
-
-```text
-ADO_ORGANIZATION
-ADO_PROJECT
-ADO_PAT
-ADO_TOKEN_STORE_SECRET
-ADO_TOKEN_COOKIE_SECRET
-AAD_TENANT_ID
-AAD_CLIENT_ID
-AAD_CLIENT_SECRET
-SHAREPOINT_HOSTNAME
-SHAREPOINT_SITE_PATH
-SHAREPOINT_LIST_NAME
-TEAMS_WEBHOOK_URL
-LINE_CHANNEL_ACCESS_TOKEN
-AZURE_STORAGE_CONNECTION_STRING หรือ storage/table settings ที่ระบบใช้อยู่
-```
-
-ให้ยึดรายการจริงจาก Azure Portal Configuration ของ SWA เดิม แต่ห้าม export เป็นไฟล์ plain text ที่ commit เข้า repo
+ตั้งค่าเฉพาะค่าที่ App Service Portal ใช้ใน Function App ใหม่ โดยไม่พิมพ์ secret ลงเอกสารหรือ log
 
 ### App Service Portal Settings
 
@@ -160,6 +138,10 @@ APP_SERVICE_SHAREPOINT_HOSTNAME=<same or dedicated SharePoint hostname>
 APP_SERVICE_SHAREPOINT_SITE_PATH=<same or dedicated SharePoint site path>
 APP_SERVICE_SHAREPOINT_LIST_NAME=App Service Portal Log
 APP_SERVICE_SHAREPOINT_AUTO_CREATE_COLUMNS=true หรือ false ตาม policy
+APP_SERVICE_PROXY_SECRET=<same secret configured on SWA>
+AAD_TENANT_ID=<Graph app tenant, if audit is enabled>
+AAD_CLIENT_ID=<Graph app client id, if audit is enabled>
+AAD_CLIENT_SECRET=<Graph app client secret, if audit is enabled>
 ```
 
 ### Function Runtime Settings
@@ -226,7 +208,7 @@ Function App endpoint ทุกตัวต้องยังใช้ `api/shar
 - `requireAnyRole(context, req, [APP_SERVICE_PORTAL_ROLE, 'admin'])`
 - `requireRole()` สำหรับ ADO endpoints เดิม
 
-ต้อง verify ว่าเมื่อ SWA link ไป Function App แล้ว header `x-ms-client-principal` ถูกส่งต่อถึง Function App จริง
+ต้อง verify ว่า SWA proxy ส่ง header `x-ms-client-principal` ถึง Function App จริง และ Function App reject request ที่ไม่มี `APP_SERVICE_PROXY_SECRET`
 
 ### App Service Scope Check
 
