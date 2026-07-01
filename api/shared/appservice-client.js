@@ -68,12 +68,32 @@ function createRawManagedIdentityCredential() {
     };
   }
 
+  if (identityEndpoint) {
+    return {
+      getToken: async (scopes) => getManagedIdentityToken({
+        endpoint: identityEndpoint,
+        apiVersion: '2019-08-01',
+        scopes
+      })
+    };
+  }
+
   if (msiEndpoint && msiSecret) {
     return {
       getToken: async (scopes) => getManagedIdentityToken({
         endpoint: msiEndpoint,
         headerName: 'secret',
         headerValue: msiSecret,
+        apiVersion: '2017-09-01',
+        scopes
+      })
+    };
+  }
+
+  if (msiEndpoint) {
+    return {
+      getToken: async (scopes) => getManagedIdentityToken({
+        endpoint: msiEndpoint,
         apiVersion: '2017-09-01',
         scopes
       })
@@ -89,10 +109,12 @@ async function getManagedIdentityToken(options) {
   tokenUrl.searchParams.set('api-version', options.apiVersion);
   tokenUrl.searchParams.set('resource', resource);
 
-  const response = await requestJson(tokenUrl, {
-    [options.headerName]: options.headerValue,
-    'Accept': 'application/json'
-  });
+  const headers = { 'Accept': 'application/json' };
+  if (options.headerName && options.headerValue) {
+    headers[options.headerName] = options.headerValue;
+  }
+
+  const response = await requestJson(tokenUrl, headers);
 
   if (!response || !response.access_token) {
     const err = new Error('Managed Identity endpoint did not return an access token');
