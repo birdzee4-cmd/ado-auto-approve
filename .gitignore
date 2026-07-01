@@ -9,6 +9,8 @@ mq6qj6h8-dashboard.html.artifact.json
 
 # Node modules for api functions (if present)
 api/node_modules/
+appservice-api/node_modules/
+.function-package/
 scratch/
 
 # Ignore local settings

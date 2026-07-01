@@ -1,0 +1,57 @@
+name: Azure Functions App Service Portal API CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "appservice-api/**"
+      - "api/shared/auth.js"
+      - "api/shared/appservice-client.js"
+      - "api/shared/appservice-audit-client.js"
+      - "api/shared/appservice-portal-handlers.js"
+      - ".github/workflows/azure-functions-appservice-api.yml"
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    name: Build and Deploy App Service Portal API
+    env:
+      AZURE_APPSERVICE_PORTAL_FUNCTION_PUBLISH_PROFILE: ${{ secrets.AZURE_APPSERVICE_PORTAL_FUNCTION_PUBLISH_PROFILE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Prepare Function package
+        run: |
+          rm -rf .function-package
+          mkdir -p .function-package/shared
+          cp -R appservice-api/. .function-package/
+          cp api/shared/auth.js .function-package/shared/auth.js
+          cp api/shared/appservice-client.js .function-package/shared/appservice-client.js
+          cp api/shared/appservice-audit-client.js .function-package/shared/appservice-audit-client.js
+          cp api/shared/appservice-portal-handlers.js .function-package/shared/appservice-portal-handlers.js
+
+      - name: Install dependencies
+        working-directory: .function-package
+        run: npm ci
+
+      - name: Syntax check
+        run: find .function-package -name "*.js" -not -path "*/node_modules/*" -print0 | xargs -0 -n1 node --check
+
+      - name: Deploy Function App
+        if: env.AZURE_APPSERVICE_PORTAL_FUNCTION_PUBLISH_PROFILE != ''
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ vars.APP_SERVICE_FUNCTION_APP_NAME || 'func-ado-auto-approve-appservice-api' }}
+          package: .function-package
+          publish-profile: ${{ secrets.AZURE_APPSERVICE_PORTAL_FUNCTION_PUBLISH_PROFILE }}
+
+      - name: Skip deploy notice
+        if: env.AZURE_APPSERVICE_PORTAL_FUNCTION_PUBLISH_PROFILE == ''
+        run: echo "Skipping Function App deploy because AZURE_APPSERVICE_PORTAL_FUNCTION_PUBLISH_PROFILE is not configured."

@@ -1,0 +1,9 @@
+{
+  "name": "ado-auto-approve-appservice-api",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@azure/arm-appservice": "^19.0.0",
+    "@azure/identity": "^4.13.1"
+  }
+}

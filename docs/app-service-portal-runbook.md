@@ -30,9 +30,23 @@ Direct token probing returns:
 ManagedIdentityTokenError status=403
 ```
 
-This means the App Service Portal backend cannot reliably call Azure Resource Manager from the integrated SWA API host. The next implementation plan is to keep the Static Web App as `Standard`, move the `api` backend to a linked Azure Function App on the Consumption plan, and grant RBAC to the Function App managed identity.
+This means the App Service Portal backend cannot reliably call Azure Resource Manager directly from the integrated SWA API host. The implementation keeps ADO Auto-Approve APIs on the existing SWA managed API runtime, changes only the three App Service Portal endpoints into SWA proxy endpoints, and forwards them to a dedicated Azure Function App on the Consumption plan. Grant RBAC to the Function App managed identity, not the SWA managed API identity.
 
 See `docs/function-app-api-migration-plan.md`.
+
+Required proxy settings on the SWA API:
+
+```text
+APP_SERVICE_FUNCTION_BASE_URL=<portal function app base URL>
+APP_SERVICE_PROXY_SECRET=<same value configured on the portal function app>
+```
+
+GitHub Actions settings for the portal-only Function App workflow:
+
+```text
+Secret: AZURE_APPSERVICE_PORTAL_FUNCTION_PUBLISH_PROFILE
+Variable: APP_SERVICE_FUNCTION_APP_NAME
+```
 
 ## App Service Scope
 

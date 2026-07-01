@@ -1,6 +1,15 @@
 # Function App API Migration Plan
 
-เอกสารนี้เป็นแผนย้าย backend API ของ `ado-auto-approve` จาก managed API ภายใน Azure Static Web Apps ไปเป็น Azure Function App แยก เพื่อให้ App Service Portal ใช้ Managed Identity เรียก Azure Resource Manager ได้จริง โดยคง URL เว็บเดิมและรักษา behavior ของ ADO Auto-Approve เดิมให้มากที่สุด
+เอกสารนี้เป็นแผนย้ายเฉพาะ App Service Portal backend จาก managed API ภายใน Azure Static Web Apps ไปเป็น Azure Function App แยก เพื่อให้ App Service Portal ใช้ Managed Identity เรียก Azure Resource Manager ได้จริง โดยคง URL เว็บเดิมและรักษา behavior ของ ADO Auto-Approve เดิมให้มากที่สุด
+
+## Decision Update
+
+เลือกแนวทาง `Portal-only Function App + SWA proxy` แทนการย้าย `/api/*` ทั้งชุด:
+
+- ADO Auto-Approve API เดิม เช่น `/api/list-prs`, `/api/approve-pr`, `/api/reject-pr`, `/api/approve-release`, `/api/ado-auth-*` ยังรันบน SWA managed API เหมือนเดิม
+- เฉพาะ `/api/appservices`, `/api/appservice-settings`, `/api/restart-appservice` ถูกเปลี่ยนเป็น SWA proxy
+- SWA proxy ตรวจ role จาก Static Web Apps auth แล้ว forward ไป Function App ใหม่ผ่าน `APP_SERVICE_FUNCTION_BASE_URL`
+- Function App ใหม่ตรวจ `APP_SERVICE_PROXY_SECRET`, ตรวจ role ซ้ำจาก forwarded `x-ms-client-principal`, แล้วใช้ Managed Identity เรียก Azure Resource Manager
 
 ## Current Problem
 
@@ -27,8 +36,9 @@ ManagedIdentityTokenError status=403
 flowchart LR
   User["User"] --> SWA["Azure Static Web Apps Standard<br/>mango-wave-09cff3700"]
   SWA --> Frontend["Static frontend<br/>applications/dashboard/portal"]
-  Frontend --> ApiRoute["/api/*"]
-  ApiRoute --> FunctionApp["Azure Function App<br/>Consumption Plan"]
+  Frontend --> AdoApi["Existing SWA managed API<br/>ADO Auto-Approve endpoints"]
+  Frontend --> PortalProxy["SWA proxy<br/>3 App Service Portal endpoints"]
+  PortalProxy --> FunctionApp["Azure Function App<br/>Consumption Plan<br/>Portal API only"]
   FunctionApp --> ADO["Azure DevOps APIs"]
   FunctionApp --> SP["SharePoint / Graph"]
   FunctionApp --> ARM["Azure Resource Manager"]
@@ -38,12 +48,12 @@ flowchart LR
 หลักการ:
 
 - Static Web App ยังอยู่ URL เดิม: `https://mango-wave-09cff3700.7.azurestaticapps.net`
-- Static Web App ยังเป็น auth/routing gate หลักสำหรับหน้าเว็บและ `/api/*`
-- Function App เป็น backend host ใหม่สำหรับ folder `api`
+- Static Web App ยังเป็น auth/routing gate หลักสำหรับหน้าเว็บและ ADO API เดิม
+- Function App เป็น backend host ใหม่เฉพาะ App Service Portal API
 - Function App เปิด System-Assigned Managed Identity และรับ RBAC บน App Service staging resource group
 - ไม่เปิด Azure Front Door add-on
 - ไม่ใช้ personal PAT สำหรับ App Service operation
-- ADO Auto-Approve endpoints เดิมยังคง request/response และ business behavior เดิม
+- ADO Auto-Approve endpoints เดิมยังคง runtime, request/response และ business behavior เดิม
 
 ## Cost Target
 
