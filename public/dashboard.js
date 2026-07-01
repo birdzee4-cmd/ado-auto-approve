@@ -1641,7 +1641,6 @@ async function evaluateAutoApprovals(prs) {
     const isMergeCode = pr.isMergeCodeTarget === true;
     const hasHold = pr.approvalHold && pr.approvalHold.active === true;
     const notVotedYet = pr.myApproval && pr.myApproval.status === 'not-approved';
-    const noReviewerApprovedYet = !pr.approval || Number(pr.approval.approvedCount || 0) === 0;
     
     const snapshot = pr.statusSnapshot || {};
     const buildResult = String(snapshot.buildResult || 'unknown').toLowerCase();
@@ -1653,7 +1652,7 @@ async function evaluateAutoApprovals(prs) {
     const policyStatus = String(snapshot.policyStatus || 'unknown').toLowerCase();
     const policyOk = policyStatus === 'approved' || policyStatus === 'pending';
 
-    return isStaging && !isDraft && !isMergeCode && !hasHold && notVotedYet && noReviewerApprovedYet && buildSuccess && policyOk;
+    return isStaging && !isDraft && !isMergeCode && !hasHold && notVotedYet && buildSuccess && policyOk;
   });
 
   const eligibleReleases = list.filter(pr => {
