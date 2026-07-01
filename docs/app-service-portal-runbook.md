@@ -11,6 +11,7 @@
 - Azure Front Door add-on: not enabled
 - System-assigned Managed Identity: enabled
 - Managed Identity principal ID: `69558ef6-ab36-4b6b-a110-9e7a68669465`
+- RBAC status: `Website Contributor` assigned on `Default-STG-TH-ServicesBackEnd-All-Group`
 
 ## App Service Scope
 
@@ -24,11 +25,21 @@ App name prefix: stg-
 
 Apps outside this resource group or not starting with `stg-` must not be listed, read, or restarted.
 
-## Pending RBAC Setup
+## RBAC Setup
 
-An Azure admin with `Owner` or `User Access Administrator` must grant the Static Web App Managed Identity access to the staging resource group.
+The Static Web App Managed Identity has been granted access to the staging resource group.
 
-Recommended short-term assignment:
+Current assignment:
+
+```text
+Principal ID: 69558ef6-ab36-4b6b-a110-9e7a68669465
+Principal type: ServicePrincipal
+Role: Website Contributor
+Scope: /subscriptions/f9bca0f4-1e5b-487f-a2ef-a6578a936ef1/resourceGroups/Default-STG-TH-ServicesBackEnd-All-Group
+Created: 2026-07-01 02:51 UTC
+```
+
+Equivalent command:
 
 ```powershell
 az role assignment create `
@@ -94,7 +105,7 @@ Expected:
 
 ## Smoke Tests After RBAC
 
-Wait 1-5 minutes after RBAC assignment for propagation, then test with a user that has `tester_appservice_manager` or `admin`.
+Test with a user that has `tester_appservice_manager` or `admin`.
 
 1. Open `/applications.html`
 2. Confirm the App Service Portal tile is visible
@@ -120,4 +131,3 @@ Negative checks:
 - Do not enable Azure Front Door add-on unless explicitly approved
 - Add a monthly Azure Budget alert for `rg-ado-auto-approve`
 - Suggested thresholds: USD 10, USD 15, USD 20
-
