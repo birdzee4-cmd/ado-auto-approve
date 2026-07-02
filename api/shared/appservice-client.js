@@ -214,8 +214,10 @@ async function listSubscriptionAppServices(cfg) {
   try {
     return await listSubscriptionAppServicesFromResourceGraph(cfg);
   } catch (err) {
-    const fallback = await listSubscriptionAppServicesFromArmResources(cfg);
-    if (fallback.length) return fallback;
+    if (String(process.env.APP_SERVICE_ENABLE_SLOW_LIST_FALLBACK || '').toLowerCase() === 'true') {
+      const fallback = await listSubscriptionAppServicesFromArmResources(cfg);
+      if (fallback.length) return fallback;
+    }
     throw err;
   }
 }
@@ -224,6 +226,8 @@ async function listSubscriptionAppServicesFromResourceGraph(cfg) {
   const token = await getArmAccessToken(cfg);
   const apps = [];
   let skipToken = '';
+  const seenSkipTokens = new Set();
+  let pageCount = 0;
 
   do {
     const body = {
@@ -237,10 +241,10 @@ async function listSubscriptionAppServicesFromResourceGraph(cfg) {
       ].join(' '),
       options: {
         resultFormat: 'objectArray',
-        top: 1000
+        '$top': 1000
       }
     };
-    if (skipToken) body.options.skipToken = skipToken;
+    if (skipToken) body.options.$skipToken = skipToken;
 
     const response = await requestArmJson('POST',
       'https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01',
@@ -252,6 +256,18 @@ async function listSubscriptionAppServicesFromResourceGraph(cfg) {
       if (isAllowedAppName(app.name, cfg.namePrefix)) apps.push(app);
     });
     skipToken = response.skipToken || response.$skipToken || '';
+    pageCount += 1;
+    if (pageCount > 20) {
+      const err = new Error('Azure Resource Graph returned too many pages');
+      err.name = 'ResourceGraphPagingError';
+      throw err;
+    }
+    if (skipToken && seenSkipTokens.has(skipToken)) {
+      const err = new Error('Azure Resource Graph returned a repeated skip token');
+      err.name = 'ResourceGraphPagingError';
+      throw err;
+    }
+    if (skipToken) seenSkipTokens.add(skipToken);
   } while (skipToken);
 
   return apps;
@@ -293,6 +309,7 @@ function requestArmJson(method, url, token, body) {
     const payload = body == null ? null : JSON.stringify(body);
     const req = require('https').request(url, {
       method,
+      timeout: getArmRequestTimeoutMs(),
       headers: Object.assign({
         'Accept': 'application/json',
         'Authorization': 'Bearer ' + token
@@ -327,9 +344,20 @@ function requestArmJson(method, url, token, body) {
     });
 
     req.on('error', reject);
+    req.on('timeout', () => {
+      const err = new Error('Azure ARM request timeout');
+      err.name = 'ArmRequestTimeout';
+      err.statusCode = 504;
+      req.destroy(err);
+    });
     if (payload) req.write(payload);
     req.end();
   });
+}
+
+function getArmRequestTimeoutMs() {
+  const seconds = Number(process.env.APP_SERVICE_ARM_REQUEST_TIMEOUT_SECONDS || 30);
+  return Math.max(5, seconds) * 1000;
 }
 
 async function getAllowedApp(name) {
