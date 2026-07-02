@@ -191,19 +191,145 @@ async function listAllowedAppServices(forceRefresh) {
     return cachedApps;
   }
 
-  const client = getClient();
-  const apps = [];
-  const source = cfg.allResourceGroups
-    ? client.webApps.list()
-    : client.webApps.listByResourceGroup(cfg.resourceGroup);
-  for await (const app of source) {
-    const row = mapApp(app, cfg.allResourceGroups ? getResourceGroupFromId(app.id) : cfg.resourceGroup);
-    if (isAllowedAppName(row.name, cfg.namePrefix)) apps.push(row);
-  }
+  const apps = cfg.allResourceGroups
+    ? await listSubscriptionAppServices(cfg)
+    : await listResourceGroupAppServices(cfg);
   apps.sort((a, b) => a.name.localeCompare(b.name));
   cachedApps = apps;
   cachedAppsAt = now;
   return apps;
+}
+
+async function listResourceGroupAppServices(cfg) {
+  const client = getClient();
+  const apps = [];
+  for await (const app of client.webApps.listByResourceGroup(cfg.resourceGroup)) {
+    const row = mapApp(app, cfg.resourceGroup);
+    if (isAllowedAppName(row.name, cfg.namePrefix)) apps.push(row);
+  }
+  return apps;
+}
+
+async function listSubscriptionAppServices(cfg) {
+  try {
+    return await listSubscriptionAppServicesFromResourceGraph(cfg);
+  } catch (err) {
+    const fallback = await listSubscriptionAppServicesFromArmResources(cfg);
+    if (fallback.length) return fallback;
+    throw err;
+  }
+}
+
+async function listSubscriptionAppServicesFromResourceGraph(cfg) {
+  const token = await getArmAccessToken(cfg);
+  const apps = [];
+  let skipToken = '';
+
+  do {
+    const body = {
+      subscriptions: [cfg.subscriptionId],
+      query: [
+        "Resources",
+        "| where type =~ 'microsoft.web/sites'",
+        "| where name startswith '" + escapeKustoString(cfg.namePrefix) + "'",
+        "| project id, name, resourceGroup, location, kind, state=tostring(properties.state), defaultHostName=tostring(properties.defaultHostName)",
+        "| order by name asc"
+      ].join(' '),
+      options: {
+        resultFormat: 'objectArray',
+        top: 1000
+      }
+    };
+    if (skipToken) body.options.skipToken = skipToken;
+
+    const response = await requestArmJson('POST',
+      'https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01',
+      token,
+      body);
+    const rows = Array.isArray(response.data) ? response.data : [];
+    rows.forEach(row => {
+      const app = mapResourceGraphApp(row);
+      if (isAllowedAppName(app.name, cfg.namePrefix)) apps.push(app);
+    });
+    skipToken = response.skipToken || response.$skipToken || '';
+  } while (skipToken);
+
+  return apps;
+}
+
+async function listSubscriptionAppServicesFromArmResources(cfg) {
+  const token = await getArmAccessToken(cfg);
+  const apps = [];
+  let url = 'https://management.azure.com/subscriptions/' + encodeURIComponent(cfg.subscriptionId)
+    + '/resources?api-version=2021-04-01&$filter='
+    + encodeURIComponent("resourceType eq 'Microsoft.Web/sites'");
+
+  while (url) {
+    const response = await requestArmJson('GET', url, token);
+    const rows = Array.isArray(response.value) ? response.value : [];
+    rows.forEach(row => {
+      const app = mapResourceApp(row);
+      if (isAllowedAppName(app.name, cfg.namePrefix)) apps.push(app);
+    });
+    url = response.nextLink || '';
+  }
+
+  return apps;
+}
+
+async function getArmAccessToken(cfg) {
+  const credential = getCredential(cfg);
+  const token = await credential.getToken('https://management.azure.com/.default');
+  if (!token || !token.token) {
+    const err = new Error('Managed Identity did not return an ARM access token');
+    err.name = 'ManagedIdentityTokenError';
+    throw err;
+  }
+  return token.token;
+}
+
+function requestArmJson(method, url, token, body) {
+  return new Promise((resolve, reject) => {
+    const payload = body == null ? null : JSON.stringify(body);
+    const req = require('https').request(url, {
+      method,
+      headers: Object.assign({
+        'Accept': 'application/json',
+        'Authorization': 'Bearer ' + token
+      }, payload ? {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload)
+      } : {})
+    }, (res) => {
+      let responseBody = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => { responseBody += chunk; });
+      res.on('end', () => {
+        let parsed = {};
+        try {
+          parsed = responseBody ? JSON.parse(responseBody) : {};
+        } catch (parseErr) {
+          parseErr.name = 'ArmResponseParseError';
+          reject(parseErr);
+          return;
+        }
+
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          const err = new Error(parsed.error && parsed.error.message || 'Azure ARM request failed with status ' + res.statusCode);
+          err.name = parsed.error && parsed.error.code || 'ArmRequestError';
+          err.statusCode = res.statusCode;
+          reject(err);
+          return;
+        }
+
+        resolve(parsed);
+      });
+    });
+
+    req.on('error', reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
 }
 
 async function getAllowedApp(name) {
@@ -295,6 +421,10 @@ function getResourceGroupFromId(id) {
   return match ? decodeURIComponent(match[1]) : '';
 }
 
+function escapeKustoString(value) {
+  return String(value || '').replace(/'/g, "''");
+}
+
 function mapApp(app, resourceGroup) {
   const state = app.state || app.status || '';
   return {
@@ -307,6 +437,42 @@ function mapApp(app, resourceGroup) {
     kind: app.kind || '',
     defaultHostName: app.defaultHostName || '',
     appType: app.kind && String(app.kind).toLowerCase().includes('functionapp')
+      ? 'Function App'
+      : 'Web App'
+  };
+}
+
+function mapResourceGraphApp(row) {
+  const state = row.state || '';
+  return {
+    id: row.id || '',
+    name: row.name || '',
+    resourceGroup: row.resourceGroup || getResourceGroupFromId(row.id),
+    location: row.location || '',
+    status: state || 'Unknown',
+    state: state || 'Unknown',
+    kind: row.kind || '',
+    defaultHostName: row.defaultHostName || '',
+    appType: row.kind && String(row.kind).toLowerCase().includes('functionapp')
+      ? 'Function App'
+      : 'Web App'
+  };
+}
+
+function mapResourceApp(resource) {
+  const properties = resource && resource.properties || {};
+  const state = properties.state || properties.status || '';
+  const kind = resource && resource.kind || '';
+  return {
+    id: resource && resource.id || '',
+    name: resource && resource.name || '',
+    resourceGroup: getResourceGroupFromId(resource && resource.id),
+    location: resource && resource.location || '',
+    status: state || 'Unknown',
+    state: state || 'Unknown',
+    kind,
+    defaultHostName: properties.defaultHostName || '',
+    appType: kind && String(kind).toLowerCase().includes('functionapp')
       ? 'Function App'
       : 'Web App'
   };
