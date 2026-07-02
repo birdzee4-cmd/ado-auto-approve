@@ -44,11 +44,24 @@ jobs:
       - name: Syntax check
         run: find .function-package -name "*.js" -not -path "*/node_modules/*" -print0 | xargs -0 -n1 node --check
 
+      - name: Validate publish profile secret
+        if: env.AZURE_APPSERVICE_PORTAL_FUNCTION_PUBLISH_PROFILE != ''
+        env:
+          PUBLISH_PROFILE: ${{ secrets.AZURE_APPSERVICE_PORTAL_FUNCTION_PUBLISH_PROFILE }}
+        run: |
+          if ! printf '%s' "$PUBLISH_PROFILE" | grep -q '<publishData'; then
+            echo "::error::AZURE_APPSERVICE_PORTAL_FUNCTION_PUBLISH_PROFILE must contain the full XML publish profile, starting with <publishData>."
+            exit 1
+          fi
+          if ! printf '%s' "$PUBLISH_PROFILE" | grep -q 'func-ado-auto-approve-appservice-api'; then
+            echo "::warning::Publish profile does not appear to mention func-ado-auto-approve-appservice-api. Confirm it was downloaded from the correct Function App."
+          fi
+
       - name: Deploy Function App
         if: env.AZURE_APPSERVICE_PORTAL_FUNCTION_PUBLISH_PROFILE != ''
         uses: Azure/functions-action@v1
         with:
-          app-name: ${{ vars.APP_SERVICE_FUNCTION_APP_NAME || 'func-ado-auto-approve-appservice-api' }}
+          app-name: func-ado-auto-approve-appservice-api
           package: .function-package
           publish-profile: ${{ secrets.AZURE_APPSERVICE_PORTAL_FUNCTION_PUBLISH_PROFILE }}
 
