@@ -12,6 +12,7 @@ import {
 let allApps = [];
 let selectedRestartApp = null;
 const cooldowns = {};
+const APP_SERVICE_LIST_TIMEOUT_MS = 180000;
 
 async function loadCurrentUser() {
   const authResp = await fetch('/.auth/me');
@@ -34,10 +35,10 @@ async function loadCurrentUser() {
 
 async function loadApps(forceRefresh) {
   setButtonLoading('btnRefreshApps', true, 'Loading...');
-  setStatus('', '');
+  setStatus('Loading App Services. Subscription-wide scope can take up to a few minutes on the first load...', '');
   try {
     const url = '/api/appservices' + (forceRefresh ? '?refresh=true' : '');
-    const r = await safeFetchJson(url, { timeoutMs: 45000 });
+    const r = await safeFetchJson(url, { timeoutMs: APP_SERVICE_LIST_TIMEOUT_MS });
     if (!r.ok || !r.data || !r.data.ok) {
       const d = r.data || {};
       const diagnosticText = formatDiagnostics(d.diagnostics);

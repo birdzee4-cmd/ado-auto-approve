@@ -70,7 +70,7 @@ function buildUrl(baseUrl, routeName, query) {
 
 function request(method, url, headers, body) {
   return new Promise((resolve, reject) => {
-    const req = https.request(url, { method, headers, timeout: 45000 }, (res) => {
+    const req = https.request(url, { method, headers, timeout: getProxyTimeoutMs() }, (res) => {
       let responseBody = '';
       res.setEncoding('utf8');
       res.on('data', chunk => { responseBody += chunk; });
@@ -92,6 +92,11 @@ function request(method, url, headers, body) {
     if (body) req.write(body);
     req.end();
   });
+}
+
+function getProxyTimeoutMs() {
+  const seconds = Number(process.env.APP_SERVICE_PROXY_TIMEOUT_SECONDS || 180);
+  return Math.max(45, seconds) * 1000;
 }
 
 function getHeader(headers, name) {
