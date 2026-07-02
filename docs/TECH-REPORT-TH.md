@@ -2,9 +2,9 @@
 
 **โปรเจกต์:** ระบบ Dashboard และ Automation Approve สำหรับ Pull Request และ Release บน Azure DevOps
 **ผู้จัดทำ:** IT Support / Release Engineering Team
-**เวอร์ชัน:** Phase 1 + 2 + 3 และฟีเจอร์ส่วนต่อขยาย (Release Approval, Activity, System Health, Merge Lookup, Daily Summary, Log Retention Cleanup)
+**เวอร์ชัน:** Phase 1 + 2 + 3 และฟีเจอร์ส่วนต่อขยาย (Release Approval, Activity, System Health, Merge Lookup, Daily Summary, Log Retention Cleanup, App Service Portal)
 
-## **ค่าใช้จ่ายรวม:** ~0 บาท/เดือน (ใช้ Free Tier และ Consumption Plan ทั้งหมด)
+## **ค่าใช้จ่ายรวมโดยประมาณ:** SWA Standard ~USD 9/เดือน + Function App/Storage ปริมาณต่ำมากตาม Consumption Plan
 
 ---
 
@@ -22,6 +22,7 @@
 - **System Health:** หน้าแสดงสถานะระบบ (Connectivity, Token, API Runtime) พร้อมปุ่มคำสั่งทดสอบการส่ง Teams Notification, Daily Summary และ Exception Scan
 - **Teams Notifications & Daily Summary:** ส่งการแจ้งเตือนเมื่อเกิดความเสียหายหรือขัดข้อง (Build/Policy Failed) ไปยัง Microsoft Teams และส่งสรุปผลการทำงานรายวันตอน 18:00 (Daily PR Summary)
 - **SharePoint Log Retention:** ระบบสแกนล้าง log เก่าเกิน 365 วันอัตโนมัติ โดยทำการบีบอัดเป็น CSV อัปโหลดไปยัง Document Library ของ SharePoint ก่อนลบข้อมูลใน List
+- **App Service Portal:** หน้าเว็บสำหรับดูและจัดการ Buzzebees Staging App Services เฉพาะผู้ใช้บทบาท `tester_appservice_manager` หรือ `admin` รองรับการอ่าน Environment Variables แบบ read-only, restart App Service พร้อม audit log แยก และ list `stg-*` App Services ทั้ง subscription ผ่าน Azure Resource Graph
 - **ความปลอดภัยด้านนโยบาย:** **ไม่แตะต้อง Work Item / Worklist** หรือกระบวนการนอกขอบเขต ตามเงื่อนไขความปลอดภัยและสิทธิ์ PAT ที่จำกัด
 
 ---
@@ -109,8 +110,8 @@
 
 | เทคโนโลยี | เวอร์ชัน | บทบาท | Free Tier Limit / ราคา |
 |---|---|---|---|
-| **Azure Static Web Apps** | Free Plan | Host Frontend + Managed Functions API | 100 GB bandwidth/เดือน, 0.5 GB storage (ฟรี) |
-| **Azure Functions** (Consumption) | Runtime v4 | Backend logic (Node.js Function App) | 1,000,000 executions/เดือน + 400,000 GB-sec (ฟรี) |
+| **Azure Static Web Apps** | Standard | Host Frontend + Built-in Auth/Role routing + SWA proxy สำหรับ App Service Portal | ค่าใช้จ่ายหลักประมาณ USD 9/เดือน |
+| **Azure Functions** (Consumption) | Runtime v4 | Backend logic (Node.js Function App), รวมถึง App Service Portal API แยก `func-ado-auto-approve-appservice-api` | 1,000,000 executions/เดือน + 400,000 GB-sec (ฟรี) |
 | **Azure Logic Apps** | Consumption | ตัวจับคู่เวลาเรียก API รายวัน/รายเดือน | จ่ายตามทริกเกอร์จริง (เฉลี่ยน้อยกว่า 10 บาท/เดือน) |
 | **GitHub** | - | จัดเก็บโค้ด (Source code) + CI/CD trigger | ฟรีสำหรับการใช้งานของทีม |
 | **GitHub Actions** | - | Auto-deploy workflow ไปยัง Azure SWA | 2,000 minutes/เดือน (ฟรี) |
@@ -143,6 +144,8 @@
 | **Azure DevOps REST API** | 7.0 | ดึงข้อมูล PR สำหรับ Dashboard ตามสิทธิ์ผู้ใช้, Vote สิทธิ์ของผู้ใช้, และสั่ง Auto-Complete target | OAuth Bearer token ของ Azure DevOps Connected user สำหรับ Dashboard/action; PAT สำหรับ system/background read path |
 | **Azure DevOps Release API** | 7.0 | ดึงข้อมูลประวัติ Classic Release และอนุมัติ deployment pre-approvals | OAuth Bearer token สำหรับ action ของผู้ใช้; PAT สำหรับ release/system lookup บางจุด |
 | **Microsoft Graph API** | v1.0 | จัดการบันทึก/อ่าน SharePoint List, ค้นหา User Profile Display Name, จัดเก็บไฟล์ CSV Archive | OAuth 2.0 Bearer Token (Client Credentials) |
+| **Azure Resource Graph** | 2021-03-01 | List `stg-*` App Services แบบ subscription-wide สำหรับ App Service Portal โดยตอบกลับได้รวดเร็วกว่า App Service SDK list ทั้ง subscription | Managed Identity ของ Function App |
+| **Azure Resource Manager / App Service SDK** | ARM | อ่าน App Settings และ Restart App Service รายตัว โดยอ้างอิง resource group จริงของแต่ละ app | Managed Identity ของ Function App |
 | **C-Toss Webhook Bot** | custom | ส่งการแจ้งเตือนการเกิด Exception และ Daily Summary เข้า Teams | URL-based token |
 
 ### 3.5 Data Storage
@@ -151,7 +154,7 @@
 |---|---|---|
 | **SharePoint Online List** | บันทึกประวัติการกระทำ (Audit Log) ทั้งหมด | รวมอยู่ในลิขสิทธิ์ M365 ขององค์กร |
 | **SharePoint Document Library** | เก็บไฟล์ Archive CSV ย้อนหลังจากกระบวนการ Retention | รวมอยู่ในลิขสิทธิ์ M365 ขององค์กร |
-| **Azure SWA Configuration** | เก็บค่าตัวแปรระบบ (Environment Variables & Secrets) | ฟรี |
+| **Azure SWA / Function App Configuration** | เก็บค่าตัวแปรระบบ (Environment Variables & Secrets) | รวมในทรัพยากร hosting |
 
 ### 3.6 Security
 
@@ -162,6 +165,7 @@
 | **HTTP Basic Auth** | สำหรับตรวจสอบความถูกต้องของ REST API Webhook (หากมี) |
 | **Personal Access Token (PAT)** | ใช้เป็น service credential สำหรับ system/background read path และ release/system lookup บางจุด โดยกำหนด Scope สิทธิ์แคบที่สุด: `Code (Read & Write)` และ `Release (Read, Write & Manage)` เท่านั้น |
 | **Graph Client Secret** | บันทึกเฉพาะใน Azure Configuration ป้องกันรั่วไหล |
+| **Function App Managed Identity** | ใช้สำหรับ App Service Portal เรียก Azure Resource Graph / Azure Resource Manager โดยไม่ใช้ PAT หรือ user credential |
 | **Constant-time string comparison** | ป้องกัน Timing Attack ในกระบวนการยืนยันรหัสผ่าน / basic auth token |
 | **Security Headers** | บังคับใช้ HSTS, X-Content-Type-Options: nosniff, X-Frame-Options: DENY และป้องกัน Clickjacking |
 
@@ -385,7 +389,7 @@ Azure Static Web Apps (อัปเดตไฟล์ HTML/CSS และ API Run
 
 | ทรัพยากรระบบ (Service) | ปริมาณใช้งานจริง (ประมาณการ) | ขีดจำกัด Free Tier | ค่าใช้จ่ายรายเดือน |
 | --- | --- | --- | --- |
-| **Azure Static Web Apps** | < 1 GB Bandwidth / เดือน | 100 GB Bandwidth / เดือน | 0.00 บาท |
+| **Azure Static Web Apps Standard** | < 1 GB Bandwidth / เดือน | ใช้ Standard เพื่อรองรับ production auth/role/API integration | ~USD 9/เดือน |
 | **Azure Functions** | < 30,000 requests / เดือน | 1,000,000 executions / เดือน | 0.00 บาท |
 | **Azure Functions GB-sec** | < 1,000 GB-sec / เดือน | 400,000 GB-sec / เดือน | 0.00 บาท |
 | **Azure Logic Apps** | ~100 runs / เดือน (ตั้งเวลา) | จ่ายตามทริกเกอร์จริง (Consumption) | ~0.00 บาท (ต่ำกว่า 1 บาท) |
@@ -394,9 +398,9 @@ Azure Static Web Apps (อัปเดตไฟล์ HTML/CSS และ API Run
 | **SharePoint Online** | < 2 MB ข้อมูล log / เดือน | 1 TB Tenant + 10 GB ต่อ User | 0.00 บาท |
 | **GitHub Actions** | < 100 Build minutes / เดือน | 2,000 Build minutes / เดือน | 0.00 บาท |
 | **Azure DevOps REST API** | < 10,000 requests / เดือน | ไม่จำกัดปริมาณใช้งานอย่างเป็นทางการ | 0.00 บาท |
-| **ยอดค่าใช้จ่ายรวม** | | | **0.00 บาท/เดือน** |
+| **ยอดค่าใช้จ่ายรวมโดยประมาณ** | | | **~USD 9-11/เดือน** |
 
-> **หมายเหตุ:** ในทางปฏิบัติ ค่าใช้จ่ายทั้งหมดจะถูกหักลบด้วย Free Tier และลิขสิทธิ์ M365 ที่องค์กรใช้งานอยู่แล้ว ทำให้ค่าใช้จ่ายสุทธิฝั่ง Azure Cloud เป็น 0.00 บาทต่อเดือนได้อย่างถาวรภายใต้ workload ระดับ internal tool
+> **หมายเหตุ:** workload ของ Function App, Logic Apps, Graph และ SharePoint ยังต่ำมากและส่วนใหญ่ใช้ Consumption/M365 ที่มีอยู่แล้ว ค่าใช้จ่ายหลักของ production ปัจจุบันคือ Azure Static Web Apps Standard
 
 ---
 
@@ -483,6 +487,26 @@ Azure Static Web Apps (อัปเดตไฟล์ HTML/CSS และ API Run
   - **การอนุมัติ Release:** ระบบ Approve Classic Release (pre-deploy) โดยตรงผ่านหน้าเว็บ พร้อม Guardrails ป้องกัน
   - **การสแกนและสรุปรายงาน:** ตั้งเวลาทริกเกอร์ exception scan เมื่อ build/policy ล้มเหลว และระบบ Daily summary ส่งหา Teams รายวันตอน 18:00
   - **ระบบล้างและจัดเก็บข้อมูล:** ฟังก์ชัน Log Retention Cleanup สแกนเก็บ CSV และลบ log เก่าเกิน 365 วันอัตโนมัติ
+  - **App Service Portal:** เพิ่ม `/applications.html`, `/portal.html`, `/portal-logs.html` และ backend Function App แยกสำหรับจัดการ `stg-*` App Services ทั้ง subscription ผ่าน `APP_SERVICE_RESOURCE_GROUP=ALL`
+
+### ✅ สถานะ App Service Portal ล่าสุด
+
+```text
+Static Web App URL: https://mango-wave-09cff3700.7.azurestaticapps.net
+Function App: func-ado-auto-approve-appservice-api
+Scope: APP_SERVICE_RESOURCE_GROUP=ALL
+List engine: Azure Resource Graph
+Latest backend verification: HTTP 200, 1241 apps, 1016 running, ~3 seconds
+Audit list: App Service Portal Log
+```
+
+การแก้ไขสำคัญล่าสุด:
+
+- แยก App Service Portal API ออกจาก SWA managed API ไปยัง Function App เพื่อให้ Managed Identity ขอ ARM token ได้สมบูรณ์
+- เพิ่ม subscription-wide scope สำหรับ `ALL`, `*`, และ `subscription`
+- เปลี่ยนการ list ทั้ง subscription จาก path ช้าของ App Service SDK เป็น Azure Resource Graph
+- แก้ Resource Graph paging ให้ใช้ `$top` และ `$skipToken` พร้อม guard กัน loop ซ้ำ
+- เพิ่ม timeout ต่อ ARM/Resource Graph request และปิด slow fallback เป็นค่า default เพื่อป้องกันหน้า `portal.html` timeout
 
 ### 🔜 แผนพัฒนาเพิ่มเติมในอนาคต (Roadmap)
 
@@ -495,12 +519,12 @@ Azure Static Web Apps (อัปเดตไฟล์ HTML/CSS และ API Run
 
 | มิติความคุ้มค่า | รายละเอียดจุดเด่น |
 | --- | --- |
-| **ค่าใช้จ่าย** | 0.00 บาท/เดือน ถาวร โดยเลือกใช้ Microsoft Free Tier + Consumption Plan |
+| **ค่าใช้จ่าย** | ค่าใช้จ่ายหลักคือ SWA Standard ประมาณ USD 9/เดือน ส่วน Function App/Logic Apps ใช้ Consumption ปริมาณต่ำ |
 | **ความปลอดภัย** | เข้าระบบด้วย SSO, ตรวจสอบบทบาทด้วย RBAC, ป้องกัน Branch target Lock, ไม่แตะต้อง Worklist |
 | **การเก็บ Log** | มีการบันทึกประวัติละเอียด 17 มิติลง SharePoint และควบคุมพื้นที่ด้วยระบบ Retention Archive |
 | **ความสะดวกรวดเร็ว** | ดูภาพรวม PR, Build, Policy, และ Release จบได้ในหน้าแดชบอร์ดเดียว พร้อมอนุมัติผ่านเว็บได้ทันที |
 | **การแจ้งเตือน** | Teams Notification อัจฉริยะ คัดกรองเอาเฉพาะข้อมูล Exception alerts ป้องกัน noise รบกวน |
-| **การพัฒนาและปรับใช้** | พัฒนาสถาปัตยกรรม Serverless อัปเดตผ่าน GitHub CI/CD deployed ภายใน 2 นาที |
+| **การพัฒนาและปรับใช้** | พัฒนาสถาปัตยกรรม Serverless อัปเดตผ่าน GitHub CI/CD; App Service Portal API มี workflow deploy Function App แยก |
 
 ---
 

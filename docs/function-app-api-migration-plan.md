@@ -11,6 +11,32 @@
 - SWA proxy ตรวจ role จาก Static Web Apps auth แล้ว forward ไป Function App ใหม่ผ่าน `APP_SERVICE_FUNCTION_BASE_URL`
 - Function App ใหม่ตรวจ `APP_SERVICE_PROXY_SECRET`, ตรวจ role ซ้ำจาก forwarded `x-ms-client-principal`, แล้วใช้ Managed Identity เรียก Azure Resource Manager
 
+## Current Implementation Status
+
+สถานะล่าสุดหลัง deploy:
+
+```text
+Status: implemented and deployed
+Production commit: 38f42f7 Fix-resource-graph-paging-for-appservice-list
+Static Web App URL: https://mango-wave-09cff3700.7.azurestaticapps.net
+Function App: func-ado-auto-approve-appservice-api
+Function App resource group: rg-ado-auto-approve
+Function App managed identity principalId: f28e5c6e-e79b-44c9-b88c-ed39a5b6e181
+Scope mode: APP_SERVICE_RESOURCE_GROUP=ALL
+List engine: Azure Resource Graph
+Latest direct backend test: HTTP 200, 1241 apps, 1016 running, about 3 seconds
+```
+
+Important fixes completed:
+
+- Added subscription-wide `APP_SERVICE_RESOURCE_GROUP=ALL`, `*`, and `subscription` support
+- Changed `ALL` list path from slow App Service SDK subscription iteration to Azure Resource Graph
+- Fixed Resource Graph paging by using `$top` and `$skipToken`
+- Added repeated skip-token/page-count guard so list requests cannot loop indefinitely
+- Added `APP_SERVICE_ARM_REQUEST_TIMEOUT_SECONDS` for per-request ARM/Resource Graph timeout
+- Disabled the slow ARM resources fallback by default; it can be enabled only for diagnostics with `APP_SERVICE_ENABLE_SLOW_LIST_FALLBACK=true`
+- Kept settings read and restart operations on `@azure/arm-appservice` using the real resource group returned by the list query
+
 ## Current Problem
 
 Static Web App `ado-auto-approve` ใช้ SKU `Standard` และเปิด System-Assigned Managed Identity แล้ว แต่ integrated/managed API runtime ส่ง environment มาไม่ครบสำหรับการขอ Managed Identity token:
@@ -40,8 +66,10 @@ flowchart LR
   Frontend --> PortalProxy["SWA proxy<br/>3 App Service Portal endpoints"]
   PortalProxy --> FunctionApp["Azure Function App<br/>Consumption Plan<br/>Portal API only"]
   FunctionApp --> SP["SharePoint / Graph"]
-  FunctionApp --> ARM["Azure Resource Manager"]
-  ARM --> AppServices["stg-* App Services<br/>Default-STG-TH-ServicesBackEnd-All-Group"]
+  FunctionApp --> ARG["Azure Resource Graph<br/>subscription-wide list"]
+  FunctionApp --> ARM["Azure Resource Manager / App Service SDK<br/>settings + restart"]
+  ARG --> AppServices["stg-* App Services<br/>All resource groups"]
+  ARM --> AppServices
 ```
 
 หลักการ:
@@ -49,7 +77,8 @@ flowchart LR
 - Static Web App ยังอยู่ URL เดิม: `https://mango-wave-09cff3700.7.azurestaticapps.net`
 - Static Web App ยังเป็น auth/routing gate หลักสำหรับหน้าเว็บและ ADO API เดิม
 - Function App เป็น backend host ใหม่เฉพาะ App Service Portal API
-- Function App เปิด System-Assigned Managed Identity และรับ RBAC บน App Service staging resource group
+- Function App เปิด System-Assigned Managed Identity และรับ RBAC ที่ subscription scope เพื่อรองรับ `APP_SERVICE_RESOURCE_GROUP=ALL`
+- Function App ใช้ Azure Resource Graph สำหรับ list `stg-*` ทั้ง subscription และใช้ App Service SDK สำหรับ read settings/restart รายตัว
 - ไม่เปิด Azure Front Door add-on
 - ไม่ใช้ personal PAT สำหรับ App Service operation
 - ADO Auto-Approve endpoints เดิมยังคง runtime, request/response และ business behavior เดิม
@@ -84,11 +113,13 @@ Azure Front Door add-on: not enabled
 - สร้าง Azure Function App แยกบน Consumption Plan
 - Deploy เฉพาะโค้ด `appservice-api` และ shared modules ที่ App Service Portal ใช้ไป Function App
 - เปิด System-Assigned Managed Identity ที่ Function App
-- Assign RBAC ให้ Function App identity ไปที่:
+- Assign RBAC ให้ Function App identity ไปที่ subscription scope สำหรับ production `ALL` mode:
 
 ```text
-/subscriptions/f9bca0f4-1e5b-487f-a2ef-a6578a936ef1/resourceGroups/Default-STG-TH-ServicesBackEnd-All-Group
+/subscriptions/f9bca0f4-1e5b-487f-a2ef-a6578a936ef1
 ```
+
+  ถ้าต้องการจำกัด scope ในอนาคต สามารถ assign เฉพาะ resource group หรือ selected apps แล้วตั้ง `APP_SERVICE_RESOURCE_GROUP` เป็น resource group ที่ต้องการได้
 
 - ตั้งค่า SWA managed API ให้ proxy เฉพาะ 3 App Service Portal endpoints ไป Function App ผ่าน `APP_SERVICE_FUNCTION_BASE_URL`
 - ใช้ GitHub Actions workflow แยกสำหรับ deploy `appservice-api` ไป Function App โดยไม่แก้ workflow SWA เดิม
@@ -129,10 +160,12 @@ Application Insights: optional; ถ้าเปิด ให้ตั้ง samp
 ```text
 AZURE_TENANT_ID=36f04887-ce29-484c-900e-f23ad3f60b77
 APP_SERVICE_SUBSCRIPTION_ID=f9bca0f4-1e5b-487f-a2ef-a6578a936ef1
-APP_SERVICE_RESOURCE_GROUP=Default-STG-TH-ServicesBackEnd-All-Group
+APP_SERVICE_RESOURCE_GROUP=ALL
 APP_SERVICE_NAME_PREFIX=stg-
 APP_SERVICE_PORTAL_ROLE=tester_appservice_manager
 APP_SERVICE_CACHE_TTL_SECONDS=60
+APP_SERVICE_ARM_REQUEST_TIMEOUT_SECONDS=30
+APP_SERVICE_ENABLE_SLOW_LIST_FALLBACK=false
 APP_SERVICE_RESTART_COOLDOWN_SECONDS=300
 APP_SERVICE_SHAREPOINT_HOSTNAME=<same or dedicated SharePoint hostname>
 APP_SERVICE_SHAREPOINT_SITE_PATH=<same or dedicated SharePoint site path>
@@ -178,7 +211,15 @@ Website Contributor
 Scope:
 
 ```text
-/subscriptions/f9bca0f4-1e5b-487f-a2ef-a6578a936ef1/resourceGroups/Default-STG-TH-ServicesBackEnd-All-Group
+/subscriptions/f9bca0f4-1e5b-487f-a2ef-a6578a936ef1
+```
+
+Production current role:
+
+```text
+Principal ID: f28e5c6e-e79b-44c9-b88c-ed39a5b6e181
+Role: Website Contributor
+Scope: /subscriptions/f9bca0f4-1e5b-487f-a2ef-a6578a936ef1
 ```
 
 หลังย้ายสำเร็จ ให้พิจารณาลบ RBAC assignment เดิมของ Static Web App identity:
@@ -217,7 +258,8 @@ Function App endpoint ทุกตัวต้องยังใช้ `api/shar
 - normalize app name
 - empty name = 400
 - name ไม่ขึ้นต้น `stg-` = 403
-- list/fetch เฉพาะ resource group ที่ config ไว้
+- `APP_SERVICE_RESOURCE_GROUP=ALL`, `*`, หรือ `subscription` list ผ่าน Azure Resource Graph ทั้ง subscription
+- resource group mode เดิมยังใช้ `webApps.listByResourceGroup`
 - หาไม่เจอใน allowed scope = 404
 - settings read-only เท่านั้น
 - restart มี backend cooldown
@@ -275,12 +317,12 @@ az functionapp create `
   --runtime node `
   --runtime-version 20 `
   --functions-version 4 `
-  --name func-ado-auto-approve-api `
+  --name func-ado-auto-approve-appservice-api `
   --storage-account <storage-account-name>
 
 az functionapp identity assign `
   --resource-group rg-ado-auto-approve `
-  --name func-ado-auto-approve-api
+  --name func-ado-auto-approve-appservice-api
 ```
 
 RBAC outline:
@@ -290,7 +332,7 @@ az role assignment create `
   --assignee-object-id <function-app-principal-id> `
   --assignee-principal-type ServicePrincipal `
   --role "Website Contributor" `
-  --scope "/subscriptions/f9bca0f4-1e5b-487f-a2ef-a6578a936ef1/resourceGroups/Default-STG-TH-ServicesBackEnd-All-Group"
+  --scope "/subscriptions/f9bca0f4-1e5b-487f-a2ef-a6578a936ef1"
 ```
 
 ### Phase 2: Prepare Repo For Split Deploy
@@ -354,7 +396,7 @@ Portal path:
 1. Static Web App `ado-auto-approve`
 2. APIs
 3. Link existing Function App
-4. Select `func-ado-auto-approve-api`
+4. Select `func-ado-auto-approve-appservice-api`
 5. Confirm `/api/*` routes resolve to Function App
 
 CLI outline:
@@ -405,7 +447,8 @@ az staticwebapp functions link `
 ทดสอบโดย role `tester_appservice_manager` หรือ `admin`:
 
 - `/api/appservices` คืนเฉพาะ `stg-*`
-- `scope.resourceGroup` เป็น `Default-STG-TH-ServicesBackEnd-All-Group`
+- `scope.resourceGroup` เป็น `All resource groups` เมื่อ `APP_SERVICE_RESOURCE_GROUP=ALL`
+- direct backend list test ล่าสุดควรได้ประมาณ `1241` apps และตอบในไม่กี่วินาที
 - unknown app = 404
 - non-`stg-` app = 403
 - settings read คืน `{ name, value }` เฉพาะ app ที่ allowed
@@ -503,7 +546,7 @@ jobs:
       - name: Deploy Function App
         uses: Azure/functions-action@v1
         with:
-          app-name: func-ado-auto-approve-api
+          app-name: func-ado-auto-approve-appservice-api
           package: api
           publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
 ```

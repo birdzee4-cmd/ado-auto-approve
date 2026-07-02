@@ -5,6 +5,8 @@
 
 **ใช้เวลาทั้งหมด:** ประมาณ 30-45 นาที (สำหรับครั้งแรก)
 
+> หมายเหตุสถานะ production ปัจจุบัน: ระบบใช้งานมากกว่า Phase 1 แล้ว โดยมี App Service Portal เพิ่มเติมบน URL เดิม และใช้ Azure Function App แยกชื่อ `func-ado-auto-approve-appservice-api` สำหรับ App Service Portal API. Function App นี้ใช้ Managed Identity + Azure Resource Graph เพื่อ list `stg-*` App Services ทั้ง subscription เมื่อ `APP_SERVICE_RESOURCE_GROUP=ALL`. รายละเอียดปัจจุบันให้อ้างอิง `README.md`, `docs/app-service-portal-runbook.md`, และ `docs/function-app-api-migration-plan.md`.
+
 ---
 
 ## ✅ ก่อนเริ่ม — สิ่งที่ต้องมี
@@ -93,6 +95,8 @@
 4. **อย่าเพิ่งคลิก Login** เพราะยังต้องตั้ง Entra ID ใน ขั้นตอนที่ 3 ก่อน
 
 ✅ **เสร็จขั้นที่ 2** — เว็บออนไลน์แล้ว เหลือแค่ตั้ง O365 Login
+
+> สำหรับ production ที่ต้องใช้ App Service Portal และ role/auth ขั้นสูง ปัจจุบัน Static Web App ใช้ SKU `Standard` และ App Service Portal backend ใช้ Function App แยก. คู่มือ Phase 1 นี้ยังใช้ได้สำหรับการตั้งต้นเว็บ/SSO แต่ไม่ครอบคลุมการตั้งค่า Function App, Managed Identity, RBAC และ SharePoint List `App Service Portal Log`.
 
 ---
 

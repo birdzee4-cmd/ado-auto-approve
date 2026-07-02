@@ -11,7 +11,13 @@
 - Azure Front Door add-on: not enabled
 - System-assigned Managed Identity: enabled
 - Managed Identity principal ID: `69558ef6-ab36-4b6b-a110-9e7a68669465`
-- RBAC status: `Website Contributor` assigned on `Default-STG-TH-ServicesBackEnd-All-Group`
+- SWA managed identity is not used for Azure App Service ARM calls
+- App Service Portal backend Function App: `func-ado-auto-approve-appservice-api`
+- Function App resource group: `rg-ado-auto-approve`
+- Function App system-assigned Managed Identity principal ID: `f28e5c6e-e79b-44c9-b88c-ed39a5b6e181`
+- Function App RBAC status: `Website Contributor` assigned at subscription scope for `Buzzebees Staging`
+- Current list scope: `APP_SERVICE_RESOURCE_GROUP=ALL`
+- Current list implementation: Azure Resource Graph subscription-wide query for `stg-*`
 
 ## Current Managed API Limitation
 
@@ -50,38 +56,52 @@ Variable: APP_SERVICE_FUNCTION_APP_NAME
 
 ## App Service Scope
 
-The portal must manage only this staging scope:
+The portal must manage only Buzzebees Staging App Services matching this scope:
 
 ```text
 Subscription: f9bca0f4-1e5b-487f-a2ef-a6578a936ef1
-Resource group: Default-STG-TH-ServicesBackEnd-All-Group
+Resource group mode: ALL / subscription-wide
 App name prefix: stg-
 ```
 
-Apps outside this resource group or not starting with `stg-` must not be listed, read, or restarted.
+Apps not starting with `stg-` must not be listed, read, or restarted. In `ALL` mode, the backend uses Azure Resource Graph to list matching apps across the subscription, then uses each app's real resource group for read-only settings and restart actions.
+
+Latest production verification:
+
+```text
+Backend endpoint: /api/appservices?refresh=true on the portal Function App
+Status: 200
+Response time: about 3 seconds
+Total stg-* apps: 1241
+Running apps: 1016
+Scope returned by API: All resource groups
+Configured resource group: ALL
+```
 
 ## RBAC Setup
 
-The Static Web App Managed Identity has been granted access to the staging resource group.
+Grant Azure RBAC to the Function App managed identity, not to the Static Web App managed API identity. The SWA API only proxies App Service Portal requests to the dedicated Function App.
 
-Current assignment:
+Current production assignments:
 
 ```text
-Principal ID: 69558ef6-ab36-4b6b-a110-9e7a68669465
+Principal ID: f28e5c6e-e79b-44c9-b88c-ed39a5b6e181
 Principal type: ServicePrincipal
 Role: Website Contributor
+Scope: /subscriptions/f9bca0f4-1e5b-487f-a2ef-a6578a936ef1
+
+Role: Website Contributor
 Scope: /subscriptions/f9bca0f4-1e5b-487f-a2ef-a6578a936ef1/resourceGroups/Default-STG-TH-ServicesBackEnd-All-Group
-Created: 2026-07-01 02:51 UTC
 ```
 
-Equivalent command:
+Equivalent subscription-wide command:
 
 ```powershell
 az role assignment create `
-  --assignee-object-id 69558ef6-ab36-4b6b-a110-9e7a68669465 `
+  --assignee-object-id f28e5c6e-e79b-44c9-b88c-ed39a5b6e181 `
   --assignee-principal-type ServicePrincipal `
   --role "Website Contributor" `
-  --scope "/subscriptions/f9bca0f4-1e5b-487f-a2ef-a6578a936ef1/resourceGroups/Default-STG-TH-ServicesBackEnd-All-Group"
+  --scope "/subscriptions/f9bca0f4-1e5b-487f-a2ef-a6578a936ef1"
 ```
 
 Preferred least-privilege custom role actions:
@@ -92,7 +112,40 @@ Microsoft.Web/sites/config/read
 Microsoft.Web/sites/restart/action
 ```
 
-If a custom role is used, assign it at the same resource group scope.
+If a custom role is used with `APP_SERVICE_RESOURCE_GROUP=ALL`, assign it at subscription scope or every resource group that contains matching `stg-*` apps. If the scope is narrowed back to one resource group, assign it only at that resource group.
+
+## Function App Settings
+
+Required Function App settings for current production:
+
+```text
+APP_SERVICE_SUBSCRIPTION_ID=f9bca0f4-1e5b-487f-a2ef-a6578a936ef1
+APP_SERVICE_RESOURCE_GROUP=ALL
+APP_SERVICE_NAME_PREFIX=stg-
+APP_SERVICE_PORTAL_ROLE=tester_appservice_manager
+APP_SERVICE_PROXY_SECRET=<same value as SWA API>
+```
+
+Optional settings:
+
+```text
+APP_SERVICE_CACHE_TTL_SECONDS=60
+APP_SERVICE_ARM_REQUEST_TIMEOUT_SECONDS=30
+APP_SERVICE_ENABLE_SLOW_LIST_FALLBACK=false
+APP_SERVICE_RESTART_COOLDOWN_SECONDS=300
+APP_SERVICE_SHAREPOINT_LIST_NAME=App Service Portal Log
+```
+
+Required SWA API proxy settings:
+
+```text
+APP_SERVICE_FUNCTION_BASE_URL=https://func-ado-auto-approve-appservice-api-ezg5d6h3h4cpgff5.southeastasia-01.azurewebsites.net
+APP_SERVICE_PROXY_SECRET=<same value as Function App>
+APP_SERVICE_RESOURCE_GROUP=ALL
+APP_SERVICE_NAME_PREFIX=stg-
+```
+
+Do not write secret values into documentation, commits, screenshots, or logs.
 
 ## SharePoint Audit Setup
 
@@ -145,7 +198,7 @@ Test with a user that has `tester_appservice_manager` or `admin`.
 1. Open `/applications.html`
 2. Confirm the App Service Portal tile is visible
 3. Open `/portal.html`
-4. Confirm only `stg-*` apps from `Default-STG-TH-ServicesBackEnd-All-Group` are listed
+4. Confirm `Total Apps` is around `1241` and `Scope` shows `All resource groups` when `APP_SERVICE_RESOURCE_GROUP=ALL`
 5. Open settings for one allowed app
 6. Confirm settings are read-only and values are visible only in the browser
 7. Confirm `App Service Portal Log` contains setting key names only
@@ -159,6 +212,23 @@ Negative checks:
 - Unknown app names must not return settings
 - Non-`stg-` app names must be rejected
 - ADO approve/reject/release logs must still go to the existing ADO Auto-Approve log
+
+## Troubleshooting
+
+### `App Service API is not ready`
+
+Check these items in order:
+
+1. Function App state is `Running`
+2. Function App setting `APP_SERVICE_RESOURCE_GROUP` is `ALL` for subscription-wide mode
+3. SWA API setting `APP_SERVICE_FUNCTION_BASE_URL` points to the Function App base URL
+4. SWA API and Function App share the same `APP_SERVICE_PROXY_SECRET`
+5. Function App managed identity has `Website Contributor` or equivalent custom role at the required scope
+6. Function App workflow `Azure Functions App Service Portal API CI/CD` completed successfully
+
+### Request timeout when loading all apps
+
+The list endpoint should use Azure Resource Graph and respond in a few seconds for the current subscription. If it takes around 45-180 seconds, verify the deployed `api/shared/appservice-client.js` includes Resource Graph paging with `$top` and `$skipToken`. The slow `webApps.list()` path should not be used for normal `ALL` mode.
 
 ## Cost Guardrails
 
