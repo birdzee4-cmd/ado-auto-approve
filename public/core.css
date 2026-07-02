@@ -193,10 +193,9 @@ body::after {
   color: transparent;
   background:
     linear-gradient(90deg, #ff4d6d, #ffb000, #47d16c, #38bdf8, #a78bfa, #ff4d6d),
-    linear-gradient(rgba(245, 164, 0, 0.08), rgba(245, 164, 0, 0.08)) padding-box,
-    linear-gradient(90deg, #ff4d6d, #ffb000, #47d16c, #38bdf8, #a78bfa, #ff4d6d) border-box;
-  background-clip: text, padding-box, border-box;
-  -webkit-background-clip: text, padding-box, border-box;
+    linear-gradient(rgba(245, 164, 0, 0.08), rgba(245, 164, 0, 0.08));
+  background-clip: text, padding-box;
+  -webkit-background-clip: text, padding-box;
   -webkit-text-fill-color: transparent;
   font-size: 13px;
   font-weight: 800;
@@ -206,7 +205,7 @@ body::after {
   text-overflow: ellipsis;
   white-space: nowrap;
   padding: 8px 14px;
-  border: 1px solid transparent;
+  border: 1px solid rgba(245, 164, 0, 0.35);
   border-radius: 999px;
   box-shadow: inset 0 0 8px rgba(245, 164, 0, 0.1), 0 0 18px rgba(245, 164, 0, 0.08);
 }
@@ -1531,7 +1530,7 @@ body, .navbar, .welcome-card, .info-item, .info-icon, .pr-table-wrap, .modal, .m
 
 .user-name {
   color: transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 164, 0, 0.35) !important;
   -webkit-text-fill-color: transparent !important;
 }
 

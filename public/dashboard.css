@@ -2388,7 +2388,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .user-name {
   color: transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 164, 0, 0.35) !important;
   -webkit-text-fill-color: transparent !important;
 }
 
