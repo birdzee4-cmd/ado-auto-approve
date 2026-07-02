@@ -190,19 +190,25 @@ body::after {
 }
 
 .user-name {
-  color: var(--bz-yellow-strong);
+  color: transparent;
+  background:
+    linear-gradient(90deg, #ff4d6d, #ffb000, #47d16c, #38bdf8, #a78bfa, #ff4d6d),
+    linear-gradient(rgba(245, 164, 0, 0.08), rgba(245, 164, 0, 0.08)) padding-box,
+    linear-gradient(90deg, #ff4d6d, #ffb000, #47d16c, #38bdf8, #a78bfa, #ff4d6d) border-box;
+  background-clip: text, padding-box, border-box;
+  -webkit-background-clip: text, padding-box, border-box;
+  -webkit-text-fill-color: transparent;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1;
-  max-width: 250px;
+  max-width: 320px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   padding: 8px 14px;
-  border: 1px solid rgba(245, 164, 0, 0.35);
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: rgba(245, 164, 0, 0.08);
-  box-shadow: inset 0 0 8px rgba(245, 164, 0, 0.1);
+  box-shadow: inset 0 0 8px rgba(245, 164, 0, 0.1), 0 0 18px rgba(245, 164, 0, 0.08);
 }
 
 .logout-button {
@@ -1524,7 +1530,8 @@ body, .navbar, .welcome-card, .info-item, .info-icon, .pr-table-wrap, .modal, .m
 }
 
 .user-name {
-  color: #f3f4f6 !important;
-  border-color: rgba(245, 164, 0, 0.35) !important;
+  color: transparent !important;
+  border-color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
 }
 

@@ -2,6 +2,7 @@ import {
   bind,
   closeModal,
   escapeHtml,
+  getUserEmailForDisplay,
   openModal,
   safeFetchJson,
   setButtonLoading,
@@ -232,7 +233,7 @@ function formatDiagnostics(diagnostics) {
   try {
     const user = await loadCurrentUser();
     if (!user) return;
-    setText('userName', user.name || user.email || 'Authorized User');
+    setText('userName', getUserEmailForDisplay(user));
     setText('lastAction', 'Ready');
 
     document.querySelectorAll('[data-close]').forEach(el => {

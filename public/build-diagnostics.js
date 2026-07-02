@@ -1,4 +1,4 @@
-import { safeFetchJson, formatDate, escapeHtml } from './core.js';
+import { safeFetchJson, formatDate, escapeHtml, getUserEmailForDisplay } from './core.js';
 
 window.addEventListener('DOMContentLoaded', () => {
   initUserInfo();
@@ -16,7 +16,16 @@ async function initUserInfo() {
     if (authData.clientPrincipal) {
       const principal = authData.clientPrincipal;
       const userNameEl = document.getElementById('userName');
-      if (userNameEl) userNameEl.textContent = principal.userDetails || 'Unknown';
+      if (userNameEl) {
+        let displayEmail = getUserEmailForDisplay(principal, 'Unknown');
+        try {
+          const userResp = await safeFetchJson('/api/userinfo');
+          if (userResp.ok && userResp.data) {
+            displayEmail = getUserEmailForDisplay(userResp.data, displayEmail);
+          }
+        } catch (e) {}
+        userNameEl.textContent = displayEmail;
+      }
     }
   } catch (e) {
     console.warn('Failed to load user auth info:', e);

@@ -1,4 +1,4 @@
-import { escapeHtml, formatDisplayRoles, safeFetchJson, setText } from './core.js';
+import { escapeHtml, formatDisplayRoles, getUserEmailForDisplay, safeFetchJson, setText } from './core.js';
 
 const APPS = [
   {
@@ -82,7 +82,7 @@ function renderApps(user) {
   try {
     const user = await loadCurrentUser();
     if (!user) return;
-    setText('userName', user.name || user.email || 'Authorized User');
+    setText('userName', getUserEmailForDisplay(user));
     setText('displayName', user.name || '-');
     setText('userEmail', user.email || '-');
     setText('userRole', formatDisplayRoles(user.userRoles || []));

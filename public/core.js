@@ -17,6 +17,11 @@ window._currentUser = {
   canManageAppServices: false
 };
 
+function getUserEmailForDisplay(user, fallback) {
+  const source = user || {};
+  return String(source.email || source.userDetails || fallback || 'Authorized User').trim() || 'Authorized User';
+}
+
 async function initPage() {
   try {
     const authResp = await fetch('/.auth/me');
@@ -26,7 +31,7 @@ async function initPage() {
       return;
     }
     const principal = authData.clientPrincipal;
-    setText('userName', principal.userDetails || 'Unknown');
+    setText('userName', getUserEmailForDisplay(principal, 'Unknown'));
     setText('displayName', principal.userDetails || '-');
     setText('userEmail', principal.userDetails || '-');
     setText('loginTime', new Date().toLocaleString('th-TH', {
@@ -39,8 +44,8 @@ async function initPage() {
         const userData = await userResp.json();
         if (userData.name) {
           setText('displayName', userData.name);
-          setText('userName', userData.name);
         }
+        setText('userName', getUserEmailForDisplay(userData, principal.userDetails));
         if (userData.email) setText('userEmail', userData.email);
         const roles = Array.isArray(userData.userRoles) ? userData.userRoles : [];
         window._currentUser.roles = roles;
@@ -1005,6 +1010,7 @@ function humanizeKey(key) {
 export {
   bind,
   setText,
+  getUserEmailForDisplay,
   formatDisplayRoles,
   showBox,
   initThemeToggle,

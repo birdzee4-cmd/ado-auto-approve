@@ -2387,8 +2387,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .user-name {
-  color: #f3f4f6 !important;
-  border-color: rgba(245, 164, 0, 0.35) !important;
+  color: transparent !important;
+  border-color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
 }
 
 /* Status colors in table */

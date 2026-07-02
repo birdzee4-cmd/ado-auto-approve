@@ -16,7 +16,7 @@
       <span class="brand">BUZZEBEES</span>
     </div>
     <div class="nav-right">
-      <span id="authStatusText" class="user-name" style="display: none; border-color: var(--bz-yellow);">Checking status...</span>
+      <span id="authStatusText" class="user-name" style="display: none;">Checking status...</span>
       <a href="/.auth/login/aad?post_login_redirect_uri=/applications.html" id="navPortalBtn" class="logout-button btn-3d" style="padding: 8px 20px; font-size: 13px; box-shadow: 0 3px 0 #b37700;">
         Portal Sign In
       </a>
@@ -118,10 +118,17 @@
     // Auth status check
     fetch('/.auth/me')
       .then(r => r.json())
-      .then(data => {
+      .then(async data => {
         if (data && data.clientPrincipal) {
-          const name = data.clientPrincipal.userDetails || 'Authorized User';
-          document.getElementById('authStatusText').innerText = `Logged in: ${name}`;
+          let email = data.clientPrincipal.userDetails || 'Authorized User';
+          try {
+            const userResp = await fetch('/api/userinfo');
+            if (userResp.ok) {
+              const userData = await userResp.json();
+              email = userData.email || email;
+            }
+          } catch (e) {}
+          document.getElementById('authStatusText').innerText = `Logged in: ${email}`;
           document.getElementById('authStatusText').style.display = 'inline-block';
           
           const portalBtn = document.getElementById('navPortalBtn');
