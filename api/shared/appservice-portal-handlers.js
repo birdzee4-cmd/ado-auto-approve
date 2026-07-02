@@ -222,7 +222,7 @@ async function handleLogs(context, req) {
     jsonResponse(context, err.statusCode || 500, {
       ok: false,
       error: 'Failed to read App Service Portal Log',
-      detail: getPublicErrorDetail(err),
+      detail: getAppServiceLogErrorDetail(err),
       diagnostics: getSafeDiagnostics(err)
     });
   }
@@ -231,6 +231,14 @@ async function handleLogs(context, req) {
 function getPublicErrorDetail(err) {
   if (err && err.expose) return err.message;
   return 'Azure App Service request failed. Check Managed Identity, RBAC, and environment variables.';
+}
+
+function getAppServiceLogErrorDetail(err) {
+  const message = String(err && err.message || '').trim();
+  if (!message) return 'Unable to read App Service Portal Log';
+  return message
+    .replace(/client_secret=[^&\s]+/gi, 'client_secret=REDACTED')
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer REDACTED');
 }
 
 function getSafeDiagnostics(err) {
@@ -319,5 +327,6 @@ module.exports = {
   handleRestart,
   handleLogs,
   getPublicErrorDetail,
+  getAppServiceLogErrorDetail,
   getSafeDiagnostics
 };
