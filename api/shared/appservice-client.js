@@ -11,6 +11,7 @@ function getConfig() {
   const subscriptionId = process.env.APP_SERVICE_SUBSCRIPTION_ID || DEFAULT_SUBSCRIPTION_ID;
   const resourceGroup = process.env.APP_SERVICE_RESOURCE_GROUP || DEFAULT_RESOURCE_GROUP;
   const namePrefix = process.env.APP_SERVICE_NAME_PREFIX || DEFAULT_NAME_PREFIX;
+  const allResourceGroups = isAllResourceGroupsScope(resourceGroup);
   const tenantId = process.env.AZURE_TENANT_ID || '36f04887-ce29-484c-900e-f23ad3f60b77';
   const cacheTtlMs = Math.max(5000, Number(process.env.APP_SERVICE_CACHE_TTL_SECONDS || 60) * 1000);
   const restartCooldownMs = Math.max(0, Number(process.env.APP_SERVICE_RESTART_COOLDOWN_SECONDS || 300) * 1000);
@@ -19,6 +20,7 @@ function getConfig() {
   return {
     subscriptionId,
     resourceGroup,
+    allResourceGroups,
     namePrefix,
     tenantId,
     cacheTtlMs,
@@ -191,8 +193,11 @@ async function listAllowedAppServices(forceRefresh) {
 
   const client = getClient();
   const apps = [];
-  for await (const app of client.webApps.listByResourceGroup(cfg.resourceGroup)) {
-    const row = mapApp(app, cfg.resourceGroup);
+  const source = cfg.allResourceGroups
+    ? client.webApps.list()
+    : client.webApps.listByResourceGroup(cfg.resourceGroup);
+  for await (const app of source) {
+    const row = mapApp(app, cfg.allResourceGroups ? getResourceGroupFromId(app.id) : cfg.resourceGroup);
     if (isAllowedAppName(row.name, cfg.namePrefix)) apps.push(row);
   }
   apps.sort((a, b) => a.name.localeCompare(b.name));
@@ -227,7 +232,7 @@ async function getAppSettings(name) {
   const cfg = getConfig();
   const app = await getAllowedApp(name);
   const client = getClient();
-  const result = await client.webApps.listApplicationSettings(cfg.resourceGroup, app.name);
+  const result = await client.webApps.listApplicationSettings(app.resourceGroup || cfg.resourceGroup, app.name);
   const properties = result && result.properties || {};
   const settings = Object.keys(properties)
     .sort((a, b) => a.localeCompare(b))
@@ -259,7 +264,7 @@ async function restartAppService(name, actor) {
 
   try {
     const client = getClient();
-    await client.webApps.restart(cfg.resourceGroup, app.name);
+    await client.webApps.restart(app.resourceGroup || cfg.resourceGroup, app.name);
     return {
       app,
       cooldownSeconds: Math.ceil(cfg.restartCooldownMs / 1000)
@@ -278,6 +283,16 @@ function isAllowedAppName(name, prefix) {
   const value = normalizeName(name).toLowerCase();
   const targetPrefix = String(prefix || DEFAULT_NAME_PREFIX).trim().toLowerCase();
   return !!value && !!targetPrefix && value.startsWith(targetPrefix);
+}
+
+function isAllResourceGroupsScope(resourceGroup) {
+  const value = String(resourceGroup || '').trim().toLowerCase();
+  return value === '*' || value === 'all' || value === 'subscription';
+}
+
+function getResourceGroupFromId(id) {
+  const match = String(id || '').match(/\/resourceGroups\/([^/]+)/i);
+  return match ? decodeURIComponent(match[1]) : '';
 }
 
 function mapApp(app, resourceGroup) {
@@ -301,7 +316,9 @@ function getScope() {
   const cfg = getConfig();
   return {
     subscriptionId: cfg.subscriptionId,
-    resourceGroup: cfg.resourceGroup,
+    resourceGroup: cfg.allResourceGroups ? 'All resource groups' : cfg.resourceGroup,
+    configuredResourceGroup: cfg.resourceGroup,
+    resourceGroupMode: cfg.allResourceGroups ? 'subscription' : 'resourceGroup',
     namePrefix: cfg.namePrefix,
     tenantId: cfg.tenantId
   };
@@ -314,5 +331,6 @@ module.exports = {
   getAllowedApp,
   getAppSettings,
   restartAppService,
-  isAllowedAppName
+  isAllowedAppName,
+  isAllResourceGroupsScope
 };
