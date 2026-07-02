@@ -199,12 +199,14 @@ Test with a user that has `tester_appservice_manager` or `admin`.
 2. Confirm the App Service Portal tile is visible
 3. Open `/portal.html`
 4. Confirm `Total Apps` is around `1241` and `Scope` shows `All resource groups` when `APP_SERVICE_RESOURCE_GROUP=ALL`
-5. Open settings for one allowed app
-6. Confirm settings are read-only and values are visible only in the browser
-7. Confirm `App Service Portal Log` contains setting key names only
-8. Restart one low-risk staging app
-9. Confirm the UI enters cooldown
-10. Confirm restart audit goes to `App Service Portal Log`
+5. Confirm the app table shows 100 rows by default, the row-size selector can switch to 200 rows, and First / Prev / page number / Next / Last navigation works
+6. Confirm search resets pagination to page 1 and still filters by app name, status, resource group, location, or type
+7. Open settings for one allowed app
+8. Confirm settings are read-only and values are visible only in the browser
+9. Confirm `App Service Portal Log` contains setting key names only
+10. Restart one low-risk staging app
+11. Confirm the UI enters cooldown
+12. Confirm restart audit goes to `App Service Portal Log`
 
 Negative checks:
 

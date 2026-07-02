@@ -507,6 +507,7 @@ Audit list: App Service Portal Log
 - เปลี่ยนการ list ทั้ง subscription จาก path ช้าของ App Service SDK เป็น Azure Resource Graph
 - แก้ Resource Graph paging ให้ใช้ `$top` และ `$skipToken` พร้อม guard กัน loop ซ้ำ
 - เพิ่ม timeout ต่อ ARM/Resource Graph request และปิด slow fallback เป็นค่า default เพื่อป้องกันหน้า `portal.html` timeout
+- เพิ่ม pagination บนหน้า `portal.html` ให้แสดง App Services ครั้งละ 100 รายการเป็นค่าเริ่มต้น, เลือก 200 รายการได้ และมีปุ่ม First / Prev / เลขหน้า / Next / Last สำหรับข้อมูลระดับพันรายการ
 
 ### 🔜 แผนพัฒนาเพิ่มเติมในอนาคต (Roadmap)
 

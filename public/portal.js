@@ -11,6 +11,8 @@ import {
 
 let allApps = [];
 let selectedRestartApp = null;
+let currentPage = 1;
+let pageSize = 100;
 const cooldowns = {};
 const APP_SERVICE_LIST_TIMEOUT_MS = 180000;
 
@@ -43,6 +45,7 @@ async function loadApps(forceRefresh) {
       const d = r.data || {};
       const diagnosticText = formatDiagnostics(d.diagnostics);
       allApps = [];
+      currentPage = 1;
       renderApps();
       setStatus((d.detail || d.error || 'App Service API is not ready. Check Managed Identity, RBAC, and environment variables.') + diagnosticText, 'error');
       updateScope(d.scope || null);
@@ -50,11 +53,13 @@ async function loadApps(forceRefresh) {
     }
 
     allApps = Array.isArray(r.data.apps) ? r.data.apps : [];
+    currentPage = 1;
     updateScope(r.data.scope || null);
     renderApps();
     setText('lastAction', 'Loaded ' + new Date().toLocaleTimeString('th-TH'));
   } catch (err) {
     allApps = [];
+    currentPage = 1;
     renderApps();
     setStatus('Unable to load App Services: ' + err.message, 'error');
   } finally {
@@ -85,10 +90,16 @@ function renderApps() {
     tbody.innerHTML = '<tr><td colspan="6" class="portal-empty">' +
       (allApps.length === 0 ? 'No App Services are available in the configured staging scope.' : 'No App Services match your search.') +
       '</td></tr>';
+    renderPagination(filtered.length);
     return;
   }
 
-  tbody.innerHTML = filtered.map(app => {
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  currentPage = Math.min(Math.max(currentPage, 1), pageCount);
+  const startIndex = (currentPage - 1) * pageSize;
+  const pageApps = filtered.slice(startIndex, startIndex + pageSize);
+
+  tbody.innerHTML = pageApps.map(app => {
     const status = String(app.status || 'Unknown');
     const lower = status.toLowerCase();
     const statusClass = lower === 'running' ? 'status-running' : (lower === 'stopped' ? 'status-stopped' : 'status-unknown');
@@ -112,6 +123,77 @@ function renderApps() {
   tbody.querySelectorAll('[data-restart]').forEach(button => {
     button.addEventListener('click', () => openRestart(button.getAttribute('data-restart')));
   });
+  renderPagination(filtered.length);
+}
+
+function renderPagination(totalItems) {
+  const pagination = document.getElementById('appsPagination');
+  const meta = document.getElementById('appsPaginationMeta');
+  const buttons = document.getElementById('appsPageButtons');
+  if (!pagination || !meta || !buttons) return;
+
+  if (totalItems <= 0) {
+    pagination.hidden = true;
+    buttons.innerHTML = '';
+    meta.textContent = 'Showing 0 apps';
+    return;
+  }
+
+  const pageCount = Math.max(1, Math.ceil(totalItems / pageSize));
+  currentPage = Math.min(Math.max(currentPage, 1), pageCount);
+  const start = (currentPage - 1) * pageSize + 1;
+  const end = Math.min(currentPage * pageSize, totalItems);
+  pagination.hidden = false;
+  meta.textContent = 'Showing ' + start.toLocaleString('en-US') + '-' + end.toLocaleString('en-US') +
+    ' of ' + totalItems.toLocaleString('en-US') + ' apps';
+
+  const pages = getVisiblePages(pageCount, currentPage);
+  const html = []
+    .concat(renderPageButton('First', 1, currentPage === 1))
+    .concat(renderPageButton('Prev', currentPage - 1, currentPage === 1))
+    .concat(pages.map(page => page === 'gap'
+      ? '<span class="portal-page-gap" aria-hidden="true">...</span>'
+      : renderPageButton(String(page), page, false, page === currentPage)))
+    .concat(renderPageButton('Next', currentPage + 1, currentPage === pageCount))
+    .concat(renderPageButton('Last', pageCount, currentPage === pageCount));
+
+  buttons.innerHTML = html.join('');
+  buttons.querySelectorAll('[data-page]').forEach(button => {
+    button.addEventListener('click', () => {
+      const nextPage = Number(button.getAttribute('data-page'));
+      if (!Number.isFinite(nextPage)) return;
+      currentPage = nextPage;
+      renderApps();
+      scrollTableIntoView();
+    });
+  });
+}
+
+function getVisiblePages(pageCount, activePage) {
+  if (pageCount <= 6) {
+    return Array.from({ length: pageCount }, (_, index) => index + 1);
+  }
+
+  const pages = [1];
+  const start = Math.max(2, activePage - 1);
+  const end = Math.min(pageCount - 1, activePage + 1);
+  if (start > 2) pages.push('gap');
+  for (let page = start; page <= end; page += 1) pages.push(page);
+  if (end < pageCount - 1) pages.push('gap');
+  pages.push(pageCount);
+  return pages;
+}
+
+function renderPageButton(label, page, disabled, active) {
+  const className = 'portal-page-btn' + (active ? ' active' : '');
+  return '<button type="button" class="' + className + '" data-page="' + page + '"' +
+    (disabled ? ' disabled' : '') + '>' + escapeHtml(label) + '</button>';
+}
+
+function scrollTableIntoView() {
+  const tableWrap = document.querySelector('.portal-table-wrap');
+  if (!tableWrap) return;
+  tableWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function getCooldownText(name) {
@@ -249,7 +331,21 @@ function formatDiagnostics(diagnostics) {
     bind('btnRefreshApps', () => loadApps(true));
     bind('btnConfirmRestart', restartSelectedApp);
     const searchInput = document.getElementById('searchInput');
-    if (searchInput) searchInput.addEventListener('input', renderApps);
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        currentPage = 1;
+        renderApps();
+      });
+    }
+    const pageSizeSelect = document.getElementById('pageSizeSelect');
+    if (pageSizeSelect) {
+      pageSize = Number(pageSizeSelect.value) || pageSize;
+      pageSizeSelect.addEventListener('change', () => {
+        pageSize = Number(pageSizeSelect.value) || 100;
+        currentPage = 1;
+        renderApps();
+      });
+    }
 
     await loadApps(false);
     window.setInterval(renderApps, 1000);

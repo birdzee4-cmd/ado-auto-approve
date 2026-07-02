@@ -1146,6 +1146,8 @@ App name prefix: stg-
 
 App ที่ไม่ขึ้นต้นด้วย `stg-` ต้องไม่ถูก list, read settings, หรือ restart ผ่าน portal. เมื่อ `APP_SERVICE_RESOURCE_GROUP=ALL` ระบบจะ list `stg-*` App Services ทั้ง subscription ด้วย Azure Resource Graph แล้วใช้ resource group จริงของแต่ละ app สำหรับ read settings และ restart.
 
+หน้า `/portal.html` แสดง App Services แบบ client-side pagination เพื่อไม่ให้ตารางยาวเกินไป โดยค่าเริ่มต้นแสดงครั้งละ 100 รายการ, เลือกเป็น 200 รายการได้, และมีปุ่ม First / Prev / เลขหน้า / Next / Last สำหรับไปยังหน้าที่ต้องการ.
+
 Production verification ล่าสุดหลัง deploy hotfix:
 
 ```text

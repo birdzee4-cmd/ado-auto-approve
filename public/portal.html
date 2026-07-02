@@ -82,6 +82,19 @@
           <tr><td colspan="6" class="portal-empty">Loading App Services...</td></tr>
         </tbody>
       </table>
+      <div class="portal-pagination" id="appsPagination" hidden>
+        <div class="portal-pagination-meta" id="appsPaginationMeta">Showing 0 apps</div>
+        <div class="portal-pagination-controls">
+          <label class="portal-page-size">
+            <span>Rows</span>
+            <select id="pageSizeSelect" aria-label="Rows per page">
+              <option value="100">100</option>
+              <option value="200">200</option>
+            </select>
+          </label>
+          <div class="portal-page-buttons" id="appsPageButtons" aria-label="App Service pages"></div>
+        </div>
+      </div>
     </section>
   </main>
 
