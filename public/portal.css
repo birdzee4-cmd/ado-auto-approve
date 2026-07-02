@@ -130,6 +130,42 @@
   box-shadow: 0 0 0 3px rgba(245, 164, 0, 0.16);
 }
 
+.portal-refresh-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  min-height: 42px;
+  padding: 10px 16px;
+  border: 1px solid #d97706;
+  border-radius: 7px;
+  background: #f5a400;
+  color: #111827;
+  box-shadow: 0 8px 18px rgba(245, 164, 0, 0.2);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.portal-refresh-button:hover:not(:disabled) {
+  background: #ffb31a;
+  box-shadow: 0 10px 22px rgba(245, 164, 0, 0.26);
+  transform: translateY(-1px);
+}
+
+.portal-refresh-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(245, 164, 0, 0.24), 0 10px 22px rgba(245, 164, 0, 0.22);
+}
+
+.portal-refresh-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+}
+
 .portal-status {
   position: relative;
   z-index: 1;
