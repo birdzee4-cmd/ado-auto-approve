@@ -339,6 +339,15 @@
   font-size: 13px;
 }
 
+.portal-table tbody tr {
+  transition: background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.portal-table tbody tr:hover {
+  background: rgba(245, 164, 0, 0.05);
+  box-shadow: inset 3px 0 0 #f5a400;
+}
+
 .portal-table th,
 .settings-table th {
   padding: 11px 12px;
@@ -408,33 +417,75 @@
 
 .portal-action-btn,
 .btn-restart {
-  border: 0;
-  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
   min-height: 36px;
-  padding: 8px 11px;
+  min-width: 70px;
+  padding: 8px 13px;
   font: inherit;
   font-size: 12px;
   font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.portal-action-btn:hover:not(:disabled),
+.btn-restart:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 12px rgba(15, 23, 42, 0.16);
+}
+
+.portal-action-btn:active:not(:disabled),
+.btn-restart:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.12);
+}
+
+.portal-action-btn:focus-visible,
+.btn-restart:focus-visible {
+  outline: 3px solid rgba(245, 164, 0, 0.32);
+  outline-offset: 2px;
 }
 
 .portal-action-btn.settings {
-  background: #eff6ff;
+  background: #ffffff;
   color: #1d4ed8;
   border: 1px solid #bfdbfe;
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.08);
+}
+
+.portal-action-btn.settings:hover:not(:disabled) {
+  background: #eff6ff;
+  border-color: #60a5fa;
+  color: #1e40af;
 }
 
 .portal-action-btn.restart,
 .btn-restart {
-  background: #f5a400;
+  background: linear-gradient(180deg, #ffb400 0%, #f59e0b 100%);
   color: #111827;
   border: 1px solid #d97706;
+  box-shadow: 0 3px 8px rgba(245, 164, 0, 0.2);
+}
+
+.portal-action-btn.restart:hover:not(:disabled),
+.btn-restart:hover:not(:disabled) {
+  background: #111827;
+  border-color: #111827;
+  color: #f5a400;
+  box-shadow: 0 6px 14px rgba(17, 24, 39, 0.22);
 }
 
 .portal-action-btn:disabled,
 .btn-restart:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+  transform: none;
+  box-shadow: none;
 }
 
 .portal-empty {
