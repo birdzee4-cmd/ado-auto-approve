@@ -519,12 +519,34 @@
   border-radius: 8px;
 }
 
+.settings-table tbody tr:nth-child(odd) {
+  background: #ffffff;
+}
+
+.settings-table tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.settings-table tbody tr {
+  transition: background-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.settings-table tbody tr:hover {
+  background: #fff7df;
+  box-shadow: inset 3px 0 0 #f5a400;
+}
+
 .settings-table th:nth-child(1),
 .settings-table td:nth-child(1) { width: 280px; }
+
+.settings-table td:first-child {
+  color: #334155;
+}
 
 .settings-value {
   font-family: Consolas, Monaco, monospace;
   white-space: pre-wrap;
+  color: #1f2937;
 }
 
 .restart-target {
