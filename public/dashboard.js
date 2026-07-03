@@ -307,8 +307,6 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
   }
 
   const fetchedStr = new Date(d.fetchedAt).toLocaleString('th-TH');
-  const readIdentity = d.readIdentity || 'Azure DevOps connected user';
-  const readSource = d.readSource === 'connected-user' ? 'Connected User' : (d.readSource || 'Service');
 
   let cardsHtml = '';
 
@@ -345,15 +343,6 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
     '<div class="card-body">' +
       '<span class="card-label">Fetched</span>' +
       '<strong class="card-value">' + fetchedStr + '</strong>' +
-    '</div>' +
-  '</div>';
-
-  cardsHtml += '<div class="summary-card">' +
-    '<span class="card-icon">👤</span>' +
-    '<div class="card-body">' +
-      '<span class="card-label">Queue Loaded As</span>' +
-      '<strong class="card-value" title="' + escapeHtml(readIdentity) + '">' + escapeHtml(readSource) + '</strong>' +
-      '<span class="card-note">' + escapeHtml(readIdentity) + '</span>' +
     '</div>' +
   '</div>';
 
