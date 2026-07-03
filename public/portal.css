@@ -488,6 +488,14 @@
   box-shadow: none;
 }
 
+.portal-action-btn.restart.cooldown:disabled {
+  opacity: 1;
+  color: #ffffff;
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+  border-color: #b91c1c;
+  box-shadow: 0 3px 8px rgba(220, 38, 38, 0.22);
+}
+
 .portal-empty {
   text-align: center;
   color: #6b7280 !important;

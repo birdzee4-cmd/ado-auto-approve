@@ -104,6 +104,7 @@ function renderApps() {
     const lower = status.toLowerCase();
     const statusClass = lower === 'running' ? 'status-running' : (lower === 'stopped' ? 'status-stopped' : 'status-unknown');
     const cooldownText = getCooldownText(app.name);
+    const restartClass = 'portal-action-btn restart' + (cooldownText ? ' cooldown' : '');
     return '<tr>' +
       '<td><strong>' + escapeHtml(app.name) + '</strong>' + (app.defaultHostName ? '<br><small>' + escapeHtml(app.defaultHostName) + '</small>' : '') + '</td>' +
       '<td><span class="status-badge ' + statusClass + '">' + escapeHtml(status) + '</span></td>' +
@@ -112,7 +113,7 @@ function renderApps() {
       '<td>' + escapeHtml(app.location || '-') + '</td>' +
       '<td><div class="portal-actions">' +
         '<button type="button" class="portal-action-btn settings" data-settings="' + escapeHtml(app.name) + '">Settings</button>' +
-        '<button type="button" class="portal-action-btn restart" data-restart="' + escapeHtml(app.name) + '"' + (cooldownText ? ' disabled' : '') + '>' + escapeHtml(cooldownText || 'Restart') + '</button>' +
+        '<button type="button" class="' + restartClass + '" data-restart="' + escapeHtml(app.name) + '"' + (cooldownText ? ' disabled' : '') + '>' + escapeHtml(cooldownText || 'Restart') + '</button>' +
       '</div></td>' +
     '</tr>';
   }).join('');
