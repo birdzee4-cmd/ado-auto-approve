@@ -85,27 +85,27 @@ function drawSmile(img, x, y) {
 
 function drawWing(img, x, y, pose) {
   if (pose === 'up') {
-    lrect(img, x + 1, y, 4, 1, 6);
-    lrect(img, x, y + 1, 6, 4, 5);
-    lrect(img, x + 1, y + 2, 4, 2, 15);
-    lrect(img, x + 5, y + 2, 1, 2, 6);
+    lrect(img, x + 2, y, 5, 1, 6);
+    lrect(img, x, y + 1, 8, 5, 6);
+    lrect(img, x + 1, y + 2, 6, 3, 5);
+    lrect(img, x + 7, y + 3, 1, 2, 6);
   } else if (pose === 'down') {
-    lrect(img, x, y + 3, 6, 1, 6);
-    lrect(img, x, y + 4, 6, 4, 5);
-    lrect(img, x + 1, y + 4, 4, 2, 15);
-    lrect(img, x + 5, y + 5, 1, 2, 6);
+    lrect(img, x, y + 4, 8, 1, 6);
+    lrect(img, x, y + 5, 8, 5, 6);
+    lrect(img, x + 1, y + 5, 6, 3, 5);
+    lrect(img, x + 7, y + 6, 1, 2, 6);
   } else {
-    lrect(img, x, y + 2, 6, 1, 6);
-    lrect(img, x, y + 3, 6, 3, 5);
-    lrect(img, x + 1, y + 3, 4, 1, 15);
+    lrect(img, x, y + 2, 8, 1, 6);
+    lrect(img, x, y + 3, 8, 4, 6);
+    lrect(img, x + 1, y + 3, 6, 2, 5);
   }
 }
 
 function drawAntennae(img, x, y, offset) {
-  line(img, x + 5, y + 1, x + 4 + offset, y - 2, 1);
-  line(img, x + 9, y + 1, x + 10 - offset, y - 2, 1);
-  lrect(img, x + 3 + offset, y - 3, 2, 2, 7);
-  lrect(img, x + 9 - offset, y - 3, 2, 2, 7);
+  line(img, x + 4, y + 2, x + 2 + offset, y - 2, 1);
+  line(img, x + 9, y + 2, x + 11 - offset, y - 2, 1);
+  lrect(img, x + 1 + offset, y - 3, 2, 2, 7);
+  lrect(img, x + 10 - offset, y - 3, 2, 2, 7);
 }
 
 function drawBeeBody(img, x, y, opts = {}) {
@@ -113,82 +113,83 @@ function drawBeeBody(img, x, y, opts = {}) {
   const sleepy = !!opts.sleepy;
   const smile = opts.smile !== false;
   const arm = opts.arm || 'none';
-  const stripeShift = opts.stripeShift || 0;
 
-  drawWing(img, x + 15, y + 2, wingPose);
-  drawAntennae(img, x, y, opts.antennaOffset || 0);
+  drawWing(img, x + 12, y, wingPose);
+  drawAntennae(img, x + 17, y + 3, opts.antennaOffset || 0);
 
-  lrect(img, x + 2, y + 6, 3, 8, 1);
-  lrect(img, x + 5, y + 4, 13, 2, 1);
-  lrect(img, x + 5, y + 14, 13, 2, 1);
-  lrect(img, x + 18, y + 6, 3, 8, 1);
-  lrect(img, x + 5, y + 6, 13, 8, 2);
-  lrect(img, x + 7 + stripeShift, y + 6, 2, 8, 1);
-  lrect(img, x + 13 + stripeShift, y + 6, 2, 8, 1);
-  lrect(img, x + 18, y + 8, 2, 4, 1);
+  lrect(img, x + 1, y + 9, 3, 4, 1);
+  lrect(img, x + 4, y + 6, 16, 3, 1);
+  lrect(img, x + 4, y + 17, 16, 3, 1);
+  lrect(img, x + 20, y + 8, 3, 9, 1);
+  lrect(img, x + 4, y + 9, 16, 8, 2);
+  lrect(img, x + 6, y + 9, 3, 8, 1);
+  lrect(img, x + 13, y + 9, 3, 8, 1);
+  lrect(img, x + 19, y + 10, 3, 5, 1);
 
-  lrect(img, x + 18, y + 5, 8, 10, 1);
-  lrect(img, x + 19, y + 6, 6, 8, 2);
-  lrect(img, x + 20, y + 7, 1, 1, 14);
-  lrect(img, x + 24, y + 7, 1, 1, 14);
-  drawEye(img, x + 20, y + 9, sleepy);
-  drawEye(img, x + 23, y + 9, sleepy);
-  if (smile && !sleepy) drawSmile(img, x + 20, y + 12);
-
-  if (arm === 'wave') {
-    line(img, x + 4, y + 9, x, y + 6, 1);
-    lrect(img, x - 1, y + 5, 2, 2, 1);
-  } else if (arm === 'book') {
-    line(img, x + 19, y + 12, x + 16, y + 15, 1);
-    line(img, x + 24, y + 12, x + 27, y + 15, 1);
-  } else {
-    lrect(img, x + 1, y + 10, 3, 1, 1);
+  lrect(img, x + 20, y + 5, 10, 13, 1);
+  lrect(img, x + 21, y + 6, 8, 11, 2);
+  lrect(img, x + 22, y + 8, 2, 2, 5);
+  lrect(img, x + 27, y + 8, 2, 2, 5);
+  drawEye(img, x + 22, y + 10, sleepy);
+  drawEye(img, x + 26, y + 10, sleepy);
+  if (smile && !sleepy) {
+    lrect(img, x + 23, y + 14, 1, 1, 1);
+    lrect(img, x + 24, y + 15, 3, 1, 1);
+    lrect(img, x + 27, y + 14, 1, 1, 1);
   }
 
-  lrect(img, x + 8, y + 16, 2, 2, 1);
-  lrect(img, x + 15, y + 16, 2, 2, 1);
-  lrect(img, x + 21, y + 15, 2, 2, 1);
+  if (arm === 'wave') {
+    line(img, x + 5, y + 11, x + 1, y + 7, 1);
+    lrect(img, x, y + 6, 2, 2, 1);
+  } else if (arm === 'book') {
+    line(img, x + 22, y + 15, x + 17, y + 19, 1);
+    line(img, x + 28, y + 15, x + 30, y + 19, 1);
+  } else {
+    lrect(img, x + 2, y + 12, 3, 1, 1);
+  }
+
+  lrect(img, x + 7, y + 19, 2, 2, 1);
+  lrect(img, x + 14, y + 19, 2, 2, 1);
+  lrect(img, x + 23, y + 18, 2, 2, 1);
 }
 
 function drawFlyingBee(img, i) {
   const bob = [0, -1, 0, 1][i % 4];
   const wing = i % 2 === 0 ? 'up' : 'down';
-  drawBeeBody(img, 2, 5 + bob, {
+  drawBeeBody(img, 1, 4 + bob, {
     wing,
     arm: 'wave',
-    stripeShift: i % 2,
     antennaOffset: i % 2
   });
-  lrect(img, 0, 10 + bob, 1, 1, 12);
-  lrect(img, 1, 12 + bob, 1, 1, 12);
-  lrect(img, 0, 14 + bob, 2, 1, 12);
-  lrect(img, 8, 21, 12, 1, 12);
-  lrect(img, 10, 22, 8, 1, 12);
+  lrect(img, 0, 11 + bob, 1, 1, 4);
+  lrect(img, 1, 13 + bob, 1, 1, 4);
+  lrect(img, 0, 15 + bob, 2, 1, 4);
+  lrect(img, 8, 22, 15, 1, 4);
+  lrect(img, 11, 23, 9, 1, 4);
 }
 
 function drawSleepBee(img, i) {
   const breathe = i % 2;
-  lrect(img, 1, 18, 26, 3, 10);
-  lrect(img, 3, 16, 23, 3, 9);
-  lrect(img, 6, 15, 17, 1, 9);
-  line(img, 2, 18, 8, 14, 10);
-  line(img, 22, 15, 28, 18, 10);
+  lrect(img, 0, 18, 31, 4, 7);
+  lrect(img, 3, 16, 25, 4, 7);
+  lrect(img, 7, 15, 16, 1, 7);
+  line(img, 2, 18, 9, 14, 7);
+  line(img, 24, 15, 30, 18, 7);
 
-  drawWing(img, 17, 6 + breathe, 'idle');
-  drawAntennae(img, 3, 6 + breathe, 0);
-  lrect(img, 4, 11 + breathe, 5, 5, 1);
-  lrect(img, 7, 9 + breathe, 13, 2, 1);
-  lrect(img, 7, 16 + breathe, 13, 2, 1);
-  lrect(img, 20, 11 + breathe, 4, 5, 1);
-  lrect(img, 7, 11 + breathe, 13, 5, 2);
-  lrect(img, 10, 11 + breathe, 2, 5, 1);
-  lrect(img, 16, 11 + breathe, 2, 5, 1);
-  lrect(img, 20, 10 + breathe, 7, 7, 1);
-  lrect(img, 21, 11 + breathe, 5, 5, 2);
-  drawEye(img, 22, 13 + breathe, true);
-  drawEye(img, 25, 13 + breathe, true);
-  lrect(img, 9, 18 + breathe, 2, 2, 1);
-  lrect(img, 17, 18 + breathe, 2, 2, 1);
+  drawWing(img, 15, 5 + breathe, 'idle');
+  lrect(img, 3, 12 + breathe, 4, 5, 1);
+  lrect(img, 7, 9 + breathe, 15, 3, 1);
+  lrect(img, 7, 17 + breathe, 15, 3, 1);
+  lrect(img, 22, 11 + breathe, 3, 6, 1);
+  lrect(img, 7, 12 + breathe, 15, 5, 2);
+  lrect(img, 10, 12 + breathe, 3, 5, 1);
+  lrect(img, 17, 12 + breathe, 3, 5, 1);
+  lrect(img, 22, 9 + breathe, 9, 10, 1);
+  lrect(img, 23, 10 + breathe, 7, 8, 2);
+  drawEye(img, 24, 13 + breathe, true);
+  drawEye(img, 28, 13 + breathe, true);
+  lrect(img, 10, 20 + breathe, 2, 2, 1);
+  lrect(img, 18, 20 + breathe, 2, 2, 1);
 
   lrect(img, 23, 2, 2, 1, 13);
   lrect(img, 24, 3, 1, 1, 13);
@@ -200,9 +201,9 @@ function drawSleepBee(img, i) {
 
 function drawBook(img, x, y, flap) {
   lrect(img, x, y + 1, 2, 7, 1);
-  lrect(img, x + 2, y, 7, 8, 10);
+  lrect(img, x + 2, y, 7, 8, 7);
   lrect(img, x + 9, y, 2, 8, 1);
-  lrect(img, x + 11, y, 7, 8, 9);
+  lrect(img, x + 11, y, 7, 8, 7);
   lrect(img, x + 18, y + 1, 2, 7, 1);
   lrect(img, x + 3, y + 1, 5, 1, 4);
   lrect(img, x + 12, y + 1, 5, 1, 4);
@@ -212,33 +213,33 @@ function drawBook(img, x, y, flap) {
 
 function drawReadingBee(img, i) {
   const bob = i === 1 ? -1 : 0;
-  drawWing(img, 19, 7 + bob, 'idle');
-  drawAntennae(img, 4, 6 + bob, 0);
+  drawWing(img, 18, 6 + bob, 'idle');
+  drawAntennae(img, 17, 5 + bob, 0);
 
-  lrect(img, 7, 11 + bob, 4, 6, 1);
-  lrect(img, 10, 9 + bob, 10, 2, 1);
-  lrect(img, 10, 17 + bob, 10, 2, 1);
-  lrect(img, 20, 11 + bob, 3, 6, 1);
-  lrect(img, 10, 11 + bob, 10, 6, 2);
-  lrect(img, 12, 11 + bob, 2, 6, 1);
-  lrect(img, 17, 11 + bob, 2, 6, 1);
+  lrect(img, 6, 11 + bob, 4, 7, 1);
+  lrect(img, 9, 8 + bob, 12, 3, 1);
+  lrect(img, 9, 18 + bob, 12, 3, 1);
+  lrect(img, 21, 11 + bob, 3, 7, 1);
+  lrect(img, 9, 11 + bob, 12, 7, 2);
+  lrect(img, 11, 11 + bob, 3, 7, 1);
+  lrect(img, 17, 11 + bob, 3, 7, 1);
 
-  lrect(img, 18, 8 + bob, 10, 10, 1);
-  lrect(img, 19, 9 + bob, 8, 8, 2);
-  lrect(img, 19, 11 + bob, 3, 3, 4);
-  lrect(img, 24, 11 + bob, 3, 3, 4);
-  lrect(img, 20, 12 + bob, 1, 1, 1);
-  lrect(img, 25, 12 + bob, 1, 1, 1);
-  lrect(img, 22, 12 + bob, 2, 1, 1);
-  lrect(img, 20, 15 + bob, 1, 1, 1);
-  lrect(img, 21, 16 + bob, 4, 1, 1);
+  lrect(img, 19, 7 + bob, 11, 11, 1);
+  lrect(img, 20, 8 + bob, 9, 9, 2);
+  lrect(img, 20, 10 + bob, 3, 3, 5);
+  lrect(img, 26, 10 + bob, 3, 3, 5);
+  lrect(img, 21, 11 + bob, 1, 1, 1);
+  lrect(img, 27, 11 + bob, 1, 1, 1);
+  lrect(img, 23, 11 + bob, 3, 1, 1);
+  lrect(img, 22, 15 + bob, 1, 1, 1);
+  lrect(img, 23, 16 + bob, 4, 1, 1);
 
-  line(img, 12, 16 + bob, 9, 20, 1);
-  line(img, 24, 16 + bob, 27, 20, 1);
-  drawBook(img, 7, 16, i % 2);
-  lrect(img, 12, 20, 2, 2, 1);
-  lrect(img, 21, 20, 2, 2, 1);
-  lrect(img, 7, 22, 20, 1, 12);
+  line(img, 10, 17 + bob, 8, 20, 1);
+  line(img, 25, 17 + bob, 28, 20, 1);
+  drawBook(img, 7, 15, i % 2);
+  lrect(img, 12, 21, 2, 2, 1);
+  lrect(img, 21, 21, 2, 2, 1);
+  lrect(img, 6, 23, 22, 1, 4);
 }
 
 function makeFrame(kind, i) {
