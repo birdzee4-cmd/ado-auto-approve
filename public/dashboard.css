@@ -2699,18 +2699,6 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 16px !important;
   margin-bottom: 0;
 }
-.summary-main-line {
-  font-size: 16px;
-  font-weight: 700;
-  margin-bottom: 4px;
-  color: #3b2806;
-}
-.summary-sub-line {
-  font-size: 13px;
-  opacity: 0.85;
-  margin-bottom: 14px;
-  color: #5c4b37;
-}
 .summary-cards-container {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

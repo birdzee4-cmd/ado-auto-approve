@@ -359,8 +359,6 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
 
 
   return '<div class="test-result result-success pr-summary-banner">' +
-    '<div class="summary-main-line">✅ Found <strong>' + d.count + '</strong> PR waiting approve</div>' +
-    '<div class="summary-sub-line">from ' + d.totalActive + ' visible active PRs in <code>' + escapeHtml(d.targetBranch) + '</code></div>' +
     '<div class="summary-cards-container">' +
       cardsHtml +
     '</div>' +
