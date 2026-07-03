@@ -15,6 +15,44 @@ let currentPage = 1;
 let pageSize = 100;
 const cooldowns = {};
 const APP_SERVICE_LIST_TIMEOUT_MS = 180000;
+const RESTART_COOLDOWNS_STORAGE_KEY = 'appServiceRestartCooldowns';
+
+function loadStoredCooldowns() {
+  try {
+    const stored = JSON.parse(sessionStorage.getItem(RESTART_COOLDOWNS_STORAGE_KEY) || '{}');
+    const now = Date.now();
+    Object.keys(stored || {}).forEach(key => {
+      const until = Number(stored[key] || 0);
+      if (key && until > now) cooldowns[key] = until;
+    });
+  } catch (err) {
+    sessionStorage.removeItem(RESTART_COOLDOWNS_STORAGE_KEY);
+  }
+}
+
+function saveCooldowns() {
+  const now = Date.now();
+  const active = {};
+  Object.keys(cooldowns).forEach(key => {
+    const until = Number(cooldowns[key] || 0);
+    if (until > now) active[key] = until;
+    else delete cooldowns[key];
+  });
+
+  if (Object.keys(active).length > 0) {
+    sessionStorage.setItem(RESTART_COOLDOWNS_STORAGE_KEY, JSON.stringify(active));
+  } else {
+    sessionStorage.removeItem(RESTART_COOLDOWNS_STORAGE_KEY);
+  }
+}
+
+function setRestartCooldown(name, seconds) {
+  const key = String(name || '').toLowerCase();
+  const duration = Number(seconds || 0);
+  if (!key || duration <= 0) return;
+  cooldowns[key] = Date.now() + duration * 1000;
+  saveCooldowns();
+}
 
 async function loadCurrentUser() {
   const authResp = await fetch('/.auth/me');
@@ -198,9 +236,16 @@ function scrollTableIntoView() {
 }
 
 function getCooldownText(name) {
-  const until = cooldowns[String(name || '').toLowerCase()] || 0;
+  const key = String(name || '').toLowerCase();
+  const until = cooldowns[key] || 0;
   const diff = until - Date.now();
-  if (diff <= 0) return '';
+  if (diff <= 0) {
+    if (until) {
+      delete cooldowns[key];
+      saveCooldowns();
+    }
+    return '';
+  }
   const totalSeconds = Math.ceil(diff / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -264,13 +309,13 @@ async function restartSelectedApp() {
     if (!r.ok || !r.data || !r.data.ok) {
       const d = r.data || {};
       const retry = Number(d.retryAfterSeconds || 0);
-      if (retry > 0) cooldowns[name.toLowerCase()] = Date.now() + retry * 1000;
+      setRestartCooldown(name, retry);
       renderApps();
       throw new Error(d.detail || d.error || 'Restart failed');
     }
 
     const cooldownSeconds = Number(r.data.cooldownSeconds || 300);
-    cooldowns[name.toLowerCase()] = Date.now() + cooldownSeconds * 1000;
+    setRestartCooldown(name, cooldownSeconds);
     closeModal('restartModal');
     setStatus('Restart request submitted successfully for ' + name + '.', 'success');
     setText('lastAction', 'Restarted ' + name);
@@ -317,6 +362,7 @@ function formatDiagnostics(diagnostics) {
   try {
     const user = await loadCurrentUser();
     if (!user) return;
+    loadStoredCooldowns();
     setText('userName', getUserEmailForDisplay(user));
     setText('lastAction', 'Ready');
 
