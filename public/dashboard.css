@@ -1993,6 +1993,7 @@
 }
 
 .auto-bee-wrap {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2006,7 +2007,7 @@
 }
 
 .auto-bee-mascot {
-  display: block;
+  display: none;
   width: 58px;
   height: 44px;
   object-fit: contain;
@@ -2019,17 +2020,89 @@
   -webkit-user-drag: none;
 }
 
+.auto-bee-css {
+  position: relative;
+  display: block;
+  width: 34px;
+  height: 22px;
+  border: 4px solid #080a0a;
+  border-radius: 2px 9px 9px 2px;
+  background:
+    linear-gradient(90deg,
+      #080a0a 0 18%,
+      #ffdd2a 18% 50%,
+      #080a0a 50% 61%,
+      #ffdd2a 61% 84%,
+      #080a0a 84% 100%);
+  box-shadow: 0 3px 0 rgba(91, 69, 0, 0.18);
+  transform-origin: 50% 60%;
+}
+
+.auto-bee-css::before {
+  content: '';
+  position: absolute;
+  left: 11px;
+  top: -16px;
+  width: 18px;
+  height: 14px;
+  border: 4px solid #080a0a;
+  border-radius: 9px 9px 3px 9px;
+  background: rgba(226, 232, 240, 0.94);
+  box-shadow: inset 4px -3px 0 rgba(148, 163, 184, 0.9);
+  transform-origin: 10px 16px;
+}
+
+.auto-bee-css::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  bottom: -11px;
+  width: 5px;
+  height: 5px;
+  background: #080a0a;
+  box-shadow: 10px 0 0 #080a0a, 20px 0 0 #080a0a;
+}
+
 .auto-bee-mascot.bee-flying {
   animation: autoBeeHover 0.8s ease-in-out infinite;
+}
+
+.auto-bee-wrap.bee-flying .auto-bee-css {
+  animation: autoBeeHover 0.8s ease-in-out infinite;
+}
+
+.auto-bee-wrap.bee-flying .auto-bee-css::before {
+  animation: autoBeeWing 0.22s steps(2, end) infinite;
 }
 
 .auto-bee-mascot.bee-idle {
   opacity: 0.92;
 }
 
+.auto-bee-wrap.bee-idle .auto-bee-css {
+  opacity: 0.94;
+}
+
 .auto-bee-mascot.bee-sleep {
   opacity: 0.78;
   transform: translateY(2px) rotate(7deg);
+}
+
+.auto-bee-wrap.bee-sleep .auto-bee-css {
+  opacity: 0.84;
+  transform: translateY(4px) rotate(9deg);
+}
+
+.auto-bee-wrap.bee-sleep::after {
+  content: 'Z';
+  position: absolute;
+  right: 9px;
+  top: 1px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+  animation: autoBeeSleep 1.4s ease-in-out infinite;
 }
 
 @keyframes autoBeeHover {
@@ -2038,6 +2111,26 @@
   }
   50% {
     transform: translateY(-5px);
+  }
+}
+
+@keyframes autoBeeWing {
+  0%, 100% {
+    transform: rotate(-18deg);
+  }
+  50% {
+    transform: rotate(14deg) translateY(4px);
+  }
+}
+
+@keyframes autoBeeSleep {
+  0%, 100% {
+    opacity: 0.35;
+    transform: translate(0, 2px) scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(4px, -3px) scale(1);
   }
 }
 

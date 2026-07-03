@@ -1408,23 +1408,28 @@ function updateModeButtonsUI(mode) {
 
   const bee = ensureAutoBeeMascot();
   if (bee) {
+    const beeWrap = bee.closest('.auto-bee-wrap');
     const beeState = mode === 'active'
       ? {
+        wrapClassName: 'auto-bee-wrap bee-flying',
         className: 'auto-bee-mascot bee-flying',
         src: '/assets/bee-flying.gif',
         alt: 'Auto approve bee is flying'
       }
       : mode === 'dry-run'
         ? {
+          wrapClassName: 'auto-bee-wrap bee-idle',
           className: 'auto-bee-mascot bee-idle',
           src: '/assets/bee-idle.gif',
           alt: 'Auto approve bee is waiting'
         }
         : {
+          wrapClassName: 'auto-bee-wrap bee-sleep',
           className: 'auto-bee-mascot bee-sleep',
           src: '/assets/bee-sleep.gif',
           alt: 'Auto approve bee is sleeping'
         };
+    if (beeWrap) beeWrap.className = beeState.wrapClassName;
     bee.className = beeState.className;
     if (bee.getAttribute('src') !== beeState.src) bee.setAttribute('src', beeState.src);
     bee.setAttribute('alt', beeState.alt);
@@ -1450,7 +1455,7 @@ function ensureAutoBeeMascot() {
   if (!indicator || !indicator.parentElement) return null;
 
   const wrap = document.createElement('span');
-  wrap.className = 'auto-bee-wrap';
+  wrap.className = 'auto-bee-wrap bee-sleep';
   wrap.setAttribute('aria-live', 'polite');
 
   bee = document.createElement('img');
@@ -1463,6 +1468,10 @@ function ensureAutoBeeMascot() {
   bee.draggable = false;
 
   wrap.appendChild(bee);
+  const cssBee = document.createElement('span');
+  cssBee.className = 'auto-bee-css';
+  cssBee.setAttribute('aria-hidden', 'true');
+  wrap.appendChild(cssBee);
   indicator.insertAdjacentElement('afterend', wrap);
   return bee;
 }
