@@ -1406,6 +1406,31 @@ function updateModeButtonsUI(mode) {
     }
   }
 
+  const bee = document.getElementById('autoBeeMascot');
+  if (bee) {
+    const beeState = mode === 'active'
+      ? {
+        className: 'auto-bee-mascot bee-flying',
+        src: '/assets/bee-flying.gif',
+        alt: 'Auto approve bee is flying'
+      }
+      : mode === 'dry-run'
+        ? {
+          className: 'auto-bee-mascot bee-idle',
+          src: '/assets/bee-idle.gif',
+          alt: 'Auto approve bee is waiting'
+        }
+        : {
+          className: 'auto-bee-mascot bee-sleep',
+          src: '/assets/bee-sleep.gif',
+          alt: 'Auto approve bee is sleeping'
+        };
+    bee.className = beeState.className;
+    if (bee.getAttribute('src') !== beeState.src) bee.setAttribute('src', beeState.src);
+    bee.setAttribute('alt', beeState.alt);
+    bee.setAttribute('title', beeState.alt);
+  }
+
   const consoleWrap = document.getElementById('autoConsoleWrap');
   if (consoleWrap) {
     consoleWrap.hidden = mode === 'normal';

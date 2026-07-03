@@ -1958,6 +1958,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 44px;
 }
 
 .auto-panel-icon {
@@ -1989,6 +1990,47 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
+}
+
+.auto-bee-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 44px;
+  margin-left: 4px;
+  overflow: visible;
+}
+
+.auto-bee-mascot {
+  display: block;
+  width: 58px;
+  height: 44px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  transform-origin: 50% 60%;
+}
+
+.auto-bee-mascot.bee-flying {
+  animation: autoBeeHover 0.8s ease-in-out infinite;
+}
+
+.auto-bee-mascot.bee-idle {
+  opacity: 0.92;
+}
+
+.auto-bee-mascot.bee-sleep {
+  opacity: 0.78;
+  transform: translateY(2px) rotate(7deg);
+}
+
+@keyframes autoBeeHover {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
 }
 
 .indicator-normal {
