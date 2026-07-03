@@ -1406,7 +1406,7 @@ function updateModeButtonsUI(mode) {
     }
   }
 
-  const bee = document.getElementById('autoBeeMascot');
+  const bee = ensureAutoBeeMascot();
   if (bee) {
     const beeState = mode === 'active'
       ? {
@@ -1440,6 +1440,30 @@ function updateModeButtonsUI(mode) {
   if (statsWrap) {
     statsWrap.hidden = mode !== 'active';
   }
+}
+
+function ensureAutoBeeMascot() {
+  let bee = document.getElementById('autoBeeMascot');
+  if (bee) return bee;
+
+  const indicator = document.getElementById('autoStatusIndicator');
+  if (!indicator || !indicator.parentElement) return null;
+
+  const wrap = document.createElement('span');
+  wrap.className = 'auto-bee-wrap';
+  wrap.setAttribute('aria-live', 'polite');
+
+  bee = document.createElement('img');
+  bee.id = 'autoBeeMascot';
+  bee.className = 'auto-bee-mascot bee-sleep';
+  bee.src = '/assets/bee-sleep.gif';
+  bee.alt = 'Auto approve bee is sleeping';
+  bee.width = 96;
+  bee.height = 72;
+
+  wrap.appendChild(bee);
+  indicator.insertAdjacentElement('afterend', wrap);
+  return bee;
 }
 
 window.changeAutoMode = async function(mode) {
