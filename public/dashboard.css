@@ -121,11 +121,11 @@
 /* ===== Info Grid & User Info Cards ===== */
 .info-grid {
   display: grid;
-  grid-template-columns: 240px 240px 260px 300px 240px;
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) minmax(240px, 1.1fr) minmax(320px, 1.4fr);
   gap: 12px;
   align-items: stretch;
   justify-content: start;
-  width: min(100%, 1328px);
+  width: 100%;
   margin-bottom: 8px;
   padding: 0;
   background: transparent;
@@ -680,6 +680,7 @@
 
 /* ===== PR Polling Section (Phase 2) ===== */
 .pr-section {
+  position: relative;
   margin: 40px 0;
   padding: 24px;
   background: rgba(20, 22, 28, 0.85);
@@ -694,7 +695,31 @@
   align-items: flex-start;
   flex-wrap: wrap;
   gap: 16px;
-  margin-bottom: 18px;
+  margin: 0;
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 2;
+}
+
+#prResult {
+  padding-right: 170px;
+}
+
+@media (max-width: 640px) {
+  .pr-header {
+    position: static;
+    margin-bottom: 16px;
+  }
+
+  .pr-header .primary-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  #prResult {
+    padding-right: 0;
+  }
 }
 
 .pr-section h2 {
