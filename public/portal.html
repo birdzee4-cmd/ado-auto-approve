@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/assets/buzzebees-icon.png" />
   <title>App Service Portal - Buzzebees Staging</title>
   <link rel="stylesheet" href="/core.css" />
-  <link rel="stylesheet" href="/portal.css?v=cooldown-red-1" />
+  <link rel="stylesheet" href="/portal.css?v=summary-type-1" />
 </head>
 <body>
   <nav class="navbar">
@@ -31,11 +32,6 @@
         <h1>App Service Management</h1>
         <p>Restart allowed staging App Services and view read-only app settings.</p>
       </div>
-      <div class="portal-scope">
-        <span>Scope</span>
-        <strong id="scopeResourceGroup">Default-STG-TH-ServicesBackEnd-All-Group</strong>
-        <small id="scopePrefix">Prefix: stg-</small>
-      </div>
     </section>
 
     <section class="portal-summary" aria-live="polite">
@@ -46,6 +42,11 @@
       <div class="summary-tile">
         <span>Running</span>
         <strong id="runningApps">-</strong>
+      </div>
+      <div class="summary-tile summary-scope">
+        <span>Scope</span>
+        <strong id="scopeResourceGroup">Default-STG-TH-ServicesBackEnd-All-Group</strong>
+        <small id="scopePrefix">Prefix: stg-</small>
       </div>
       <div class="summary-tile">
         <span>Last Action</span>
@@ -153,6 +154,6 @@
     </div>
   </div>
 
-  <script type="module" src="/portal.js?v=cooldown-persist-1"></script>
+  <script type="module" src="/portal.js?v=summary-type-1"></script>
 </body>
 </html>

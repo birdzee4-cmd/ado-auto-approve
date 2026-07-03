@@ -17,7 +17,7 @@
 
 .portal-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
   align-items: stretch;
   margin-bottom: 18px;
@@ -44,19 +44,6 @@
   font-size: 15px;
 }
 
-.portal-scope {
-  display: grid;
-  gap: 5px;
-  padding: 16px 18px;
-  background: rgba(255, 255, 255, 0.65);
-  border: 1px solid rgba(245, 164, 0, 0.22);
-  border-left: 4px solid var(--bz-yellow);
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(180, 130, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(8px);
-}
-
-.portal-scope span,
 .summary-tile span,
 .portal-search span {
   color: #855800;
@@ -66,40 +53,44 @@
   text-transform: uppercase;
 }
 
-.portal-scope strong {
-  color: #1f2937;
-  overflow-wrap: anywhere;
-}
-
-.portal-scope small {
-  color: #6b7280;
-}
-
 .portal-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: minmax(120px, 0.72fr) minmax(110px, 0.72fr) minmax(220px, 1.45fr) minmax(170px, 1fr);
+  gap: 10px;
   margin-bottom: 16px;
 }
 
 .summary-tile {
   display: grid;
-  gap: 6px;
-  padding: 15px 16px;
-  background: rgba(255, 255, 255, 0.65);
-  border: 1px solid rgba(245, 164, 0, 0.22);
-  border-left: 4px solid var(--bz-yellow);
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(180, 130, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(8px);
+  min-width: 0;
+  gap: 5px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  border-radius: 8px;
+  box-shadow: 0 1px 8px rgba(15, 23, 42, 0.05);
+  backdrop-filter: blur(6px);
 }
 
 .summary-tile strong {
   color: #1f2937;
-  font-size: 20px;
+  font-size: 18px;
+  line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.summary-tile small {
+  color: #6b7280;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-scope strong {
+  font-size: 14px;
 }
 
 .portal-toolbar {
@@ -404,6 +395,51 @@
 }
 
 .status-unknown {
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+}
+
+.type-badge {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.type-function {
+  color: #075985;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+}
+
+.type-web {
+  color: #166534;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+}
+
+.type-linux {
+  color: #5b21b6;
+  background: #ede9fe;
+  border: 1px solid #ddd6fe;
+}
+
+.type-container {
+  color: #9a3412;
+  background: #ffedd5;
+  border: 1px solid #fed7aa;
+}
+
+.type-unknown {
   color: #475569;
   background: #f1f5f9;
   border: 1px solid #cbd5e1;

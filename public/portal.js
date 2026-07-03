@@ -142,12 +142,14 @@ function renderApps() {
     const status = String(app.status || 'Unknown');
     const lower = status.toLowerCase();
     const statusClass = lower === 'running' ? 'status-running' : (lower === 'stopped' ? 'status-stopped' : 'status-unknown');
+    const typeText = String(app.appType || app.kind || '-');
+    const typeClass = getTypeClass(typeText);
     const cooldownText = getCooldownText(app.name);
     const restartClass = 'portal-action-btn restart' + (cooldownText ? ' cooldown' : '');
     return '<tr>' +
       '<td><strong>' + escapeHtml(app.name) + '</strong>' + (app.defaultHostName ? '<br><small>' + escapeHtml(app.defaultHostName) + '</small>' : '') + '</td>' +
       '<td><span class="status-badge ' + statusClass + '">' + escapeHtml(status) + '</span></td>' +
-      '<td>' + escapeHtml(app.appType || app.kind || '-') + '</td>' +
+      '<td><span class="type-badge ' + typeClass + '">' + escapeHtml(typeText) + '</span></td>' +
       '<td>' + escapeHtml(app.resourceGroup || '-') + '</td>' +
       '<td>' + escapeHtml(app.location || '-') + '</td>' +
       '<td><div class="portal-actions">' +
@@ -164,6 +166,15 @@ function renderApps() {
     button.addEventListener('click', () => openRestart(button.getAttribute('data-restart')));
   });
   renderPagination(filtered.length);
+}
+
+function getTypeClass(value) {
+  const text = String(value || '').toLowerCase();
+  if (text.includes('function')) return 'type-function';
+  if (text.includes('container') || text.includes('docker')) return 'type-container';
+  if (text.includes('linux')) return 'type-linux';
+  if (text.includes('web') || text.includes('app')) return 'type-web';
+  return 'type-unknown';
 }
 
 function renderPagination(totalItems) {
