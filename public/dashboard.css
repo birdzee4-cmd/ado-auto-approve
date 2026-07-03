@@ -707,6 +707,12 @@
   align-self: start;
 }
 
+.pr-header .primary-button {
+  min-height: 62px;
+  align-items: center;
+  justify-content: center;
+}
+
 #prResult {
   grid-column: 1;
   grid-row: 1;
