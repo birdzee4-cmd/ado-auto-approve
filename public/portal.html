@@ -108,6 +108,14 @@
         <div class="settings-notice">
           Values are visible because your role allows read-only access. Do not share secrets outside approved channels.
         </div>
+        <div class="settings-toolbar">
+          <label class="settings-search">
+            <span>Search Settings</span>
+            <input id="settingsSearchInput" type="search" placeholder="Search name or value..." autocomplete="off" />
+          </label>
+          <button id="btnClearSettingsSearch" class="settings-clear-button" type="button">Clear</button>
+        </div>
+        <div id="settingsSearchMeta" class="settings-search-meta" aria-live="polite"></div>
         <div id="settingsStatus" class="portal-status" hidden></div>
         <div class="settings-table-wrap">
           <table class="settings-table">

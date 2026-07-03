@@ -10,6 +10,7 @@ import {
 } from './core.js';
 
 let allApps = [];
+let currentSettings = [];
 let selectedRestartApp = null;
 let currentPage = 1;
 let pageSize = 100;
@@ -254,10 +255,13 @@ function getCooldownText(name) {
 
 async function openSettings(name) {
   setText('settingsAppName', name || '-');
+  currentSettings = [];
+  resetSettingsSearch();
   const tbody = document.getElementById('settingsTableBody');
   if (tbody) tbody.innerHTML = '<tr><td colspan="2" class="portal-empty">Loading settings...</td></tr>';
   setSettingsStatus('', '');
   openModal('settingsModal');
+  focusSettingsSearch();
 
   try {
     const r = await safeFetchJson('/api/appservice-settings?name=' + encodeURIComponent(name), { timeoutMs: 45000 });
@@ -269,24 +273,100 @@ async function openSettings(name) {
     }
 
     const settings = Array.isArray(r.data.settings) ? r.data.settings : [];
-    if (settings.length === 0) {
-      if (tbody) tbody.innerHTML = '<tr><td colspan="2" class="portal-empty">No settings returned for this App Service.</td></tr>';
-      return;
-    }
-
-    if (tbody) {
-      tbody.innerHTML = settings.map(item => (
-        '<tr>' +
-          '<td><strong>' + escapeHtml(item.name) + '</strong></td>' +
-          '<td class="settings-value">' + escapeHtml(item.value) + '</td>' +
-        '</tr>'
-      )).join('');
-    }
+    currentSettings = settings;
+    renderSettingsTable();
     setText('lastAction', 'Viewed settings');
   } catch (err) {
+    currentSettings = [];
+    updateSettingsSearchMeta(0, 0, '');
     if (tbody) tbody.innerHTML = '';
     setSettingsStatus('Unable to load settings: ' + err.message, 'error');
   }
+}
+
+function renderSettingsTable() {
+  const tbody = document.getElementById('settingsTableBody');
+  if (!tbody) return;
+
+  const query = getSettingsSearchQuery();
+  const filtered = currentSettings.filter(item => {
+    if (!query) return true;
+    return [item.name, item.value].some(value => String(value || '').toLowerCase().includes(query));
+  });
+
+  updateSettingsSearchMeta(filtered.length, currentSettings.length, query);
+
+  if (currentSettings.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="2" class="portal-empty">No settings returned for this App Service.</td></tr>';
+    return;
+  }
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="2" class="portal-empty">No settings match your search.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(item => (
+    '<tr>' +
+      '<td><strong>' + highlightMatch(item.name, query) + '</strong></td>' +
+      '<td class="settings-value">' + highlightMatch(item.value, query) + '</td>' +
+    '</tr>'
+  )).join('');
+}
+
+function getSettingsSearchQuery() {
+  const input = document.getElementById('settingsSearchInput');
+  return String(input && input.value || '').trim().toLowerCase();
+}
+
+function resetSettingsSearch() {
+  const input = document.getElementById('settingsSearchInput');
+  if (input) input.value = '';
+  updateSettingsSearchMeta(0, 0, '');
+}
+
+function focusSettingsSearch() {
+  window.setTimeout(() => {
+    const input = document.getElementById('settingsSearchInput');
+    if (input) input.focus();
+  }, 0);
+}
+
+function updateSettingsSearchMeta(visibleCount, totalCount, query) {
+  const meta = document.getElementById('settingsSearchMeta');
+  if (!meta) return;
+
+  if (totalCount <= 0) {
+    meta.textContent = '';
+    return;
+  }
+
+  if (query) {
+    meta.textContent = 'Showing ' + visibleCount.toLocaleString('en-US') + ' of ' +
+      totalCount.toLocaleString('en-US') + ' settings';
+  } else {
+    meta.textContent = totalCount.toLocaleString('en-US') + ' settings loaded';
+  }
+}
+
+function highlightMatch(value, query) {
+  const text = String(value || '');
+  if (!query) return escapeHtml(text);
+
+  const lower = text.toLowerCase();
+  let index = 0;
+  let html = '';
+  while (index < text.length) {
+    const matchIndex = lower.indexOf(query, index);
+    if (matchIndex === -1) {
+      html += escapeHtml(text.slice(index));
+      break;
+    }
+    html += escapeHtml(text.slice(index, matchIndex));
+    html += '<mark>' + escapeHtml(text.slice(matchIndex, matchIndex + query.length)) + '</mark>';
+    index = matchIndex + query.length;
+  }
+  return html;
 }
 
 function openRestart(name) {
@@ -384,6 +464,22 @@ function formatDiagnostics(diagnostics) {
         renderApps();
       });
     }
+    const settingsSearchInput = document.getElementById('settingsSearchInput');
+    if (settingsSearchInput) {
+      settingsSearchInput.addEventListener('input', renderSettingsTable);
+      settingsSearchInput.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && settingsSearchInput.value) {
+          settingsSearchInput.value = '';
+          renderSettingsTable();
+        }
+      });
+    }
+    bind('btnClearSettingsSearch', () => {
+      const input = document.getElementById('settingsSearchInput');
+      if (input) input.value = '';
+      renderSettingsTable();
+      focusSettingsSearch();
+    });
     const pageSizeSelect = document.getElementById('pageSizeSelect');
     if (pageSizeSelect) {
       pageSize = Number(pageSizeSelect.value) || pageSize;
