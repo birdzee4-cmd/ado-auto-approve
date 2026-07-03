@@ -11,10 +11,18 @@ const palette = [
   [8, 10, 10],
   [255, 221, 42],
   [245, 164, 0],
-  [188, 193, 202],
   [255, 255, 255],
-  [111, 127, 154],
-  [120, 74, 0]
+  [152, 216, 245],
+  [82, 160, 210],
+  [120, 74, 0],
+  [245, 88, 113],
+  [77, 146, 59],
+  [43, 102, 38],
+  [112, 118, 128],
+  [208, 214, 224],
+  [59, 130, 246],
+  [250, 204, 21],
+  [243, 244, 246]
 ];
 
 function canvas() {
@@ -35,69 +43,205 @@ function lrect(img, x, y, w, h, c) {
   rect(img, x * S, y * S, w * S, h * S, c);
 }
 
-function bee(img, x, y, opts = {}) {
-  const wing = opts.wing || 'up';
-  const sleep = !!opts.sleep;
+function line(img, x0, y0, x1, y1, c) {
+  let dx = Math.abs(x1 - x0);
+  let sx = x0 < x1 ? 1 : -1;
+  let dy = -Math.abs(y1 - y0);
+  let sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  while (true) {
+    lrect(img, x0, y0, 1, 1, c);
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      x0 += sx;
+    }
+    if (e2 <= dx) {
+      err += dx;
+      y0 += sy;
+    }
+  }
+}
+
+function drawEye(img, x, y, sleepy) {
+  if (sleepy) {
+    line(img, x, y, x + 2, y, 1);
+    return;
+  }
+  lrect(img, x, y, 2, 2, 1);
+  lrect(img, x + 1, y, 1, 1, 4);
+}
+
+function drawSmile(img, x, y) {
+  lrect(img, x, y, 1, 1, 1);
+  lrect(img, x + 1, y + 1, 2, 1, 1);
+  lrect(img, x + 3, y, 1, 1, 1);
+}
+
+function drawWing(img, x, y, pose) {
+  if (pose === 'up') {
+    lrect(img, x + 1, y, 4, 1, 6);
+    lrect(img, x, y + 1, 6, 4, 5);
+    lrect(img, x + 1, y + 2, 4, 2, 15);
+    lrect(img, x + 5, y + 2, 1, 2, 6);
+  } else if (pose === 'down') {
+    lrect(img, x, y + 3, 6, 1, 6);
+    lrect(img, x, y + 4, 6, 4, 5);
+    lrect(img, x + 1, y + 4, 4, 2, 15);
+    lrect(img, x + 5, y + 5, 1, 2, 6);
+  } else {
+    lrect(img, x, y + 2, 6, 1, 6);
+    lrect(img, x, y + 3, 6, 3, 5);
+    lrect(img, x + 1, y + 3, 4, 1, 15);
+  }
+}
+
+function drawAntennae(img, x, y, offset) {
+  line(img, x + 5, y + 1, x + 4 + offset, y - 2, 1);
+  line(img, x + 9, y + 1, x + 10 - offset, y - 2, 1);
+  lrect(img, x + 3 + offset, y - 3, 2, 2, 7);
+  lrect(img, x + 9 - offset, y - 3, 2, 2, 7);
+}
+
+function drawBeeBody(img, x, y, opts = {}) {
+  const wingPose = opts.wing || 'idle';
+  const sleepy = !!opts.sleepy;
+  const smile = opts.smile !== false;
+  const arm = opts.arm || 'none';
   const stripeShift = opts.stripeShift || 0;
 
-  if (sleep) {
-    // zzz
-    lrect(img, x + 16, y + 0, 3, 1, 6);
-    lrect(img, x + 18, y + 1, 1, 1, 6);
-    lrect(img, x + 17, y + 2, 3, 1, 6);
-    lrect(img, x + 21, y + 3, 2, 1, 6);
-    lrect(img, x + 22, y + 4, 1, 1, 6);
-    lrect(img, x + 21, y + 5, 3, 1, 6);
-  }
+  drawWing(img, x + 15, y + 2, wingPose);
+  drawAntennae(img, x, y, opts.antennaOffset || 0);
 
-  // wing
-  if (wing === 'up') {
-    lrect(img, x + 13, y + 3, 5, 1, 1);
-    lrect(img, x + 12, y + 4, 7, 3, 4);
-    lrect(img, x + 13, y + 5, 5, 2, 5);
-    lrect(img, x + 18, y + 5, 1, 2, 1);
-  } else if (wing === 'down') {
-    lrect(img, x + 12, y + 7, 7, 1, 1);
-    lrect(img, x + 12, y + 8, 7, 3, 4);
-    lrect(img, x + 13, y + 8, 5, 2, 5);
-    lrect(img, x + 18, y + 9, 1, 2, 1);
+  lrect(img, x + 2, y + 6, 3, 8, 1);
+  lrect(img, x + 5, y + 4, 13, 2, 1);
+  lrect(img, x + 5, y + 14, 13, 2, 1);
+  lrect(img, x + 18, y + 6, 3, 8, 1);
+  lrect(img, x + 5, y + 6, 13, 8, 2);
+  lrect(img, x + 7 + stripeShift, y + 6, 2, 8, 1);
+  lrect(img, x + 13 + stripeShift, y + 6, 2, 8, 1);
+  lrect(img, x + 18, y + 8, 2, 4, 1);
+
+  lrect(img, x + 18, y + 5, 8, 10, 1);
+  lrect(img, x + 19, y + 6, 6, 8, 2);
+  lrect(img, x + 20, y + 7, 1, 1, 14);
+  lrect(img, x + 24, y + 7, 1, 1, 14);
+  drawEye(img, x + 20, y + 9, sleepy);
+  drawEye(img, x + 23, y + 9, sleepy);
+  if (smile && !sleepy) drawSmile(img, x + 20, y + 12);
+
+  if (arm === 'wave') {
+    line(img, x + 4, y + 9, x, y + 6, 1);
+    lrect(img, x - 1, y + 5, 2, 2, 1);
+  } else if (arm === 'book') {
+    line(img, x + 19, y + 12, x + 16, y + 15, 1);
+    line(img, x + 24, y + 12, x + 27, y + 15, 1);
   } else {
-    lrect(img, x + 13, y + 6, 6, 1, 1);
-    lrect(img, x + 13, y + 7, 6, 2, 4);
-    lrect(img, x + 14, y + 7, 4, 1, 5);
+    lrect(img, x + 1, y + 10, 3, 1, 1);
   }
 
-  // body outline
-  lrect(img, x + 6, y + 9, 2, 5, 1);
-  lrect(img, x + 8, y + 7, 12, 2, 1);
-  lrect(img, x + 8, y + 14, 12, 2, 1);
-  lrect(img, x + 20, y + 9, 3, 5, 1);
-  lrect(img, x + 9, y + 9, 11, 5, 2);
-  lrect(img, x + 10 + stripeShift, y + 9, 1, 5, 1);
-  lrect(img, x + 15 + stripeShift, y + 9, 1, 5, 1);
-  lrect(img, x + 19, y + 10, 3, 3, 1);
+  lrect(img, x + 8, y + 16, 2, 2, 1);
+  lrect(img, x + 15, y + 16, 2, 2, 1);
+  lrect(img, x + 21, y + 15, 2, 2, 1);
+}
 
-  // head and eye
-  lrect(img, x + 22, y + 10, 3, 4, 1);
-  lrect(img, x + 23, y + 11, 1, 1, sleep ? 7 : 5);
+function drawFlyingBee(img, i) {
+  const bob = [0, -1, 0, 1][i % 4];
+  const wing = i % 2 === 0 ? 'up' : 'down';
+  drawBeeBody(img, 2, 5 + bob, {
+    wing,
+    arm: 'wave',
+    stripeShift: i % 2,
+    antennaOffset: i % 2
+  });
+  lrect(img, 0, 10 + bob, 1, 1, 12);
+  lrect(img, 1, 12 + bob, 1, 1, 12);
+  lrect(img, 0, 14 + bob, 2, 1, 12);
+  lrect(img, 8, 21, 12, 1, 12);
+  lrect(img, 10, 22, 8, 1, 12);
+}
 
-  // tail and legs
-  lrect(img, x + 4, y + 11, 2, 2, 1);
-  lrect(img, x + 10, y + 17, 2, 2, 1);
-  lrect(img, x + 15, y + 17, 2, 2, 1);
-  lrect(img, x + 20, y + 17, 2, 2, 1);
+function drawSleepBee(img, i) {
+  const breathe = i % 2;
+  lrect(img, 1, 18, 26, 3, 10);
+  lrect(img, 3, 16, 23, 3, 9);
+  lrect(img, 6, 15, 17, 1, 9);
+  line(img, 2, 18, 8, 14, 10);
+  line(img, 22, 15, 28, 18, 10);
+
+  drawWing(img, 17, 6 + breathe, 'idle');
+  drawAntennae(img, 3, 6 + breathe, 0);
+  lrect(img, 4, 11 + breathe, 5, 5, 1);
+  lrect(img, 7, 9 + breathe, 13, 2, 1);
+  lrect(img, 7, 16 + breathe, 13, 2, 1);
+  lrect(img, 20, 11 + breathe, 4, 5, 1);
+  lrect(img, 7, 11 + breathe, 13, 5, 2);
+  lrect(img, 10, 11 + breathe, 2, 5, 1);
+  lrect(img, 16, 11 + breathe, 2, 5, 1);
+  lrect(img, 20, 10 + breathe, 7, 7, 1);
+  lrect(img, 21, 11 + breathe, 5, 5, 2);
+  drawEye(img, 22, 13 + breathe, true);
+  drawEye(img, 25, 13 + breathe, true);
+  lrect(img, 9, 18 + breathe, 2, 2, 1);
+  lrect(img, 17, 18 + breathe, 2, 2, 1);
+
+  lrect(img, 23, 2, 2, 1, 13);
+  lrect(img, 24, 3, 1, 1, 13);
+  lrect(img, 23, 4, 3, 1, 13);
+  lrect(img, 27, 5 - breathe, 2, 1, 13);
+  lrect(img, 28, 6 - breathe, 1, 1, 13);
+  lrect(img, 27, 7 - breathe, 3, 1, 13);
+}
+
+function drawBook(img, x, y, flap) {
+  lrect(img, x, y + 1, 2, 7, 1);
+  lrect(img, x + 2, y, 7, 8, 10);
+  lrect(img, x + 9, y, 2, 8, 1);
+  lrect(img, x + 11, y, 7, 8, 9);
+  lrect(img, x + 18, y + 1, 2, 7, 1);
+  lrect(img, x + 3, y + 1, 5, 1, 4);
+  lrect(img, x + 12, y + 1, 5, 1, 4);
+  lrect(img, x + 3, y + 4 + flap, 4, 1, 4);
+  lrect(img, x + 12, y + 4, 4, 1, 4);
+}
+
+function drawReadingBee(img, i) {
+  const bob = i === 1 ? -1 : 0;
+  drawWing(img, 19, 7 + bob, 'idle');
+  drawAntennae(img, 4, 6 + bob, 0);
+
+  lrect(img, 7, 11 + bob, 4, 6, 1);
+  lrect(img, 10, 9 + bob, 10, 2, 1);
+  lrect(img, 10, 17 + bob, 10, 2, 1);
+  lrect(img, 20, 11 + bob, 3, 6, 1);
+  lrect(img, 10, 11 + bob, 10, 6, 2);
+  lrect(img, 12, 11 + bob, 2, 6, 1);
+  lrect(img, 17, 11 + bob, 2, 6, 1);
+
+  lrect(img, 18, 8 + bob, 10, 10, 1);
+  lrect(img, 19, 9 + bob, 8, 8, 2);
+  lrect(img, 19, 11 + bob, 3, 3, 4);
+  lrect(img, 24, 11 + bob, 3, 3, 4);
+  lrect(img, 20, 12 + bob, 1, 1, 1);
+  lrect(img, 25, 12 + bob, 1, 1, 1);
+  lrect(img, 22, 12 + bob, 2, 1, 1);
+  lrect(img, 20, 15 + bob, 1, 1, 1);
+  lrect(img, 21, 16 + bob, 4, 1, 1);
+
+  line(img, 12, 16 + bob, 9, 20, 1);
+  line(img, 24, 16 + bob, 27, 20, 1);
+  drawBook(img, 7, 16, i % 2);
+  lrect(img, 12, 20, 2, 2, 1);
+  lrect(img, 21, 20, 2, 2, 1);
+  lrect(img, 7, 22, 20, 1, 12);
 }
 
 function makeFrame(kind, i) {
   const img = canvas();
-  if (kind === 'fly') {
-    const bob = [0, -1, 0, 1][i % 4];
-    bee(img, 3, 6 + bob, { wing: i % 2 === 0 ? 'up' : 'down', stripeShift: i % 2 });
-  } else if (kind === 'idle') {
-    bee(img, 3, 8 + (i === 1 ? -1 : 0), { wing: 'idle' });
-  } else {
-    bee(img, 3, 12, { wing: 'idle', sleep: true });
-  }
+  if (kind === 'fly') drawFlyingBee(img, i);
+  else if (kind === 'read') drawReadingBee(img, i);
+  else drawSleepBee(img, i);
   return img;
 }
 
@@ -182,20 +326,25 @@ function subBlocks(data) {
 function gif(frames, delay) {
   const out = [];
   out.push(...wordBytes('GIF89a'));
-  out.push(...u16(W), ...u16(H), 0xf2, 0, 0);
+  out.push(...u16(W), ...u16(H), 0xf3, 0, 0);
   for (const rgb of palette) out.push(...rgb);
   out.push(0x21, 0xff, 0x0b, ...wordBytes('NETSCAPE2.0'), 0x03, 0x01, 0x00, 0x00, 0x00);
   for (const frame of frames) {
     out.push(0x21, 0xf9, 4, 0x09, ...u16(delay), 0, 0);
     out.push(0x2c, ...u16(0), ...u16(0), ...u16(W), ...u16(H), 0);
-    out.push(3);
-    out.push(...subBlocks(lzw(frame, 3)));
+    out.push(4);
+    out.push(...subBlocks(lzw(frame, 4)));
   }
   out.push(0x3b);
   return Buffer.from(out);
 }
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
+
+fs.writeFileSync(path.join(OUT_DIR, 'bee_fly.gif'), gif([0, 1, 2, 3].map(i => makeFrame('fly', i)), 9));
+fs.writeFileSync(path.join(OUT_DIR, 'bee_read.gif'), gif([0, 1, 0, 2].map(i => makeFrame('read', i)), 32));
+fs.writeFileSync(path.join(OUT_DIR, 'bee_sleep.gif'), gif([0, 1, 0, 1].map(i => makeFrame('sleep', i)), 45));
+
 fs.writeFileSync(path.join(OUT_DIR, 'bee-flying.gif'), gif([0, 1, 2, 3].map(i => makeFrame('fly', i)), 9));
-fs.writeFileSync(path.join(OUT_DIR, 'bee-idle.gif'), gif([0, 1, 0, 0].map(i => makeFrame('idle', i)), 28));
-fs.writeFileSync(path.join(OUT_DIR, 'bee-sleep.gif'), gif([0, 0, 0, 0].map(i => makeFrame('sleep', i)), 45));
+fs.writeFileSync(path.join(OUT_DIR, 'bee-idle.gif'), gif([0, 1, 0, 2].map(i => makeFrame('read', i)), 32));
+fs.writeFileSync(path.join(OUT_DIR, 'bee-sleep.gif'), gif([0, 1, 0, 1].map(i => makeFrame('sleep', i)), 45));

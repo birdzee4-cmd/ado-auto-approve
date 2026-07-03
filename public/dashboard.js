@@ -1413,20 +1413,20 @@ function updateModeButtonsUI(mode) {
       ? {
         wrapClassName: 'auto-bee-wrap bee-flying',
         className: 'auto-bee-mascot bee-flying',
-        src: '/assets/bee-flying.gif',
+        src: '/assets/bee_fly.gif',
         alt: 'Auto approve bee is flying'
       }
       : mode === 'dry-run'
         ? {
-          wrapClassName: 'auto-bee-wrap bee-idle',
-          className: 'auto-bee-mascot bee-idle',
-          src: '/assets/bee-idle.gif',
-          alt: 'Auto approve bee is waiting'
+          wrapClassName: 'auto-bee-wrap bee-read',
+          className: 'auto-bee-mascot bee-read',
+          src: '/assets/bee_read.gif',
+          alt: 'Auto approve bee is reading'
         }
         : {
           wrapClassName: 'auto-bee-wrap bee-sleep',
           className: 'auto-bee-mascot bee-sleep',
-          src: '/assets/bee-sleep.gif',
+          src: '/assets/bee_sleep.gif',
           alt: 'Auto approve bee is sleeping'
         };
     if (beeWrap) beeWrap.className = beeState.wrapClassName;
@@ -1461,7 +1461,7 @@ function ensureAutoBeeMascot() {
   bee = document.createElement('img');
   bee.id = 'autoBeeMascot';
   bee.className = 'auto-bee-mascot bee-sleep';
-  bee.src = '/assets/bee-sleep.gif';
+  bee.src = '/assets/bee_sleep.gif';
   bee.alt = 'Auto approve bee is sleeping';
   bee.width = 96;
   bee.height = 72;
