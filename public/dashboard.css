@@ -561,6 +561,11 @@
     height: auto;
     min-height: 74px;
   }
+
+  .summary-cards-container {
+    grid-template-columns: repeat(2, minmax(260px, 370px));
+    width: 100%;
+  }
 }
 
 @media (max-width: 600px) {
@@ -622,6 +627,12 @@
   }
   .info-grid {
     grid-template-columns: 1fr;
+  }
+  .summary-cards-container {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .summary-card {
+    min-height: 58px;
   }
   .ado-connect-item {
     align-items: flex-start;
@@ -2667,34 +2678,37 @@ h1, h2, h3, h4, h5, h6 {
 }
 .summary-cards-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
-  width: 100%;
-  margin-top: 12px;
+  grid-template-columns: 370px 370px 270px;
+  gap: 12px;
+  align-items: stretch;
+  justify-content: start;
+  width: min(100%, 1036px);
+  margin-top: 14px;
 }
 .summary-card {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
+  gap: 12px;
+  min-height: 62px;
+  padding: 12px 14px;
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(245, 164, 0, 0.25);
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(180, 130, 0, 0.06);
+  border-radius: 10px;
+  box-shadow: 0 3px 10px rgba(180, 130, 0, 0.05);
   transition: all 0.3s ease;
 }
 .summary-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(180, 130, 0, 0.12);
+  transform: translateY(-1px);
+  box-shadow: 0 7px 16px rgba(180, 130, 0, 0.1);
   border-color: rgba(245, 164, 0, 0.45);
 }
 .card-icon {
-  font-size: 20px;
+  font-size: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   background: rgba(245, 164, 0, 0.08);
   border-radius: 8px;
   flex-shrink: 0;
@@ -2707,7 +2721,7 @@ h1, h2, h3, h4, h5, h6 {
   text-align: left;
 }
 .card-label {
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
   color: #855800;
   font-weight: 700;
@@ -2715,7 +2729,7 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1;
 }
 .card-value {
-  font-size: 13.5px;
+  font-size: 13px;
   color: #2c2512;
   font-weight: 700;
   overflow: hidden;
@@ -2734,25 +2748,26 @@ h1, h2, h3, h4, h5, h6 {
 .card-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
   margin-top: 2px;
 }
 
 /* Badge colors */
 .status-badge-custom {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
-  padding: 3px 8px;
+  padding: 3px 7px;
   border-radius: 6px;
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
   text-transform: uppercase;
   letter-spacing: 0.2px;
+  line-height: 1.15;
 }
 .status-badge-custom strong {
   font-weight: 800;
-  font-size: 12px;
+  font-size: 11.5px;
 }
 
 .badge-blue {
