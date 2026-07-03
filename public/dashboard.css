@@ -1,9 +1,9 @@
 /* ===== Dashboard ===== */
 .dashboard {
   width: 100%;
-  max-width: none;
+  max-width: 1540px;
   margin: 0 auto;
-  padding: 28px 32px 36px;
+  padding: 28px 24px 36px;
   background: transparent;
 }
 
@@ -18,7 +18,7 @@
     #fdeea8 100%
   );
   border-radius: 16px;
-  padding: 28px 32px;
+  padding: 26px 28px;
   box-shadow:
     0 4px 24px rgba(180, 130, 0, 0.12),
     0 1px 4px rgba(180, 130, 0, 0.08),
@@ -121,11 +121,11 @@
 /* ===== Info Grid & User Info Cards ===== */
 .info-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) minmax(240px, 1.1fr) minmax(320px, 1.4fr);
+  grid-template-columns: minmax(210px, 240px) minmax(260px, 320px) minmax(300px, 380px) minmax(360px, 440px);
   gap: 12px;
   align-items: stretch;
   justify-content: start;
-  width: 100%;
+  width: min(100%, 1428px);
   margin-bottom: 8px;
   padding: 0;
   background: transparent;
@@ -683,11 +683,11 @@
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  column-gap: 24px;
-  row-gap: 18px;
+  column-gap: 20px;
+  row-gap: 16px;
   align-items: start;
-  margin: 40px 0;
-  padding: 24px;
+  margin: 32px 0 0;
+  padding: 16px 20px 20px;
   background: rgba(20, 22, 28, 0.85);
   border-radius: 12px;
   border: 1px solid rgba(245, 164, 0, 0.22);
@@ -2695,7 +2695,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ===== PR Summary Banner & Cards Layout ===== */
 .pr-summary-banner {
-  padding: 20px 22px !important;
+  padding: 0 !important;
   border-radius: 16px !important;
   margin-bottom: 0;
 }
@@ -2708,7 +2708,7 @@ h1, h2, h3, h4, h5, h6 {
 .summary-sub-line {
   font-size: 13px;
   opacity: 0.85;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
   color: #5c4b37;
 }
 .summary-cards-container {
@@ -2717,7 +2717,7 @@ h1, h2, h3, h4, h5, h6 {
   gap: 12px;
   align-items: stretch;
   justify-content: start;
-  width: 100%;
+  width: min(100%, 1180px);
   margin-top: 14px;
 }
 .summary-card {
