@@ -11,25 +11,29 @@ const palette = [
   [8, 10, 10],
   [255, 221, 42],
   [245, 164, 0],
+  [188, 193, 202],
   [255, 255, 255],
   [152, 216, 245],
-  [82, 160, 210],
-  [120, 74, 0],
-  [245, 88, 113],
-  [77, 146, 59],
-  [43, 102, 38],
-  [112, 118, 128],
-  [208, 214, 224],
-  [59, 130, 246],
-  [250, 204, 21],
-  [243, 244, 246]
+  [77, 146, 59]
 ];
+
+const colorMap = {
+  8: 3,
+  9: 7,
+  10: 7,
+  11: 4,
+  12: 4,
+  13: 6,
+  14: 3,
+  15: 5
+};
 
 function canvas() {
   return new Uint8Array(W * H);
 }
 
 function px(img, x, y, c) {
+  if (c > 7) c = colorMap[c] || 1;
   if (x >= 0 && y >= 0 && x < W && y < H) img[y * W + x] = c;
 }
 
@@ -277,38 +281,24 @@ function bitWriter() {
 function lzw(indices, minCodeSize) {
   const clear = 1 << minCodeSize;
   const end = clear + 1;
-  let next = end + 1;
   let size = minCodeSize + 1;
-  const maxSize = 12;
-  const dict = new Map();
-  const reset = () => {
-    dict.clear();
-    for (let i = 0; i < clear; i++) dict.set(String(i), i);
-    next = end + 1;
-    size = minCodeSize + 1;
-  };
-  reset();
   const bw = bitWriter();
+
   bw.write(clear, size);
-  let prefix = String(indices[0]);
-  for (let i = 1; i < indices.length; i++) {
-    const k = indices[i];
-    const combo = prefix + ',' + k;
-    if (dict.has(combo)) {
-      prefix = combo;
-      continue;
-    }
-    bw.write(dict.get(prefix), size);
-    if (next < (1 << maxSize)) {
-      dict.set(combo, next++);
-      if (next === (1 << size) && size < maxSize) size++;
-    } else {
+
+  // Keep the stream deliberately simple: write literal pixels and clear before
+  // the decoder's dynamic table would require a larger code size.
+  let literalCount = 0;
+  const maxLiteralsBeforeClear = (1 << size) - (end + 2);
+  for (const k of indices) {
+    if (literalCount >= maxLiteralsBeforeClear) {
       bw.write(clear, size);
-      reset();
+      literalCount = 0;
     }
-    prefix = String(k);
+    bw.write(k, size);
+    literalCount++;
   }
-  bw.write(dict.get(prefix), size);
+
   bw.write(end, size);
   return bw.finish();
 }
@@ -326,14 +316,14 @@ function subBlocks(data) {
 function gif(frames, delay) {
   const out = [];
   out.push(...wordBytes('GIF89a'));
-  out.push(...u16(W), ...u16(H), 0xf3, 0, 0);
+  out.push(...u16(W), ...u16(H), 0xf2, 0, 0);
   for (const rgb of palette) out.push(...rgb);
   out.push(0x21, 0xff, 0x0b, ...wordBytes('NETSCAPE2.0'), 0x03, 0x01, 0x00, 0x00, 0x00);
   for (const frame of frames) {
     out.push(0x21, 0xf9, 4, 0x09, ...u16(delay), 0, 0);
     out.push(0x2c, ...u16(0), ...u16(0), ...u16(W), ...u16(H), 0);
-    out.push(4);
-    out.push(...subBlocks(lzw(frame, 4)));
+    out.push(3);
+    out.push(...subBlocks(lzw(frame, 3)));
   }
   out.push(0x3b);
   return Buffer.from(out);
