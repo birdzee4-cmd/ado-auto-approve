@@ -2227,10 +2227,13 @@
 .auto-session-stats {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
   font-size: 13px;
   font-weight: 700;
   color: #4b5563;
+  max-width: 520px;
 }
 
 .auto-session-stats[hidden] {
@@ -2254,6 +2257,15 @@
   background: #f5f3ff;
   color: #6d28d9;
   border: 1px solid #ddd6fe;
+}
+
+.auto-fetched-meta {
+  flex-basis: 100%;
+  color: #8a8f98;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: right;
 }
 
 .auto-panel-body {
@@ -2707,11 +2719,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 .summary-cards-container {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: minmax(360px, 520px);
+  gap: 10px;
   align-items: stretch;
   justify-content: start;
-  width: min(100%, 1180px);
+  width: min(100%, 520px);
   margin-top: 0;
 }
 .summary-card {
@@ -2845,7 +2857,7 @@ h1, h2, h3, h4, h5, h6 {
 
 @media (max-width: 1024px) {
   .summary-cards-container {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 520px);
   }
 }
 

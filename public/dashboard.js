@@ -307,11 +307,13 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
   }
 
   const fetchedStr = new Date(d.fetchedAt).toLocaleString('th-TH');
+  const fetchedMeta = document.getElementById('autoFetchedMeta');
+  if (fetchedMeta) fetchedMeta.textContent = 'Fetched ' + fetchedStr;
 
   let cardsHtml = '';
 
   // 1. Status Card (First)
-  cardsHtml += '<div class="summary-card">' +
+  cardsHtml += '<div class="summary-card summary-card-status">' +
     '<span class="card-icon">📊</span>' +
     '<div class="card-body">' +
       '<span class="card-label">Status</span>' +
@@ -325,7 +327,7 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
   '</div>';
 
   // 2. Attention Card (Second)
-  cardsHtml += '<div class="summary-card">' +
+  cardsHtml += '<div class="summary-card summary-card-attention">' +
     '<span class="card-icon">⚠️</span>' +
     '<div class="card-body">' +
       '<span class="card-label">Attention</span>' +
@@ -334,15 +336,6 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
         '<span class="status-badge-custom badge-orange">Warning <strong>' + (attention.warning || 0) + '</strong></span>' +
         '<span class="status-badge-custom badge-slate">Stale <strong>' + (attention.stale || 0) + '</strong></span>' +
       '</div>' +
-    '</div>' +
-  '</div>';
-
-  // 3. Fetched Card (Third)
-  cardsHtml += '<div class="summary-card">' +
-    '<span class="card-icon">🕒</span>' +
-    '<div class="card-body">' +
-      '<span class="card-label">Fetched</span>' +
-      '<strong class="card-value">' + fetchedStr + '</strong>' +
     '</div>' +
   '</div>';
 
