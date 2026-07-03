@@ -687,7 +687,7 @@
   row-gap: 16px;
   align-items: start;
   margin: 32px 0 0;
-  padding: 16px 20px 20px;
+  padding: 10px 14px 18px;
   background: rgba(20, 22, 28, 0.85);
   border-radius: 12px;
   border: 1px solid rgba(245, 164, 0, 0.22);
@@ -2706,7 +2706,7 @@ h1, h2, h3, h4, h5, h6 {
   align-items: stretch;
   justify-content: start;
   width: min(100%, 1180px);
-  margin-top: 14px;
+  margin-top: 0;
 }
 .summary-card {
   display: flex;
