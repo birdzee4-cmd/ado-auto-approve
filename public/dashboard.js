@@ -1460,6 +1460,7 @@ function ensureAutoBeeMascot() {
   bee.alt = 'Auto approve bee is sleeping';
   bee.width = 96;
   bee.height = 72;
+  bee.draggable = false;
 
   wrap.appendChild(bee);
   indicator.insertAdjacentElement('afterend', wrap);

@@ -184,8 +184,7 @@ function gif(frames, delay) {
   out.push(...wordBytes('GIF89a'));
   out.push(...u16(W), ...u16(H), 0xf2, 0, 0);
   for (const rgb of palette) out.push(...rgb);
-  out.push(...wordBytes('NETSCAPE2.0').flatMap((_, idx, arr) => idx === 0 ? [0x21, 0xff, 0x0b, ...arr] : []));
-  out.push(3, 1, 0, 0, 0);
+  out.push(0x21, 0xff, 0x0b, ...wordBytes('NETSCAPE2.0'), 0x03, 0x01, 0x00, 0x00, 0x00);
   for (const frame of frames) {
     out.push(0x21, 0xf9, 4, 0x09, ...u16(delay), 0, 0);
     out.push(0x2c, ...u16(0), ...u16(0), ...u16(W), ...u16(H), 0);
