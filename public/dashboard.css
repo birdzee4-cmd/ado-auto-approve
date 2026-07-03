@@ -121,8 +121,9 @@
 /* ===== Info Grid & User Info Cards ===== */
 .info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
+  align-items: stretch;
   margin-bottom: 8px;
   padding: 0;
   background: transparent;
@@ -135,9 +136,10 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 14px;
-  min-height: 78px;
-  padding: 14px 16px;
+  gap: 10px;
+  height: 80px;
+  min-height: 80px;
+  padding: 10px 14px;
   background: rgba(255, 255, 255, 0.65);
   border: 1px solid rgba(245, 164, 0, 0.22);
   border-radius: 12px;
@@ -145,7 +147,7 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border-left: 4px solid var(--bz-yellow);
+  border-left: 3px solid var(--bz-yellow);
 }
 
 .info-item:hover {
@@ -159,12 +161,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   border-radius: 8px;
   background: rgba(245, 164, 0, 0.12);
   color: #b35c00;
-  font-size: 18px;
+  font-size: 15px;
   flex-shrink: 0;
   border: 1px solid rgba(245, 164, 0, 0.2);
 }
@@ -172,22 +174,23 @@
 .info-content {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
 }
 
 .info-label {
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
   color: #92650a;
-  letter-spacing: 0.75px;
+  letter-spacing: 0.5px;
   font-weight: 700;
   margin: 0;
   line-height: 1;
 }
 
 .info-value {
-  font-size: 13.5px;
+  font-size: 12px;
+  line-height: 1.25;
   color: #3b1f00;
   font-weight: 700;
   white-space: nowrap;
@@ -199,17 +202,17 @@
 .ado-connect-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 4px;
+  margin-top: 4px;
 }
 
 .btn-ado-connect,
 .btn-ado-disconnect {
   border: 0;
   border-radius: 6px;
-  padding: 5px 10px;
-  min-height: 28px;
-  font-size: 11.5px;
+  padding: 4px 8px;
+  min-height: 24px;
+  font-size: 10.5px;
   font-weight: 700;
   cursor: pointer;
   touch-action: manipulation;
@@ -549,6 +552,15 @@
     padding: 8px 12px;
     flex-shrink: 0;
   }
+
+  .info-grid {
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  }
+
+  .info-item {
+    height: auto;
+    min-height: 74px;
+  }
 }
 
 @media (max-width: 600px) {
@@ -607,6 +619,9 @@
   }
   .welcome-card h1 {
     font-size: 22px;
+  }
+  .info-grid {
+    grid-template-columns: 1fr;
   }
   .ado-connect-item {
     align-items: flex-start;
