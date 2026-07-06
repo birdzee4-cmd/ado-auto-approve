@@ -166,6 +166,10 @@ async function safeFetchJson(url, options) {
   const fetchOptions = Object.assign({}, options || {});
   const timeoutMs = Number(fetchOptions.timeoutMs) || 0;
   delete fetchOptions.timeoutMs;
+  const isApiRequest = typeof url === 'string' && url.startsWith('/api/');
+  if (isApiRequest && !fetchOptions.redirect) {
+    fetchOptions.redirect = 'manual';
+  }
 
   let timeoutId = null;
   if (timeoutMs > 0 && !fetchOptions.signal && typeof AbortController !== 'undefined') {
@@ -184,6 +188,24 @@ async function safeFetchJson(url, options) {
     throw err;
   } finally {
     if (timeoutId) window.clearTimeout(timeoutId);
+  }
+
+  const responseUrl = resp.url || '';
+  const isAuthRedirect = resp.type === 'opaqueredirect' ||
+    resp.status === 0 ||
+    resp.status === 302 ||
+    responseUrl.includes('/.auth/login/');
+  if (isApiRequest && isAuthRedirect) {
+    return {
+      ok: false,
+      status: resp.status || 302,
+      contentType: resp.headers.get('Content-Type') || '',
+      data: null,
+      rawBody: '',
+      parseError: 'Authentication redirect',
+      authRedirect: true,
+      redirectUrl: responseUrl
+    };
   }
 
   const text = await resp.text();

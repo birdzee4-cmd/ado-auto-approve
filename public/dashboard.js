@@ -16,6 +16,8 @@ let _allPrs = [];
 let _checkPrsInFlight = false;
 let _autoScanConsecutiveFailures = 0;
 const AUTO_CONSOLE_MAX_ENTRIES = 100;
+const AUTO_RESUME_KEY = 'pendingAutoApproveResume';
+const AUTO_RESUME_MAX_AGE_MS = 10 * 60 * 1000;
 window._adoAuthStatus = {
   connected: false,
   checked: false
@@ -102,6 +104,108 @@ function handleAdoAuthRequired(responseData) {
   return false;
 }
 
+let _browserAuthRecoveryStarted = false;
+
+function getCurrentDashboardReturnTo() {
+  return window.location.pathname + window.location.search + window.location.hash || '/dashboard.html';
+}
+
+function savePendingAutoResume(reason) {
+  const mode = window._autoMode;
+  if (mode !== 'dry-run' && mode !== 'active') return;
+  try {
+    sessionStorage.setItem(AUTO_RESUME_KEY, JSON.stringify({
+      mode: mode,
+      reason: reason || '',
+      occurredAt: new Date().toISOString(),
+      returnTo: getCurrentDashboardReturnTo(),
+      prApprovedCount: Number(window._autoPrApprovedCount) || 0,
+      releaseApprovedCount: Number(window._autoReleaseApprovedCount) || 0
+    }));
+  } catch (e) {}
+}
+
+function recoverBrowserAuthSession(reason) {
+  if (_browserAuthRecoveryStarted) return true;
+  _browserAuthRecoveryStarted = true;
+  savePendingAutoResume(reason);
+
+  window._autoMode = 'normal';
+  updateModeButtonsUI('normal');
+  stopAutoPoller();
+  stopCountdown();
+
+  const message = reason || 'Browser session expired while calling the API.';
+  writeToAutoConsole(message + ' Redirecting to sign in again. No approval was sent.', 'error');
+  showAdoAuthNotice(
+    'error',
+    'Browser session needs sign-in',
+    'ระบบกำลังพาไปยืนยันตัวตนใหม่ แล้วจะกลับมาหน้า Dashboard อัตโนมัติ'
+  );
+
+  window.setTimeout(() => {
+    const returnTo = getCurrentDashboardReturnTo();
+    window.location.href = '/.auth/login/aad?post_login_redirect_uri=' + encodeURIComponent(returnTo);
+  }, 800);
+  return true;
+}
+
+function handleBrowserAuthRedirect(response, isSilent) {
+  const status = response && Number(response.status);
+  if (!response || (!response.authRedirect && status !== 302)) return false;
+
+  const message = 'Automatic scan reached /api/list-prs but Static Web Apps redirected to sign-in (HTTP ' + (status || 302) + ').';
+  if (!isSilent) {
+    showBox('prResult', '<div class="test-result result-error">❌ Session หมดอายุหรือ auth redirect กรุณารอสักครู่ ระบบจะพาไป sign in ใหม่</div>');
+  }
+  recoverBrowserAuthSession(message);
+  return true;
+}
+
+function takePendingAutoResume() {
+  let pending = null;
+  try {
+    const raw = sessionStorage.getItem(AUTO_RESUME_KEY);
+    sessionStorage.removeItem(AUTO_RESUME_KEY);
+    if (!raw) return null;
+    pending = JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+
+  const mode = pending && pending.mode;
+  if (mode !== 'dry-run' && mode !== 'active') return null;
+
+  const occurredMs = Date.parse(pending.occurredAt || '');
+  if (!Number.isFinite(occurredMs)) return null;
+  if (Date.now() - occurredMs > AUTO_RESUME_MAX_AGE_MS) return null;
+
+  return pending;
+}
+
+async function promptAutoResumeAfterAuth() {
+  const pending = takePendingAutoResume();
+  if (!pending) return false;
+
+  const label = pending.mode === 'active' ? 'ACTIVE (Auto-Approve)' : 'ACTIVE (Manual)';
+  const happened = new Date(pending.occurredAt).toLocaleString('th-TH', {
+    dateStyle: 'short',
+    timeStyle: 'medium'
+  });
+  const detail = 'ก่อนหน้านี้โหมด ' + label + ' หยุดเพราะ browser session ต้อง sign-in ใหม่เมื่อ ' + happened + '\n\n' +
+    'ต้องการ Resume โหมดนี้ต่อไหม?\n\n' +
+    'ระบบจะดึง PR ใหม่จาก backend ก่อน และจะไม่ใช้ผล scan เก่ามา approve';
+
+  if (!confirm(detail)) {
+    writeToAutoConsole('Auto Approve resume was skipped after sign-in. Mode remains OFF.', 'info');
+    return false;
+  }
+
+  writeToAutoConsole('Resuming ' + label + ' after browser sign-in. A fresh scan will run before any action.', 'info');
+  await changeAutoMode(pending.mode);
+  return true;
+}
+
 function consumeAdoAuthCallbackResult() {
   const params = new URLSearchParams(window.location.search || '');
   if (!params.has('adoConnected') && !params.has('adoError')) return;
@@ -179,6 +283,9 @@ async function checkPrs(isSilent) {
   try {
     const listPrsUrl = isSilent ? '/api/list-prs?scanOnly=true' : '/api/list-prs';
     const r = await safeFetchJson(listPrsUrl, { timeoutMs: 55000 });
+    if (handleBrowserAuthRedirect(r, isSilent)) {
+      return;
+    }
     if (r.parseError) {
       if (!isSilent) showBox('prResult', '<div class="test-result result-error">❌ Backend ตอบไม่ใช่ JSON (HTTP ' + r.status + ')</div>');
       else if (window._autoMode && window._autoMode !== 'normal') {
@@ -1851,6 +1958,9 @@ async function evaluateAutoApprovals(prs) {
   });
   
   await initAutoApprove();
-  await checkPrs();
+  const resumedAutoMode = await promptAutoResumeAfterAuth();
+  if (!resumedAutoMode) {
+    await checkPrs();
+  }
 })();
 
