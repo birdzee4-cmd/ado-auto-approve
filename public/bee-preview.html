@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bee Mascot Preview</title>
+    <style>
+      :root {
+        color: #1f2933;
+        background: #f7fafc;
+        font-family: Arial, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        padding: 32px;
+      }
+
+      main {
+        max-width: 920px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+      }
+
+      p {
+        margin: 0 0 24px;
+        color: #5b6673;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+      }
+
+      .item {
+        display: grid;
+        gap: 12px;
+        place-items: center;
+        padding: 18px;
+        border: 1px solid #d8dee6;
+        border-radius: 8px;
+        background: #fff;
+      }
+
+      .checker {
+        display: grid;
+        place-items: center;
+        width: 144px;
+        height: 108px;
+        background-color: #fff;
+        background-image:
+          linear-gradient(45deg, #e8edf3 25%, transparent 25%),
+          linear-gradient(-45deg, #e8edf3 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, #e8edf3 75%),
+          linear-gradient(-45deg, transparent 75%, #e8edf3 75%);
+        background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+        background-size: 16px 16px;
+        border-radius: 6px;
+      }
+
+      img.gif {
+        width: 96px;
+        height: 72px;
+        image-rendering: pixelated;
+      }
+
+      img.sheet {
+        width: min(100%, 560px);
+        image-rendering: pixelated;
+        border: 1px solid #d8dee6;
+        border-radius: 8px;
+      }
+
+      .label {
+        font-weight: 700;
+      }
+
+      .sheet-wrap {
+        margin-top: 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Bee Mascot Preview</h1>
+      <p>Preview only. OFF uses B, Manual uses L, and Auto uses H from the character pack.</p>
+
+      <section class="grid" aria-label="Bee GIF previews">
+        <div class="item">
+          <div class="checker"><img class="gif" src="/assets/bee_fly.gif" alt="Bee flying GIF"></div>
+          <div class="label">Auto: H -> bee_fly.gif</div>
+        </div>
+        <div class="item">
+          <div class="checker"><img class="gif" src="/assets/bee_read.gif" alt="Bee reading GIF"></div>
+          <div class="label">Manual: L -> bee_read.gif</div>
+        </div>
+        <div class="item">
+          <div class="checker"><img class="gif" src="/assets/bee_sleep.gif" alt="Bee sleeping GIF"></div>
+          <div class="label">OFF: B -> bee_sleep.gif</div>
+        </div>
+      </section>
+
+      <section class="sheet-wrap" aria-label="Source sprite sheet">
+        <h2>F4 Sprite Sheet</h2>
+        <img class="sheet" src="/assets/bee-f4-spritesheet-preview.png" alt="Generated F4 bee sprite sheet">
+      </section>
+
+      <section class="sheet-wrap" aria-label="Reusable character pack">
+        <h2>Reusable Character Pack</h2>
+        <img class="sheet" src="/assets/bee-character-pack.png" alt="Generated bee character pack">
+      </section>
+    </main>
+  </body>
+</html>
