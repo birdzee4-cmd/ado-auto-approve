@@ -264,6 +264,27 @@ function getCooldownText(name) {
   return 'Cooldown ' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
 }
 
+function updateCooldownButtons() {
+  let hasActiveCooldown = false;
+  document.querySelectorAll('[data-restart]').forEach(button => {
+    const name = button.getAttribute('data-restart');
+    const cooldownText = getCooldownText(name);
+    if (cooldownText) {
+      hasActiveCooldown = true;
+      button.textContent = cooldownText;
+      button.disabled = true;
+      button.classList.add('cooldown');
+      return;
+    }
+
+    button.textContent = 'Restart';
+    button.disabled = false;
+    button.classList.remove('cooldown');
+  });
+
+  if (!hasActiveCooldown) saveCooldowns();
+}
+
 async function openSettings(name) {
   setText('settingsAppName', name || '-');
   currentSettings = [];
@@ -502,7 +523,7 @@ function formatDiagnostics(diagnostics) {
     }
 
     await loadApps(false);
-    window.setInterval(renderApps, 1000);
+    window.setInterval(updateCooldownButtons, 1000);
   } catch (err) {
     setStatus('Unable to initialize portal: ' + err.message, 'error');
   }
