@@ -13,6 +13,21 @@ const states = {
   sleep: { col: 1, row: 0, delay: 45, shifts: [0, 1, 0, 1] } // B: OFF
 };
 
+const characters = [
+  { id: 'a', col: 0, row: 0, label: 'f4 bee' },
+  { id: 'b', col: 1, row: 0, label: 'sleepy bee' },
+  { id: 'c', col: 2, row: 0, label: 'bookworm bee' },
+  { id: 'd', col: 3, row: 0, label: 'shield bee' },
+  { id: 'e', col: 0, row: 1, label: 'ladybug helper' },
+  { id: 'f', col: 1, row: 1, label: 'butterfly helper' },
+  { id: 'g', col: 2, row: 1, label: 'firefly helper' },
+  { id: 'h', col: 3, row: 1, label: 'robot bee' },
+  { id: 'i', col: 0, row: 2, label: 'honey pot buddy' },
+  { id: 'j', col: 1, row: 2, label: 'cloud nap mascot' },
+  { id: 'k', col: 2, row: 2, label: 'checkmark buddy' },
+  { id: 'l', col: 3, row: 2, label: 'reviewer bee' }
+];
+
 function readUInt32(buf, offset) {
   return buf.readUInt32BE(offset);
 }
@@ -283,4 +298,10 @@ for (const [kind, state] of Object.entries(states)) {
   const frames = state.shifts.map((shift) => renderFrame(sheet, character, shift));
   const filename = kind === 'fly' ? 'bee_fly.gif' : kind === 'read' ? 'bee_read.gif' : 'bee_sleep.gif';
   fs.writeFileSync(path.join(OUT_DIR, filename), gif(frames, state.delay));
+}
+
+for (const characterDef of characters) {
+  const character = extractCharacter(sheet, characterDef.col, characterDef.row);
+  const frames = [0, -1, 0, 1].map((shift) => renderFrame(sheet, character, shift));
+  fs.writeFileSync(path.join(OUT_DIR, `bee-character-${characterDef.id}.gif`), gif(frames, 28));
 }
