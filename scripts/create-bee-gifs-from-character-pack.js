@@ -147,7 +147,7 @@ function extractCharacter(sheet, col, row) {
   const y0 = row * cellH;
   const x1 = col === 3 ? sheet.width : (col + 1) * cellW;
   const y1 = row === 2 ? sheet.height : (row + 1) * cellH;
-  const scanY0 = y0 + Math.floor(cellH * 0.18);
+  const scanY0 = y0 + Math.floor(cellH * 0.28);
 
   let minX = x1;
   let minY = y1;
