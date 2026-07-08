@@ -53,28 +53,13 @@ async function handleSettings(context, req) {
     return;
   }
 
-  const auth = require('./auth');
-  const user = auth.getUserEmail(roleCheck.principal);
   const roles = roleCheck.userRoles || [];
   const name = String(req.query && req.query.name || '').trim();
 
   try {
     const client = require('./appservice-client');
-    const audit = require('./appservice-audit-client');
     const result = await client.getAppSettings(name);
     const maskedSettings = maskSettingsForRoles(result.settings, roles);
-    const hasMaskedSettings = maskedSettings.some(item => item && item.masked === true);
-    await audit.safeAudit(context, {
-      action: 'ViewAppSettings',
-      user,
-      roles,
-      appServiceName: result.app.name,
-      resourceGroup: result.app.resourceGroup,
-      result: 'Success',
-      reason: hasMaskedSettings ? 'Viewed settings with admin-only values masked' : 'Viewed settings',
-      settingKeys: result.settingKeys,
-      eventKey: 'appsettings:' + result.app.name + ':' + Date.now()
-    });
 
     jsonResponse(context, 200, {
       ok: true,
@@ -85,19 +70,7 @@ async function handleSettings(context, req) {
       fetchedAt: new Date().toISOString()
     });
   } catch (err) {
-    const client = require('./appservice-client');
-    const audit = require('./appservice-audit-client');
     const detail = getPublicErrorDetail(err);
-    await audit.safeAudit(context, {
-      action: 'ViewAppSettings',
-      user,
-      roles,
-      appServiceName: name,
-      resourceGroup: client.getScope().resourceGroup,
-      result: 'Failed',
-      reason: detail,
-      eventKey: 'appsettings-failed:' + (name || 'unknown') + ':' + Date.now()
-    });
     context.log.warn('App settings read failed:', getSafeDiagnostics(err));
     jsonResponse(context, err.statusCode || 500, {
       ok: false,
@@ -198,7 +171,9 @@ async function handleLogs(context, req) {
       return;
     }
 
-    const allItems = (response.body.value || []).map(normalizeAppServiceLogItem);
+    const allItems = (response.body.value || [])
+      .map(normalizeAppServiceLogItem)
+      .filter(item => String(item.action || '').toLowerCase().includes('restart'));
     const items = allItems
       .filter(item => {
         if (action && !String(item.action || '').toLowerCase().includes(action)) return false;
@@ -310,7 +285,6 @@ function buildAppServiceLogStats(items) {
   const rows = Array.isArray(items) ? items : [];
   return {
     total: rows.length,
-    settings: rows.filter(item => String(item.action || '').toLowerCase().includes('settings')).length,
     restarts: rows.filter(item => String(item.action || '').toLowerCase().includes('restart')).length,
     success: rows.filter(item => String(item.result || '').toLowerCase() === 'success').length,
     failed: rows.filter(item => {

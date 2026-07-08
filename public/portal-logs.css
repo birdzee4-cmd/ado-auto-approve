@@ -66,7 +66,7 @@
 
 .portal-log-summary {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 16px;
 }
@@ -88,7 +88,7 @@
 
 .portal-filter-card {
   display: grid;
-  grid-template-columns: 150px 140px minmax(180px, 1fr) minmax(180px, 1fr) minmax(220px, 1.2fr) 90px auto;
+  grid-template-columns: 140px minmax(180px, 1fr) minmax(180px, 1fr) minmax(220px, 1.2fr) 90px auto;
   gap: 12px;
   align-items: end;
   padding: 14px;
@@ -181,7 +181,7 @@
 
 .portal-log-table {
   width: 100%;
-  min-width: 1260px;
+  min-width: 1060px;
   border-collapse: collapse;
   table-layout: fixed;
   font-size: 13px;
@@ -217,11 +217,9 @@
 .portal-log-table th:nth-child(5),
 .portal-log-table td:nth-child(5) { width: 220px; }
 .portal-log-table th:nth-child(6),
-.portal-log-table td:nth-child(6) { width: 210px; }
+.portal-log-table td:nth-child(6) { width: 260px; }
 .portal-log-table th:nth-child(7),
-.portal-log-table td:nth-child(7) { width: 260px; }
-.portal-log-table th:nth-child(8),
-.portal-log-table td:nth-child(8) { width: 190px; }
+.portal-log-table td:nth-child(7) { width: 190px; }
 
 .portal-log-table small {
   display: block;
@@ -239,7 +237,6 @@
   padding: 2px 5px;
 }
 
-.action-settings,
 .action-restart,
 .action-neutral,
 .result-success,
@@ -252,11 +249,6 @@
   border-radius: 999px;
   font-size: 12px;
   font-weight: 800;
-}
-
-.action-settings {
-  color: #1d4ed8;
-  background: #dbeafe;
 }
 
 .action-restart {
@@ -278,24 +270,6 @@
 .result-failed {
   color: #991b1b;
   background: #fee2e2;
-}
-
-.setting-key-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.setting-key-list span {
-  max-width: 100%;
-  padding: 2px 6px;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  background: #f9fafb;
-  color: #374151;
-  font-size: 11px;
-  font-weight: 700;
-  overflow-wrap: anywhere;
 }
 
 .portal-log-empty {

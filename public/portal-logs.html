@@ -31,32 +31,23 @@
       <div>
         <p class="eyebrow">BUZZEBEES STAGING</p>
         <h1>App Service Portal Logs</h1>
-        <p>Review settings views, restart requests, actors, results, and audited setting key names.</p>
+        <p>Review restart requests, actors, results, and operational reasons.</p>
       </div>
       <div class="scope-card">
         <span>Scope</span>
         <strong>App Service Portal Log</strong>
-        <small>Settings values are never stored here.</small>
+        <small>Only App Service restart events are stored here.</small>
       </div>
     </section>
 
     <section class="portal-log-summary" id="portalLogStats">
       <div class="portal-log-stat"><span>Total</span><strong>-</strong></div>
-      <div class="portal-log-stat"><span>Settings Views</span><strong>-</strong></div>
       <div class="portal-log-stat"><span>Restarts</span><strong>-</strong></div>
       <div class="portal-log-stat"><span>Success</span><strong>-</strong></div>
       <div class="portal-log-stat"><span>Failed</span><strong>-</strong></div>
     </section>
 
     <section class="portal-filter-card">
-      <label>
-        <span>Action</span>
-        <select id="logFilterAction">
-          <option value="">All actions</option>
-          <option value="ViewAppSettings">View App Settings</option>
-          <option value="RestartAppService">Restart App Service</option>
-        </select>
-      </label>
       <label>
         <span>Result</span>
         <select id="logFilterResult">
@@ -75,7 +66,7 @@
       </label>
       <label>
         <span>Keyword</span>
-        <input id="logFilterKeyword" type="search" placeholder="reason, event key, setting key" autocomplete="off" />
+        <input id="logFilterKeyword" type="search" placeholder="reason or event key" autocomplete="off" />
       </label>
       <label class="limit-field">
         <span>Limit</span>
@@ -103,12 +94,11 @@
             <th>App Service</th>
             <th>User</th>
             <th>Reason</th>
-            <th>Viewed Setting Keys</th>
             <th>Event Key</th>
           </tr>
         </thead>
         <tbody id="portalLogTableBody">
-          <tr><td colspan="8" class="portal-log-empty">Loading...</td></tr>
+          <tr><td colspan="7" class="portal-log-empty">Loading...</td></tr>
         </tbody>
       </table>
     </section>
