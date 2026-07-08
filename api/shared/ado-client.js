@@ -254,10 +254,17 @@ function getReleaseLabel(status) {
 /**
  * ดึง PR detail พร้อม reviewers
  */
-async function getPullRequest(prId) {
+async function getPullRequest(prId, options) {
   const { org, project } = getConfig();
-  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/pullrequests/${prId}?api-version=7.0&$expand=reviewers`;
-  return adoRequest('GET', path);
+  const opts = options || {};
+  const repositoryId = opts.repositoryId || opts.repoId || '';
+  const authOptions = opts.accessToken
+    ? { accessToken: opts.accessToken }
+    : opts.requestOptions || undefined;
+  const path = repositoryId
+    ? `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${encodeURIComponent(repositoryId)}/pullRequests/${prId}?api-version=7.0&$expand=reviewers`
+    : `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/pullrequests/${prId}?api-version=7.0&$expand=reviewers`;
+  return adoRequest('GET', path, null, authOptions);
 }
 
 /**

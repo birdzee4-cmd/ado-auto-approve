@@ -74,9 +74,19 @@ module.exports = async function (context, req) {
     }
 
     // 1) ดึง PR detail
-    const prResult = await ado.getPullRequest(prId);
+    const prResult = await ado.getPullRequest(prId, {
+      repositoryId: repositoryId,
+      accessToken: userToken.accessToken
+    });
     if (!prResult.ok) {
-      jsonResponse(502, { ok: false, error: 'Cannot fetch PR', detail: 'HTTP ' + prResult.status });
+      jsonResponse(502, {
+        ok: false,
+        error: 'Cannot fetch PR',
+        detail: 'HTTP ' + prResult.status,
+        hint: 'Azure DevOps could not load this PR from the selected repository with the connected user token.',
+        prId: prId,
+        repositoryId: repositoryId
+      });
       return;
     }
     const pr = prResult.body;
