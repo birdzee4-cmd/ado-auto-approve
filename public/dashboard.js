@@ -1764,68 +1764,160 @@ window.clearAutoConsole = function() {
   consoleLog.innerHTML = '<div class="console-placeholder">ไม่มีประวัติการสแกนในเซสชันนี้</div>';
 }
 
+function getAutoApprovalStagingPrefix() {
+  const lastSync = getLastSync() || {};
+  return String(lastSync.targetBranch || 'refs/heads/staging').toLowerCase();
+}
+
+function isAutoApprovalStagingBranch(targetBranch) {
+  const targetRef = String(targetBranch || '').toLowerCase();
+  const configuredPrefix = getAutoApprovalStagingPrefix();
+  return targetRef.startsWith('refs/heads/staging') ||
+    targetRef.startsWith('refs/heads/stag') ||
+    targetRef.startsWith('refs/heads/stg') ||
+    (configuredPrefix && targetRef.startsWith(configuredPrefix));
+}
+
+function getAutoPrEligibility(pr) {
+  if (!pr || (typeof pr.id === 'string' && pr.id.startsWith('R'))) {
+    return { eligible: false, candidate: false, reason: 'not a pull request' };
+  }
+  if (hasCompletedAutoPrApproval(pr.id)) {
+    return { eligible: false, candidate: false, reason: 'already processed in this session' };
+  }
+  if (!isAutoApprovalStagingBranch(pr.targetBranch)) {
+    return { eligible: false, candidate: false, reason: 'target is not staging' };
+  }
+  if (pr.isDraft === true) {
+    return { eligible: false, candidate: true, reason: 'PR is draft' };
+  }
+  if (pr.isMergeCodeTarget === true) {
+    return { eligible: false, candidate: true, reason: 'MergeCode branch requires manual ADO approval' };
+  }
+  if (pr.approvalHold && pr.approvalHold.active === true) {
+    return { eligible: false, candidate: true, reason: 'Approval Hold is active' };
+  }
+
+  const myStatus = pr.myApproval && pr.myApproval.status ? String(pr.myApproval.status).toLowerCase() : '';
+  if (myStatus !== 'not-approved') {
+    return { eligible: false, candidate: false, reason: 'no pending approval for current user/group' };
+  }
+
+  const snapshot = pr.statusSnapshot || {};
+  const buildResult = String(snapshot.buildResult || 'unknown').toLowerCase();
+  const buildStatus = String(snapshot.buildStatus || 'unknown').toLowerCase();
+  const hasBuild = buildResult && buildResult !== 'unknown' && buildResult !== 'no_status';
+  const buildSuccess = !hasBuild || buildResult === 'succeeded' || buildStatus === 'succeeded';
+  if (!buildSuccess) {
+    if (buildResult === 'failed' || buildResult === 'error') {
+      return { eligible: false, candidate: true, reason: 'build failed' };
+    }
+    return { eligible: false, candidate: true, reason: 'build is not ready (' + (buildResult || buildStatus || 'unknown') + ')' };
+  }
+
+  const policyStatus = String(snapshot.policyStatus || 'unknown').toLowerCase();
+  const allowUnknownPolicyWithoutBuild = !hasBuild && policyStatus === 'unknown';
+  const policyOk = policyStatus === 'approved' || policyStatus === 'pending' || allowUnknownPolicyWithoutBuild;
+  if (!policyOk) {
+    return { eligible: false, candidate: true, reason: 'policy is ' + (policyStatus || 'unknown') };
+  }
+
+  return {
+    eligible: true,
+    candidate: true,
+    reason: allowUnknownPolicyWithoutBuild ? 'ready: no build status + policy unknown allowed' : 'ready',
+    allowedUnknownPolicyWithoutBuild: allowUnknownPolicyWithoutBuild
+  };
+}
+
+function getAutoReleaseEligibility(pr) {
+  const r = pr && pr.releaseApproval || {};
+  const hasPendingRelease = r.status === 'pending' && r.approvalId;
+  if (!hasPendingRelease) {
+    return { eligible: false, candidate: false, reason: 'no pending release approval' };
+  }
+
+  const definitionName = String(r.releaseDefinitionName || r.cdName || '').toLowerCase().trim();
+  const isStagingDefinition = definitionName.startsWith('stg') ||
+    definitionName.includes(' stg') ||
+    definitionName.includes('-stg') ||
+    definitionName.includes('_stg');
+  if (!isStagingDefinition) {
+    return { eligible: false, candidate: true, reason: 'release definition is not staging (' + (r.releaseDefinitionName || r.cdName || '-') + ')' };
+  }
+
+  if (pr.approvalHold && pr.approvalHold.active === true) {
+    return { eligible: false, candidate: true, reason: 'Approval Hold is active' };
+  }
+
+  return { eligible: true, candidate: true, reason: 'ready' };
+}
+
+function logNoAutoApprovalEligible(skippedPrs, skippedReleases) {
+  writeToAutoConsole('ผลสแกน: ไม่พบ PR หรือ Release ที่รออนุมัติและผ่านเกณฑ์การตรวจสอบ', 'info');
+
+  const skipped = []
+    .concat((skippedPrs || []).map(item => ({
+      label: 'PR #' + item.pr.id,
+      reason: item.reason
+    })))
+    .concat((skippedReleases || []).map(item => {
+      const r = item.pr.releaseApproval || {};
+      const idLabel = typeof item.pr.id === 'string' && item.pr.id.startsWith('R')
+        ? 'Virtual Release ' + item.pr.id
+        : 'PR #' + item.pr.id;
+      return {
+        label: idLabel + ' (Release: ' + (r.releaseName || '-') + ')',
+        reason: item.reason
+      };
+    }));
+
+  skipped.slice(0, 5).forEach(item => {
+    writeToAutoConsole(item.label + ' - ข้าม Auto Approve: ' + item.reason, 'info');
+  });
+  if (skipped.length > 5) {
+    writeToAutoConsole('ยังมีรายการที่ถูกข้ามอีก ' + (skipped.length - 5) + ' รายการ', 'info');
+  }
+}
+
+function getAutoApprovalReadyNote(pr) {
+  const result = getAutoPrEligibility(pr);
+  return result && result.allowedUnknownPolicyWithoutBuild
+    ? ' (อนุญาตพิเศษ: No build status + Policy unknown)'
+    : '';
+}
+
 async function evaluateAutoApprovals(prs) {
   if (!window._autoMode || window._autoMode === 'normal') return;
   const list = Array.isArray(prs) ? prs : [];
 
-  const eligiblePrs = list.filter(pr => {
-    if (typeof pr.id === 'string' && pr.id.startsWith('R')) return false;
-    if (hasCompletedAutoPrApproval(pr.id)) return false;
-    
-    const targetRef = String(pr.targetBranch || '').toLowerCase();
-    
-    // Retrieve backend's configured staging prefix from last sync info
-    const lastSync = getLastSync() || {};
-    const configuredPrefix = String(lastSync.targetBranch || 'refs/heads/staging').toLowerCase();
-    
-    const isStaging = targetRef.startsWith('refs/heads/staging') || 
-                      targetRef.startsWith('refs/heads/stag') || 
-                      targetRef.startsWith('refs/heads/stg') || 
-                      (configuredPrefix && targetRef.startsWith(configuredPrefix));
-    
-    const isDraft = pr.isDraft === true;
-    const isMergeCode = pr.isMergeCodeTarget === true;
-    const hasHold = pr.approvalHold && pr.approvalHold.active === true;
-    const notVotedYet = pr.myApproval && pr.myApproval.status === 'not-approved';
-    
-    const snapshot = pr.statusSnapshot || {};
-    const buildResult = String(snapshot.buildResult || 'unknown').toLowerCase();
-    const buildStatus = String(snapshot.buildStatus || 'unknown').toLowerCase();
-    
-    const hasBuild = buildResult && buildResult !== 'unknown' && buildResult !== 'no_status';
-    const buildSuccess = !hasBuild || buildResult === 'succeeded' || buildStatus === 'succeeded';
-    
-    const policyStatus = String(snapshot.policyStatus || 'unknown').toLowerCase();
-    const policyOk = policyStatus === 'approved' || policyStatus === 'pending';
+  const prEligibility = list.map(pr => ({ pr, result: getAutoPrEligibility(pr) }));
+  const eligiblePrs = prEligibility
+    .filter(item => item.result.eligible)
+    .map(item => Object.assign({}, item.pr, {
+      _autoEligibilityReason: item.result.reason,
+      _autoAllowedUnknownPolicyWithoutBuild: item.result.allowedUnknownPolicyWithoutBuild === true
+    }));
+  const skippedPrs = prEligibility
+    .filter(item => item.result.candidate && !item.result.eligible)
+    .map(item => ({ pr: item.pr, reason: item.result.reason }));
 
-    return isStaging && !isDraft && !isMergeCode && !hasHold && notVotedYet && buildSuccess && policyOk;
-  });
-
-  const eligibleReleases = list.filter(pr => {
-    const r = pr.releaseApproval || {};
-    const hasPendingRelease = r.status === 'pending' && r.approvalId;
-    if (!hasPendingRelease) return false;
-
-    const definitionName = String(r.releaseDefinitionName || r.cdName || '').toLowerCase().trim();
-    // Allow definitions starting with 'stg' or containing ' stg', '-stg', or '_stg' to support country-specific pipelines (e.g. PH Stg)
-    const isStagingDefinition = definitionName.startsWith('stg') || 
-                                definitionName.includes(' stg') || 
-                                definitionName.includes('-stg') || 
-                                definitionName.includes('_stg');
-    if (!isStagingDefinition) return false;
-
-    const hasHold = pr.approvalHold && pr.approvalHold.active === true;
-    return !hasHold;
-  });
+  const releaseEligibility = list.map(pr => ({ pr, result: getAutoReleaseEligibility(pr) }));
+  const eligibleReleases = releaseEligibility
+    .filter(item => item.result.eligible)
+    .map(item => item.pr);
+  const skippedReleases = releaseEligibility
+    .filter(item => item.result.candidate && !item.result.eligible)
+    .map(item => ({ pr: item.pr, reason: item.result.reason }));
 
   if (window._autoMode === 'dry-run') {
     if (eligiblePrs.length === 0 && eligibleReleases.length === 0) {
-      writeToAutoConsole('ผลสแกน: ไม่พบ PR หรือ Release ที่รออนุมัติและผ่านเกณฑ์การตรวจสอบ', 'info');
+      logNoAutoApprovalEligible(skippedPrs, skippedReleases);
       return;
     }
     
     eligiblePrs.forEach(pr => {
-      writeToAutoConsole(`PR #${pr.id} - ผ่านเกณฑ์การตรวจวิเคราะห์ (พร้อมส่ง Approve PR)`, 'dryrun');
+      writeToAutoConsole(`PR #${pr.id} - ผ่านเกณฑ์การตรวจวิเคราะห์${getAutoApprovalReadyNote(pr)} (พร้อมส่ง Approve PR)`, 'dryrun');
     });
     
     eligibleReleases.forEach(pr => {
@@ -1838,7 +1930,7 @@ async function evaluateAutoApprovals(prs) {
 
   if (window._autoMode === 'active') {
     if (eligiblePrs.length === 0 && eligibleReleases.length === 0) {
-      writeToAutoConsole('ผลสแกน: ไม่พบ PR หรือ Release ที่รออนุมัติและผ่านเกณฑ์การตรวจสอบ', 'info');
+      logNoAutoApprovalEligible(skippedPrs, skippedReleases);
       return;
     }
     for (const pr of eligiblePrs) {
@@ -1846,7 +1938,7 @@ async function evaluateAutoApprovals(prs) {
       if (window._processingAutoApprovals[pr.id]) continue;
       window._processingAutoApprovals[pr.id] = true;
       
-      writeToAutoConsole(`กำลังดำเนินการอนุมัติ PR #${pr.id} อัตโนมัติ...`, 'info');
+      writeToAutoConsole(`กำลังดำเนินการอนุมัติ PR #${pr.id} อัตโนมัติ${getAutoApprovalReadyNote(pr)}...`, 'info');
       try {
         const response = await safeFetchJson('/api/approve-pr', {
           method: 'POST',
