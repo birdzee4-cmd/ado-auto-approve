@@ -6,7 +6,7 @@
   <link rel="icon" type="image/png" href="/assets/buzzebees-icon.png" />
   <title>App Service Portal - Buzzebees Staging</title>
   <link rel="stylesheet" href="/core.css" />
-  <link rel="stylesheet" href="/portal.css?v=summary-type-3" />
+  <link rel="stylesheet" href="/portal.css?v=settings-export-1" />
 </head>
 <body>
   <nav class="navbar">
@@ -114,7 +114,10 @@
             <span>Search Settings</span>
             <input id="settingsSearchInput" type="search" placeholder="Search name or value..." autocomplete="off" />
           </label>
-          <button id="btnClearSettingsSearch" class="settings-clear-button" type="button">Clear</button>
+          <div class="settings-toolbar-actions">
+            <button id="btnClearSettingsSearch" class="settings-clear-button" type="button">Clear</button>
+            <button id="btnExportSettings" class="settings-export-button" type="button" disabled>Export Excel</button>
+          </div>
         </div>
         <div id="settingsSearchMeta" class="settings-search-meta" aria-live="polite"></div>
         <div id="settingsStatus" class="portal-status" hidden></div>
@@ -154,6 +157,6 @@
     </div>
   </div>
 
-  <script type="module" src="/portal.js?v=hover-stability-1"></script>
+  <script type="module" src="/portal.js?v=settings-export-1"></script>
 </body>
 </html>

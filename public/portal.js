@@ -288,6 +288,7 @@ function updateCooldownButtons() {
 async function openSettings(name) {
   setText('settingsAppName', name || '-');
   currentSettings = [];
+  updateSettingsExportButton();
   resetSettingsSearch();
   const tbody = document.getElementById('settingsTableBody');
   if (tbody) tbody.innerHTML = '<tr><td colspan="2" class="portal-empty">Loading settings...</td></tr>';
@@ -307,9 +308,11 @@ async function openSettings(name) {
     const settings = Array.isArray(r.data.settings) ? r.data.settings : [];
     currentSettings = settings;
     renderSettingsTable();
+    updateSettingsExportButton();
     setText('lastAction', 'Viewed settings');
   } catch (err) {
     currentSettings = [];
+    updateSettingsExportButton();
     updateSettingsSearchMeta(0, 0, '');
     if (tbody) tbody.innerHTML = '';
     setSettingsStatus('Unable to load settings: ' + err.message, 'error');
@@ -399,6 +402,70 @@ function highlightMatch(value, query) {
     index = matchIndex + query.length;
   }
   return html;
+}
+
+function updateSettingsExportButton() {
+  const button = document.getElementById('btnExportSettings');
+  if (!button) return;
+  button.disabled = currentSettings.length === 0;
+}
+
+function exportSettingsToExcel() {
+  if (currentSettings.length === 0) return;
+
+  const appName = String(document.getElementById('settingsAppName') && document.getElementById('settingsAppName').textContent || 'app-settings').trim();
+  const exportedAt = new Date();
+  const rowsHtml = currentSettings.map(item => (
+    '<tr>' +
+      '<td style="mso-number-format:\\@;">' + escapeExcelHtml(item && item.name) + '</td>' +
+      '<td style="mso-number-format:\\@;">' + escapeExcelHtml(item && item.value) + '</td>' +
+    '</tr>'
+  )).join('');
+  const workbookHtml = [
+    '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">',
+    '<head><meta charset="UTF-8"></head>',
+    '<body>',
+    '<table>',
+    '<tr><th colspan="2">App Settings: ' + escapeExcelHtml(appName) + '</th></tr>',
+    '<tr><td>Exported At</td><td style="mso-number-format:\\@;">' + escapeExcelHtml(exportedAt.toISOString()) + '</td></tr>',
+    '<tr></tr>',
+    '<tr><th>Name</th><th>Value</th></tr>',
+    rowsHtml,
+    '</table>',
+    '</body></html>'
+  ].join('');
+
+  downloadBlob(
+    workbookHtml,
+    buildSettingsExportFileName(appName, exportedAt),
+    'application/vnd.ms-excel;charset=utf-8'
+  );
+  setText('lastAction', 'Exported settings');
+}
+
+function escapeExcelHtml(value) {
+  return escapeHtml(String(value == null ? '' : value));
+}
+
+function buildSettingsExportFileName(appName, exportedAt) {
+  const safeName = String(appName || 'app-settings')
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'app-settings';
+  const stamp = exportedAt.toISOString().slice(0, 19).replace(/[-:T]/g, '');
+  return safeName + '-app-settings-' + stamp + '.xls';
+}
+
+function downloadBlob(content, fileName, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function openRestart(name) {
@@ -512,6 +579,7 @@ function formatDiagnostics(diagnostics) {
       renderSettingsTable();
       focusSettingsSearch();
     });
+    bind('btnExportSettings', exportSettingsToExcel);
     const pageSizeSelect = document.getElementById('pageSizeSelect');
     if (pageSizeSelect) {
       pageSize = Number(pageSizeSelect.value) || pageSize;
