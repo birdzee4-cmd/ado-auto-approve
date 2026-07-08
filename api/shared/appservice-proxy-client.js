@@ -28,13 +28,14 @@ async function forward(context, req, routeName) {
 
   try {
     const result = await request(method, url, headers, body);
+    const responseBody = transformProxyResponse(routeName, result.body, principal);
     context.res = {
       status: result.status,
       headers: {
         'Content-Type': result.contentType || 'application/json; charset=utf-8',
         'Cache-Control': 'no-cache, no-store, must-revalidate'
       },
-      body: result.body
+      body: responseBody
     };
   } catch (err) {
     context.log.error('App Service portal proxy failed:', sanitizeError(err));
@@ -97,6 +98,45 @@ function request(method, url, headers, body) {
 function getProxyTimeoutMs() {
   const seconds = Number(process.env.APP_SERVICE_PROXY_TIMEOUT_SECONDS || 180);
   return Math.max(45, seconds) * 1000;
+}
+
+function transformProxyResponse(routeName, body, principalHeader) {
+  if (String(routeName || '').toLowerCase() !== 'appservice-settings') return body;
+
+  let payload = null;
+  try {
+    payload = body ? JSON.parse(body) : null;
+  } catch (e) {
+    return body;
+  }
+
+  if (!payload || !Array.isArray(payload.settings) || hasAdminRole(principalHeader)) {
+    return body;
+  }
+
+  payload.settings = payload.settings.map(item => {
+    if (!isAdminOnlySetting(item && item.name)) return item;
+    return Object.assign({}, item, {
+      value: '[Hidden: admin only]',
+      masked: true
+    });
+  });
+  return JSON.stringify(payload);
+}
+
+function hasAdminRole(principalHeader) {
+  if (!principalHeader) return false;
+  try {
+    const principal = JSON.parse(Buffer.from(principalHeader, 'base64').toString('utf-8'));
+    const roles = principal && Array.isArray(principal.userRoles) ? principal.userRoles : [];
+    return roles.some(role => String(role || '').trim().toLowerCase() === 'admin');
+  } catch (e) {
+    return false;
+  }
+}
+
+function isAdminOnlySetting(name) {
+  return String(name || '').trim().toLowerCase() === 'keyvaultclientsecret';
 }
 
 function getHeader(headers, name) {

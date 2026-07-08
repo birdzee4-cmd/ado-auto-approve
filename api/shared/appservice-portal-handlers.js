@@ -62,6 +62,8 @@ async function handleSettings(context, req) {
     const client = require('./appservice-client');
     const audit = require('./appservice-audit-client');
     const result = await client.getAppSettings(name);
+    const maskedSettings = maskSettingsForRoles(result.settings, roles);
+    const hasMaskedSettings = maskedSettings.some(item => item && item.masked === true);
     await audit.safeAudit(context, {
       action: 'ViewAppSettings',
       user,
@@ -69,7 +71,7 @@ async function handleSettings(context, req) {
       appServiceName: result.app.name,
       resourceGroup: result.app.resourceGroup,
       result: 'Success',
-      reason: 'Viewed setting keys only',
+      reason: hasMaskedSettings ? 'Viewed settings with admin-only values masked' : 'Viewed settings',
       settingKeys: result.settingKeys,
       eventKey: 'appsettings:' + result.app.name + ':' + Date.now()
     });
@@ -78,7 +80,7 @@ async function handleSettings(context, req) {
       ok: true,
       name: result.app.name,
       resourceGroup: result.app.resourceGroup,
-      settings: result.settings,
+      settings: maskedSettings,
       settingKeys: result.settingKeys,
       fetchedAt: new Date().toISOString()
     });
@@ -231,6 +233,27 @@ async function handleLogs(context, req) {
 function getPublicErrorDetail(err) {
   if (err && err.expose) return err.message;
   return 'Azure App Service request failed. Check Managed Identity, RBAC, and environment variables.';
+}
+
+function maskSettingsForRoles(settings, roles) {
+  const rows = Array.isArray(settings) ? settings : [];
+  if (hasAdminRole(roles)) return rows;
+
+  return rows.map(item => {
+    if (!isAdminOnlySetting(item && item.name)) return item;
+    return Object.assign({}, item, {
+      value: '[Hidden: admin only]',
+      masked: true
+    });
+  });
+}
+
+function hasAdminRole(roles) {
+  return (Array.isArray(roles) ? roles : []).some(role => String(role || '').trim().toLowerCase() === 'admin');
+}
+
+function isAdminOnlySetting(name) {
+  return String(name || '').trim().toLowerCase() === 'keyvaultclientsecret';
 }
 
 function getAppServiceLogErrorDetail(err) {
