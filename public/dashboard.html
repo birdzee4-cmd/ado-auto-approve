@@ -139,13 +139,17 @@
           </div>
         </div>
 
-        <!-- Tab Switcher -->
+        <!-- Queue Summary -->
         <div class="tab-container" id="dashboardTabs" hidden>
-          <button id="tabPrQueue" class="tab-button active" onclick="switchTab('pr')">
+          <button type="button" id="tabPrQueue" class="tab-button active">
             <span>PR Queue</span>
             <span class="tab-badge" id="prQueueBadge">0</span>
           </button>
-          <button id="tabReleaseQueue" class="tab-button" onclick="switchTab('release')">
+          <button type="button" id="tabMergeQueue" class="tab-button active">
+            <span>Merge Queue</span>
+            <span class="tab-badge" id="mergeQueueBadge">0</span>
+          </button>
+          <button type="button" id="tabReleaseQueue" class="tab-button active">
             <span>Release Queue</span>
             <span class="tab-badge" id="releaseQueueBadge">0</span>
           </button>
@@ -175,6 +179,30 @@
           </div>
         </div>
 
+        <!-- Merge Queue Table Container -->
+        <div id="mergeTableContainer" hidden>
+          <div class="table-section-header">
+            <h3 class="table-title">Merge Queue</h3>
+            <span class="pr-meta" id="mergeMeta"></span>
+          </div>
+          <div class="pr-table-wrap">
+            <table class="pr-table pr-queue-table merge-queue-table">
+              <thead>
+                <tr>
+                  <th>Pull Request</th>
+                  <th>Branch</th>
+                  <th>Reviewers</th>
+                  <th>Build / Policy</th>
+                  <th>Attention</th>
+                  <th>My Approval</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="mergeTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- Release Queue Table Container -->
         <div id="releaseTableContainer" hidden>
           <div class="table-section-header">
@@ -194,6 +222,36 @@
                 </tr>
               </thead>
               <tbody id="releaseTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Approval Log Activity Table Container -->
+        <div id="completedSection" class="completed-section" hidden>
+          <div class="completed-header">
+            <h3>Approval Log Activity</h3>
+            <div class="completed-meta-wrap">
+              <span id="completedMeta" class="completed-meta"></span>
+              <div id="completedPager" class="completed-pager" hidden></div>
+            </div>
+          </div>
+          <div class="pr-table-wrap completed-table-wrap">
+            <table class="pr-table completed-table">
+              <thead>
+                <tr>
+                  <th>PR ID</th>
+                  <th>Title</th>
+                  <th>By</th>
+                  <th>Branch</th>
+                  <th>Latest Status</th>
+                  <th>Release</th>
+                  <th>Log Source</th>
+                  <th>Repo</th>
+                  <th>Log Time</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="completedTableBody"></tbody>
             </table>
           </div>
         </div>
