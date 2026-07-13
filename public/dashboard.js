@@ -269,14 +269,11 @@ async function checkPrs(isSilent) {
     setButtonLoading('btnCheckPrs', true, 'Loading...');
     
     const prTbody = document.getElementById('prTableBody');
-    const mergeTbody = document.getElementById('mergeTableBody');
     const relTbody = document.getElementById('releaseTableBody');
     if (prTbody) prTbody.innerHTML = renderSkeletonRows(7, 4);
-    if (mergeTbody) mergeTbody.innerHTML = renderSkeletonRows(7, 2);
     if (relTbody) relTbody.innerHTML = renderSkeletonRows(6, 2);
     
     if (document.getElementById('prTableContainer')) document.getElementById('prTableContainer').hidden = false;
-    if (document.getElementById('mergeTableContainer')) document.getElementById('mergeTableContainer').hidden = false;
     if (document.getElementById('releaseTableContainer')) document.getElementById('releaseTableContainer').hidden = false;
     if (document.getElementById('dashboardTabs')) document.getElementById('dashboardTabs').hidden = false;
     
@@ -455,16 +452,13 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
     '</div>' +
   '</div>';
 
-  // Optional: MergeCode Card
-  if (mergeCodeCount > 0) {
-    cardsHtml += '<div class="summary-card mergecode-card">' +
-      '<span class="card-icon">🔗</span>' +
-      '<div class="card-body">' +
-        '<span class="card-label">MergeCode Manual</span>' +
-        '<strong class="card-value text-amber">' + mergeCodeCount + ' PR</strong>' +
-      '</div>' +
-    '</div>';
-  }
+  cardsHtml += '<div class="summary-card mergecode-card">' +
+    '<span class="card-icon">🔗</span>' +
+    '<div class="card-body">' +
+      '<span class="card-label">MergeCode Manual</span>' +
+      '<strong class="card-value text-amber">' + mergeCodeCount + ' PR</strong>' +
+    '</div>' +
+  '</div>';
 
 
   return '<div class="test-result result-success pr-summary-banner">' +
@@ -496,18 +490,12 @@ function renderPrTable(prs) {
     };
   }
 
-  // Split PRs into visible dashboard queues.
-  const mergeQueue = _allPrs.filter(isMergeCodePr);
-  const releaseQueue = _allPrs.filter(pr =>
-    !isMergeCodePr(pr) && pr.releaseApproval && pr.releaseApproval.status === 'pending'
-  );
-  const prQueue = _allPrs.filter(pr =>
-    !isMergeCodePr(pr) && !(pr.releaseApproval && pr.releaseApproval.status === 'pending')
-  );
+  // Split PRs into PR Queue and Release Queue
+  const prQueue = _allPrs.filter(pr => !(pr.releaseApproval && pr.releaseApproval.status === 'pending'));
+  const releaseQueue = _allPrs.filter(pr => pr.releaseApproval && pr.releaseApproval.status === 'pending');
 
   // Update Badges
   setText('prQueueBadge', prQueue.length);
-  setText('mergeQueueBadge', mergeQueue.length);
   setText('releaseQueueBadge', releaseQueue.length);
 
   // Show tabs container
@@ -516,7 +504,6 @@ function renderPrTable(prs) {
 
   // Render both tables
   renderPrQueueTable(prQueue);
-  renderMergeQueueTable(mergeQueue);
   renderReleaseQueueTable(releaseQueue);
 
   // Show/Hide active table container
@@ -532,21 +519,33 @@ window.switchTab = function(tab) {
 };
 
 function updateTabVisibility() {
+  const activeTab = window._activeTab || 'pr';
+
   const tabPr = document.getElementById('tabPrQueue');
-  const tabMerge = document.getElementById('tabMergeQueue');
   const tabRelease = document.getElementById('tabReleaseQueue');
 
-  if (tabPr) tabPr.classList.add('active');
-  if (tabMerge) tabMerge.classList.add('active');
-  if (tabRelease) tabRelease.classList.add('active');
+  if (tabPr && tabRelease) {
+    if (activeTab === 'pr') {
+      tabPr.classList.add('active');
+      tabRelease.classList.remove('active');
+    } else {
+      tabPr.classList.remove('active');
+      tabRelease.classList.add('active');
+    }
+  }
 
   const prContainer = document.getElementById('prTableContainer');
-  const mergeContainer = document.getElementById('mergeTableContainer');
   const releaseContainer = document.getElementById('releaseTableContainer');
 
-  if (prContainer) prContainer.hidden = false;
-  if (mergeContainer) mergeContainer.hidden = false;
-  if (releaseContainer) releaseContainer.hidden = false;
+  if (prContainer && releaseContainer) {
+    if (activeTab === 'pr') {
+      prContainer.hidden = false;
+      releaseContainer.hidden = true;
+    } else {
+      prContainer.hidden = true;
+      releaseContainer.hidden = false;
+    }
+  }
 }
 
 function renderPrQueueTable(prs) {
@@ -565,50 +564,6 @@ function renderPrQueueTable(prs) {
     if (isMergeCodePr(pr)) tr.classList.add('pr-mergecode');
 
     const mergeCodeBadge = isMergeCodePr(pr) ? ' <span class="pr-badge pr-badge-manual">MERGECODE MANUAL</span>' : '';
-    const draftBadge = pr.isDraft ? ' <span class="pr-badge">DRAFT</span>' : '';
-    const approvalBadge = renderApprovalBadge(pr);
-    const statusBadge = renderStatusBadge(pr);
-    const myApprovalBadge = renderMyApprovalBadge(pr);
-    const attentionBadge = renderAttentionBadge(pr);
-    const actionsHtml = renderActions(pr);
-
-    tr.innerHTML =
-      '<td class="pr-summary-cell">' + renderPrSummaryCell(pr, draftBadge, mergeCodeBadge) + '</td>' +
-      '<td class="pr-branch-cell">' + renderBranchCell(pr) + '</td>' +
-      '<td class="pr-approval-cell">' + approvalBadge + '</td>' +
-      '<td class="pr-status-cell">' + statusBadge + '</td>' +
-      '<td class="pr-attention-cell">' + attentionBadge + '</td>' +
-      '<td class="pr-my-approval-cell">' + myApprovalBadge + '</td>' +
-      '<td class="pr-actions-cell">' + actionsHtml + '</td>';
-
-    tr.dataset.pr = JSON.stringify({
-      id: pr.id, title: pr.title, repository: pr.repository,
-      sourceBranch: shortBranch(pr.sourceBranch), targetBranch: shortBranch(pr.targetBranch),
-      createdBy: pr.createdBy, repositoryId: pr.repositoryId
-    });
-
-    tbody.appendChild(tr);
-  }
-}
-
-function renderMergeQueueTable(prs) {
-  const meta = document.getElementById('mergeMeta');
-  if (meta) meta.textContent = prs.length + ' items';
-  const tbody = document.getElementById('mergeTableBody');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-
-  if (prs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#9ca3af">— No MergeCode manual PR right now —</td></tr>';
-    return;
-  }
-
-  for (const pr of prs) {
-    const tr = document.createElement('tr');
-    tr.classList.add('pr-mergecode');
-    if (pr.isDraft) tr.classList.add('pr-draft');
-
-    const mergeCodeBadge = ' <span class="pr-badge pr-badge-manual">MERGECODE MANUAL</span>';
     const draftBadge = pr.isDraft ? ' <span class="pr-badge">DRAFT</span>' : '';
     const approvalBadge = renderApprovalBadge(pr);
     const statusBadge = renderStatusBadge(pr);
