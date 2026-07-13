@@ -69,8 +69,8 @@ function sortByAttention(a, b) {
 function buildAttentionSummary(prs) {
   const rows = Array.isArray(prs) ? prs : [];
   return {
-    critical: rows.filter(pr => pr.attention && pr.attention.rank >= 4).length,
-    warning: rows.filter(pr => pr.attention && pr.attention.rank >= 2 && pr.attention.rank < 4).length,
+    critical: rows.filter(pr => pr.attention && pr.attention.status === 'critical').length,
+    warning: rows.filter(pr => pr.attention && pr.attention.status === 'warning').length,
     stale: rows.filter(pr => pr.attention && pr.attention.status === 'stale').length,
     total: rows.length
   };

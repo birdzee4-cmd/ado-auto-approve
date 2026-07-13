@@ -119,8 +119,8 @@ async function buildDailySummary(context, reportDate) {
   const attentionRows = rows
     .filter(row => row.status === 'active' && row.attention && Number(row.attention.rank) >= 2)
     .sort(attentionUtil.sortByAttention);
-  const criticalRows = attentionRows.filter(row => row.attention && Number(row.attention.rank) >= 4);
-  const warningRows = attentionRows.filter(row => row.attention && Number(row.attention.rank) >= 2 && Number(row.attention.rank) < 4);
+  const criticalRows = attentionRows.filter(row => row.attention && row.attention.status === 'critical');
+  const warningRows = attentionRows.filter(row => row.attention && row.attention.status === 'warning');
   const staleRows = attentionRows.filter(row => row.attention && row.attention.status === 'stale');
   const abandonedRows = abandonedToday.map(pr => buildBasicRow(cfg, pr));
 

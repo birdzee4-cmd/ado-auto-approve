@@ -417,6 +417,12 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
   const fetchedMeta = document.getElementById('autoFetchedMeta');
   if (fetchedMeta) fetchedMeta.textContent = 'Fetched ' + fetchedStr;
 
+  const renderAttentionSummaryBadge = (label, count, className) => {
+    const safeCount = Number(count || 0);
+    if (safeCount <= 0) return '';
+    return '<span class="status-badge-custom ' + className + '">' + label + ' <strong>' + safeCount + '</strong></span>';
+  };
+
   let cardsHtml = '';
 
   // 1. Status Card (First)
@@ -439,9 +445,9 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
     '<div class="card-body">' +
       '<span class="card-label">Attention</span>' +
       '<div class="card-badges">' +
-        '<span class="status-badge-custom badge-red">Critical <strong>' + (attention.critical || 0) + '</strong></span>' +
-        '<span class="status-badge-custom badge-orange">Warning <strong>' + (attention.warning || 0) + '</strong></span>' +
-        '<span class="status-badge-custom badge-slate">Stale <strong>' + (attention.stale || 0) + '</strong></span>' +
+        renderAttentionSummaryBadge('Critical', attention.critical, 'badge-red') +
+        renderAttentionSummaryBadge('Warning', attention.warning, 'badge-orange') +
+        renderAttentionSummaryBadge('Stale', attention.stale, 'badge-slate') +
       '</div>' +
     '</div>' +
   '</div>';
