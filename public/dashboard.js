@@ -419,7 +419,6 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
 
   const renderAttentionSummaryBadge = (label, count, className) => {
     const safeCount = Number(count || 0);
-    if (safeCount <= 0) return '';
     return '<span class="status-badge-custom ' + className + '">' + label + ' <strong>' + safeCount + '</strong></span>';
   };
 
