@@ -2749,11 +2749,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 .summary-cards-container {
   display: grid;
-  grid-template-columns: repeat(2, minmax(300px, 1fr));
+  grid-template-columns: minmax(320px, 1.1fr) minmax(300px, 1fr) minmax(220px, 0.75fr);
   gap: 12px;
   align-items: stretch;
   justify-content: start;
-  width: min(100%, 860px);
+  width: 100%;
   margin-top: 0;
 }
 .summary-card {
