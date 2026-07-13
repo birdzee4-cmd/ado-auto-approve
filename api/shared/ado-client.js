@@ -85,10 +85,16 @@ function makeSingleAdoHostRequest(hostname, method, path, body, options) {
       res.on('end', () => {
         let parsed = null;
         try { parsed = resBody ? JSON.parse(resBody) : null; } catch (e) {}
+        const headers = {};
+        Object.keys(res.headers || {}).forEach(key => {
+          const value = res.headers[key];
+          headers[String(key).toLowerCase()] = Array.isArray(value) ? value.join(',') : String(value || '');
+        });
         resolve({
           ok: res.statusCode >= 200 && res.statusCode < 300,
           status: res.statusCode,
-          body: parsed || resBody
+          body: parsed || resBody,
+          headers: headers
         });
       });
     });
@@ -331,6 +337,61 @@ async function listActivePRs(targetBranch) {
   const tb = targetBranch || 'refs/heads/staging';
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/pullrequests?api-version=7.0&searchCriteria.status=active&searchCriteria.targetRefName=${encodeURIComponent(tb)}&$top=100`;
   return adoRequest('GET', path);
+}
+
+/**
+ * ดึง PR ตาม status แบบแบ่งหน้า ใช้สำหรับ background scanners
+ */
+async function listPullRequestsByStatus(status, options) {
+  const { org, project } = getConfig();
+  const opts = options || {};
+  const pageSize = Math.min(Math.max(Number(opts.top || opts.pageSize || 100), 25), 500);
+  const maxPages = Math.min(Math.max(Number(opts.maxPages || 10), 1), 50);
+  const values = [];
+  let continuationToken = '';
+  let pagesFetched = 0;
+  let lastResult = null;
+
+  for (let page = 0; page < maxPages; page++) {
+    const params = [
+      'api-version=7.0',
+      'searchCriteria.status=' + encodeURIComponent(status || 'active'),
+      '$top=' + encodeURIComponent(String(pageSize))
+    ];
+    if (continuationToken) {
+      params.push('continuationToken=' + encodeURIComponent(continuationToken));
+    }
+
+    const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/pullrequests?${params.join('&')}`;
+    const result = await adoRequest('GET', path);
+    lastResult = result;
+    if (!result.ok) return Object.assign({}, result, { pagesFetched });
+
+    const pageValues = result.body && Array.isArray(result.body.value)
+      ? result.body.value
+      : [];
+    values.push(...pageValues);
+    pagesFetched += 1;
+
+    continuationToken = getHeader(result.headers, 'x-ms-continuationtoken');
+    if (!continuationToken || pageValues.length === 0) break;
+  }
+
+  return {
+    ok: true,
+    status: lastResult ? lastResult.status : 200,
+    body: {
+      count: values.length,
+      value: values
+    },
+    pagesFetched: pagesFetched
+  };
+}
+
+function getHeader(headers, name) {
+  const source = headers || {};
+  const target = String(name || '').toLowerCase();
+  return source[target] || source[name] || '';
 }
 
 /**
@@ -657,6 +718,7 @@ module.exports = {
   listBuilds,
   getPolicyEvaluations,
   listActivePRs,
+  listPullRequestsByStatus,
   getConnectionData,
   approvePR,
   rejectPR,

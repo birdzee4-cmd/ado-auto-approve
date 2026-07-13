@@ -48,6 +48,7 @@ module.exports = async function (context, req) {
   checks.push(checkLineConfig());
   checks.push(checkLineDailySummaryConfig());
   checks.push(checkHourlySyncConfig());
+  checks.push(checkAutoCompleteReconcileConfig());
   checks.push(await checkApprovalLockStore(context));
 
   const lastNotification = sharePointResult.recentLogs
@@ -108,6 +109,13 @@ module.exports = async function (context, req) {
           timeZone: 'Asia/Bangkok',
           frequency: 'Every 1 hour',
           nextRunAt: getNextHourlyRun(generatedAt)
+        },
+        autoCompleteReconcile: {
+          enabled: !!(process.env.AUTO_COMPLETE_RECONCILE_TOKEN || process.env.DAILY_SUMMARY_TOKEN),
+          scheduler: 'Azure Logic Apps Consumption',
+          timeZone: 'Asia/Bangkok',
+          frequency: 'Every 5 minutes',
+          nextRunAt: getNextMinuteIntervalRun(generatedAt, 5)
         },
         tableRetentionCleanup: {
           enabled: !!(process.env.TABLE_RETENTION_TOKEN || process.env.LOG_RETENTION_TOKEN || process.env.DAILY_SUMMARY_TOKEN),
@@ -248,6 +256,23 @@ function checkHourlySyncConfig() {
     scheduler: 'Azure Logic Apps Consumption',
     schedule: 'Every 1 hour',
     freeTierGuard: 'No Application Insights required'
+  });
+}
+
+function checkAutoCompleteReconcileConfig() {
+  const startedAt = Date.now();
+  const token = process.env.AUTO_COMPLETE_RECONCILE_TOKEN || process.env.DAILY_SUMMARY_TOKEN || '';
+  if (!token) {
+    return buildCheck('auto-complete-reconcile', 'Auto-Complete Reconciler', 'warning', 'AUTO_COMPLETE_RECONCILE_TOKEN is not configured', startedAt, {
+      scheduler: 'Azure Logic Apps Consumption',
+      schedule: 'Every 5 minutes',
+      fallback: 'DAILY_SUMMARY_TOKEN'
+    });
+  }
+  return buildCheck('auto-complete-reconcile', 'Auto-Complete Reconciler', 'ok', 'Auto-complete reconciler token is configured', startedAt, {
+    scheduler: 'Azure Logic Apps Consumption',
+    schedule: 'Every 5 minutes',
+    repoScope: process.env.AUTO_COMPLETE_RECONCILE_REPOS || 'all matching staging repositories'
   });
 }
 
@@ -489,6 +514,20 @@ function getNextHourlyRun(nowIso) {
   const next = new Date(nowIso);
   next.setUTCMinutes(0, 0, 0);
   next.setUTCHours(next.getUTCHours() + 1);
+  return next.toISOString();
+}
+
+function getNextMinuteIntervalRun(nowIso, intervalMinutes) {
+  const interval = Math.max(1, Number(intervalMinutes) || 5);
+  const now = new Date(nowIso);
+  const next = new Date(now);
+  const minute = next.getUTCMinutes();
+  const nextMinute = Math.ceil((minute + 1) / interval) * interval;
+  if (nextMinute >= 60) {
+    next.setUTCHours(next.getUTCHours() + 1, 0, 0, 0);
+  } else {
+    next.setUTCMinutes(nextMinute, 0, 0);
+  }
   return next.toISOString();
 }
 

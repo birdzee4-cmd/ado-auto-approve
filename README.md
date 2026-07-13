@@ -583,6 +583,47 @@ Free-tier guard:
 - รอบทุก 1 ชั่วโมงจะประมาณ 1,440 Logic Apps actions ต่อเดือน ซึ่งต่ำกว่า free grant 4,000 actions/month
 - Managed API execution ประมาณ 720 ครั้งต่อเดือน ซึ่งต่ำกว่า Azure Functions free grant มาก
 
+### Auto-Complete Reconciler
+
+ระบบรองรับ background reconciler สำหรับตั้ง auto-complete กลับให้ PR ที่เคยถูก `Auto Approved` แต่ `autoCompleteSetBy` หายไปหลังถูก `Abandoned` แล้วกลับมา `Active`
+
+Endpoint:
+
+```text
+POST /api/auto-complete-reconcile
+```
+
+Header:
+
+```text
+x-auto-complete-reconcile-token: <AUTO_COMPLETE_RECONCILE_TOKEN หรือ DAILY_SUMMARY_TOKEN>
+```
+
+Body สำหรับ dry run:
+
+```json
+{
+  "dryRun": true
+}
+```
+
+หลักการทำงาน:
+
+- Logic Apps Consumption เรียกทุก 5 นาที ด้วย HTTP action
+- ทำงานจริงเฉพาะตอน Auto-Approve mode เป็น `active`; ถ้าเป็น `dry-run` จะ log ว่าจะ reset PR ไหนแต่ไม่ PATCH
+- ดึง active PR ทั้ง project ที่ service account/PAT เห็น แล้วกรองคล้าย Active PR Queue
+- ถ้า `AUTO_COMPLETE_RECONCILE_REPOS` ว่าง จะ scan ทุก repo ที่เข้าเงื่อนไข Staging; ถ้าตั้งค่า จะจำกัดเฉพาะ repo ที่ระบุ
+- Reset เฉพาะ PR ที่ `active`, ไม่ใช่ draft, target เข้า Staging, ไม่มี Approval Hold/skip label, มี reviewer group, `autoCompleteSetBy` ว่าง และเคยมี SharePoint log action `Auto Approved`
+- ตั้ง auto-complete กลับทันทีโดยไม่รอ build/policy/reviewer ผ่าน เพราะ Azure DevOps auto-complete จะรอเงื่อนไขเหล่านั้นเอง
+- ไม่ bypass policy, ไม่ approve/reject vote, และไม่ complete PR เอง
+
+Console log ตัวอย่าง:
+
+```text
+Auto-complete reconciler summary: checked=30 candidates=2 fixed=1 skipped=29 errors=0 dryRun=false
+Auto-complete restored: PR #349701 repo=Net_Project.IPOne target=refs/heads/Staging/...
+```
+
 ### Daily PR Summary
 
 ระบบรองรับการส่งสรุปภาพรวมรายวัน (Daily Summary) ไปยัง 2 ช่องทางหลักตามรอบเวลาที่กำหนด:
@@ -636,6 +677,7 @@ Routes สำคัญ:
 | `/api/exception-scan` | `anonymous` + header token |
 | `/api/build-failure-scan` | `anonymous` + header token |
 | `/api/hourly-log-sync` | `anonymous` + header token |
+| `/api/auto-complete-reconcile` | `anonymous` + header token |
 | `/api/log-retention-cleanup` | `anonymous` + header token |
 | `/api/table-retention-cleanup` | `anonymous` + header token |
 | `/api/webhook` | `anonymous` + basic auth |
@@ -693,6 +735,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/exception-scan` | POST | endpoint สำหรับสแกน Build/Policy failed จาก approval logs |
 | `/api/build-failure-scan` | POST | endpoint สำหรับ Logic Apps polling หา Build failed จาก Azure DevOps REST API โดยตรง |
 | `/api/hourly-log-sync` | POST | endpoint สำหรับ Logic Apps hourly background reconciliation เติม external vote log ที่ตกหล่น |
+| `/api/auto-complete-reconcile` | POST | endpoint สำหรับ Logic Apps reset auto-complete กลับให้ PR ที่เคย Auto Approved หลัง abandon/reactivate |
 | `/api/log-retention-cleanup` | POST | endpoint สำหรับ archive/export/delete SharePoint logs เก่ากว่า retention window |
 | `/api/table-retention-cleanup` | POST | endpoint สำหรับลบ Azure Table records เก่าของ `ApprovalLocks` และ `AdoUserTokens` |
 | `/api/webhook` | POST | legacy/webhook notification endpoint |
@@ -705,6 +748,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `api/shared/ado-user-token.js` | Azure DevOps delegated OAuth/token lifecycle helper |
 | `api/shared/ado-token-store.js` | Azure Table encrypted server-side token store |
 | `api/shared/approval-lock-store.js` | Azure Table distributed lock / idempotency store for approve actions |
+| `api/shared/auto-complete-reconciler.js` | background logic สำหรับ restore auto-complete หลัง PR abandon/reactivate |
 | `api/shared/sharepoint-client.js` | Microsoft Graph / SharePoint List client |
 | `api/shared/auth.js` | role / principal helper |
 | `api/shared/attention.js` | PR aging / stuck / attention logic |
@@ -824,6 +868,13 @@ api/shared/attention.js
 | `EXCEPTION_SCAN_TOKEN` | No | token สำหรับ `/api/exception-scan`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
 | `BUILD_FAILURE_SCAN_TOKEN` | No | token สำหรับ `/api/build-failure-scan`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
 | `HOURLY_SYNC_TOKEN` | No | token สำหรับ `/api/hourly-log-sync`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
+| `AUTO_COMPLETE_RECONCILE_TOKEN` | No | token สำหรับ `/api/auto-complete-reconcile`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
+| `AUTO_COMPLETE_RECONCILE_REPOS` | No | comma-separated repo allowlist; ถ้าว่างจะ scan ทุก repo ที่ target branch เข้าเงื่อนไข |
+| `AUTO_COMPLETE_RECONCILE_TARGETS` | No | comma-separated target branch patterns เช่น `refs/heads/Staging/*`; ถ้าไม่ตั้งจะใช้ `ADO_TARGET_BRANCH` |
+| `AUTO_COMPLETE_RECONCILE_SKIP_LABELS` | No | default `no-auto-complete,manual-complete,hold` |
+| `AUTO_COMPLETE_RECONCILE_DRY_RUN` | No | set `true` เพื่อ log candidate โดยไม่ PATCH |
+| `AUTO_COMPLETE_RECONCILE_PAGE_SIZE` | No | default `100`, max `500` |
+| `AUTO_COMPLETE_RECONCILE_MAX_PAGES` | No | default `10`, max `50` |
 | `LOG_RETENTION_TOKEN` | No | token สำหรับ `/api/log-retention-cleanup`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
 | `LOG_RETENTION_DAYS` | No | default `365` |
 | `LOG_RETENTION_BATCH_LIMIT` | No | default `500`, max `1000` |
@@ -947,6 +998,8 @@ node --check api\line-daily-summary\index.js
 node --check api\exception-scan\index.js
 node --check api\build-failure-scan\index.js
 node --check api\hourly-log-sync\index.js
+node --check api\auto-complete-reconcile\index.js
+node --check api\shared\auto-complete-reconciler.js
 node --check api\log-retention-cleanup\index.js
 node --check api\table-retention-cleanup\index.js
 node --check api\webhook\index.js

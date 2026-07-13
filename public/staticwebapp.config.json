@@ -62,6 +62,7 @@
     { "route": "/api/exception-scan", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/build-failure-scan", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/hourly-log-sync", "methods": ["POST"], "allowedRoles": ["anonymous"] },
+    { "route": "/api/auto-complete-reconcile", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/log-retention-cleanup", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/table-retention-cleanup", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/webhook", "methods": ["POST"], "allowedRoles": ["anonymous"] },
