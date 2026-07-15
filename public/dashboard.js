@@ -393,6 +393,7 @@ function describeAutoScanHttpFailure(response, data) {
 
 function renderPrSummaryBanner(d, attention, mergeCodeCount) {
   const prs = d.prs || [];
+  const hasMergeCodeWork = Number(mergeCodeCount || 0) > 0;
   let newCount = 0;
   let holdCount = 0;
   let votedCount = 0;
@@ -451,11 +452,14 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
     '</div>' +
   '</div>';
 
-  cardsHtml += '<div class="summary-card mergecode-card">' +
+  cardsHtml += '<div class="summary-card mergecode-card' + (hasMergeCodeWork ? ' mergecode-card-active' : '') + '">' +
     '<span class="card-icon">🔗</span>' +
     '<div class="card-body">' +
       '<span class="card-label">MergeCode Manual</span>' +
-      '<strong class="card-value text-amber">' + mergeCodeCount + ' PR</strong>' +
+      '<div class="mergecode-card-value">' +
+        '<strong class="card-value text-amber">' + mergeCodeCount + ' PR</strong>' +
+        (hasMergeCodeWork ? '<span class="mergecode-action-label">Action required</span>' : '') +
+      '</div>' +
     '</div>' +
   '</div>';
 
