@@ -130,7 +130,7 @@ function hasUnrestrictedAdminRole(principalHeader) {
     const principal = JSON.parse(Buffer.from(principalHeader, 'base64').toString('utf-8'));
     const roles = (principal && Array.isArray(principal.userRoles) ? principal.userRoles : [])
       .map(role => String(role || '').trim().toLowerCase());
-    return roles.includes('admin') && !roles.includes('tester_appservice_manager');
+    return roles.includes('admin');
   } catch (e) {
     return false;
   }
@@ -141,7 +141,8 @@ function isAdminOnlySetting(name) {
     .trim()
     .toLowerCase()
     .replace(/_+/g, '');
-  return normalizedName === 'keyvaultclientsecret' ||
+  return normalizedName === 'backofficeurlsettingsstatmiscpassword' ||
+    normalizedName === 'keyvaultclientsecret' ||
     normalizedName === 'dockerregistryserverpassword';
 }
 

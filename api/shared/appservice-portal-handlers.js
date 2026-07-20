@@ -226,8 +226,7 @@ function maskSettingsForRoles(settings, roles) {
 function hasUnrestrictedAdminRole(roles) {
   const normalizedRoles = (Array.isArray(roles) ? roles : [])
     .map(role => String(role || '').trim().toLowerCase());
-  return normalizedRoles.includes('admin') &&
-    !normalizedRoles.includes('tester_appservice_manager');
+  return normalizedRoles.includes('admin');
 }
 
 function isAdminOnlySetting(name) {
@@ -235,7 +234,8 @@ function isAdminOnlySetting(name) {
     .trim()
     .toLowerCase()
     .replace(/_+/g, '');
-  return normalizedName === 'keyvaultclientsecret' ||
+  return normalizedName === 'backofficeurlsettingsstatmiscpassword' ||
+    normalizedName === 'keyvaultclientsecret' ||
     normalizedName === 'dockerregistryserverpassword';
 }
 
