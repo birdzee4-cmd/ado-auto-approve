@@ -212,7 +212,7 @@ function getPublicErrorDetail(err) {
 
 function maskSettingsForRoles(settings, roles) {
   const rows = Array.isArray(settings) ? settings : [];
-  if (hasAdminRole(roles)) return rows;
+  if (hasUnrestrictedAdminRole(roles)) return rows;
 
   return rows.map(item => {
     if (!isAdminOnlySetting(item && item.name)) return item;
@@ -223,8 +223,11 @@ function maskSettingsForRoles(settings, roles) {
   });
 }
 
-function hasAdminRole(roles) {
-  return (Array.isArray(roles) ? roles : []).some(role => String(role || '').trim().toLowerCase() === 'admin');
+function hasUnrestrictedAdminRole(roles) {
+  const normalizedRoles = (Array.isArray(roles) ? roles : [])
+    .map(role => String(role || '').trim().toLowerCase());
+  return normalizedRoles.includes('admin') &&
+    !normalizedRoles.includes('tester_appservice_manager');
 }
 
 function isAdminOnlySetting(name) {

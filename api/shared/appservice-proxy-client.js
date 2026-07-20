@@ -110,7 +110,7 @@ function transformProxyResponse(routeName, body, principalHeader) {
     return body;
   }
 
-  if (!payload || !Array.isArray(payload.settings) || hasAdminRole(principalHeader)) {
+  if (!payload || !Array.isArray(payload.settings) || hasUnrestrictedAdminRole(principalHeader)) {
     return body;
   }
 
@@ -124,12 +124,13 @@ function transformProxyResponse(routeName, body, principalHeader) {
   return JSON.stringify(payload);
 }
 
-function hasAdminRole(principalHeader) {
+function hasUnrestrictedAdminRole(principalHeader) {
   if (!principalHeader) return false;
   try {
     const principal = JSON.parse(Buffer.from(principalHeader, 'base64').toString('utf-8'));
-    const roles = principal && Array.isArray(principal.userRoles) ? principal.userRoles : [];
-    return roles.some(role => String(role || '').trim().toLowerCase() === 'admin');
+    const roles = (principal && Array.isArray(principal.userRoles) ? principal.userRoles : [])
+      .map(role => String(role || '').trim().toLowerCase());
+    return roles.includes('admin') && !roles.includes('tester_appservice_manager');
   } catch (e) {
     return false;
   }
