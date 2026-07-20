@@ -75,7 +75,7 @@ flowchart LR
 | Dashboard | `/dashboard.html` | ตรวจ Active PR Queue, Approve/Reject PR, ดู Build/Policy/Release และกด Approve Release เมื่อมี pending approval |
 | Activity | `/activity.html` | ดู PR ที่ user approve หรือระบบ detect external approval ใน 24 ชั่วโมงล่าสุด พร้อม filter Build Failed / Policy Pending / source และ paging |
 | Merge Lookup | `/merge.html` | กรอก PR ID เพื่อหา CI/CD ของงาน Merge |
-| Deploy History | `/deploy-history.html` | ค้นหา คัดกรอง และดูประวัติการรัน Build & Deploy ย้อนหลังบนระบบ Staging |
+| Deployment Archive | `/deploy-history.html` | ค้นหา คัดกรอง และดูประวัติการรัน Build & Deploy ย้อนหลังบนระบบ Staging โดยเข้าผ่านหน้า Activity |
 | Build Diagnostics | `/build-diagnostics.html` | หน้าวิเคราะห์และแปลความหมายข้อผิดพลาดของ Build Log พร้อมเสนอแนวทางแก้ไขภาษาไทย |
 | Audit Logs | `/logs.html` | ค้นหา SharePoint Log ตาม PR, action, source, keyword |
 | System Health | `/health.html` | ตรวจ Backend, ADO, SharePoint, Teams, Daily Summary, Last Sync/Notification |
@@ -1033,7 +1033,7 @@ node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json'
 | Release | แสดง Release expected / pending / approved / deploy status ได้ถูกต้อง และปุ่ม Approve Release แสดงเฉพาะ pending approval |
 | Guarded Auto Approve | สามารถตั้งค่าโหมด OFF / ACTIVE (Manual) / ACTIVE (Auto-Approve) พร้อมแสดง Console Log และ Countdown |
 | Approval Hold | ปรับเปลี่ยนสถานะ Hold / Unlock และจำกัด Action การควบคุมของ PR ได้ถูกต้อง |
-| Deploy History | แสดงและค้นหาประวัติการ Deploy Staging ย้อนหลัง คัดกรองตาม Repository, Branch และดึงไฟล์ CSV จาก SharePoint |
+| Deployment Archive | แสดงและค้นหาประวัติการ Deploy Staging ย้อนหลัง คัดกรองตาม Repository, Branch และดึงไฟล์ CSV จาก SharePoint |
 | Build Diagnostics | ตรวจสอบ Timeline วิเคราะห์หา Failed Task และแปลรายละเอียดออกมาได้อย่างถูกต้องพร้อมส่ง Teams |
 | Report | แสดงผลสถิติการอนุมัติ, อัตรา Auto-Approve, อัตราสำเร็จของบิลด์ (รายวัน/รายเดือน), filter scope ของผู้ใช้/บิลด์ และรายการ Staging build failed ล่าสุด โดยคัดกรองข้ามพวก scheduled task ของระบบและซิงก์ข้อมูลเบื้องหลังสำเร็จ |
 | SharePoint Log | action ผ่านเว็บมี log |

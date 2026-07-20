@@ -41,6 +41,30 @@
   color: #5c4b37 !important;
 }
 
+.activity-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.activity-archive-link {
+  min-height: 40px;
+}
+
+@media (max-width: 720px) {
+  .activity-header-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .activity-header-actions .primary-button,
+  .activity-header-actions .secondary-button {
+    flex: 1 1 220px;
+  }
+}
+
 /* Activity adds build details while keeping the existing compact table readable. */
 .activity-page .completed-table {
   min-width: 1940px;
