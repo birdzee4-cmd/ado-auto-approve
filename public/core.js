@@ -658,6 +658,8 @@ function renderRecentlyApprovedStatusBadge(pr) {
 }
 
 function renderRecentlyApprovedRows(tbody, rows) {
+  const table = tbody && tbody.closest ? tbody.closest('table') : null;
+  const showBuildDetails = !!(table && table.dataset.showBuildDetails === 'true');
   for (const pr of rows) {
     const tr = document.createElement('tr');
     const statusBadge = renderRecentlyApprovedStatusBadge(pr);
@@ -669,11 +671,24 @@ function renderRecentlyApprovedRows(tbody, rows) {
     const logSourceBadge = renderApprovalLogSourceBadge(pr);
     const approvedAt = pr.approvedAt || pr.closedDate || pr.creationDate;
     const actionsHtml = renderCompletedActions(pr);
+    const snapshot = pr.statusSnapshot || {};
+    const version = snapshot.buildNumber || '-';
+    const commitId = String(snapshot.commitId || '');
+    const commitMessage = snapshot.commitMessage || '-';
+    const commitHashHtml = commitId
+      ? '<span class="activity-commit-hash">[' + escapeHtml(commitId.slice(0, 7)) + ']</span>'
+      : '';
+    const buildDetailsHtml = showBuildDetails
+      ? '<td class="pr-version-cell"><code title="' + escapeHtml(version) + '">' + escapeHtml(version) + '</code></td>' +
+        '<td class="pr-commit-cell"><div class="activity-commit">' + commitHashHtml +
+          '<span class="activity-commit-message" title="' + escapeHtml(commitMessage) + '">' + escapeHtml(commitMessage) + '</span></div></td>'
+      : '';
     tr.innerHTML =
       '<td class="pr-id-cell">' + renderPrIdInline(pr, 'approved') + '</td>' +
       '<td class="pr-title-cell"><span class="pr-title-text">' + escapeHtml(pr.title) + '</span></td>' +
       '<td class="pr-by-cell">' + escapeHtml(pr.createdBy || '-') + '</td>' +
       '<td class="pr-branch-cell">' + renderBranchCell(pr) + '</td>' +
+      buildDetailsHtml +
       '<td class="pr-status-cell">' + statusBadge + '</td>' +
       '<td class="pr-release-cell">' + releaseBadge + '</td>' +
       '<td class="pr-log-source-cell">' + logSourceBadge + '</td>' +
@@ -702,7 +717,10 @@ function renderCompletedPrTable(prs, lookbackHours, totalMatched, displayLimit, 
       pager.hidden = true;
       pager.innerHTML = '';
     }
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:22px;color:#9ca3af">— No approval log PRs found in the last ' + escapeHtml(lookbackHours) + ' hours —</td></tr>';
+    const columnCount = tbody.closest && tbody.closest('table')
+      ? tbody.closest('table').querySelectorAll('thead th').length
+      : 10;
+    tbody.innerHTML = '<tr><td colspan="' + columnCount + '" style="text-align:center;padding:22px;color:#9ca3af">— No approval log PRs found in the last ' + escapeHtml(lookbackHours) + ' hours —</td></tr>';
     return;
   }
 

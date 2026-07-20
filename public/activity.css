@@ -41,4 +41,71 @@
   color: #5c4b37 !important;
 }
 
-
+/* Activity adds build details while keeping the existing compact table readable. */
+.activity-page .completed-table {
+  min-width: 1940px;
+}
+
+.activity-page .completed-table th:nth-child(1),
+.activity-page .completed-table td:nth-child(1) { width: 88px; }
+.activity-page .completed-table th:nth-child(2),
+.activity-page .completed-table td:nth-child(2) { width: 260px; }
+.activity-page .completed-table th:nth-child(3),
+.activity-page .completed-table td:nth-child(3) { width: 140px; }
+.activity-page .completed-table th:nth-child(4),
+.activity-page .completed-table td:nth-child(4) { width: 300px; }
+.activity-page .completed-table th:nth-child(5),
+.activity-page .completed-table td:nth-child(5) { width: 130px; }
+.activity-page .completed-table th:nth-child(6),
+.activity-page .completed-table td:nth-child(6) { width: 240px; }
+.activity-page .completed-table th:nth-child(7),
+.activity-page .completed-table td:nth-child(7) { width: 165px; }
+.activity-page .completed-table th:nth-child(8),
+.activity-page .completed-table td:nth-child(8) { width: 170px; }
+.activity-page .completed-table th:nth-child(9),
+.activity-page .completed-table td:nth-child(9) { width: 145px; }
+.activity-page .completed-table th:nth-child(10),
+.activity-page .completed-table td:nth-child(10) { width: 155px; }
+.activity-page .completed-table th:nth-child(11),
+.activity-page .completed-table td:nth-child(11) { width: 115px; }
+.activity-page .completed-table th:nth-child(12),
+.activity-page .completed-table td:nth-child(12) { width: 110px; }
+
+.activity-page .pr-version-cell code {
+  white-space: nowrap;
+  color: #374151;
+}
+
+.activity-page .pr-commit-cell {
+  min-width: 0;
+}
+
+.activity-commit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.activity-commit-hash {
+  display: inline-block;
+  padding: 2px 6px;
+  border: 1px solid rgba(245, 164, 0, 0.3);
+  border-radius: 4px;
+  background: rgba(245, 164, 0, 0.08);
+  color: #b45309;
+  font: 700 12px Consolas, monospace;
+}
+
+.activity-commit-message {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+

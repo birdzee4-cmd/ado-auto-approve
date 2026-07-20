@@ -509,6 +509,9 @@ function summarizeStatusSnapshot(pr, statuses, autoCompleteOk, policyEvaluations
     buildStatusCount: buildFromBranch ? branchBuild.count : (buildStatuses.length || branchBuild.count),
     buildStatusSource: buildFromBranch ? branchBuild.source : (buildStatuses.length ? 'pr-status' : branchBuild.source),
     buildRunId: buildFromBranch ? branchBuild.id : '',
+    buildNumber: branchBuild.buildNumber || '',
+    commitId: branchBuild.commitId || '',
+    commitMessage: branchBuild.commitMessage || '',
     policyEvaluationCount: evaluations.length
   };
 }
@@ -557,21 +560,35 @@ function summarizeBuildRuns(pr, buildRuns) {
       Date.parse(b.queueTime || b.startTime || b.finishTime) -
       Date.parse(a.queueTime || a.startTime || a.finishTime));
   const latest = relevant[0];
-  if (!latest) return { status: 'no_status', result: 'unknown', url: '', count: 0, source: '', id: '' };
+  if (!latest) {
+    return {
+      status: 'no_status', result: 'unknown', url: '', count: 0, source: '', id: '',
+      buildNumber: '', commitId: '', commitMessage: ''
+    };
+  }
 
   const status = String(latest.status || '').toLowerCase();
   const result = String(latest.result || '').toLowerCase();
   const url = latest._links && latest._links.web && latest._links.web.href || '';
+  const buildDetails = {
+    url,
+    count: relevant.length,
+    source: 'branch-build',
+    id: latest.id || '',
+    buildNumber: latest.buildNumber || '',
+    commitId: latest.sourceVersion || '',
+    commitMessage: latest.triggerInfo && (latest.triggerInfo['ci.message'] || latest.triggerInfo['wip.message']) || ''
+  };
   if (status !== 'completed') {
-    return { status: 'in_progress', result: 'pending', url, count: relevant.length, source: 'branch-build', id: latest.id || '' };
+    return Object.assign({ status: 'in_progress', result: 'pending' }, buildDetails);
   }
   if (result === 'failed' || result === 'error') {
-    return { status: 'completed', result: 'failed', url, count: relevant.length, source: 'branch-build', id: latest.id || '' };
+    return Object.assign({ status: 'completed', result: 'failed' }, buildDetails);
   }
   if (result === 'succeeded' || result === 'success') {
-    return { status: 'completed', result: 'succeeded', url, count: relevant.length, source: 'branch-build', id: latest.id || '' };
+    return Object.assign({ status: 'completed', result: 'succeeded' }, buildDetails);
   }
-  return { status: 'completed', result: result || 'unknown', url, count: relevant.length, source: 'branch-build', id: latest.id || '' };
+  return Object.assign({ status: 'completed', result: result || 'unknown' }, buildDetails);
 }
 
 function summarizePolicyEvaluations(evaluations, statuses) {

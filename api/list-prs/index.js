@@ -518,7 +518,8 @@ async function buildRecentlyApprovedRows(context, options) {
           options.branchBuildCache,
           options.releaseLookupCache,
           options.reviewerGroup,
-          true // skipRelease = true
+          true, // skipRelease = true
+          true  // includeBuildDetails = true for Activity columns
         );
         row.approvedAt = approvalLog.approvedAt;
         row.approvedAction = approvalLog.action;
@@ -827,7 +828,7 @@ function hasExistingVoteLog(existingLogs, event) {
   });
 }
 
-async function getStatusSnapshot(context, adoClient, pr, repositoryId, isMergeCodeTarget, branchBuildCache) {
+async function getStatusSnapshot(context, adoClient, pr, repositoryId, isMergeCodeTarget, branchBuildCache, includeBuildDetails) {
   try {
     if (!repositoryId || !pr || !pr.pullRequestId) {
       return adoClient.summarizeStatusSnapshot(pr, [], isMergeCodeTarget ? null : undefined);
@@ -844,7 +845,9 @@ async function getStatusSnapshot(context, adoClient, pr, repositoryId, isMergeCo
       ? policyResult.body.value
       : [];
     let buildRuns = [];
-    if (!statuses.some(adoClient.isBuildStatus)) {
+    // Activity requires the branch build even when a PR status already supplies
+    // the result/link, because status records omit build number and commit text.
+    if (includeBuildDetails || !statuses.some(adoClient.isBuildStatus)) {
       const buildsResult = await getCachedBuildsForBranch(branchBuildCache, adoClient, repositoryId, pr.targetRefName);
       if (!buildsResult.ok && context && context.log && context.log.warn) {
         context.log.warn('Branch build lookup returned HTTP ' + buildsResult.status + ' for #' + pr.pullRequestId);
@@ -865,19 +868,21 @@ async function getStatusSnapshot(context, adoClient, pr, repositoryId, isMergeCo
 async function getCachedBuildsForBranch(cache, adoClient, repositoryId, branchName) {
   const key = String(repositoryId || '') + '|' + String(branchName || '').toLowerCase();
   const requestCache = cache || {};
-  if (requestCache[key]) return requestCache[key];
-  const result = await adoClient.getBuildsForBranch(repositoryId, branchName, 20);
-  requestCache[key] = result;
-  return result;
+  if (!requestCache[key]) {
+    // Cache the in-flight request too, so parallel Activity rows for the same
+    // repository/branch do not issue duplicate Azure DevOps calls.
+    requestCache[key] = adoClient.getBuildsForBranch(repositoryId, branchName, 20);
+  }
+  return await requestCache[key];
 }
 
-async function buildPrRow(context, pr, currentUser, org, project, branchBuildCache, releaseLookupCache, reviewerGroup, skipRelease = false) {
+async function buildPrRow(context, pr, currentUser, org, project, branchBuildCache, releaseLookupCache, reviewerGroup, skipRelease = false, includeBuildDetails = false) {
   const reviewers = Array.isArray(pr.reviewers) ? pr.reviewers : [];
   const repositoryId = pr.repository && pr.repository.id;
   const isMergeCodeTarget = isMergeCodeBranch(pr.targetRefName);
   const approval = buildApprovalSummary(reviewers);
   const myApproval = buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTarget, reviewerGroup);
-  const statusSnapshot = await getStatusSnapshot(context, ado, pr, repositoryId, isMergeCodeTarget, branchBuildCache);
+  const statusSnapshot = await getStatusSnapshot(context, ado, pr, repositoryId, isMergeCodeTarget, branchBuildCache, includeBuildDetails);
   const releaseApproval = skipRelease
     ? { status: 'skipped', label: 'Release skipped' }
     : await getReleaseApprovalSnapshot(context, pr, statusSnapshot, releaseLookupCache, reviewerGroup);
