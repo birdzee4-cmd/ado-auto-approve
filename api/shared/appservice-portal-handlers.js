@@ -228,7 +228,12 @@ function hasAdminRole(roles) {
 }
 
 function isAdminOnlySetting(name) {
-  return String(name || '').trim().toLowerCase() === 'keyvaultclientsecret';
+  const normalizedName = String(name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/_+/g, '');
+  return normalizedName === 'keyvaultclientsecret' ||
+    normalizedName === 'dockerregistryserverpassword';
 }
 
 function getAppServiceLogErrorDetail(err) {
