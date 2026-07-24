@@ -84,7 +84,7 @@ function renderRecentlyApprovedPage() {
   if (!prs.length) {
     section.hidden = false;
     meta.textContent = 'Last ' + lookbackHours + ' hours by approval log | showing 0 of 0 PRs';
-    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:22px;color:#9ca3af">— No approval log PRs found in the last ' + escapeHtml(lookbackHours) + ' hours —</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:22px;color:#9ca3af">— No approval log PRs found in the last ' + escapeHtml(lookbackHours) + ' hours —</td></tr>';
     if (pager) {
       pager.hidden = true;
       pager.innerHTML = '';

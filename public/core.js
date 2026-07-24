@@ -660,6 +660,7 @@ function renderRecentlyApprovedStatusBadge(pr) {
 function renderRecentlyApprovedRows(tbody, rows) {
   const table = tbody && tbody.closest ? tbody.closest('table') : null;
   const showBuildDetails = !!(table && table.dataset.showBuildDetails === 'true');
+  const isActivityCompact = !!(table && table.dataset.layout === 'activity-compact');
   for (const pr of rows) {
     const tr = document.createElement('tr');
     const statusBadge = renderRecentlyApprovedStatusBadge(pr);
@@ -678,6 +679,43 @@ function renderRecentlyApprovedRows(tbody, rows) {
     const commitHashHtml = commitId
       ? '<span class="activity-commit-hash">[' + escapeHtml(commitId.slice(0, 7)) + ']</span>'
       : '';
+    if (isActivityCompact) {
+      const repo = pr.repository || '-';
+      const createdBy = pr.createdBy || '-';
+      const buildHtml =
+        '<div class="activity-build">' +
+          '<div class="activity-build-ref">' +
+            '<code title="' + escapeHtml(version) + '">' + escapeHtml(version) + '</code>' +
+            commitHashHtml +
+          '</div>' +
+          '<span class="activity-commit-message" title="' + escapeHtml(commitMessage) + '">' + escapeHtml(commitMessage) + '</span>' +
+        '</div>';
+      const detailsHtml =
+        '<div class="activity-pr-details">' +
+          '<span class="activity-pr-title" title="' + escapeHtml(pr.title || '-') + '">' + escapeHtml(pr.title || '-') + '</span>' +
+          '<span class="activity-pr-meta">' +
+            '<span title="Repository: ' + escapeHtml(repo) + '">' + escapeHtml(repo) + '</span>' +
+            '<span aria-hidden="true">·</span>' +
+            '<span title="Created by: ' + escapeHtml(createdBy) + '">By ' + escapeHtml(createdBy) + '</span>' +
+          '</span>' +
+        '</div>';
+      const approvalLogHtml =
+        '<div class="activity-approval-log">' +
+          logSourceBadge +
+          '<time class="activity-log-time" datetime="' + escapeHtml(approvedAt || '') + '">' + formatDate(approvedAt) + '</time>' +
+        '</div>';
+      tr.innerHTML =
+        '<td class="pr-id-cell">' + renderPrIdInline(pr, 'approved') + '</td>' +
+        '<td class="pr-details-cell">' + detailsHtml + '</td>' +
+        '<td class="pr-branch-cell">' + renderBranchCell(pr) + '</td>' +
+        '<td class="pr-build-cell">' + buildHtml + '</td>' +
+        '<td class="pr-status-cell">' + statusBadge + '</td>' +
+        '<td class="pr-release-cell">' + releaseBadge + '</td>' +
+        '<td class="pr-approval-log-cell">' + approvalLogHtml + '</td>' +
+        '<td class="pr-actions-cell">' + actionsHtml + '</td>';
+      tbody.appendChild(tr);
+      continue;
+    }
     const buildDetailsHtml = showBuildDetails
       ? '<td class="pr-version-cell"><code title="' + escapeHtml(version) + '">' + escapeHtml(version) + '</code></td>' +
         '<td class="pr-commit-cell"><div class="activity-commit">' + commitHashHtml +
