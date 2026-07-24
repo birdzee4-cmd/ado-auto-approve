@@ -693,11 +693,8 @@ function renderRecentlyApprovedRows(tbody, rows) {
       const detailsHtml =
         '<div class="activity-pr-details">' +
           '<span class="activity-pr-title" title="' + escapeHtml(pr.title || '-') + '">' + escapeHtml(pr.title || '-') + '</span>' +
-          '<span class="activity-pr-meta">' +
-            '<span title="Repository: ' + escapeHtml(repo) + '">' + escapeHtml(repo) + '</span>' +
-            '<span aria-hidden="true">·</span>' +
-            '<span title="Created by: ' + escapeHtml(createdBy) + '">By ' + escapeHtml(createdBy) + '</span>' +
-          '</span>' +
+          '<span class="activity-pr-repo" title="Repository: ' + escapeHtml(repo) + '">' + escapeHtml(repo) + '</span>' +
+          '<span class="activity-pr-by" title="Created by: ' + escapeHtml(createdBy) + '">By ' + escapeHtml(createdBy) + '</span>' +
         '</div>';
       const approvalLogHtml =
         '<div class="activity-approval-log">' +

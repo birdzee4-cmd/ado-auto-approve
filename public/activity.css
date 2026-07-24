@@ -119,25 +119,25 @@
   white-space: nowrap;
 }
 
-.activity-pr-meta {
-  display: flex;
+.activity-pr-details {
+  gap: 3px;
+}
+
+.activity-pr-repo,
+.activity-pr-by {
+  display: block;
   width: 100%;
   min-width: 0;
-  align-items: center;
-  gap: 5px;
   overflow: hidden;
   color: #7c6a52;
   font-size: 11px;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.activity-pr-meta span:not([aria-hidden]) {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.activity-pr-by {
+  color: #9a815e;
 }
-
-.activity-pr-meta span:first-child { flex: 1 1 auto; }
-.activity-pr-meta span:last-child { flex: 0 1 auto; }
 
 .activity-build-ref {
   display: flex;
