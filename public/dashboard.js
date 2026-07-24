@@ -13,6 +13,7 @@ import {
 
 let currentPrForAction = null;
 let _allPrs = [];
+let _buildSummaryFilter = '';
 let _checkPrsInFlight = false;
 let _autoScanConsecutiveFailures = 0;
 const AUTO_CONSOLE_MAX_ENTRIES = 100;
@@ -398,8 +399,15 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
   let holdCount = 0;
   let votedCount = 0;
   let releaseCount = 0;
+  const buildCounts = {
+    success: 0,
+    failed: 0,
+    running: 0,
+    noData: 0
+  };
 
   for (const pr of prs) {
+    buildCounts[getBuildSummaryCategory(pr)]++;
     if (pr.releaseApproval && pr.releaseApproval.status === 'pending') {
       releaseCount++;
     } else if (isApprovalHeld(pr)) {
@@ -423,6 +431,16 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
     return '<span class="status-badge-custom ' + className + '">' + label + ' <strong>' + safeCount + '</strong></span>';
   };
 
+  const renderBuildSummaryBadge = (key, label, count, className, title) => {
+    const isActive = _buildSummaryFilter === key;
+    return '<button type="button" class="status-badge-custom build-summary-filter ' + className +
+      (isActive ? ' is-active' : '') + '" data-build-filter="' + key +
+      '" aria-pressed="' + (isActive ? 'true' : 'false') +
+      '" title="' + escapeHtml(title) +
+      '" onclick="filterDashboardByBuild(\'' + key + '\')">' +
+      label + ' <strong>' + Number(count || 0) + '</strong></button>';
+  };
+
   let cardsHtml = '';
 
   // 1. Status Card (First)
@@ -430,11 +448,23 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
     '<span class="card-icon">📊</span>' +
     '<div class="card-body">' +
       '<span class="card-label">Status</span>' +
-      '<div class="card-badges">' +
-        '<span class="status-badge-custom badge-blue">New <strong>' + newCount + '</strong></span>' +
-        '<span class="status-badge-custom badge-orange">Hold <strong>' + holdCount + '</strong></span>' +
-        '<span class="status-badge-custom badge-green">Voted <strong>' + votedCount + '</strong></span>' +
-        '<span class="status-badge-custom badge-purple">Release <strong>' + releaseCount + '</strong></span>' +
+      '<div class="summary-status-group">' +
+        '<span class="summary-status-group-label">Workflow</span>' +
+        '<div class="card-badges">' +
+          '<span class="status-badge-custom badge-blue">New <strong>' + newCount + '</strong></span>' +
+          '<span class="status-badge-custom badge-orange">Hold <strong>' + holdCount + '</strong></span>' +
+          '<span class="status-badge-custom badge-green">Voted <strong>' + votedCount + '</strong></span>' +
+          '<span class="status-badge-custom badge-purple">Release <strong>' + releaseCount + '</strong></span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="summary-status-group">' +
+        '<span class="summary-status-group-label">Build</span>' +
+        '<div class="card-badges">' +
+          renderBuildSummaryBadge('success', '✓ Success', buildCounts.success, 'badge-green', 'PRs whose latest build succeeded') +
+          renderBuildSummaryBadge('failed', '✕ Failed', buildCounts.failed, 'badge-red', 'PRs whose latest build failed or completed unsuccessfully') +
+          renderBuildSummaryBadge('running', '⏳ Running', buildCounts.running, 'badge-orange', 'PRs whose latest build is still running') +
+          renderBuildSummaryBadge('noData', '○ No Data', buildCounts.noData, 'badge-slate', 'PRs without a recognized latest build status') +
+        '</div>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -472,8 +502,37 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
 }
 
 
-function renderPrTable(prs) {
-  _allPrs = prs || [];
+function getBuildSummaryCategory(pr) {
+  const snapshot = pr && pr.statusSnapshot || {};
+  const buildResult = String(snapshot.buildResult || 'unknown').toLowerCase();
+  const buildStatus = String(snapshot.buildStatus || 'unknown').toLowerCase();
+  if (buildResult === 'succeeded' || buildResult === 'success') return 'success';
+  if (buildResult === 'failed' || buildResult === 'error' ||
+      buildResult === 'canceled' || buildResult === 'partiallysucceeded') return 'failed';
+  if (buildResult === 'pending' || buildStatus === 'in_progress' ||
+      buildStatus === 'not_started' || buildStatus === 'notstarted') return 'running';
+  return 'noData';
+}
+
+function getBuildSummaryLabel(category) {
+  return { success: 'Success', failed: 'Failed', running: 'Running', noData: 'No Data' }[category] || category;
+}
+
+window.filterDashboardByBuild = function(category) {
+  _buildSummaryFilter = _buildSummaryFilter === category ? '' : category;
+  document.querySelectorAll('.build-summary-filter').forEach(button => {
+    const isActive = button.dataset.buildFilter === _buildSummaryFilter;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+  });
+  renderPrTable(_allPrs, true);
+};
+
+function renderPrTable(prs, preserveAllPrs) {
+  if (!preserveAllPrs) _allPrs = prs || [];
+  const displayedPrs = _buildSummaryFilter
+    ? _allPrs.filter(pr => getBuildSummaryCategory(pr) === _buildSummaryFilter)
+    : _allPrs;
   window._prCache = {};
 
   // Populate cache first
@@ -494,8 +553,8 @@ function renderPrTable(prs) {
   }
 
   // Split PRs into PR Queue and Release Queue
-  const prQueue = _allPrs.filter(pr => !(pr.releaseApproval && pr.releaseApproval.status === 'pending'));
-  const releaseQueue = _allPrs.filter(pr => pr.releaseApproval && pr.releaseApproval.status === 'pending');
+  const prQueue = displayedPrs.filter(pr => !(pr.releaseApproval && pr.releaseApproval.status === 'pending'));
+  const releaseQueue = displayedPrs.filter(pr => pr.releaseApproval && pr.releaseApproval.status === 'pending');
 
   // Update Badges
   setText('prQueueBadge', prQueue.length);
@@ -552,7 +611,8 @@ function updateTabVisibility() {
 }
 
 function renderPrQueueTable(prs) {
-  document.getElementById('prMeta').textContent = prs.length + ' items';
+  document.getElementById('prMeta').textContent = prs.length + ' items' +
+    (_buildSummaryFilter ? ' · Build: ' + getBuildSummaryLabel(_buildSummaryFilter) : '');
   const tbody = document.getElementById('prTableBody');
   tbody.innerHTML = '';
 
@@ -594,7 +654,8 @@ function renderPrQueueTable(prs) {
 }
 
 function renderReleaseQueueTable(prs) {
-  document.getElementById('releaseMeta').textContent = prs.length + ' items';
+  document.getElementById('releaseMeta').textContent = prs.length + ' items' +
+    (_buildSummaryFilter ? ' · Build: ' + getBuildSummaryLabel(_buildSummaryFilter) : '');
   const tbody = document.getElementById('releaseTableBody');
   tbody.innerHTML = '';
 
@@ -2061,4 +2122,3 @@ async function evaluateAutoApprovals(prs) {
     await checkPrs();
   }
 })();
-
