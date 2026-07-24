@@ -2263,7 +2263,7 @@
   font-size: 13px;
   font-weight: 700;
   color: #4b5563;
-  max-width: 520px;
+  max-width: 720px;
 }
 
 .auto-session-stats[hidden] {
@@ -2287,6 +2287,18 @@
   background: #f5f3ff;
   color: #6d28d9;
   border: 1px solid #ddd6fe;
+}
+
+.stat-badge.stat-build-success {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.stat-badge.stat-build-failed {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
 }
 
 .auto-fetched-meta {
@@ -2768,33 +2780,6 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 3px 10px rgba(180, 130, 0, 0.05);
   transition: all 0.3s ease;
 }
-.summary-card-status {
-  align-items: flex-start;
-}
-
-.summary-card-status .card-body {
-  width: 100%;
-  gap: 7px;
-}
-
-.summary-status-group {
-  display: flex;
-  min-width: 0;
-  align-items: flex-start;
-  gap: 7px;
-}
-
-.summary-status-group-label {
-  flex: 0 0 56px;
-  padding-top: 5px;
-  color: #7c6a52;
-  font-size: 9px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: 0.45px;
-  text-transform: uppercase;
-}
-
 .summary-card:hover {
   transform: translateY(-1px);
   box-shadow: 0 7px 16px rgba(180, 130, 0, 0.1);
@@ -2908,37 +2893,6 @@ h1, h2, h3, h4, h5, h6 {
   flex-wrap: wrap;
   gap: 5px;
   margin-top: 2px;
-}
-
-button.build-summary-filter {
-  cursor: pointer;
-  font-family: inherit;
-}
-
-button.build-summary-filter:hover {
-  filter: brightness(0.97);
-  transform: translateY(-1px);
-}
-
-button.build-summary-filter:focus-visible {
-  outline: 2px solid #2563eb;
-  outline-offset: 2px;
-}
-
-button.build-summary-filter.is-active {
-  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px currentColor;
-}
-
-@media (max-width: 640px) {
-  .summary-status-group {
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .summary-status-group-label {
-    flex-basis: auto;
-    padding-top: 0;
-  }
 }
 
 /* Badge colors */

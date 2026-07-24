@@ -13,7 +13,6 @@ import {
 
 let currentPrForAction = null;
 let _allPrs = [];
-let _buildSummaryFilter = '';
 let _checkPrsInFlight = false;
 let _autoScanConsecutiveFailures = 0;
 const AUTO_CONSOLE_MAX_ENTRIES = 100;
@@ -399,15 +398,8 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
   let holdCount = 0;
   let votedCount = 0;
   let releaseCount = 0;
-  const buildCounts = {
-    success: 0,
-    failed: 0,
-    running: 0,
-    noData: 0
-  };
 
   for (const pr of prs) {
-    buildCounts[getBuildSummaryCategory(pr)]++;
     if (pr.releaseApproval && pr.releaseApproval.status === 'pending') {
       releaseCount++;
     } else if (isApprovalHeld(pr)) {
@@ -431,16 +423,6 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
     return '<span class="status-badge-custom ' + className + '">' + label + ' <strong>' + safeCount + '</strong></span>';
   };
 
-  const renderBuildSummaryBadge = (key, label, count, className, title) => {
-    const isActive = _buildSummaryFilter === key;
-    return '<button type="button" class="status-badge-custom build-summary-filter ' + className +
-      (isActive ? ' is-active' : '') + '" data-build-filter="' + key +
-      '" aria-pressed="' + (isActive ? 'true' : 'false') +
-      '" title="' + escapeHtml(title) +
-      '" onclick="filterDashboardByBuild(\'' + key + '\')">' +
-      label + ' <strong>' + Number(count || 0) + '</strong></button>';
-  };
-
   let cardsHtml = '';
 
   // 1. Status Card (First)
@@ -448,23 +430,11 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
     '<span class="card-icon">📊</span>' +
     '<div class="card-body">' +
       '<span class="card-label">Status</span>' +
-      '<div class="summary-status-group">' +
-        '<span class="summary-status-group-label">Workflow</span>' +
-        '<div class="card-badges">' +
-          '<span class="status-badge-custom badge-blue">New <strong>' + newCount + '</strong></span>' +
-          '<span class="status-badge-custom badge-orange">Hold <strong>' + holdCount + '</strong></span>' +
-          '<span class="status-badge-custom badge-green">Voted <strong>' + votedCount + '</strong></span>' +
-          '<span class="status-badge-custom badge-purple">Release <strong>' + releaseCount + '</strong></span>' +
-        '</div>' +
-      '</div>' +
-      '<div class="summary-status-group">' +
-        '<span class="summary-status-group-label">Build</span>' +
-        '<div class="card-badges">' +
-          renderBuildSummaryBadge('success', '✓ Success', buildCounts.success, 'badge-green', 'PRs whose latest build succeeded') +
-          renderBuildSummaryBadge('failed', '✕ Failed', buildCounts.failed, 'badge-red', 'PRs whose latest build failed or completed unsuccessfully') +
-          renderBuildSummaryBadge('running', '⏳ Running', buildCounts.running, 'badge-orange', 'PRs whose latest build is still running') +
-          renderBuildSummaryBadge('noData', '○ No Data', buildCounts.noData, 'badge-slate', 'PRs without a recognized latest build status') +
-        '</div>' +
+      '<div class="card-badges">' +
+        '<span class="status-badge-custom badge-blue">New <strong>' + newCount + '</strong></span>' +
+        '<span class="status-badge-custom badge-orange">Hold <strong>' + holdCount + '</strong></span>' +
+        '<span class="status-badge-custom badge-green">Voted <strong>' + votedCount + '</strong></span>' +
+        '<span class="status-badge-custom badge-purple">Release <strong>' + releaseCount + '</strong></span>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -502,37 +472,8 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
 }
 
 
-function getBuildSummaryCategory(pr) {
-  const snapshot = pr && pr.statusSnapshot || {};
-  const buildResult = String(snapshot.buildResult || 'unknown').toLowerCase();
-  const buildStatus = String(snapshot.buildStatus || 'unknown').toLowerCase();
-  if (buildResult === 'succeeded' || buildResult === 'success') return 'success';
-  if (buildResult === 'failed' || buildResult === 'error' ||
-      buildResult === 'canceled' || buildResult === 'partiallysucceeded') return 'failed';
-  if (buildResult === 'pending' || buildStatus === 'in_progress' ||
-      buildStatus === 'not_started' || buildStatus === 'notstarted') return 'running';
-  return 'noData';
-}
-
-function getBuildSummaryLabel(category) {
-  return { success: 'Success', failed: 'Failed', running: 'Running', noData: 'No Data' }[category] || category;
-}
-
-window.filterDashboardByBuild = function(category) {
-  _buildSummaryFilter = _buildSummaryFilter === category ? '' : category;
-  document.querySelectorAll('.build-summary-filter').forEach(button => {
-    const isActive = button.dataset.buildFilter === _buildSummaryFilter;
-    button.classList.toggle('is-active', isActive);
-    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-  });
-  renderPrTable(_allPrs, true);
-};
-
-function renderPrTable(prs, preserveAllPrs) {
-  if (!preserveAllPrs) _allPrs = prs || [];
-  const displayedPrs = _buildSummaryFilter
-    ? _allPrs.filter(pr => getBuildSummaryCategory(pr) === _buildSummaryFilter)
-    : _allPrs;
+function renderPrTable(prs) {
+  _allPrs = prs || [];
   window._prCache = {};
 
   // Populate cache first
@@ -553,8 +494,8 @@ function renderPrTable(prs, preserveAllPrs) {
   }
 
   // Split PRs into PR Queue and Release Queue
-  const prQueue = displayedPrs.filter(pr => !(pr.releaseApproval && pr.releaseApproval.status === 'pending'));
-  const releaseQueue = displayedPrs.filter(pr => pr.releaseApproval && pr.releaseApproval.status === 'pending');
+  const prQueue = _allPrs.filter(pr => !(pr.releaseApproval && pr.releaseApproval.status === 'pending'));
+  const releaseQueue = _allPrs.filter(pr => pr.releaseApproval && pr.releaseApproval.status === 'pending');
 
   // Update Badges
   setText('prQueueBadge', prQueue.length);
@@ -611,8 +552,7 @@ function updateTabVisibility() {
 }
 
 function renderPrQueueTable(prs) {
-  document.getElementById('prMeta').textContent = prs.length + ' items' +
-    (_buildSummaryFilter ? ' · Build: ' + getBuildSummaryLabel(_buildSummaryFilter) : '');
+  document.getElementById('prMeta').textContent = prs.length + ' items';
   const tbody = document.getElementById('prTableBody');
   tbody.innerHTML = '';
 
@@ -654,8 +594,7 @@ function renderPrQueueTable(prs) {
 }
 
 function renderReleaseQueueTable(prs) {
-  document.getElementById('releaseMeta').textContent = prs.length + ' items' +
-    (_buildSummaryFilter ? ' · Build: ' + getBuildSummaryLabel(_buildSummaryFilter) : '');
+  document.getElementById('releaseMeta').textContent = prs.length + ' items';
   const tbody = document.getElementById('releaseTableBody');
   tbody.innerHTML = '';
 
@@ -1468,6 +1407,10 @@ window._autoPollerInterval = null;
 window._autoCountdownInterval = null;
 window._autoPrApprovedCount = 0;
 window._autoReleaseApprovedCount = 0;
+window._autoBuildSuccessCount = 0;
+window._autoBuildFailedCount = 0;
+window._autoCountedBuilds = new Set();
+window._autoBuildBaselineReady = false;
 window._processingAutoApprovals = {};
 window._autoCompletedPrApprovals = loadAutoPrApprovalSet();
 
@@ -1496,6 +1439,76 @@ function resetAutoPrApprovalMemory() {
   sessionStorage.removeItem('autoCompletedPrApprovals');
 }
 
+function resetAutoBuildStats() {
+  window._autoBuildSuccessCount = 0;
+  window._autoBuildFailedCount = 0;
+  window._autoCountedBuilds = new Set();
+  window._autoBuildBaselineReady = false;
+  sessionStorage.removeItem('autoBuildSuccessCount');
+  sessionStorage.removeItem('autoBuildFailedCount');
+  sessionStorage.removeItem('autoCountedBuilds');
+}
+
+function getAutoBuildOutcome(pr) {
+  const snapshot = pr && pr.statusSnapshot || {};
+  const result = String(snapshot.buildResult || '').toLowerCase();
+  if (result === 'succeeded' || result === 'success') return 'success';
+  if (result === 'failed' || result === 'error' || result === 'canceled' || result === 'partiallysucceeded') return 'failed';
+  return '';
+}
+
+function getAutoBuildSessionKey(pr) {
+  const snapshot = pr && pr.statusSnapshot || {};
+  const runId = String(snapshot.buildRunId || '').trim();
+  if (runId) return 'run:' + runId;
+
+  const buildUrl = String(snapshot.adoBuildUrl || '').trim();
+  const urlMatch = buildUrl.match(/[?&]buildId=(\d+)/i) || buildUrl.match(/\/build\/results\?buildId=(\d+)/i);
+  if (urlMatch) return 'run:' + urlMatch[1];
+
+  const buildNumber = String(snapshot.buildNumber || '').trim();
+  if (buildNumber) return 'pr:' + String(pr && pr.id || '') + '|number:' + buildNumber;
+  if (buildUrl) return 'pr:' + String(pr && pr.id || '') + '|url:' + buildUrl;
+
+  const prId = String(pr && pr.id || '').trim();
+  const outcome = getAutoBuildOutcome(pr);
+  return prId && outcome ? 'pr:' + prId + '|outcome:' + outcome : '';
+}
+
+function trackAutoSessionBuilds(prs) {
+  if (window._autoMode !== 'active') return;
+  const builds = [];
+
+  for (const pr of Array.isArray(prs) ? prs : []) {
+    const outcome = getAutoBuildOutcome(pr);
+    if (!outcome) continue;
+    const key = getAutoBuildSessionKey(pr);
+    if (key) builds.push({ key, outcome });
+  }
+
+  if (!window._autoBuildBaselineReady) {
+    builds.forEach(build => window._autoCountedBuilds.add(build.key));
+    window._autoBuildBaselineReady = true;
+    sessionStorage.setItem('autoCountedBuilds', JSON.stringify(Array.from(window._autoCountedBuilds)));
+    return;
+  }
+
+  let changed = false;
+  for (const build of builds) {
+    if (window._autoCountedBuilds.has(build.key)) continue;
+    window._autoCountedBuilds.add(build.key);
+    if (build.outcome === 'success') window._autoBuildSuccessCount += 1;
+    else window._autoBuildFailedCount += 1;
+    changed = true;
+  }
+
+  if (!changed) return;
+  sessionStorage.setItem('autoBuildSuccessCount', window._autoBuildSuccessCount);
+  sessionStorage.setItem('autoBuildFailedCount', window._autoBuildFailedCount);
+  sessionStorage.setItem('autoCountedBuilds', JSON.stringify(Array.from(window._autoCountedBuilds)));
+  updateStatsUI();
+}
+
 async function initAutoApprove() {
   const panel = document.getElementById('autoApprovePanel');
   if (!panel) return;
@@ -1519,6 +1532,7 @@ async function initAutoApprove() {
     sessionStorage.removeItem('autoPrApprovedCount');
     sessionStorage.removeItem('autoReleaseApprovedCount');
     resetAutoPrApprovalMemory();
+    resetAutoBuildStats();
     window._autoPrApprovedCount = 0;
     window._autoReleaseApprovedCount = 0;
 
@@ -1670,6 +1684,7 @@ window.changeAutoMode = async function(mode) {
       sessionStorage.removeItem('autoPrApprovedCount');
       sessionStorage.removeItem('autoReleaseApprovedCount');
       resetAutoPrApprovalMemory();
+      resetAutoBuildStats();
       window._autoPrApprovedCount = 0;
       window._autoReleaseApprovedCount = 0;
     } else {
@@ -1677,6 +1692,7 @@ window.changeAutoMode = async function(mode) {
         window._autoPrApprovedCount = 0;
         window._autoReleaseApprovedCount = 0;
         resetAutoPrApprovalMemory();
+        resetAutoBuildStats();
         sessionStorage.setItem('autoPrApprovedCount', 0);
         sessionStorage.setItem('autoReleaseApprovedCount', 0);
         updateStatsUI();
@@ -1780,6 +1796,7 @@ async function handleAutoExpiry() {
   sessionStorage.removeItem('autoPrApprovedCount');
   sessionStorage.removeItem('autoReleaseApprovedCount');
   resetAutoPrApprovalMemory();
+  resetAutoBuildStats();
   window._autoPrApprovedCount = 0;
   window._autoReleaseApprovedCount = 0;
 
@@ -1790,8 +1807,12 @@ async function handleAutoExpiry() {
 function updateStatsUI() {
   const prEl = document.getElementById('autoPrCount');
   const relEl = document.getElementById('autoReleaseCount');
+  const buildSuccessEl = document.getElementById('autoBuildSuccessCount');
+  const buildFailedEl = document.getElementById('autoBuildFailedCount');
   if (prEl) prEl.textContent = window._autoPrApprovedCount;
   if (relEl) relEl.textContent = window._autoReleaseApprovedCount;
+  if (buildSuccessEl) buildSuccessEl.textContent = window._autoBuildSuccessCount;
+  if (buildFailedEl) buildFailedEl.textContent = window._autoBuildFailedCount;
 }
 
 function writeToAutoConsole(message, type) {
@@ -1957,6 +1978,7 @@ function getAutoApprovalReadyNote(pr) {
 async function evaluateAutoApprovals(prs) {
   if (!window._autoMode || window._autoMode === 'normal') return;
   const list = Array.isArray(prs) ? prs : [];
+  trackAutoSessionBuilds(list);
 
   const prEligibility = list.map(pr => ({ pr, result: getAutoPrEligibility(pr) }));
   const eligiblePrs = prEligibility
