@@ -390,14 +390,6 @@ async function buildRecentlyApprovedRows(context, options) {
     uniquePrs: 0,
     skipped: 0
   };
-  const currentUser = options.currentUser || {};
-  const identities = Array.isArray(currentUser.identities) ? currentUser.identities : [];
-  if (identities.length === 0) {
-    meta.ok = false;
-    meta.error = 'Current user identity is not available';
-    return { rows: [], meta: meta };
-  }
-
   let sp;
   try {
     sp = require('../shared/sharepoint-client');
@@ -433,7 +425,6 @@ async function buildRecentlyApprovedRows(context, options) {
     const prId = parseInt(fields.PR_ID, 10);
     if (!Number.isFinite(prId) || prId <= 0) continue;
     if (!isApprovedLogAction(fields.Action)) continue;
-    if (!identityMatches(fields.User, identities)) continue;
 
     const createdAt = item.createdDateTime || item.lastModifiedDateTime || fields.Last_Checked_At || '';
     const createdTime = Date.parse(createdAt);
@@ -500,7 +491,7 @@ async function buildRecentlyApprovedRows(context, options) {
         }
         const pr = prResult.body;
         const targetRef = String(pr.targetRefName || '').toLowerCase();
-        if (!(targetRef.startsWith(options.stagingPrefix) || isMergeCodeBranch(targetRef))) {
+        if (!targetRef.startsWith(options.stagingPrefix)) {
           meta.skipped += 1;
           return null;
         }
@@ -610,12 +601,6 @@ function matchesActivityStatus(row, statusFilter) {
 function isApprovedLogAction(action) {
   const text = String(action || '').toLowerCase();
   return text.includes('approved');
-}
-
-function identityMatches(value, identities) {
-  const normalized = normalizeIdentity(value);
-  if (!normalized) return false;
-  return identities.some(identity => identity === normalized);
 }
 
 function compareApprovedRows(a, b) {
