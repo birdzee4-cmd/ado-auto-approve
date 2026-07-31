@@ -229,6 +229,7 @@ function handleFormSecondaryAction() {
   if (hasUnsavedChanges && !window.confirm('You have unsaved changes. Do you want to leave without saving?')) return;
   resetForm();
   showView('records');
+}
 
 const masterDefinitions = {
   'projects-main-sort': { label: 'Project Main Sort', field: 'projectsMainSort', placeholder: 'Select Project Main Sort' },
