@@ -468,7 +468,7 @@ function openSearchableSelect(id) {
   const entry = searchableSelects.get(id);
   if (!entry || entry.input.disabled) return;
   searchableSelects.forEach((other, otherId) => { if (otherId !== id) closeSearchableSelect(otherId); });
-  renderSearchableOptions(id, entry.input.value);
+  renderSearchableOptions(id, '');
   entry.menu.hidden = false;
   entry.input.setAttribute('aria-expanded', 'true');
 }
