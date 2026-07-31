@@ -211,7 +211,6 @@ async function syncCounterFromJobNo(jobNo) {
   }
 }
 
-async function writeAudit(action, deployment, before, after, user, options) {
 async function syncCountersFromJobNos(jobNos) {
   const maxima = new Map();
   (jobNos || []).forEach(jobNo => {
@@ -227,6 +226,7 @@ async function syncCountersFromJobNos(jobNos) {
   return maxima.size;
 }
 
+async function writeAudit(action, deployment, before, after, user, options) {
   const audit = await clientFor('auditTable');
   const now = new Date().toISOString();
   const entity = {
