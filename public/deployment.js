@@ -12,6 +12,7 @@ async function api(url, options) {
 }
 
 async function init() {
+  enhanceSearchableSelects();
   bindNavigation();
   bindForms();
   const auth = await api('/.auth/me');
@@ -70,6 +71,7 @@ function updateConditionalFields() {
   const rollback = !mobile && ['🔄 Success with Issue (RB)', '🔄 Rolled Back'].includes($('deployResult').value);
   document.querySelectorAll('.rollback-field').forEach(el => { el.hidden = !rollback; });
   document.querySelectorAll('.result-section').forEach(el => { el.hidden = $('lifecycleStatus').value === 'Planned'; });
+  syncSearchableSelects();
 }
 
 async function loadDashboard() {
@@ -92,7 +94,7 @@ function renderCompactList(id, records) {
   $(id).innerHTML = (records || []).length ? records.map(item =>
     `<div class="compact-row"><strong>${escapeHtml(item.jobNo || 'Pending Job No.')}` +
     `<br><small>${escapeHtml(item.project || '-')}</small></strong>` +
-    `<span>${escapeHtml(formatDate(item.plannedDeployAt))}<br>${escapeHtml(item.lifecycleStatus || '')}</span></div>`
+    `<span>${escapeHtml(formatDeploymentDate(item.plannedDeployAt))}<br>${escapeHtml(item.lifecycleStatus || '')}</span></div>`
   ).join('') : '<p>No deployments found.</p>';
 }
 
@@ -104,7 +106,7 @@ async function loadRecords() {
     const data = await api('/api/deployments?' + params);
     state.records = data.deployments || [];
     $('recordsBody').innerHTML = state.records.length ? state.records.map(item =>
-      `<tr><td><strong>${escapeHtml(item.jobNo)}</strong></td><td>${escapeHtml(formatDate(item.plannedDeployAt))}</td>` +
+      `<tr><td><strong>${escapeHtml(item.jobNo)}</strong></td><td>${escapeHtml(formatDeploymentDate(item.plannedDeployAt))}</td>` +
       `<td>${escapeHtml(item.taskId)}</td><td>${escapeHtml(item.project)}</td>` +
       `<td>${item.category === 'mobile' ? 'Mobile' : 'Web / Service'}</td>` +
       `<td><span class="status-pill">${escapeHtml(item.lifecycleStatus)}</span></td><td>${escapeHtml(item.deployResult || '-')}</td>` +
@@ -130,8 +132,8 @@ async function editDeployment(id) {
     fields.forEach(field => { if ($(field)) $(field).value = item[field] || ''; });
     $('deploymentId').value = item.id;
     $('deploymentEtag').value = item.etag;
-    $('plannedDeployAt').value = toLocalInput(item.plannedDeployAt);
-    $('actualDeployAt').value = toLocalInput(item.actualDeployAt);
+    $('plannedDeployAt').value = toDateInput(item.plannedDeployAt);
+    $('actualDeployAt').value = toDateInput(item.actualDeployAt);
     $('swapBackAt').value = toLocalInput(item.swapBackAt);
     $('formTitle').textContent = 'Update Deployment';
     $('jobNoBadge').textContent = item.jobNo;
@@ -205,6 +207,7 @@ function resetForm() {
   $('category').value = 'web-service';
   $('sourceType').value = 'Get';
   $('formWarnings').hidden = true;
+  syncSearchableSelects();
   setDefaultDate();
   updateConditionalFields();
 }
@@ -234,6 +237,7 @@ function renderDeploymentMasterOptions() {
       items.map(item => `<option value="${escapeHtml(item.value)}">${escapeHtml(item.value)}</option>`).join('');
     ensureSelectValue(definition.field, selected);
     select.value = selected;
+    refreshSearchableSelect(definition.field);
   });
 }
 
@@ -274,6 +278,7 @@ function editMaster(type, id) {
   $('saveMaster').textContent = 'Save Changes';
   $('cancelMasterEdit').hidden = false;
   $('masterValue').focus();
+  refreshSearchableSelect('masterType');
 }
 
 function resetMasterEditor() {
@@ -283,6 +288,7 @@ function resetMasterEditor() {
   $('masterType').disabled = false;
   $('saveMaster').textContent = 'Add Value';
   $('cancelMasterEdit').hidden = true;
+  refreshSearchableSelect('masterType');
 }
 
 async function saveMaster(event) {
@@ -364,12 +370,140 @@ function notice(message, error) {
   window.setTimeout(() => { $('pageNotice').hidden = true; }, 7000);
 }
 
-function setDefaultDate() {
-  if (!$('plannedDeployAt').value) {
-    const date = new Date(Date.now() + 60 * 60 * 1000);
-    date.setMinutes(Math.ceil(date.getMinutes() / 15) * 15, 0, 0);
-    $('plannedDeployAt').value = toLocalInput(date.toISOString());
+const searchableSelects = new Map();
+
+function enhanceSearchableSelects() {
+  document.querySelectorAll('select').forEach(select => {
+    if (!select.id || searchableSelects.has(select.id)) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'searchable-select';
+    const input = document.createElement('input');
+    input.className = 'searchable-select-input';
+    input.autocomplete = 'off';
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-expanded', 'false');
+    const menu = document.createElement('div');
+    menu.className = 'searchable-select-menu';
+    menu.hidden = true;
+    select.parentNode.insertBefore(wrapper, select);
+    wrapper.append(input, menu, select);
+    select.classList.add('searchable-native');
+    input.required = select.required;
+    select.required = false;
+    searchableSelects.set(select.id, { select, input, menu });
+
+    input.addEventListener('focus', () => openSearchableSelect(select.id));
+    input.addEventListener('click', () => openSearchableSelect(select.id));
+    input.addEventListener('input', () => {
+      const options = Array.from(select.options).filter(option => option.value);
+      const exact = options.find(option =>
+        option.textContent.trim().toLowerCase() === input.value.trim().toLowerCase() ||
+        option.value.toLowerCase() === input.value.trim().toLowerCase());
+      select.value = exact ? exact.value : '';
+      input.setCustomValidity(input.value && !exact ? 'Please select a value from the list.' : '');
+      renderSearchableOptions(select.id, input.value);
+    });
+    input.addEventListener('keydown', event => {
+      if (event.key === 'Escape') closeSearchableSelect(select.id);
+      if (event.key === 'Enter' && !menu.hidden) {
+        const first = menu.querySelector('button');
+        if (first) {
+          event.preventDefault();
+          first.click();
+        }
+      }
+    });
+    input.addEventListener('blur', () => window.setTimeout(() => {
+      closeSearchableSelect(select.id);
+      const selected = select.options[select.selectedIndex];
+      if (!selected || !selected.value) {
+        if (input.value) input.setCustomValidity('Please select a value from the list.');
+      }
+    }, 120));
+    select.addEventListener('change', () => refreshSearchableSelect(select.id));
+    refreshSearchableSelect(select.id);
+  });
+
+  document.addEventListener('click', event => {
+    searchableSelects.forEach((entry, id) => {
+      if (!entry.input.parentElement.contains(event.target)) closeSearchableSelect(id);
+    });
+  });
+}
+
+function renderSearchableOptions(id, query) {
+  const entry = searchableSelects.get(id);
+  if (!entry) return;
+  const needle = String(query || '').trim().toLowerCase();
+  const options = Array.from(entry.select.options)
+    .filter(option => option.value && (!needle ||
+      option.textContent.toLowerCase().includes(needle) || option.value.toLowerCase().includes(needle)))
+    .slice(0, 100);
+  entry.menu.innerHTML = '';
+  options.forEach(option => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = option.textContent;
+    button.dataset.value = option.value;
+    button.addEventListener('mousedown', event => event.preventDefault());
+    button.addEventListener('click', () => {
+      entry.select.value = option.value;
+      entry.input.value = option.textContent;
+      entry.input.setCustomValidity('');
+      closeSearchableSelect(id);
+      entry.select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    entry.menu.appendChild(button);
+  });
+  if (!options.length) {
+    const empty = document.createElement('span');
+    empty.className = 'searchable-select-empty';
+    empty.textContent = 'No matching options';
+    entry.menu.appendChild(empty);
   }
+}
+
+function openSearchableSelect(id) {
+  const entry = searchableSelects.get(id);
+  if (!entry || entry.input.disabled) return;
+  searchableSelects.forEach((other, otherId) => { if (otherId !== id) closeSearchableSelect(otherId); });
+  renderSearchableOptions(id, entry.input.value);
+  entry.menu.hidden = false;
+  entry.input.setAttribute('aria-expanded', 'true');
+}
+
+function closeSearchableSelect(id) {
+  const entry = searchableSelects.get(id);
+  if (!entry) return;
+  entry.menu.hidden = true;
+  entry.input.setAttribute('aria-expanded', 'false');
+}
+
+function refreshSearchableSelect(id) {
+  const entry = searchableSelects.get(id);
+  if (!entry) return;
+  const selected = entry.select.options[entry.select.selectedIndex];
+  entry.input.value = selected && selected.value ? selected.textContent : '';
+  const placeholder = Array.from(entry.select.options).find(option => !option.value);
+  entry.input.placeholder = placeholder ? placeholder.textContent : 'Search and select';
+  entry.input.disabled = entry.select.disabled;
+  entry.input.setCustomValidity('');
+}
+
+function syncSearchableSelects() {
+  searchableSelects.forEach((entry, id) => refreshSearchableSelect(id));
+}
+function setDefaultDate() {
+  const today = localDateValue(new Date());
+  if (!$('plannedDeployAt').value) $('plannedDeployAt').value = today;
+  if (!$('actualDeployAt').value) $('actualDeployAt').value = today;
+}
+
+function toDateInput(value) { return value ? localDateValue(new Date(value)) : ''; }
+function localDateValue(date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
 }
 
 function toLocalInput(value) {
@@ -381,6 +515,7 @@ function toLocalInput(value) {
 
 function localToIso(value) { return value ? new Date(value).toISOString() : ''; }
 function formatDate(value) { return value ? new Date(value).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '-'; }
+function formatDeploymentDate(value) { return value ? new Date(value).toLocaleDateString('th-TH', { dateStyle: 'medium' }) : '-'; }
 function fileToBase64(file) { return file.arrayBuffer().then(buffer => {
   const bytes = new Uint8Array(buffer); let binary = '';
   for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));

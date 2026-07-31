@@ -55,5 +55,12 @@
 .master-actions { display:flex; gap:8px; }.master-toolbar { margin-bottom:15px; padding:14px 20px; }.master-toolbar label { max-width:300px; }
 .status-pill.active { background:#dcfce7; color:#166534; }.status-pill.inactive { background:#fee2e2; color:#991b1b; }
 .import-card p { color:#6b7280; font-size:13px; }.import-card pre { max-height:260px; overflow:auto; padding:12px; background:#111827; color:#f9fafb; border-radius:7px; }
+.searchable-select { position:relative; min-width:0; }
+.searchable-select-input { padding-right:34px !important; background:#fff linear-gradient(45deg,transparent 50%,#5b4b24 50%) calc(100% - 15px) 17px/5px 5px no-repeat !important; }
+.searchable-native { position:absolute !important; width:1px !important; height:1px !important; min-height:0 !important; padding:0 !important; opacity:0; pointer-events:none; }
+.searchable-select-menu { position:absolute; z-index:50; top:calc(100% + 4px); left:0; right:0; max-height:240px; overflow:auto; padding:5px; background:#fff; border:1px solid #d8cda8; border-radius:7px; box-shadow:0 12px 28px rgba(17,24,39,.18); }
+.searchable-select-menu button { display:block; width:100%; padding:9px 10px; border:0; border-radius:5px; background:#fff; color:#111827; text-align:left; cursor:pointer; }
+.searchable-select-menu button:hover,.searchable-select-menu button:focus { background:#fff3c4; outline:none; }
+.searchable-select-empty { display:block; padding:10px; color:#6b7280; font-size:12px; }
 @media(max-width:980px){.deployment-kpis{grid-template-columns:repeat(2,1fr)}.form-grid{grid-template-columns:repeat(2,1fr)}.filter-grid,.export-panel{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:720px){.deployment-page{grid-template-columns:1fr}.deployment-sidebar{position:static;min-height:auto;display:flex;overflow:auto;padding:10px}.deployment-nav{min-width:max-content;margin:0 5px 0 0}.deployment-content{padding:18px 12px}.deployment-two-column,.form-grid,.filter-grid,.export-panel,.master-form{grid-template-columns:1fr}.deployment-heading{align-items:flex-start;flex-direction:column}.deployment-kpis{grid-template-columns:1fr 1fr}}
