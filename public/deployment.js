@@ -29,7 +29,10 @@ async function init() {
 }
 
 function bindNavigation() {
-  document.querySelectorAll('.deployment-nav').forEach(button => button.addEventListener('click', () => showView(button.dataset.view)));
+  document.querySelectorAll('.deployment-nav').forEach(button => button.addEventListener('click', () => {
+    if (button.dataset.view === 'form') resetForm();
+    showView(button.dataset.view);
+  }));
   document.querySelectorAll('[data-open-form]').forEach(button => button.addEventListener('click', () => {
     resetForm();
     showView('form');

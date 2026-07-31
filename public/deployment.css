@@ -56,6 +56,13 @@
 .status-pill.active { background:#dcfce7; color:#166534; }.status-pill.inactive { background:#fee2e2; color:#991b1b; }
 .import-card p { color:#6b7280; font-size:13px; }.import-card pre { max-height:260px; overflow:auto; padding:12px; background:#111827; color:#f9fafb; border-radius:7px; }
 .searchable-select { position:relative; min-width:0; }
+@media(min-width:981px){
+  .plan-job-status{grid-column:1;grid-row:1}.plan-category{grid-column:2;grid-row:1}.plan-task-id{grid-column:3;grid-row:1}
+  .plan-planned-date{grid-column:1;grid-row:2}.plan-actual-date{grid-column:2;grid-row:2}
+  .plan-main-sort{grid-column:1;grid-row:3}.plan-sub-type{grid-column:2;grid-row:3}
+  .plan-deploy-type{grid-column:1;grid-row:4}.plan-project{grid-column:2;grid-row:4}
+  .plan-source-type,.plan-platform{grid-column:1;grid-row:5}
+}
 .searchable-select-input { padding-right:34px !important; background:#fff linear-gradient(45deg,transparent 50%,#5b4b24 50%) calc(100% - 15px) 17px/5px 5px no-repeat !important; }
 .searchable-native { position:absolute !important; width:1px !important; height:1px !important; min-height:0 !important; padding:0 !important; opacity:0; pointer-events:none; }
 .searchable-select-menu { position:absolute; z-index:50; top:calc(100% + 4px); left:0; right:0; max-height:240px; overflow:auto; padding:5px; background:#fff; border:1px solid #d8cda8; border-radius:7px; box-shadow:0 12px 28px rgba(17,24,39,.18); }
