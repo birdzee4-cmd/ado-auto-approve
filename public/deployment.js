@@ -1,6 +1,6 @@
 import { escapeHtml, getUserEmailForDisplay, safeFetchJson, setText } from './core.js';
 
-const state = { user: null, master: [], records: [], editing: null };
+const state = { user: null, master: [], records: [], editing: null, editingMaster: null };
 const $ = id => document.getElementById(id);
 
 async function api(url, options) {
@@ -53,6 +53,8 @@ function bindForms() {
   $('recordFilters').addEventListener('submit', event => { event.preventDefault(); loadRecords(); });
   $('exportForm').addEventListener('submit', exportWorkbook);
   $('masterForm').addEventListener('submit', saveMaster);
+  $('masterFilter').addEventListener('change', renderMasterTable);
+  $('cancelMasterEdit').addEventListener('click', resetMasterEditor);
   $('importButton').addEventListener('click', importWorkbook);
 }
 
@@ -61,7 +63,8 @@ function updateConditionalFields() {
   document.querySelectorAll('.web-field').forEach(el => { el.hidden = mobile; });
   document.querySelectorAll('.mobile-field').forEach(el => { el.hidden = !mobile; });
   if (mobile) {
-    $('deployType').value = $('platform').value;
+    ensureSelectValue('deployType', 'BackupCode');
+    $('deployType').value = 'BackupCode';
     if (!$('documentStatus').value) $('documentStatus').value = 'Done';
   }
   const rollback = !mobile && ['🔄 Success with Issue (RB)', '🔄 Rolled Back'].includes($('deployResult').value);
@@ -121,6 +124,9 @@ async function editDeployment(id) {
       'project', 'sourceType', 'platform', 'labelCode', 'durationDeploy', 'deployResult',
       'documentStatus', 'swapBackType', 'swapBackDetails', 'remark'
     ];
+    ['projectsMainSort', 'projectsSubType', 'deployType', 'project'].forEach(field => {
+      ensureSelectValue(field, item[field]);
+    });
     fields.forEach(field => { if ($(field)) $(field).value = item[field] || ''; });
     $('deploymentId').value = item.id;
     $('deploymentEtag').value = item.etag;
@@ -140,7 +146,7 @@ async function saveDeployment(event) {
   button.disabled = true;
   $('formWarnings').hidden = true;
   try {
-    if ($('category').value === 'mobile') $('deployType').value = $('platform').value;
+    if ($('category').value === 'mobile') $('deployType').value = 'BackupCode';
     const payload = formPayload();
     const id = $('deploymentId').value;
     const data = await api(id ? '/api/deployments/' + encodeURIComponent(id) : '/api/deployments', {
@@ -203,48 +209,112 @@ function resetForm() {
   updateConditionalFields();
 }
 
+const masterDefinitions = {
+  'projects-main-sort': { label: 'Project Main Sort', field: 'projectsMainSort', placeholder: 'Select Project Main Sort' },
+  'projects-sub-type': { label: 'Project Sub Type', field: 'projectsSubType', placeholder: 'Select Project Sub Type' },
+  'deploy-type': { label: 'Deploy Type', field: 'deployType', placeholder: 'Select Deploy Type' },
+  project: { label: 'Project', field: 'project', placeholder: 'Select Project' }
+};
+
 async function loadMaster(includeInactive) {
   try {
     const data = await api('/api/deployment-master' + (includeInactive ? '?includeInactive=true' : ''));
     state.master = data.master || [];
-    ['projects-main-sort', 'projects-sub-type', 'deploy-type', 'project'].forEach(type => {
-      const list = $(`master-${type}`);
-      list.innerHTML = state.master.filter(item => item.type === type && item.active)
-        .map(item => `<option value="${escapeHtml(item.value)}"></option>`).join('');
-    });
-    if ($('masterBody')) {
-      $('masterBody').innerHTML = state.master.map(item =>
-        `<tr><td>${escapeHtml(item.type)}</td><td>${escapeHtml(item.value)}</td><td>${item.active ? 'Active' : 'Inactive'}</td>` +
-        `<td><button class="row-button" data-master-id="${escapeHtml(item.id)}" data-master-type="${escapeHtml(item.type)}" data-master-value="${escapeHtml(item.value)}" data-master-active="${item.active}">${item.active ? 'Deactivate' : 'Activate'}</button></td></tr>`
-      ).join('');
-      $('masterBody').querySelectorAll('[data-master-id]').forEach(button => button.addEventListener('click', () => toggleMaster(button)));
-    }
+    renderDeploymentMasterOptions();
+    renderMasterTable();
   } catch (error) { notice(error.message, true); }
+}
+
+function renderDeploymentMasterOptions() {
+  Object.entries(masterDefinitions).forEach(([type, definition]) => {
+    const select = $(definition.field);
+    const selected = select.value;
+    const items = state.master.filter(item => item.type === type && item.active);
+    select.innerHTML = `<option value="">${escapeHtml(definition.placeholder)}</option>` +
+      items.map(item => `<option value="${escapeHtml(item.value)}">${escapeHtml(item.value)}</option>`).join('');
+    ensureSelectValue(definition.field, selected);
+    select.value = selected;
+  });
+}
+
+function ensureSelectValue(field, value) {
+  const select = $(field);
+  if (!select || !value || Array.from(select.options).some(option => option.value === value)) return;
+  const option = document.createElement('option');
+  option.value = value;
+  option.textContent = value;
+  option.dataset.legacy = 'true';
+  select.appendChild(option);
+}
+
+function renderMasterTable() {
+  const filter = $('masterFilter').value;
+  const items = state.master.filter(item => !filter || item.type === filter);
+  $('masterBody').innerHTML = items.map(item => {
+    const definition = masterDefinitions[item.type];
+    return `<tr><td>${escapeHtml(definition ? definition.label : item.type)}</td><td><strong>${escapeHtml(item.value)}</strong></td>` +
+      `<td><span class="status-pill ${item.active ? 'active' : 'inactive'}">${item.active ? 'Active' : 'Inactive'}</span></td>` +
+      `<td><button class="row-button" data-master-edit="${escapeHtml(item.id)}" data-master-type="${escapeHtml(item.type)}">Edit</button> ` +
+      `<button class="row-button" data-master-toggle="${escapeHtml(item.id)}" data-master-type="${escapeHtml(item.type)}">${item.active ? 'Deactivate' : 'Activate'}</button></td></tr>`;
+  }).join('') || '<tr><td colspan="4">No selection values found.</td></tr>';
+  $('masterBody').querySelectorAll('[data-master-edit]').forEach(button =>
+    button.addEventListener('click', () => editMaster(button.dataset.masterType, button.dataset.masterEdit)));
+  $('masterBody').querySelectorAll('[data-master-toggle]').forEach(button =>
+    button.addEventListener('click', () => toggleMaster(button.dataset.masterType, button.dataset.masterToggle)));
+}
+
+function editMaster(type, id) {
+  const item = state.master.find(entry => entry.type === type && entry.id === id);
+  if (!item) return;
+  state.editingMaster = item;
+  $('masterId').value = item.id;
+  $('masterType').value = item.type;
+  $('masterType').disabled = true;
+  $('masterValue').value = item.value;
+  $('saveMaster').textContent = 'Save Changes';
+  $('cancelMasterEdit').hidden = false;
+  $('masterValue').focus();
+}
+
+function resetMasterEditor() {
+  state.editingMaster = null;
+  $('masterForm').reset();
+  $('masterId').value = '';
+  $('masterType').disabled = false;
+  $('saveMaster').textContent = 'Add Value';
+  $('cancelMasterEdit').hidden = true;
 }
 
 async function saveMaster(event) {
   event.preventDefault();
+  const editing = state.editingMaster;
   try {
     await api('/api/deployment-master', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: $('masterType').value, value: $('masterValue').value, active: true })
+      method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: editing && editing.id,
+        type: editing ? editing.type : $('masterType').value,
+        value: $('masterValue').value,
+        active: editing ? editing.active : true
+      })
     });
-    $('masterValue').value = '';
+    resetMasterEditor();
     await loadMaster(true);
-    notice('Master data saved.', false);
+    notice(editing ? 'Selection value updated.' : 'Selection value added.', false);
   } catch (error) { notice(error.message, true); }
 }
 
-async function toggleMaster(button) {
+async function toggleMaster(type, id) {
+  const item = state.master.find(entry => entry.type === type && entry.id === id);
+  if (!item) return;
   try {
     await api('/api/deployment-master', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: button.dataset.masterId, type: button.dataset.masterType,
-        value: button.dataset.masterValue, active: button.dataset.masterActive !== 'true'
-      })
+      body: JSON.stringify({ id: item.id, type: item.type, value: item.value, active: !item.active })
     });
+    if (state.editingMaster && state.editingMaster.id === id && state.editingMaster.type === type) resetMasterEditor();
     await loadMaster(true);
+    notice(`Selection value ${item.active ? 'deactivated' : 'activated'}.`, false);
   } catch (error) { notice(error.message, true); }
 }
 

@@ -29,6 +29,7 @@
       <button class="deployment-nav" data-view="records">Deployment Records</button>
       <button class="deployment-nav" data-view="export">Export Excel</button>
       <button class="deployment-nav admin-only" data-view="master" hidden>Master Data</button>
+      <button class="deployment-nav admin-only" data-view="import" hidden>Import Excel</button>
       <button class="deployment-nav" data-view="audit">Audit History</button>
     </aside>
 
@@ -62,10 +63,10 @@
             <label>Planned Date &amp; Time<input id="plannedDeployAt" type="datetime-local" required /></label>
             <label>Actual Date &amp; Time<input id="actualDeployAt" type="datetime-local" /></label>
             <label>Task ID<input id="taskId" maxlength="200" placeholder="e.g. 41958 / 41959" required /></label>
-            <label>Project Main Sort<input id="projectsMainSort" list="master-projects-main-sort" required /></label>
-            <label>Project Sub Type<input id="projectsSubType" list="master-projects-sub-type" required /></label>
-            <label>Deploy Type<input id="deployType" list="master-deploy-type" required /></label>
-            <label>Project<input id="project" list="master-project" required /></label>
+            <label>Project Main Sort<select id="projectsMainSort" required><option value="">Select Project Main Sort</option></select></label>
+            <label>Project Sub Type<select id="projectsSubType" required><option value="">Select Project Sub Type</option></select></label>
+            <label>Deploy Type<select id="deployType" required><option value="">Select Deploy Type</option></select></label>
+            <label>Project<select id="project" required><option value="">Select Project</option></select></label>
             <label class="web-field">Get / Merge<select id="sourceType"><option>Get</option><option>Merge - Production</option></select></label>
             <label class="mobile-field" hidden>Platform<select id="platform"><option>Android</option><option>iOS</option></select></label>
           </div>
@@ -114,16 +115,22 @@
       </section>
 
       <section class="deployment-view" id="view-master">
-        <div class="deployment-heading"><div><p class="deployment-kicker">Administrator</p><h1>Master Data</h1></div></div>
+        <div class="deployment-heading"><div><p class="deployment-kicker">Selection management</p><h1>Master Data</h1><p class="heading-help">Manage the values users can select in the Deployment form.</p></div></div>
         <form id="masterForm" class="deployment-card master-form">
-          <select id="masterType" required><option value="projects-main-sort">Project Main Sort</option><option value="projects-sub-type">Project Sub Type</option><option value="deploy-type">Deploy Type</option><option value="project">Project</option></select>
-          <input id="masterValue" required placeholder="New value" />
-          <button class="primary-button">Add</button>
+          <input id="masterId" type="hidden" />
+          <label>Selection Type<select id="masterType" required><option value="projects-main-sort">Project Main Sort</option><option value="projects-sub-type">Project Sub Type</option><option value="deploy-type">Deploy Type</option><option value="project">Project</option></select></label>
+          <label>Selection Value<input id="masterValue" required placeholder="Enter a value shown in the Deployment form" /></label>
+          <div class="master-actions"><button id="cancelMasterEdit" class="secondary-button" type="button" hidden>Cancel</button><button id="saveMaster" class="primary-button">Add Value</button></div>
         </form>
-        <div class="deployment-card table-wrap"><table><thead><tr><th>Type</th><th>Value</th><th>Status</th><th></th></tr></thead><tbody id="masterBody"></tbody></table></div>
+        <div class="deployment-card master-toolbar"><label>Show Selection Type<select id="masterFilter"><option value="">All Selection Types</option><option value="projects-main-sort">Project Main Sort</option><option value="projects-sub-type">Project Sub Type</option><option value="deploy-type">Deploy Type</option><option value="project">Project</option></select></label></div>
+        <div class="deployment-card table-wrap"><table><thead><tr><th>Selection Type</th><th>Selection Value</th><th>Status</th><th>Actions</th></tr></thead><tbody id="masterBody"></tbody></table></div>
+      </section>
+
+      <section class="deployment-view" id="view-import">
+        <div class="deployment-heading"><div><p class="deployment-kicker">Administrator</p><h1>Import Deployment History</h1></div></div>
         <div class="deployment-card import-card">
           <h2>Import Report Deploy_2026.xlsx</h2>
-          <p>Admin only. Existing Job No. values are skipped, so the same file can be imported again safely.</p>
+          <p>Imports deployment records from both workbook sheets. Existing Job No. values are skipped, so the same file can be imported again safely. Values found in the workbook are also added to Master Data.</p>
           <input id="importFile" type="file" accept=".xlsx" />
           <button id="importButton" class="secondary-button" type="button">Import workbook</button>
           <pre id="importResult" hidden></pre>
@@ -137,10 +144,6 @@
     </section>
   </main>
 
-  <datalist id="master-projects-main-sort"></datalist>
-  <datalist id="master-projects-sub-type"></datalist>
-  <datalist id="master-deploy-type"></datalist>
-  <datalist id="master-project"></datalist>
   <script type="module" src="/deployment.js"></script>
 </body>
 </html>
