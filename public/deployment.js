@@ -1,6 +1,6 @@
 import { escapeHtml, getUserEmailForDisplay, safeFetchJson, setText } from './core.js';
 
-const state = { user: null, master: [], records: [], editing: null, editingMaster: null };
+const state = { user: null, master: [], records: [], editing: null, editingMaster: null, formBaseline: null };
 const $ = id => document.getElementById(id);
 
 async function api(url, options) {
@@ -50,7 +50,7 @@ function bindForms() {
   $('deployResult').addEventListener('change', updateConditionalFields);
   $('lifecycleStatus').addEventListener('change', updateConditionalFields);
   $('deploymentForm').addEventListener('submit', saveDeployment);
-  $('resetForm').addEventListener('click', resetForm);
+  $('formSecondaryAction').addEventListener('click', handleFormSecondaryAction);
   $('recordFilters').addEventListener('submit', event => { event.preventDefault(); loadRecords(); });
   $('exportForm').addEventListener('submit', exportWorkbook);
   $('masterForm').addEventListener('submit', saveMaster);
@@ -139,6 +139,8 @@ async function editDeployment(id) {
     $('jobNoBadge').textContent = item.jobNo;
     updateConditionalFields();
     showView('form');
+    state.formBaseline = deploymentFormSignature();
+    $('formSecondaryAction').textContent = 'Back to Records';
   } catch (error) { notice(error.message, true); }
 }
 
@@ -201,16 +203,32 @@ function resetForm() {
   state.editing = null;
   $('deploymentId').value = '';
   $('deploymentEtag').value = '';
+  state.formBaseline = null;
   $('formTitle').textContent = 'New Deployment';
   $('jobNoBadge').textContent = 'Job No. will be generated';
   $('lifecycleStatus').value = 'Planned';
   $('category').value = 'web-service';
   $('sourceType').value = 'Get';
   $('formWarnings').hidden = true;
+  $('formSecondaryAction').textContent = 'Reset';
   syncSearchableSelects();
   setDefaultDate();
   updateConditionalFields();
 }
+
+function deploymentFormSignature() {
+  return JSON.stringify(formPayload());
+}
+
+function handleFormSecondaryAction() {
+  if (!state.editing) {
+    resetForm();
+    return;
+  }
+  const hasUnsavedChanges = state.formBaseline !== deploymentFormSignature();
+  if (hasUnsavedChanges && !window.confirm('You have unsaved changes. Do you want to leave without saving?')) return;
+  resetForm();
+  showView('records');
 
 const masterDefinitions = {
   'projects-main-sort': { label: 'Project Main Sort', field: 'projectsMainSort', placeholder: 'Select Project Main Sort' },
