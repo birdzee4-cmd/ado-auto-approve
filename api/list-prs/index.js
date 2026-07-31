@@ -471,11 +471,10 @@ async function buildRecentlyApprovedRows(context, options) {
     status: options.statusFilter || '',
     source: options.sourceFilter || ''
   };
-  meta.requiresFullEnrich = !!options.statusFilter;
+  // Filter invalid/inaccessible PRs before slicing so every page is contiguous.
+  meta.requiresFullEnrich = true;
   const pageStart = meta.page * meta.pageSize;
-  const pageApprovals = meta.requiresFullEnrich
-    ? approvals
-    : approvals.slice(pageStart, pageStart + meta.pageSize);
+  const pageApprovals = approvals;
 
   const prObjectsMap = new Map();
   const rows = [];
@@ -532,11 +531,9 @@ async function buildRecentlyApprovedRows(context, options) {
   }
 
   rows.sort(compareApprovedRows);
-  meta.uniquePrs = meta.requiresFullEnrich ? rows.length : approvals.length;
+  meta.uniquePrs = rows.length;
   meta.totalPages = Math.max(1, Math.ceil(meta.uniquePrs / meta.pageSize));
-  const pageRows = meta.requiresFullEnrich
-    ? rows.slice(pageStart, pageStart + meta.pageSize)
-    : rows;
+  const pageRows = rows.slice(pageStart, pageStart + meta.pageSize);
 
   // Enrich only the final pageRows with release approval snapshots in parallel!
   await Promise.all(pageRows.map(async (row) => {
