@@ -65,7 +65,7 @@ function updateConditionalFields() {
   if (mobile) {
     ensureSelectValue('deployType', 'BackupCode');
     $('deployType').value = 'BackupCode';
-    if (!$('documentStatus').value) $('documentStatus').value = 'Done';
+    if (!$('documentStatus').value) $('documentStatus').value = '📄RequestDone';
   }
   const rollback = !mobile && ['🔄 Success with Issue (RB)', '🔄 Rolled Back'].includes($('deployResult').value);
   document.querySelectorAll('.rollback-field').forEach(el => { el.hidden = !rollback; });
@@ -124,7 +124,7 @@ async function editDeployment(id) {
       'project', 'sourceType', 'platform', 'labelCode', 'durationDeploy', 'deployResult',
       'documentStatus', 'swapBackType', 'swapBackDetails', 'remark'
     ];
-    ['projectsMainSort', 'projectsSubType', 'deployType', 'project'].forEach(field => {
+    ['projectsMainSort', 'projectsSubType', 'deployType', 'project', 'documentStatus'].forEach(field => {
       ensureSelectValue(field, item[field]);
     });
     fields.forEach(field => { if ($(field)) $(field).value = item[field] || ''; });
