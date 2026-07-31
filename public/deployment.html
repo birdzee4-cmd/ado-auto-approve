@@ -6,7 +6,7 @@
   <link rel="icon" type="image/png" href="/assets/buzzebees-icon.png" />
   <title>Deployment Report - Buzzebees Internal Tools</title>
   <link rel="stylesheet" href="/core.css" />
-  <link rel="stylesheet" href="/deployment.css?v=20260731-3" />
+  <link rel="stylesheet" href="/deployment.css?v=dashboard-v1" />
 </head>
 <body>
   <nav class="navbar">
@@ -38,13 +38,44 @@
 
       <section class="deployment-view active" id="view-dashboard">
         <div class="deployment-heading">
-          <div><p class="deployment-kicker">Operations overview</p><h1>Deployment Dashboard</h1></div>
+          <div><p class="deployment-kicker">Operations overview</p><h1>Deployment Dashboard</h1><p id="dashboardUpdated" class="heading-help">Loading dashboard...</p></div>
           <button class="primary-button" data-open-form>+ New Deployment</button>
         </div>
+        <form id="dashboardFilters" class="deployment-card dashboard-filters">
+          <label>Date Range<select id="dashboardRange"><option value="today">Today</option><option value="current-month" selected>Current Month</option><option value="last-3-months">Last 3 Months</option><option value="last-6-months">Last 6 Months</option><option value="all">All Time</option><option value="custom">Custom Range</option></select></label>
+          <label>Category<select id="dashboardCategory"><option value="">All Categories</option><option value="web-service">Web / Service</option><option value="mobile">Mobile App</option></select></label>
+          <label>Project<select id="dashboardProject"><option value="">All Projects</option></select></label>
+          <label>Deploy Type<select id="dashboardDeployType"><option value="">All Deploy Types</option></select></label>
+          <label id="dashboardFromLabel" hidden>From<input id="dashboardFrom" type="date" /></label>
+          <label id="dashboardToLabel" hidden>To<input id="dashboardTo" type="date" /></label>
+          <button class="primary-button" type="submit">Refresh</button>
+        </form>
         <div class="deployment-kpis" id="kpiGrid"></div>
-        <div class="deployment-two-column">
-          <article class="deployment-card"><h2>Upcoming deployments</h2><div id="upcomingList" class="compact-list"></div></article>
-          <article class="deployment-card"><h2>Recent activity</h2><div id="recentList" class="compact-list"></div></article>
+        <div class="dashboard-charts">
+          <article class="deployment-card chart-card">
+            <h2>Deployment Result Overview</h2>
+            <div id="resultChart" class="donut-layout"></div>
+          </article>
+          <article class="deployment-card chart-card">
+            <h2>Job Status Overview</h2>
+            <div id="statusChart" class="bar-chart"></div>
+          </article>
+          <article class="deployment-card chart-card chart-wide">
+            <h2>Number of Deployments Over Time</h2>
+            <div id="trendChart" class="trend-chart"></div>
+          </article>
+          <article class="deployment-card chart-card">
+            <h2>Top Projects</h2>
+            <div id="projectChart" class="bar-chart"></div>
+          </article>
+          <article class="deployment-card chart-card">
+            <h2>Category Distribution</h2>
+            <div id="categoryChart" class="donut-layout"></div>
+          </article>
+        </div>
+        <div class="deployment-two-column dashboard-lists">
+          <article class="deployment-card"><h2>Upcoming Deployments</h2><div id="upcomingList" class="compact-list"></div></article>
+          <article class="deployment-card"><h2>Recent Activity</h2><div id="recentList" class="compact-list"></div></article>
         </div>
       </section>
 
@@ -144,6 +175,6 @@
     </section>
   </main>
 
-  <script type="module" src="/deployment.js?v=20260731-3"></script>
+  <script type="module" src="/deployment.js?v=dashboard-v1"></script>
 </body>
 </html>

@@ -60,6 +60,8 @@ function bindForms() {
   $('masterFilter').addEventListener('change', renderMasterTable);
   $('cancelMasterEdit').addEventListener('click', resetMasterEditor);
   $('importButton').addEventListener('click', importWorkbook);
+  $('dashboardFilters').addEventListener('submit', event => { event.preventDefault(); loadDashboard(); });
+  $('dashboardRange').addEventListener('change', updateDashboardRangeFields);
 }
 
 function updateConditionalFields() {
@@ -78,19 +80,98 @@ function updateConditionalFields() {
 }
 
 async function loadDashboard() {
+  const params = new URLSearchParams();
+  const range = $('dashboardRange').value;
+  if (range === 'custom') {
+    if ($('dashboardFrom').value) params.set('from', $('dashboardFrom').value);
+    if ($('dashboardTo').value) params.set('to', $('dashboardTo').value);
+  } else {
+    params.set('range', range);
+  }
+  [['category', 'dashboardCategory'], ['project', 'dashboardProject'], ['deployType', 'dashboardDeployType']]
+    .forEach(([key, id]) => { if ($(id).value) params.set(key, $(id).value); });
   try {
-    const data = await api('/api/deployment-summary');
-    const cards = [
-      ['Planned', data.counts.planned], ['In progress', data.counts.inProgress],
-      ['Completed', data.counts.completed], ['Issues', data.counts.issue],
-      ['Rolled back', data.counts.rolledBack]
-    ];
-    $('kpiGrid').innerHTML = cards.map(([label, value]) =>
-      `<article class="deployment-card kpi"><strong>${Number(value || 0)}</strong><span>${escapeHtml(label)}</span></article>`
-    ).join('');
+    const data = await api('/api/deployment-summary?' + params);
+    setDashboardFilterOptions(data.filterOptions || {});
+    renderDashboardKpis(data.counts || {});
+    renderDonutChart('resultChart', data.results || [], {
+      'Success': '#22c55e', 'Success with Issue': '#eab308',
+      'Success with Issue (RB)': '#f97316', 'Rolled Back': '#ef4444', 'Not completed': '#9ca3af'
+    });
+    renderBarChart('statusChart', data.jobStatuses || [], '#f5a400');
+    renderTrendChart(data.trend || []);
+    renderProjectChart(data.topProjects || []);
+    renderDonutChart('categoryChart', data.categories || [], { 'Web / Service': '#111827', 'Mobile App': '#f5a400' });
     renderCompactList('upcomingList', data.upcoming);
     renderCompactList('recentList', data.recent);
+    const from = data.range && data.range.from;
+    const to = data.range && data.range.to;
+    const rangeText = from || to ? `${from || 'Beginning'} — ${to || 'Today'}` : 'All time';
+    $('dashboardUpdated').textContent = `${rangeText} · Last updated ${formatDate(data.lastUpdated)}`;
   } catch (error) { notice(error.message, true); }
+}
+
+function updateDashboardRangeFields() {
+  const custom = $('dashboardRange').value === 'custom';
+  $('dashboardFromLabel').hidden = !custom;
+  $('dashboardToLabel').hidden = !custom;
+}
+
+function setDashboardFilterOptions(options) {
+  updateDashboardSelect('dashboardProject', 'All Projects', options.projects || []);
+  updateDashboardSelect('dashboardDeployType', 'All Deploy Types', options.deployTypes || []);
+}
+
+function updateDashboardSelect(id, placeholder, values) {
+  const select = $(id);
+  const selected = select.value;
+  select.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>` + values.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+  ensureSelectValue(id, selected);
+  select.value = selected;
+  refreshSearchableSelect(id);
+}
+
+function renderDashboardKpis(counts) {
+  const issues = Number(counts.successWithIssue || 0) + Number(counts.successWithIssueRb || 0);
+  const cards = [
+    { label: 'Total Deployments', value: counts.total || 0 }, { label: 'Successful', value: counts.successful || 0 },
+    { label: 'Success Rate', value: `${Number(counts.successRate || 0).toFixed(1)}%` }, { label: 'With Issues', value: issues },
+    { label: 'Rolled Back', value: counts.rolledBack || 0 }, { label: 'In Progress', value: counts.inProgress || 0 },
+    { label: 'Planned', value: counts.planned || 0 }
+  ];
+  $('kpiGrid').innerHTML = cards.map(card => `<article class="deployment-card kpi"><strong>${escapeHtml(card.value)}</strong><span>${escapeHtml(card.label)}</span></article>`).join('');
+}
+
+function renderDonutChart(id, data, colors) {
+  const total = data.reduce((sum, item) => sum + Number(item.value || 0), 0);
+  if (!total) { $(id).innerHTML = '<p class="chart-empty">No deployment data for this period.</p>'; return; }
+  let cursor = 0;
+  const segments = data.filter(item => item.value).map(item => { const start = cursor; cursor += Number(item.value) / total * 100; return `${colors[item.label] || '#9ca3af'} ${start}% ${cursor}%`; });
+  const legend = data.map(item => {
+    const percentage = total ? Math.round(Number(item.value || 0) / total * 1000) / 10 : 0;
+    return `<div class="chart-legend-row"><i style="background:${colors[item.label] || '#9ca3af'}"></i><span>${escapeHtml(item.label)}</span><strong>${Number(item.value || 0)} · ${percentage}%</strong></div>`;
+  }).join('');
+  $(id).innerHTML = `<div class="donut" style="background:conic-gradient(${segments.join(',')})"><div><strong>${total}</strong><span>Total</span></div></div><div class="chart-legend">${legend}</div>`;
+}
+
+function renderBarChart(id, data, color) {
+  const max = Math.max(1, ...data.map(item => Number(item.value || 0)));
+  $(id).innerHTML = data.map(item => `<div class="bar-row"><span>${escapeHtml(item.label)}</span><div><i style="width:${Number(item.value || 0) / max * 100}%;background:${color}"></i></div><strong>${Number(item.value || 0)}</strong></div>`).join('') || '<p class="chart-empty">No deployment data for this period.</p>';
+}
+
+function renderProjectChart(data) {
+  const max = Math.max(1, ...data.map(item => Number(item.total || 0)));
+  $('projectChart').innerHTML = data.map(item => `<div class="bar-row project-bar"><span title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span><div><i style="width:${Number(item.total || 0) / max * 100}%"></i></div><strong>${Number(item.total || 0)}</strong><small>✅ ${item.success || 0} &nbsp; ⚠️ ${item.issue || 0} &nbsp; 🔄 ${item.rolledBack || 0}</small></div>`).join('') || '<p class="chart-empty">No project data for this period.</p>';
+}
+
+function renderTrendChart(data) {
+  const max = Math.max(1, ...data.map(item => Number(item.total || 0)));
+  const columns = data.map(item => {
+    const totalHeight = Number(item.total || 0) / max * 150;
+    const section = value => Number(item.total || 0) ? Number(value || 0) / Number(item.total) * totalHeight : 0;
+    return `<div class="trend-column"><strong>${item.total || 0}</strong><div class="trend-stack" style="height:${totalHeight}px"><i class="trend-other" style="height:${section(item.other)}px"></i><i class="trend-rollback" style="height:${section(item.rolledBack)}px"></i><i class="trend-issue" style="height:${section(item.issue)}px"></i><i class="trend-success" style="height:${section(item.success)}px"></i></div><span>${escapeHtml(item.label)}</span></div>`;
+  }).join('');
+  $('trendChart').innerHTML = data.length ? `<div class="trend-legend"><span>● Success</span><span>● Issue</span><span>● Rolled Back</span><span>● Other</span></div><div class="trend-columns">${columns}</div>` : '<p class="chart-empty">No deployment trend for this period.</p>';
 }
 
 function renderCompactList(id, records) {
