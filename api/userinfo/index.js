@@ -80,7 +80,8 @@ module.exports = async function (context, req) {
         requiredRole: requiredRole,
         permissions: {
           canApprovePrs: auth.hasAnyRole(principal, [requiredRole, 'admin']),
-          canManageAppServices: auth.hasAnyRole(principal, [appServiceRole, 'admin'])
+          canManageAppServices: auth.hasAnyRole(principal, [appServiceRole, 'admin']),
+          canManageDeployments: auth.hasAnyRole(principal, [requiredRole, 'admin'])
         }
       }
     };

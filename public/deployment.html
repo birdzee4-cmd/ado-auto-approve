@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/assets/buzzebees-icon.png" />
+  <title>Deployment Report - Buzzebees Internal Tools</title>
+  <link rel="stylesheet" href="/core.css" />
+  <link rel="stylesheet" href="/deployment.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-left">
+      <a class="deployment-back" href="/applications.html" aria-label="Back to applications">←</a>
+      <img src="/assets/buzzebees-icon.png" alt="BUZZEBEES" class="nav-icon" />
+      <span class="brand">Deployment Report</span>
+    </div>
+    <div class="nav-right">
+      <span id="userName" class="user-name">Loading...</span>
+      <a href="/.auth/logout?post_logout_redirect_uri=/" class="logout-button">Logout</a>
+      <img src="/assets/buzzebees-powered.png" alt="Powered by BUZZEBEES" class="nav-logo" />
+    </div>
+  </nav>
+
+  <main class="deployment-page halftone-bg">
+    <aside class="deployment-sidebar" aria-label="Deployment navigation">
+      <button class="deployment-nav active" data-view="dashboard">Dashboard</button>
+      <button class="deployment-nav" data-view="form">New Deployment</button>
+      <button class="deployment-nav" data-view="records">Deployment Records</button>
+      <button class="deployment-nav" data-view="export">Export Excel</button>
+      <button class="deployment-nav admin-only" data-view="master" hidden>Master Data</button>
+      <button class="deployment-nav" data-view="audit">Audit History</button>
+    </aside>
+
+    <section class="deployment-content">
+      <div id="pageNotice" class="deployment-notice" hidden></div>
+
+      <section class="deployment-view active" id="view-dashboard">
+        <div class="deployment-heading">
+          <div><p class="deployment-kicker">Operations overview</p><h1>Deployment Dashboard</h1></div>
+          <button class="primary-button" data-open-form>+ New Deployment</button>
+        </div>
+        <div class="deployment-kpis" id="kpiGrid"></div>
+        <div class="deployment-two-column">
+          <article class="deployment-card"><h2>Upcoming deployments</h2><div id="upcomingList" class="compact-list"></div></article>
+          <article class="deployment-card"><h2>Recent activity</h2><div id="recentList" class="compact-list"></div></article>
+        </div>
+      </section>
+
+      <section class="deployment-view" id="view-form">
+        <div class="deployment-heading">
+          <div><p class="deployment-kicker">Plan and update</p><h1 id="formTitle">New Deployment</h1></div>
+          <span id="jobNoBadge" class="job-badge">Job No. will be generated</span>
+        </div>
+        <form id="deploymentForm" class="deployment-card deployment-form">
+          <input type="hidden" id="deploymentId" />
+          <input type="hidden" id="deploymentEtag" />
+          <div class="form-section-title">Deployment plan</div>
+          <div class="form-grid">
+            <label>Category<select id="category" required><option value="web-service">Web / Service</option><option value="mobile">Mobile App</option></select></label>
+            <label>Lifecycle Status<select id="lifecycleStatus" required><option>Planned</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></label>
+            <label>Planned Date &amp; Time<input id="plannedDeployAt" type="datetime-local" required /></label>
+            <label>Actual Date &amp; Time<input id="actualDeployAt" type="datetime-local" /></label>
+            <label>Task ID<input id="taskId" maxlength="200" placeholder="e.g. 41958 / 41959" required /></label>
+            <label>Project Main Sort<input id="projectsMainSort" list="master-projects-main-sort" required /></label>
+            <label>Project Sub Type<input id="projectsSubType" list="master-projects-sub-type" required /></label>
+            <label>Deploy Type<input id="deployType" list="master-deploy-type" required /></label>
+            <label>Project<input id="project" list="master-project" required /></label>
+            <label class="web-field">Get / Merge<select id="sourceType"><option>Get</option><option>Merge - Production</option></select></label>
+            <label class="mobile-field" hidden>Platform<select id="platform"><option>Android</option><option>iOS</option></select></label>
+          </div>
+          <label class="form-wide">Label Code<textarea id="labelCode" rows="3" required></textarea></label>
+
+          <div class="form-section-title result-section">Deployment result</div>
+          <div class="form-grid result-section">
+            <label class="web-field">Duration<select id="durationDeploy"><option value="">Select</option><option>💼 In Working Hours</option><option>📢After hours - Informed!</option><option>🔕 No Updates After Hours.</option></select></label>
+            <label class="web-field">Deploy Result<select id="deployResult"><option value="">Not completed</option><option>✅ Success</option><option>⚠️ Success with Issue</option><option>🔄 Success with Issue (RB)</option><option>🔄 Rolled Back</option></select></label>
+            <label>Document Status<input id="documentStatus" /></label>
+            <label class="rollback-field" hidden>SwapBack Type<select id="swapBackType"><option value="">Select</option><option>Production Issue / Code</option><option>Production Issue / Configuration</option><option>Other / Requirement Customer</option></select></label>
+            <label class="rollback-field" hidden>SwapBack Date &amp; Time<input id="swapBackAt" type="datetime-local" /></label>
+          </div>
+          <label class="form-wide rollback-field" hidden>SwapBack Details<textarea id="swapBackDetails" rows="3"></textarea></label>
+          <label class="form-wide">Remark<textarea id="remark" rows="3"></textarea></label>
+          <div id="formWarnings" class="form-warnings" hidden></div>
+          <div class="form-actions">
+            <button type="button" class="secondary-button" id="resetForm">Reset</button>
+            <button type="submit" class="primary-button" id="saveDeployment">Save Deployment</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="deployment-view" id="view-records">
+        <div class="deployment-heading"><div><p class="deployment-kicker">Search and update</p><h1>Deployment Records</h1></div></div>
+        <form id="recordFilters" class="deployment-card filter-grid">
+          <input id="filterSearch" placeholder="Job No., Task ID, Project or Label Code" />
+          <select id="filterCategory"><option value="">All categories</option><option value="web-service">Web / Service</option><option value="mobile">Mobile</option></select>
+          <select id="filterLifecycle"><option value="">All lifecycle statuses</option><option>Planned</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select>
+          <input id="filterFrom" type="date" aria-label="From date" />
+          <input id="filterTo" type="date" aria-label="To date" />
+          <button class="primary-button">Search</button>
+        </form>
+        <div class="deployment-card table-wrap"><table><thead><tr><th>Job No.</th><th>Plan</th><th>Task ID</th><th>Project</th><th>Category</th><th>Status</th><th>Result</th><th></th></tr></thead><tbody id="recordsBody"></tbody></table></div>
+      </section>
+
+      <section class="deployment-view" id="view-export">
+        <div class="deployment-heading"><div><p class="deployment-kicker">Excel compatible</p><h1>Export Deployment Report</h1></div></div>
+        <form id="exportForm" class="deployment-card export-panel">
+          <label>Category<select id="exportCategory"><option value="">Web/Service + Mobile</option><option value="web-service">Web / Service</option><option value="mobile">Mobile</option></select></label>
+          <label>Lifecycle Status<select id="exportLifecycle"><option value="">All statuses</option><option>Planned</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></label>
+          <label>From<input id="exportFrom" type="date" /></label>
+          <label>To<input id="exportTo" type="date" /></label>
+          <button class="primary-button">Download .xlsx</button>
+        </form>
+      </section>
+
+      <section class="deployment-view" id="view-master">
+        <div class="deployment-heading"><div><p class="deployment-kicker">Administrator</p><h1>Master Data</h1></div></div>
+        <form id="masterForm" class="deployment-card master-form">
+          <select id="masterType" required><option value="projects-main-sort">Project Main Sort</option><option value="projects-sub-type">Project Sub Type</option><option value="deploy-type">Deploy Type</option><option value="project">Project</option></select>
+          <input id="masterValue" required placeholder="New value" />
+          <button class="primary-button">Add</button>
+        </form>
+        <div class="deployment-card table-wrap"><table><thead><tr><th>Type</th><th>Value</th><th>Status</th><th></th></tr></thead><tbody id="masterBody"></tbody></table></div>
+        <div class="deployment-card import-card">
+          <h2>Import Report Deploy_2026.xlsx</h2>
+          <p>Admin only. Existing Job No. values are skipped, so the same file can be imported again safely.</p>
+          <input id="importFile" type="file" accept=".xlsx" />
+          <button id="importButton" class="secondary-button" type="button">Import workbook</button>
+          <pre id="importResult" hidden></pre>
+        </div>
+      </section>
+
+      <section class="deployment-view" id="view-audit">
+        <div class="deployment-heading"><div><p class="deployment-kicker">Immutable history</p><h1>Audit History</h1></div></div>
+        <div class="deployment-card table-wrap"><table><thead><tr><th>Time</th><th>Action</th><th>Job No.</th><th>User</th><th>Change</th></tr></thead><tbody id="auditBody"></tbody></table></div>
+      </section>
+    </section>
+  </main>
+
+  <datalist id="master-projects-main-sort"></datalist>
+  <datalist id="master-projects-sub-type"></datalist>
+  <datalist id="master-deploy-type"></datalist>
+  <datalist id="master-project"></datalist>
+  <script type="module" src="/deployment.js"></script>
+</body>
+</html>

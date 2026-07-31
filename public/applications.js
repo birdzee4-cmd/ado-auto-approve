@@ -18,6 +18,15 @@ const APPS = [
     icon: 'S',
     permission: 'canManageAppServices',
     chips: ['Staging App Services', 'Read-only Settings', 'Restart']
+  },
+  {
+    id: 'deployment',
+    title: 'Deployment Report',
+    description: 'Plan Web, Service, Android, and iOS deployments, update outcomes, and export the report to Excel.',
+    href: '/deployment.html',
+    icon: 'D',
+    permission: 'canManageDeployments',
+    chips: ['Planning', 'Deployment History', 'Excel Export']
   }
 ];
 
