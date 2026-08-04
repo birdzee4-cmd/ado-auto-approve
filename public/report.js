@@ -8,8 +8,6 @@ let approveChartInstance = null;
 let buildChartInstance = null;
 let failedBuildsRenderToken = 0;
 let latestReportData = null;
-let productionDeployPage = 1;
-let productionDeploySearchTimer = null;
 
 // ตั้งค่าเมื่อโหลดหน้าจอ
 async function init() {
@@ -65,19 +63,12 @@ async function init() {
     invalidateReportExport();
     syncEndTimeOptions();
   });
-  ['filterDay', 'filterActionScope', 'filterBuildScope', 'filterDeployCategory'].forEach(id => {
+  ['filterDay', 'filterActionScope', 'filterBuildScope'].forEach(id => {
     const element = document.getElementById(id);
     if (element) element.addEventListener('change', invalidateReportExport);
   });
   bind('btnLoadReport', loadReport);
   bind('btnExportReport', exportReportToExcel);
-  bind('productionPrev', () => loadProductionDeployments(Math.max(1, productionDeployPage - 1)));
-  bind('productionNext', () => loadProductionDeployments(productionDeployPage + 1));
-  const productionSearch = document.getElementById('productionDeploySearch');
-  if (productionSearch) productionSearch.addEventListener('input', () => {
-    clearTimeout(productionDeploySearchTimer);
-    productionDeploySearchTimer = setTimeout(() => loadProductionDeployments(1), 300);
-  });
 
   // สร้างรายชื่อตัวเลือกวันที่
   populateDays(currentYear, currentMonth, currentDay);
@@ -262,71 +253,7 @@ async function loadReport() {
     invalidateReportExport();
   } finally {
     setButtonLoading('btnLoadReport', false);
-    await loadProductionDeployments(1);
   }
-}
-
-async function loadProductionDeployments(page = 1) {
-  const type = document.getElementById('filterType').value;
-  const year = document.getElementById('filterYear').value;
-  const month = document.getElementById('filterMonth').value;
-  const day = document.getElementById('filterDay').value;
-  const category = (document.getElementById('filterDeployCategory') || {}).value || 'all';
-  const search = (document.getElementById('productionDeploySearch') || {}).value || '';
-  const params = new URLSearchParams({ year, month, category, search, page: String(page), pageSize: '25' });
-  if (type === 'daily') params.set('day', day);
-
-  const tableBody = document.getElementById('productionDeployRows');
-  if (tableBody) tableBody.innerHTML = '<tr><td colspan="9" class="empty-state">กำลังโหลด...</td></tr>';
-
-  try {
-    const result = await safeFetchJson('/api/production-deployments?' + params.toString());
-    if (!result.ok || !result.data || !result.data.ok) {
-      throw new Error(result.data && result.data.error || 'ไม่สามารถโหลดข้อมูล Production Deploy ได้');
-    }
-    renderProductionDeployments(result.data);
-  } catch (error) {
-    setText('productionTotal', '0');
-    setText('productionWebService', '0');
-    setText('productionMobileApp', '0');
-    setText('productionDeploySource', error.message);
-    if (tableBody) tableBody.innerHTML = '<tr><td colspan="9" class="empty-state">— ไม่มีข้อมูลในช่วงที่เลือก —</td></tr>';
-  }
-}
-
-function renderProductionDeployments(data) {
-  const stats = data.stats || {};
-  const pagination = data.pagination || {};
-  const rows = Array.isArray(data.rows) ? data.rows : [];
-  productionDeployPage = pagination.page || 1;
-  setText('productionTotal', String(stats.total || 0));
-  setText('productionWebService', String(stats.webService || 0));
-  setText('productionMobileApp', String(stats.mobileApp || 0));
-  setText('productionPageInfo', `หน้า ${productionDeployPage} / ${pagination.totalPages || 1}`);
-  setText('productionDeploySource', `แหล่งข้อมูล: ${data.source.file} · อัปเดตไฟล์ ${formatShortDate(data.source.lastModified)}`);
-
-  const prev = document.getElementById('productionPrev');
-  const next = document.getElementById('productionNext');
-  if (prev) prev.disabled = productionDeployPage <= 1;
-  if (next) next.disabled = productionDeployPage >= (pagination.totalPages || 1);
-
-  const tableBody = document.getElementById('productionDeployRows');
-  if (!tableBody) return;
-  if (!rows.length) {
-    tableBody.innerHTML = '<tr><td colspan="9" class="empty-state">— ไม่มีข้อมูลในช่วงที่เลือก —</td></tr>';
-    return;
-  }
-  tableBody.innerHTML = rows.map(row => `<tr>
-    <td>${escapeHtml(row.deployDateDisplay || row.deployDate || '-')}</td>
-    <td><span class="production-category production-category--${escapeHtml(row.category)}">${row.category === 'mobile-app' ? 'Mobile App' : 'Web / Service'}</span></td>
-    <td>${escapeHtml(row.jobNo || '-')}</td>
-    <td>${escapeHtml(row.taskId || '-')}</td>
-    <td>${escapeHtml(row.projects || row.projectsMainSort || '-')}</td>
-    <td>${escapeHtml(row.deployType || '-')}</td>
-    <td>${escapeHtml(row.action || '-')}</td>
-    <td>${escapeHtml(row.deployStatus || row.documentStatus || '-')}</td>
-    <td class="production-label" title="${escapeHtml(row.labelCode || '')}">${escapeHtml(row.labelCode || '-')}</td>
-  </tr>`).join('');
 }
 
 function invalidateReportExport() {

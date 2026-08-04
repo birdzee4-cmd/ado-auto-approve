@@ -32,7 +32,6 @@
     { "route": "/api/sync-deployments", "methods": ["GET", "POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/deploy-history", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/report-summary", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },
-    { "route": "/api/production-deployments", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/health", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/list-prs", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/build-diagnostics", "methods": ["GET", "POST"], "allowedRoles": ["it_support_approve", "admin"] },
