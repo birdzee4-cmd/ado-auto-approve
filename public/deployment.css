@@ -42,6 +42,11 @@
 }
 .deployment-form textarea { resize:vertical; }.form-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
 .form-section-title { margin:2px 0 14px; padding-bottom:8px; border-bottom:1px solid #f2d58b; color:#855800; font-weight:800; }
+.required-legend { margin:-7px 0 14px; color:#6b7280; font-size:11px; text-align:right; }
+.required-legend span,.required-marker { color:#dc2626; font-weight:900; }
+.field-caption { display:inline-flex; align-items:center; gap:3px; }
+.deployment-form label.field-invalid input:not(:disabled),.deployment-form label.field-invalid textarea:not(:disabled),.deployment-form label.field-invalid .searchable-select-input:not(:disabled) { border-color:#dc2626; box-shadow:0 0 0 2px rgba(220,38,38,.1); }
+.field-error { color:#b91c1c; font-size:11px; font-weight:700; line-height:1.35; }
 .result-section { margin-top:22px; }.form-wide { display:grid; gap:6px; margin-top:14px; color:#5b4b24; font-size:12px; font-weight:800; }
 .form-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }.job-badge { padding:7px 11px; border-radius:999px; background:#fff7da; color:#855800; font-size:12px; font-weight:800; }
 .form-warnings,.deployment-notice { margin-bottom:16px; padding:13px 15px; border-radius:7px; background:#fffbeb; border:1px solid #f5a400; color:#7c4a00; white-space:pre-line; }

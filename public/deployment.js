@@ -57,7 +57,12 @@ function bindForms() {
   $('deployResult').addEventListener('change', updateConditionalFields);
   $('lifecycleStatus').addEventListener('change', updateConditionalFields);
   $('platform').addEventListener('change', updateConditionalFields);
-  $('deploymentForm').addEventListener('submit', saveDeployment);
+  const deploymentForm = $('deploymentForm');
+  deploymentForm.addEventListener('invalid', event => showFieldError(event.target), true);
+  deploymentForm.addEventListener('input', event => clearFieldError(event.target));
+  deploymentForm.addEventListener('change', event => clearFieldError(event.target));
+  deploymentForm.addEventListener('focusout', event => { if (event.target.required && !event.target.validity.valid) showFieldError(event.target); });
+  deploymentForm.addEventListener('submit', saveDeployment);
   $('formSecondaryAction').addEventListener('click', handleFormSecondaryAction);
   $('recordFilters').addEventListener('submit', event => { event.preventDefault(); loadRecords(); });
   $('exportForm').addEventListener('submit', exportWorkbook);
@@ -85,6 +90,8 @@ function updateConditionalFields() {
   deployType.disabled = mobile;
   platform.disabled = !mobile;
   setSearchableRequired('platform', mobile);
+  setRequiredMarker('platform', mobile);
+  setRequiredMarker('deployType', !mobile);
   $('saveDeployment').disabled = mobile && !platform.value;
   const rollback = !mobile && ['🔄 Success with Issue (RB)', '🔄 Rolled Back'].includes($('deployResult').value);
   document.querySelectorAll('.rollback-field').forEach(el => { el.hidden = !rollback; });
@@ -296,6 +303,7 @@ function formPayload() {
 
 function resetForm() {
   $('deploymentForm').reset();
+  clearFormErrors();
   state.editing = null;
   $('deploymentId').value = '';
   $('deploymentEtag').value = '';
@@ -498,6 +506,7 @@ function enhanceSearchableSelects() {
     input.setAttribute('role', 'combobox');
     input.setAttribute('aria-autocomplete', 'list');
     input.setAttribute('aria-expanded', 'false');
+    input.dataset.fieldId = select.id;
     const menu = document.createElement('div');
     menu.className = 'searchable-select-menu';
     menu.hidden = true;
@@ -610,6 +619,61 @@ function setSearchableRequired(id, required) {
   const entry = searchableSelects.get(id);
   if (entry) entry.input.required = required;
   else if ($(id)) $(id).required = required;
+  if (!required) clearFieldError(entry ? entry.input : $(id));
+}
+
+function setRequiredMarker(id, required) {
+  const marker = $(id + 'RequiredMarker');
+  if (marker) marker.hidden = !required;
+}
+
+function showFieldError(control) {
+  if (!control || control.disabled) return;
+  const label = control.closest('label');
+  if (!label) return;
+  const fieldId = control.dataset.fieldId || control.id || '';
+  const messages = {
+    lifecycleStatus: 'Please select a job status.',
+    deployAt: 'Please select a deploy date.',
+    category: 'Please select a category.',
+    platform: 'Please select a platform.',
+    taskId: 'Please enter a task ID.',
+    projectsMainSort: 'Please select a project main sort.',
+    projectsSubType: 'Please select a project sub type.',
+    deployType: 'Please select a deploy type.',
+    project: 'Please select a project.',
+    labelCode: 'Please enter a label code.'
+  };
+  let error = label.querySelector('.field-error');
+  if (!error) {
+    error = document.createElement('span');
+    error.className = 'field-error';
+    label.appendChild(error);
+  }
+  error.id = fieldId + 'FieldError';
+  error.textContent = messages[fieldId] || 'This field is required.';
+  label.classList.add('field-invalid');
+  label.querySelectorAll('input,select,textarea').forEach(field => {
+    field.setAttribute('aria-invalid', 'true');
+    field.setAttribute('aria-describedby', error.id);
+  });
+}
+
+function clearFieldError(control) {
+  if (!control) return;
+  const label = control.closest('label');
+  if (!label) return;
+  label.classList.remove('field-invalid');
+  const error = label.querySelector('.field-error');
+  if (error) error.remove();
+  label.querySelectorAll('input,select,textarea').forEach(field => {
+    field.removeAttribute('aria-invalid');
+    field.removeAttribute('aria-describedby');
+  });
+}
+
+function clearFormErrors() {
+  document.querySelectorAll('#deploymentForm .field-invalid').forEach(label => clearFieldError(label.querySelector('input,select,textarea')));
 }
 
 function syncSearchableSelects() {

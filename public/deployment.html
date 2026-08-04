@@ -88,19 +88,20 @@
           <input type="hidden" id="deploymentId" />
           <input type="hidden" id="deploymentEtag" />
           <div class="form-section-title">Deployment plan</div>
+          <p class="required-legend"><span aria-hidden="true">*</span> Required field</p>
           <div class="form-grid">
-            <label class="plan-job-status">Job Status<select id="lifecycleStatus" required><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></label>
-            <label class="plan-deploy-date">Deploy Date<input id="deployAt" type="date" required /></label>
-            <label class="plan-category">Category<select id="category" required><option value="">Select Category</option><option value="web-service">Web / Service</option><option value="mobile">Mobile App</option></select></label>
+            <label class="plan-job-status"><span class="field-caption">Job Status <span class="required-marker" aria-hidden="true">*</span></span><select id="lifecycleStatus" required><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></label>
+            <label class="plan-deploy-date"><span class="field-caption">Deploy Date <span class="required-marker" aria-hidden="true">*</span></span><input id="deployAt" type="date" required /></label>
+            <label class="plan-category"><span class="field-caption">Category <span class="required-marker" aria-hidden="true">*</span></span><select id="category" required><option value="">Select Category</option><option value="web-service">Web / Service</option><option value="mobile">Mobile App</option></select></label>
             <label class="web-field plan-source-type">Get / Merge<select id="sourceType"><option>Get</option><option>Merge - Production</option></select></label>
-            <label class="mobile-field plan-platform" hidden>Platform<select id="platform" required><option value="">Select Platform</option><option>Android</option><option>iOS</option></select></label>
-            <label class="plan-task-id">Task ID<input id="taskId" maxlength="200" placeholder="e.g. 41958 / 41959" required /></label>
-            <label class="plan-main-sort">Project Main Sort<select id="projectsMainSort" required><option value="">Select Project Main Sort</option></select></label>
-            <label class="plan-sub-type">Project Sub Type<select id="projectsSubType" required><option value="">Select Project Sub Type</option></select></label>
-            <label class="plan-deploy-type">Deploy Type<select id="deployType" required><option value="">Select Deploy Type</option></select></label>
-            <label class="plan-project">Project<select id="project" required><option value="">Select Project</option></select></label>
+            <label class="mobile-field plan-platform" hidden><span class="field-caption">Platform <span id="platformRequiredMarker" class="required-marker" aria-hidden="true">*</span></span><select id="platform" required><option value="">Select Platform</option><option>Android</option><option>iOS</option></select></label>
+            <label class="plan-task-id"><span class="field-caption">Task ID <span class="required-marker" aria-hidden="true">*</span></span><input id="taskId" maxlength="200" placeholder="e.g. 41958 / 41959" required /></label>
+            <label class="plan-main-sort"><span class="field-caption">Project Main Sort <span class="required-marker" aria-hidden="true">*</span></span><select id="projectsMainSort" required><option value="">Select Project Main Sort</option></select></label>
+            <label class="plan-sub-type"><span class="field-caption">Project Sub Type <span class="required-marker" aria-hidden="true">*</span></span><select id="projectsSubType" required><option value="">Select Project Sub Type</option></select></label>
+            <label class="plan-deploy-type"><span class="field-caption">Deploy Type <span id="deployTypeRequiredMarker" class="required-marker" aria-hidden="true">*</span></span><select id="deployType" required><option value="">Select Deploy Type</option></select></label>
+            <label class="plan-project"><span class="field-caption">Project <span class="required-marker" aria-hidden="true">*</span></span><select id="project" required><option value="">Select Project</option></select></label>
           </div>
-          <label class="form-wide">Label Code<textarea id="labelCode" rows="3" required></textarea></label>
+          <label class="form-wide"><span class="field-caption">Label Code <span class="required-marker" aria-hidden="true">*</span></span><textarea id="labelCode" rows="3" required></textarea></label>
 
           <div class="form-section-title result-section">Deployment result</div>
           <div class="form-grid result-section">
