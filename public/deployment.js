@@ -74,7 +74,7 @@ function bindForms() {
     $(button.dataset.clearRecordFilter).value = '';
     loadRecords();
   });
-  ['filterCategory', 'filterLifecycle', 'filterFrom', 'filterTo', 'filterProject', 'filterResult']
+  ['filterCategory', 'filterLifecycle', 'filterSourceType', 'filterFrom', 'filterTo', 'filterProject', 'filterProjectsMainSort', 'filterProjectsSubType', 'filterDeployType']
     .forEach(id => $(id).addEventListener('change', loadRecords));
   $('exportForm').addEventListener('submit', exportWorkbook);
   $('masterForm').addEventListener('submit', saveMaster);
@@ -217,7 +217,7 @@ function renderCompactList(id, records) {
 
 async function loadRecords() {
   const params = new URLSearchParams();
-  [['search', 'filterSearch'], ['category', 'filterCategory'], ['lifecycleStatus', 'filterLifecycle'], ['from', 'filterFrom'], ['to', 'filterTo'], ['project', 'filterProject'], ['deployResult', 'filterResult']]
+  [['search', 'filterSearch'], ['category', 'filterCategory'], ['lifecycleStatus', 'filterLifecycle'], ['sourceType', 'filterSourceType'], ['from', 'filterFrom'], ['to', 'filterTo'], ['project', 'filterProject'], ['projectsMainSort', 'filterProjectsMainSort'], ['projectsSubType', 'filterProjectsSubType'], ['deployType', 'filterDeployType']]
     .forEach(([key, id]) => { if ($(id).value) params.set(key, $(id).value); });
   try {
     const data = await api('/api/deployments?' + params);
@@ -236,7 +236,9 @@ async function loadRecords() {
 
 const recordFilterDefinitions = [
   ['filterSearch', 'Search'], ['filterCategory', 'Category'], ['filterLifecycle', 'Status'],
-  ['filterFrom', 'From'], ['filterTo', 'To'], ['filterProject', 'Project'], ['filterResult', 'Result']
+  ['filterSourceType', 'Get / Merge'], ['filterFrom', 'From'], ['filterTo', 'To'],
+  ['filterProject', 'Project'], ['filterProjectsMainSort', 'Project Main Sort'],
+  ['filterProjectsSubType', 'Project Sub Type'], ['filterDeployType', 'Deploy Type']
 ];
 
 function renderRecordFilterSummary(count) {
@@ -414,12 +416,19 @@ function renderDeploymentMasterOptions() {
     select.value = selected;
     refreshSearchableSelect(definition.field);
   });
-  const filterProject = $('filterProject');
-  const selectedProject = filterProject.value;
-  const projects = state.master.filter(item => item.type === 'project' && item.active);
-  filterProject.innerHTML = '<option value="">All projects</option>' +
-    projects.map(item => '<option value="' + escapeHtml(item.value) + '">' + escapeHtml(item.value) + '</option>').join('');
-  filterProject.value = projects.some(item => item.value === selectedProject) ? selectedProject : '';
+  [
+    ['filterProject', 'project', 'All projects'],
+    ['filterProjectsMainSort', 'projects-main-sort', 'All Project Main Sort'],
+    ['filterProjectsSubType', 'projects-sub-type', 'All Project Sub Type'],
+    ['filterDeployType', 'deploy-type', 'All Deploy Types']
+  ].forEach(([fieldId, type, placeholder]) => {
+    const filterSelect = $(fieldId);
+    const selectedValue = filterSelect.value;
+    const items = state.master.filter(item => item.type === type && item.active);
+    filterSelect.innerHTML = '<option value="">' + escapeHtml(placeholder) + '</option>' +
+      items.map(item => '<option value="' + escapeHtml(item.value) + '">' + escapeHtml(item.value) + '</option>').join('');
+    filterSelect.value = items.some(item => item.value === selectedValue) ? selectedValue : '';
+  });
 }
 
 function ensureSelectValue(field, value) {

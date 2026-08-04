@@ -110,6 +110,10 @@ async function listDeployments(filters) {
   if (query.lifecycleStatus) clauses.push(`lifecycleStatus eq '${escapeOdata(query.lifecycleStatus)}'`);
   if (query.deployResult) clauses.push(`deployResult eq '${escapeOdata(query.deployResult)}'`);
   if (query.project) clauses.push(`project eq '${escapeOdata(query.project)}'`);
+  if (query.sourceType) clauses.push(`sourceType eq '${escapeOdata(query.sourceType)}'`);
+  if (query.projectsMainSort) clauses.push(`projectsMainSort eq '${escapeOdata(query.projectsMainSort)}'`);
+  if (query.projectsSubType) clauses.push(`projectsSubType eq '${escapeOdata(query.projectsSubType)}'`);
+  if (query.deployType) clauses.push(`deployType eq '${escapeOdata(query.deployType)}'`);
   if (query.from) clauses.push(`plannedDeployAt ge '${escapeOdata(new Date(query.from).toISOString())}'`);
   if (query.to) {
     const end = new Date(query.to);

@@ -54,12 +54,12 @@
 .record-filter-panel { display:grid; gap:14px; margin-bottom:15px; }
 .record-filter-panel label { display:grid; gap:6px; color:#5b4b24; font-size:12px; font-weight:800; }
 .record-filter-panel input,.record-filter-panel select { width:100%; min-height:40px; padding:9px 10px; border:1px solid #d8cda8; border-radius:7px; background:#fff; color:#111827; font:inherit; }
-.record-filter-primary { display:grid; grid-template-columns:2fr repeat(4,1fr) auto; gap:10px; align-items:end; }
+.record-filter-primary { display:grid; grid-template-columns:2fr repeat(5,1fr) auto; gap:10px; align-items:end; }
 .record-filter-actions,.quick-range-buttons,.record-filter-chips { display:flex; flex-wrap:wrap; gap:7px; }
 .record-filter-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; padding-top:12px; border-top:1px solid #efe4c5; }
 .filter-tool-button,.record-filter-chip { min-height:32px; padding:6px 10px; border:1px solid #e7c56e; border-radius:999px; background:#fffaf0; color:#855800; font:inherit; font-size:12px; font-weight:800; cursor:pointer; }
 .filter-tool-button:hover,.record-filter-chip:hover { border-color:#f5a400; background:#fff3c4; }
-.record-filter-advanced { display:grid; grid-template-columns:repeat(2,minmax(180px,1fr)); gap:10px; padding:14px; border:1px dashed #e7c56e; border-radius:7px; background:#fffcf4; }
+.record-filter-advanced { display:grid; grid-template-columns:repeat(4,minmax(150px,1fr)); gap:10px; padding:14px; border:1px dashed #e7c56e; border-radius:7px; background:#fffcf4; }
 .record-filter-advanced[hidden],.record-filter-summary[hidden] { display:none; }
 .record-filter-summary { display:flex; align-items:center; gap:12px; color:#6b7280; font-size:12px; font-weight:700; }
 .record-filter-chip { display:inline-flex; align-items:center; gap:7px; min-height:28px; padding:4px 8px; background:#fff7da; }
