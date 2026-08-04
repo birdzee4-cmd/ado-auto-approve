@@ -89,7 +89,7 @@
           <input type="hidden" id="deploymentEtag" />
           <div class="form-section-title">Deployment plan</div>
           <div class="form-grid">
-            <label class="plan-job-status">Job Status<select id="lifecycleStatus" required><option>Planned</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></label>
+            <label class="plan-job-status">Job Status<select id="lifecycleStatus" required><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></label>
             <label class="plan-category">Category<select id="category" required><option value="web-service">Web / Service</option><option value="mobile">Mobile App</option></select></label>
             <label class="plan-task-id">Task ID<input id="taskId" maxlength="200" placeholder="e.g. 41958 / 41959" required /></label>
             <label class="plan-planned-date">Planned Date<input id="plannedDeployAt" type="date" required /></label>
@@ -103,8 +103,8 @@
           </div>
           <label class="form-wide">Label Code<textarea id="labelCode" rows="3" required></textarea></label>
 
-          <div class="form-section-title result-section" hidden>Deployment result</div>
-          <div class="form-grid result-section" hidden>
+          <div class="form-section-title result-section">Deployment result</div>
+          <div class="form-grid result-section">
             <label class="web-field">Duration<select id="durationDeploy"><option value="">Select</option><option>💼 In Working Hours</option><option>📢After hours - Informed!</option><option>🔕 No Updates After Hours.</option></select></label>
             <label class="web-field">Deploy Result<select id="deployResult"><option value="">Not completed</option><option>✅ Success</option><option>⚠️ Success with Issue</option><option>🔄 Success with Issue (RB)</option><option>🔄 Rolled Back</option></select></label>
             <label>Document Status<select id="documentStatus"><option value="">Select</option><option>📄RequestDone</option></select></label>

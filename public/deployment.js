@@ -75,7 +75,6 @@ function updateConditionalFields() {
   }
   const rollback = !mobile && ['🔄 Success with Issue (RB)', '🔄 Rolled Back'].includes($('deployResult').value);
   document.querySelectorAll('.rollback-field').forEach(el => { el.hidden = !rollback; });
-  document.querySelectorAll('.result-section').forEach(el => { el.hidden = $('lifecycleStatus').value === 'Planned'; });
   syncSearchableSelects();
 }
 
@@ -290,7 +289,7 @@ function resetForm() {
   state.formBaseline = null;
   $('formTitle').textContent = 'New Deployment';
   $('jobNoBadge').textContent = 'Job No. will be generated';
-  $('lifecycleStatus').value = 'Planned';
+  $('lifecycleStatus').value = 'In Progress';
   $('category').value = 'web-service';
   $('sourceType').value = 'Get';
   $('formWarnings').hidden = true;
