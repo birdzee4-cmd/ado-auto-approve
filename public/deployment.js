@@ -240,13 +240,17 @@ async function loadRecords() {
       '<tr><td><button class="job-link" data-view="' + escapeHtml(item.id) + '">' + escapeHtml(item.jobNo) + '</button></td>' +
       '<td>' + escapeHtml(formatDeploymentDate(item.plannedDeployAt)) + '</td>' +
       '<td>' + escapeHtml(item.taskId) + '</td><td>' + escapeHtml(item.project) + '</td>' +
-      '<td class="label-code-cell">' + escapeHtml(item.labelCode || '-') + '</td>' +
+      '<td class="label-code-cell"><div class="label-code-copy-wrap"><span>' + escapeHtml(item.labelCode || '-') + '</span>' +
+      (item.labelCode ? '<button type="button" class="label-copy-btn" data-copy-label="' + escapeHtml(item.id) + '" title="Copy Label Code" aria-label="Copy Label Code">📋</button>' : '') +
+      '</div></td>' +
       '<td>' + (item.category === 'mobile' ? 'Mobile' : 'Web / Service') + '</td>' +
       '<td><span class="status-pill">' + escapeHtml(item.lifecycleStatus) + '</span></td>' +
       '<td>' + escapeHtml(item.deployResult || '-') + '</td>' +
       '<td class="record-row-actions"><button class="row-button" data-view="' + escapeHtml(item.id) + '">View</button>' +
       '<button class="row-button" data-edit="' + escapeHtml(item.id) + '">Edit</button></td></tr>'
     ).join('') : '<tr><td colspan="9">No deployments found.</td></tr>';
+    $('recordsBody').querySelectorAll('[data-copy-label]').forEach(button =>
+      button.addEventListener('click', () => copyLabelCode(button, button.dataset.copyLabel)));
     $('recordsBody').querySelectorAll('[data-view]').forEach(button =>
       button.addEventListener('click', () => viewDeployment(button.dataset.view, button)));
     $('recordsBody').querySelectorAll('[data-edit]').forEach(button =>
@@ -284,6 +288,45 @@ function setRecordDateRange(days) {
   $('filterFrom').value = localDateValue(start);
   $('filterTo').value = localDateValue(end);
   loadRecords();
+}
+async function copyLabelCode(button, id) {
+  const item = state.records.find(record => record.id === id);
+  const text = item && String(item.labelCode || '');
+  if (!text) return;
+  const originalText = button.textContent;
+  const originalTitle = button.getAttribute('title') || '';
+  try {
+    await copyDeploymentText(text);
+    button.textContent = '✓';
+    button.classList.add('copied');
+    button.setAttribute('title', 'Copied');
+  } catch (error) {
+    button.textContent = '!';
+    button.classList.add('copy-failed');
+    button.setAttribute('title', 'Copy failed');
+  }
+  window.setTimeout(() => {
+    button.textContent = originalText;
+    button.classList.remove('copied', 'copy-failed');
+    button.setAttribute('title', originalTitle);
+  }, 1200);
+}
+
+async function copyDeploymentText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand('copy');
+  document.body.removeChild(textarea);
+  if (!copied) throw new Error('Copy failed');
 }
 async function viewDeployment(id, trigger) {
   state.detailTrigger = trigger || document.activeElement;
