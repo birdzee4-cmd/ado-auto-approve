@@ -525,7 +525,7 @@ function renderMasterTable() {
     const definition = masterDefinitions[item.type];
     return `<tr><td>${escapeHtml(definition ? definition.label : item.type)}</td><td><strong>${escapeHtml(item.value)}</strong></td>` +
       `<td><span class="status-pill ${item.active ? 'active' : 'inactive'}">${item.active ? 'Active' : 'Inactive'}</span></td>` +
-      `<td><button class="row-button" data-master-edit="${escapeHtml(item.id)}" data-master-type="${escapeHtml(item.type)}">Edit</button> ` +
+      `<td class="master-action-cell"><button class="row-button master-action-edit" data-master-edit="${escapeHtml(item.id)}" data-master-type="${escapeHtml(item.type)}">Edit</button> ` +
       `<button class="row-button" data-master-toggle="${escapeHtml(item.id)}" data-master-type="${escapeHtml(item.type)}">${item.active ? 'Deactivate' : 'Activate'}</button></td></tr>`;
   }).join('') || '<tr><td colspan="4">No selection values found.</td></tr>';
   $('masterBody').querySelectorAll('[data-master-edit]').forEach(button =>

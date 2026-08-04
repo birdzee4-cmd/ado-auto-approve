@@ -68,7 +68,11 @@
 .export-panel { display:grid; grid-template-columns:repeat(4,1fr) auto; gap:14px; align-items:end; }
 .heading-help { margin:6px 0 0; color:#6b7280; font-size:13px; }
 .master-form { display:grid; grid-template-columns:240px 1fr auto; gap:14px; align-items:end; margin-bottom:15px; }
-.master-actions { display:flex; gap:8px; }.master-toolbar { margin-bottom:15px; padding:14px 20px; }.master-toolbar label { max-width:300px; }
+.master-actions { display:flex; gap:8px; }
+.master-action-cell { display:flex; align-items:center; flex-wrap:wrap; gap:8px; min-width:170px; }
+.master-action-cell .row-button { padding:6px 10px; border:1px solid #e7c56e; border-radius:6px; background:#fffaf0; white-space:nowrap; }
+.master-action-cell .row-button:hover { border-color:#f5a400; background:#fff3c4; }
+.master-action-cell .master-action-edit { background:#f5a400; border-color:#f5a400; color:#111827; }.master-toolbar { margin-bottom:15px; padding:14px 20px; }.master-toolbar label { max-width:300px; }
 .status-pill.active { background:#dcfce7; color:#166534; }.status-pill.inactive { background:#fee2e2; color:#991b1b; }
 .import-card p { color:#6b7280; font-size:13px; }.import-card pre { max-height:260px; overflow:auto; padding:12px; background:#111827; color:#f9fafb; border-radius:7px; }
 .searchable-select { position:relative; min-width:0; }
