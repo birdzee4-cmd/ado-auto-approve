@@ -7,6 +7,7 @@ import {
 let approveChartInstance = null;
 let buildChartInstance = null;
 let failedBuildsRenderToken = 0;
+let latestReportData = null;
 
 // ตั้งค่าเมื่อโหลดหน้าจอ
 async function init() {
@@ -32,24 +33,42 @@ async function init() {
   // สลับการแสดงผลตัวกรองวันที่
   if (filterType) {
     filterType.addEventListener('change', () => {
+      invalidateReportExport();
       handleTypeChange();
       handleDateUpdate();
     });
   }
 
   if (filterMonth) {
-    filterMonth.addEventListener('change', handleDateUpdate);
+    filterMonth.addEventListener('change', () => {
+      invalidateReportExport();
+      handleDateUpdate();
+    });
   }
 
   if (filterYear) {
-    filterYear.addEventListener('change', handleDateUpdate);
+    filterYear.addEventListener('change', () => {
+      invalidateReportExport();
+      handleDateUpdate();
+    });
   }
 
   const filterStartTime = document.getElementById('filterStartTime');
   const filterEndTime = document.getElementById('filterEndTime');
-  if (filterStartTime) filterStartTime.addEventListener('change', syncEndTimeOptions);
-  if (filterEndTime) filterEndTime.addEventListener('change', syncEndTimeOptions);
+  if (filterStartTime) filterStartTime.addEventListener('change', () => {
+    invalidateReportExport();
+    syncEndTimeOptions();
+  });
+  if (filterEndTime) filterEndTime.addEventListener('change', () => {
+    invalidateReportExport();
+    syncEndTimeOptions();
+  });
+  ['filterDay', 'filterActionScope', 'filterBuildScope'].forEach(id => {
+    const element = document.getElementById(id);
+    if (element) element.addEventListener('change', invalidateReportExport);
+  });
   bind('btnLoadReport', loadReport);
+  bind('btnExportReport', exportReportToExcel);
 
   // สร้างรายชื่อตัวเลือกวันที่
   populateDays(currentYear, currentMonth, currentDay);
@@ -215,6 +234,7 @@ async function loadReport() {
       showBox('reportResult', '❌ เกิดข้อผิดพลาดในการโหลดรายงาน: ' + escapeHtml(d.error || 'ไม่สามารถโหลดข้อมูลสถิติได้') +
         '<br/><small>' + escapeHtml(d.detail || '') + '</small>', 'error');
       clearStatsUi();
+      invalidateReportExport();
       return;
     }
 
@@ -223,14 +243,137 @@ async function loadReport() {
     if (resultBox) resultBox.hidden = true;
 
     const data = r.data;
+    latestReportData = data;
+    updateExportButton();
     renderStatsUi(data);
 
   } catch (err) {
     showBox('reportResult', '❌ เกิดข้อผิดพลาดร้ายแรง: ' + escapeHtml(err.message), 'error');
     clearStatsUi();
+    invalidateReportExport();
   } finally {
     setButtonLoading('btnLoadReport', false);
   }
+}
+
+function invalidateReportExport() {
+  latestReportData = null;
+  updateExportButton();
+}
+
+function updateExportButton() {
+  const button = document.getElementById('btnExportReport');
+  if (button) button.disabled = !latestReportData;
+}
+
+function exportReportToExcel() {
+  if (!latestReportData) return;
+
+  const data = latestReportData;
+  const stats = data.stats || {};
+  const scope = data.scope || {};
+  const exportedAt = new Date();
+  const sheets = [
+    buildSpreadsheetWorksheet('Summary', [
+      ['ADO Auto-Approve Report', ''],
+      ['Exported At', exportedAt.toISOString()],
+      ['Report Range Start', data.range && data.range.start || ''],
+      ['Report Range End', data.range && data.range.end || ''],
+      ['PR Actions Scope', scope.actionScope === 'mine' ? 'My actions only' : 'All users'],
+      ['Staging Builds Scope', scope.buildScope === 'related' ? 'Related PR builds' : 'All staging builds'],
+      ['Related PR Count', scope.relatedPrCount || 0],
+      ['', ''],
+      ['Metric', 'Value'],
+      ['Pull Requests', stats.totalPrs || 0],
+      ['PR Actions', stats.totalActions || 0],
+      ['Auto Approved', stats.autoApproved || 0],
+      ['Manual Approved', stats.manualApproved || 0],
+      ['Rejected', stats.rejected || 0],
+      ['On Hold', stats.onHold || 0],
+      ['Auto-Approve Rate (%)', stats.autoApproveRate || 0],
+      ['Staging Deployments', stats.totalDeploys || 0],
+      ['Succeeded Builds', stats.succeededDeploys || 0],
+      ['Failed/Canceled Builds', stats.failedDeploys || 0],
+      ['In Progress Builds', stats.inProgressDeploys || 0],
+      ['Build Success Rate (%)', stats.deploySuccessRate || 0]
+    ], { headerRows: [0, 8], widths: [210, 260] }),
+    buildSpreadsheetWorksheet('Top Active Repos', [
+      ['Rank', 'Repository', 'Pull Requests'],
+      ...(data.topActiveRepos || []).map((item, index) => [index + 1, item.repo || '', item.count || 0])
+    ], { headerRows: [0], widths: [60, 320, 110] }),
+    buildSpreadsheetWorksheet('Top Failed Repos', [
+      ['Rank', 'Repository', 'Failed Builds'],
+      ...(data.topFailedRepos || []).map((item, index) => [index + 1, item.repo || '', item.count || 0])
+    ], { headerRows: [0], widths: [60, 320, 110] }),
+    buildSpreadsheetWorksheet('Failed Builds', [
+      ['PR', 'Repository', 'Branch', 'Status', 'Build Number', 'Finished Time', 'Triggered By', 'Build URL'],
+      ...(data.failedDeployItems || []).map(item => [
+        item.prId || '', item.repo || '', item.branch || '', item.status || '',
+        item.buildNumber || '', item.finishedTime || '', item.triggeredBy || '', item.buildUrl || ''
+      ])
+    ], { headerRows: [0], widths: [75, 220, 260, 90, 120, 170, 170, 360] })
+  ];
+
+  const workbook = '<?xml version="1.0"?>' +
+    '<?mso-application progid="Excel.Sheet"?>' +
+    '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" ' +
+    'xmlns:o="urn:schemas-microsoft-com:office:office" ' +
+    'xmlns:x="urn:schemas-microsoft-com:office:excel" ' +
+    'xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' +
+    '<Styles>' +
+      '<Style ss:ID="Default"><Alignment ss:Vertical="Top"/><Font ss:FontName="Aptos" ss:Size="11"/></Style>' +
+      '<Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#7C4A03" ss:Pattern="Solid"/></Style>' +
+    '</Styles>' + sheets.join('') + '</Workbook>';
+
+  downloadReportBlob('\ufeff' + workbook, buildReportExportFileName(data, exportedAt), 'application/vnd.ms-excel;charset=utf-8');
+}
+
+function buildSpreadsheetWorksheet(name, rows, options) {
+  const headerRows = new Set(options.headerRows || []);
+  const columns = (options.widths || []).map(width => `<Column ss:AutoFitWidth="0" ss:Width="${width}"/>`).join('');
+  const body = rows.map((row, rowIndex) => {
+    const style = headerRows.has(rowIndex) ? ' ss:StyleID="Header"' : '';
+    const cells = row.map(value => {
+      const isNumber = typeof value === 'number' && Number.isFinite(value);
+      return `<Cell${style}><Data ss:Type="${isNumber ? 'Number' : 'String'}">${escapeSpreadsheetXml(value)}</Data></Cell>`;
+    }).join('');
+    return '<Row>' + cells + '</Row>';
+  }).join('');
+  return `<Worksheet ss:Name="${escapeSpreadsheetXml(name)}"><Table>${columns}${body}</Table>` +
+    '<WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>1</SplitHorizontal><TopRowBottomPane>1</TopRowBottomPane></WorksheetOptions>' +
+    '</Worksheet>';
+}
+
+function escapeSpreadsheetXml(value) {
+  return String(value == null ? '' : value)
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function buildReportExportFileName(data, exportedAt) {
+  const type = (document.getElementById('filterType') || {}).value || 'report';
+  const rangeStart = data.range && data.range.start ? new Date(data.range.start) : exportedAt;
+  const datePart = Number.isNaN(rangeStart.getTime())
+    ? exportedAt.toISOString().slice(0, 10).replace(/-/g, '')
+    : rangeStart.toISOString().slice(0, 10).replace(/-/g, '');
+  const stamp = exportedAt.toISOString().slice(11, 19).replace(/:/g, '');
+  return `ado-auto-approve-${type}-${datePart}-${stamp}.xls`;
+}
+
+function downloadReportBlob(content, fileName, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 // เคลียร์ UI ข้อมูลสรุปและกราฟ
