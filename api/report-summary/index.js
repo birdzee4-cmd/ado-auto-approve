@@ -221,10 +221,12 @@ module.exports = async function (context, req) {
       ? parseFloat(((succeededDeploys / totalDeploys) * 100).toFixed(2)) 
       : 0;
 
-    // จัดอันดับ Top Repository ที่มี Build ล้มเหลวบ่อยสุด
-    const topFailedRepos = Object.values(repoFailedDeploys)
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
+    // เก็บข้อมูลเต็มสำหรับ Export และตัดเฉพาะ Preview ที่ใช้แสดงบนหน้าเว็บ
+    const allFailedRepos = Object.values(repoFailedDeploys)
+      .sort((a, b) => b.count - a.count);
+    const topFailedRepos = allFailedRepos.slice(0, 5);
+    const allFailedDeployItems = failedDeployItems
+      .sort((a, b) => (Date.parse(b.finishedTime || '') || 0) - (Date.parse(a.finishedTime || '') || 0));
 
     // 8) ส่งผลลัพธ์กลับไปหาหน้าเว็บ
     jsonResponse(200, {
@@ -262,9 +264,9 @@ module.exports = async function (context, req) {
       },
       topActiveRepos: topActiveRepos,
       topFailedRepos: topFailedRepos,
-      failedDeployItems: failedDeployItems
-        .sort((a, b) => (Date.parse(b.finishedTime || '') || 0) - (Date.parse(a.finishedTime || '') || 0))
-        .slice(0, 10)
+      failedDeployItems: allFailedDeployItems.slice(0, 10),
+      allFailedRepos: allFailedRepos,
+      allFailedDeployItems: allFailedDeployItems
     });
 
   } catch (err) {

@@ -301,13 +301,13 @@ function exportReportToExcel() {
       ['Rank', 'Repository', 'Pull Requests'],
       ...(data.topActiveRepos || []).map((item, index) => [index + 1, item.repo || '', item.count || 0])
     ], { headerRows: [0], widths: [60, 320, 110] }),
-    buildSpreadsheetWorksheet('Top Failed Repos', [
+    buildSpreadsheetWorksheet('Failed Repos Summary', [
       ['Rank', 'Repository', 'Failed Builds'],
-      ...(data.topFailedRepos || []).map((item, index) => [index + 1, item.repo || '', item.count || 0])
+      ...(data.allFailedRepos || data.topFailedRepos || []).map((item, index) => [index + 1, item.repo || '', item.count || 0])
     ], { headerRows: [0], widths: [60, 320, 110] }),
     buildSpreadsheetWorksheet('Failed Builds', [
       ['PR', 'Repository', 'Branch', 'Status', 'Build Number', 'Finished Time', 'Triggered By', 'Build URL'],
-      ...(data.failedDeployItems || []).map(item => [
+      ...(data.allFailedDeployItems || data.failedDeployItems || []).map(item => [
         item.prId || '', item.repo || '', item.branch || '', item.status || '',
         item.buildNumber || '', item.finishedTime || '', item.triggeredBy || '', item.buildUrl || ''
       ])
