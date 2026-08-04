@@ -72,6 +72,23 @@
   flex-wrap: wrap;
 }
 
+.filter-primary-row, .filter-advanced { display: flex; flex-wrap: wrap; gap: 14px; width: 100%; align-items: flex-end; }
+.filter-date-field { flex: 0 1 165px; }
+.filter-toolbar { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 14px; border-top: 1px solid rgba(230, 190, 100, 0.22); }
+.quick-date-group, .filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.quick-date-button, .more-filter-button, .filter-chip { border: 1px solid rgba(245, 164, 0, 0.3); background: #fffaf0; color: #855800; border-radius: 999px; padding: 7px 11px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.quick-date-button:hover, .more-filter-button:hover, .more-filter-button.is-open, .filter-chip:hover { background: #fff1bf; border-color: var(--bz-yellow); }
+.filter-advanced { padding: 16px; background: #fffcf5; border: 1px dashed rgba(245, 164, 0, 0.35); border-radius: 10px; }
+.filter-advanced[hidden], .active-filters[hidden] { display: none; }
+.active-filters { width: 100%; display: flex; align-items: center; gap: 10px; }
+.active-filters-label { color: var(--bz-muted); font-size: 12px; font-weight: 700; flex: 0 0 auto; }
+.filter-chip { display: inline-flex; align-items: center; gap: 7px; padding: 5px 9px; background: #fff7d6; }
+@media (max-width: 760px) {
+  .filter-primary-row > .filter-field, .filter-date-field, .filter-advanced > .filter-field { flex: 1 1 100%; }
+  .filter-actions, .filter-actions button { flex: 1; }
+  .filter-toolbar { align-items: flex-start; flex-direction: column; }
+}
+
 /* ===== History Table Container (Scrollable) ===== */
 .history-table-wrap {
   width: 100%;

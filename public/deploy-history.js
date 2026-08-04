@@ -140,6 +140,10 @@ function applyFiltersAndRender() {
   const branchFilter = document.getElementById('filterBranch').value.toLowerCase();
   const statusFilter = document.getElementById('filterStatus').value.toLowerCase();
   const keywordFilter = document.getElementById('filterKeyword').value.trim().toLowerCase();
+  const dateFrom = document.getElementById('filterDateFrom').value;
+  const dateTo = document.getElementById('filterDateTo').value;
+  const fromTime = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
+  const toTime = dateTo ? new Date(`${dateTo}T23:59:59.999`).getTime() : null;
 
   const filtered = rawDeployments.filter(item => {
     // กรองตาม Repo
@@ -150,6 +154,13 @@ function applyFiltersAndRender() {
     
     // กรองตาม Status
     if (statusFilter && (item.Status || '').toLowerCase() !== statusFilter) return false;
+
+    if (fromTime !== null || toTime !== null) {
+      const finishedTime = Date.parse(item.FinishedTime);
+      if (!Number.isFinite(finishedTime)) return false;
+      if (fromTime !== null && finishedTime < fromTime) return false;
+      if (toTime !== null && finishedTime > toTime) return false;
+    }
     
     // กรองตาม Keyword (ชื่อ Pipeline, เวอร์ชัน, ข้อความ Commit, ผู้สั่งการ, Build Tags)
     if (keywordFilter) {
@@ -171,9 +182,42 @@ function applyFiltersAndRender() {
   
   // เรนเดอร์ตาราง
   renderDeployTable(filtered);
+  renderActiveFilters();
 
   // อัปเดตข้อความรายละเอียดการ Sync
   setText('txtInfoCount', `แสดงข้อมูลการ Deploy ของ Staging ทั้งหมด ${filtered.length} รายการ (จากทั้งหมด ${rawDeployments.length} รายการ)`);
+}
+
+const filterConfig = [
+  { id: 'filterKeyword', label: 'ค้นหา' },
+  { id: 'filterStatus', label: 'Status' },
+  { id: 'filterDateFrom', label: 'ตั้งแต่' },
+  { id: 'filterDateTo', label: 'ถึง' },
+  { id: 'filterYear', label: 'Year', reload: true },
+  { id: 'filterRepo', label: 'Repository' },
+  { id: 'filterBranch', label: 'Branch' }
+];
+
+function renderActiveFilters() {
+  const container = document.getElementById('activeFilters');
+  const chips = document.getElementById('activeFilterChips');
+  const active = filterConfig.filter(({ id }) => document.getElementById(id)?.value);
+  container.hidden = active.length === 0;
+  chips.innerHTML = active.map(({ id, label }) => {
+    const el = document.getElementById(id);
+    const value = el.tagName === 'SELECT' ? el.options[el.selectedIndex].text : el.value;
+    return `<button type="button" class="filter-chip" data-filter-id="${id}"><span>${escapeHtml(label)}: ${escapeHtml(value)}</span><span aria-hidden="true">×</span></button>`;
+  }).join('');
+}
+
+function setQuickDate(days) {
+  const today = new Date();
+  const start = new Date(today);
+  if (days > 0) start.setDate(today.getDate() - (days - 1));
+  const localDate = date => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  document.getElementById('filterDateFrom').value = localDate(start);
+  document.getElementById('filterDateTo').value = localDate(today);
+  applyFiltersAndRender();
 }
 
 // คำนวณสถิติ
@@ -284,6 +328,8 @@ function clearFilters() {
   document.getElementById('filterBranch').value = '';
   document.getElementById('filterStatus').value = '';
   document.getElementById('filterKeyword').value = '';
+  document.getElementById('filterDateFrom').value = '';
+  document.getElementById('filterDateTo').value = '';
   
   loadDeployHistory(true);
 }
@@ -293,6 +339,28 @@ function setupEventListeners() {
   bind('btnSearch', applyFiltersAndRender);
   bind('btnClear', clearFilters);
   bind('btnSyncHistory', syncDevOpsHistory);
+
+  const moreButton = document.getElementById('btnMoreFilters');
+  const advancedFilters = document.getElementById('advancedFilters');
+  moreButton.addEventListener('click', () => {
+    const willOpen = advancedFilters.hidden;
+    advancedFilters.hidden = !willOpen;
+    moreButton.setAttribute('aria-expanded', String(willOpen));
+    moreButton.classList.toggle('is-open', willOpen);
+  });
+
+  document.querySelectorAll('.quick-date-button').forEach(button => {
+    button.addEventListener('click', () => setQuickDate(Number(button.dataset.days)));
+  });
+
+  document.getElementById('activeFilterChips').addEventListener('click', event => {
+    const chip = event.target.closest('[data-filter-id]');
+    if (!chip) return;
+    const config = filterConfig.find(item => item.id === chip.dataset.filterId);
+    document.getElementById(chip.dataset.filterId).value = '';
+    if (config?.reload) loadDeployHistory(false);
+    else applyFiltersAndRender();
+  });
 
   // เมื่อเปลี่ยนฟิลเตอร์ของปี ให้ดึงข้อมูลใหม่จาก Server
   const filterYear = document.getElementById('filterYear');
@@ -314,7 +382,7 @@ function setupEventListeners() {
   }
 
   // อัปเดตข้อมูลเมื่อเปลี่ยนค่า Dropdown ทันที (ฟิลเตอร์ฝั่ง Client)
-  ['filterRepo', 'filterBranch', 'filterStatus'].forEach(id => {
+  ['filterRepo', 'filterBranch', 'filterStatus', 'filterDateFrom', 'filterDateTo'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener('change', applyFiltersAndRender);
