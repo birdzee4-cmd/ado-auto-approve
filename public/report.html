@@ -112,6 +112,14 @@
                 <option value="related">เฉพาะ Build ของ PR ที่แสดงในรายงาน</option>
               </select>
             </div>
+            <div class="filter-field">
+              <span>Production Deploy Category</span>
+              <select id="filterDeployCategory">
+                <option value="all">ทั้งหมด (All)</option>
+                <option value="web-service">Web / Service</option>
+                <option value="mobile-app">Mobile App</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -183,6 +191,38 @@
             <!-- Will be rendered dynamically -->
             <div class="empty-state">— ไม่มีข้อมูลสรุปสถิติ —</div>
           </div>
+        </div>
+      </div>
+
+      <div class="detail-card production-deploy-card">
+        <div class="production-deploy-header">
+          <div>
+            <h3>Production Deploy จาก Report Deploy_2026.xlsx</h3>
+            <p id="productionDeploySource" class="scope-note">กำลังโหลดข้อมูลจาก Excel...</p>
+          </div>
+          <label class="production-search">
+            <span>ค้นหา</span>
+            <input id="productionDeploySearch" type="search" placeholder="Job No., Task ID, Project, Label Code" />
+          </label>
+        </div>
+        <div class="production-stats">
+          <div><span>ทั้งหมด</span><strong id="productionTotal">-</strong></div>
+          <div><span>Web / Service</span><strong id="productionWebService">-</strong></div>
+          <div><span>Mobile App</span><strong id="productionMobileApp">-</strong></div>
+        </div>
+        <div class="production-table-wrap">
+          <table class="production-table">
+            <thead><tr>
+              <th>Deploy Date</th><th>Category</th><th>Job No.</th><th>Task ID</th>
+              <th>Project</th><th>Deploy Type</th><th>Action</th><th>Status</th><th>Label Code</th>
+            </tr></thead>
+            <tbody id="productionDeployRows"><tr><td colspan="9" class="empty-state">กำลังโหลด...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="production-pagination">
+          <button id="productionPrev" class="secondary-button" type="button">ก่อนหน้า</button>
+          <span id="productionPageInfo">หน้า 1 / 1</span>
+          <button id="productionNext" class="secondary-button" type="button">ถัดไป</button>
         </div>
       </div>
 
