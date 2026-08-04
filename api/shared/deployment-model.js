@@ -27,7 +27,7 @@ function validateDeployment(input, options) {
 
   if (!CATEGORIES.includes(category)) errors.push('Deployment category is invalid.');
   if (!LIFECYCLE_STATUSES.includes(lifecycleStatus)) errors.push('Lifecycle status is invalid.');
-  if (!normalizeDateTime(source.plannedDeployAt)) errors.push('Planned deployment date and time are required.');
+  if (!normalizeDateTime(source.plannedDeployAt)) errors.push('Deployment date is required.');
   ['taskId', 'projectsMainSort', 'projectsSubType', 'deployType', 'project', 'labelCode'].forEach(field => {
     if (!normalizeText(source[field])) errors.push(field + ' is required.');
   });
@@ -51,7 +51,7 @@ function validateDeployment(input, options) {
   if (label && planned) {
     const parts = bangkokDateParts(new Date(planned));
     const stamp = parts.year + parts.month + parts.day;
-    if (!label.includes(stamp)) warnings.push('Label Code does not contain the planned deployment date.');
+    if (!label.includes(stamp)) warnings.push('Label Code does not contain the deployment date.');
   }
   const projectToken = normalizeText(source.project).replace(/[^a-z0-9]/gi, '').toLowerCase();
   if (label && projectToken.length >= 4 && !label.replace(/[^a-z0-9]/gi, '').includes(projectToken)) {

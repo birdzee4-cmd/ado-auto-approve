@@ -58,7 +58,7 @@
 .searchable-select { position:relative; min-width:0; }
 @media(min-width:981px){
   .plan-job-status{grid-column:1;grid-row:1}.plan-category{grid-column:2;grid-row:1}.plan-task-id{grid-column:3;grid-row:1}
-  .plan-planned-date{grid-column:1;grid-row:2}.plan-actual-date{grid-column:2;grid-row:2}
+  .plan-deploy-date{grid-column:1;grid-row:2}
   .plan-main-sort{grid-column:1;grid-row:3}.plan-sub-type{grid-column:2;grid-row:3}
   .plan-deploy-type{grid-column:1;grid-row:4}.plan-project{grid-column:2;grid-row:4}
   .plan-source-type,.plan-platform{grid-column:1;grid-row:5}

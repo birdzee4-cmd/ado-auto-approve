@@ -215,8 +215,7 @@ async function editDeployment(id) {
     fields.forEach(field => { if ($(field)) $(field).value = item[field] || ''; });
     $('deploymentId').value = item.id;
     $('deploymentEtag').value = item.etag;
-    $('plannedDeployAt').value = toDateInput(item.plannedDeployAt);
-    $('actualDeployAt').value = toDateInput(item.actualDeployAt);
+    $('deployAt').value = toDateInput(item.actualDeployAt || item.plannedDeployAt);
     $('swapBackAt').value = toLocalInput(item.swapBackAt);
     $('formTitle').textContent = 'Update Deployment';
     $('jobNoBadge').textContent = item.jobNo;
@@ -257,12 +256,13 @@ async function saveDeployment(event) {
 
 function formPayload() {
   const value = id => $(id).value;
+  const deployAt = localToIso(value('deployAt'));
   return {
     etag: value('deploymentEtag'),
     category: value('category'),
     lifecycleStatus: value('lifecycleStatus'),
-    plannedDeployAt: localToIso(value('plannedDeployAt')),
-    actualDeployAt: localToIso(value('actualDeployAt')),
+    plannedDeployAt: deployAt,
+    actualDeployAt: deployAt,
     taskId: value('taskId'),
     projectsMainSort: value('projectsMainSort'),
     projectsSubType: value('projectsSubType'),
@@ -598,8 +598,7 @@ function syncSearchableSelects() {
 }
 function setDefaultDate() {
   const today = localDateValue(new Date());
-  if (!$('plannedDeployAt').value) $('plannedDeployAt').value = today;
-  if (!$('actualDeployAt').value) $('actualDeployAt').value = today;
+  if (!$('deployAt').value) $('deployAt').value = today;
 }
 
 function toDateInput(value) { return value ? localDateValue(new Date(value)) : ''; }
