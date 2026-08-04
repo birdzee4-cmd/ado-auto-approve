@@ -633,9 +633,8 @@ function showFieldError(control) {
   if (!label) return;
   const fieldId = control.dataset.fieldId || control.id || '';
   const messages = {
-    lifecycleStatus: 'Please select a job status.',
-    deployAt: 'Please select a deploy date.',
     category: 'Please select a category.',
+    deployAt: 'Please select a deploy date.',
     platform: 'Please select a platform.',
     taskId: 'Please enter a task ID.',
     projectsMainSort: 'Please select a project main sort.',
