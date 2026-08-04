@@ -6,7 +6,7 @@
   <link rel="icon" type="image/png" href="/assets/buzzebees-icon.png" />
   <title>Deployment Report - Buzzebees Internal Tools</title>
   <link rel="stylesheet" href="/core.css" />
-  <link rel="stylesheet" href="/deployment.css?v=records-filter-v3" />
+  <link rel="stylesheet" href="/deployment.css?v=records-filter-v4" />
 </head>
 <body>
   <nav class="navbar">
@@ -135,9 +135,8 @@
           </div>
           <div class="record-filter-toolbar">
             <div class="quick-range-buttons" aria-label="Quick date range"><button type="button" class="filter-tool-button" data-record-days="0">Today</button><button type="button" class="filter-tool-button" data-record-days="7">Last 7 days</button><button type="button" class="filter-tool-button" data-record-days="30">Last 30 days</button></div>
-            <button id="toggleRecordFilters" class="filter-tool-button" type="button" aria-expanded="false" aria-controls="recordAdvancedFilters">More filters ⌄</button>
           </div>
-          <div id="recordAdvancedFilters" class="record-filter-advanced" hidden>
+          <div id="recordAdvancedFilters" class="record-filter-advanced">
             <label><span>Project</span><select id="filterProject"><option value="">All projects</option></select></label>
             <label><span>Project Main Sort</span><select id="filterProjectsMainSort"><option value="">All Project Main Sort</option></select></label>
             <label><span>Project Sub Type</span><select id="filterProjectsSubType"><option value="">All Project Sub Type</option></select></label>
@@ -189,6 +188,6 @@
     </section>
   </main>
 
-  <script type="module" src="/deployment.js?v=records-filter-v3"></script>
+  <script type="module" src="/deployment.js?v=records-filter-v4"></script>
 </body>
 </html>

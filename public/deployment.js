@@ -65,7 +65,6 @@ function bindForms() {
   $('formSecondaryAction').addEventListener('click', handleFormSecondaryAction);
     $('recordFilters').addEventListener('submit', event => { event.preventDefault(); loadRecords(); });
   $('clearRecordFilters').addEventListener('click', clearRecordFilters);
-  $('toggleRecordFilters').addEventListener('click', toggleRecordAdvancedFilters);
   document.querySelectorAll('[data-record-days]').forEach(button =>
     button.addEventListener('click', () => setRecordDateRange(Number(button.dataset.recordDays))));
   $('recordFilterChips').addEventListener('click', event => {
@@ -256,13 +255,6 @@ function renderRecordFilterSummary(count) {
 function clearRecordFilters() {
   recordFilterDefinitions.forEach(([id]) => { $(id).value = ''; });
   loadRecords();
-}
-
-function toggleRecordAdvancedFilters() {
-  const panel = $('recordAdvancedFilters');
-  const expanded = panel.hidden;
-  panel.hidden = !expanded;
-  $('toggleRecordFilters').setAttribute('aria-expanded', String(expanded));
 }
 
 function setRecordDateRange(days) {
