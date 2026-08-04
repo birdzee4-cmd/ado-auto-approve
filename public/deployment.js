@@ -56,7 +56,6 @@ function bindForms() {
   });
   $('deployResult').addEventListener('change', updateConditionalFields);
   $('lifecycleStatus').addEventListener('change', updateConditionalFields);
-  $('platform').addEventListener('change', updateConditionalFields);
   const deploymentForm = $('deploymentForm');
   deploymentForm.addEventListener('invalid', event => showFieldError(event.target), true);
   deploymentForm.addEventListener('input', event => clearFieldError(event.target));
@@ -78,6 +77,7 @@ function updateConditionalFields() {
   const mobile = $('category').value === 'mobile';
   const deployType = $('deployType');
   const platform = $('platform');
+  const sourceType = $('sourceType');
   document.querySelectorAll('.web-field').forEach(el => { el.hidden = mobile; });
   document.querySelectorAll('.mobile-field').forEach(el => { el.hidden = !mobile; });
   if (mobile) {
@@ -89,10 +89,12 @@ function updateConditionalFields() {
   }
   deployType.disabled = mobile;
   platform.disabled = !mobile;
+  sourceType.disabled = mobile;
   setSearchableRequired('platform', mobile);
+  setSearchableRequired('sourceType', !mobile);
   setRequiredMarker('platform', mobile);
+  setRequiredMarker('sourceType', !mobile);
   setRequiredMarker('deployType', !mobile);
-  $('saveDeployment').disabled = mobile && !platform.value;
   const rollback = !mobile && ['🔄 Success with Issue (RB)', '🔄 Rolled Back'].includes($('deployResult').value);
   document.querySelectorAll('.rollback-field').forEach(el => { el.hidden = !rollback; });
   syncSearchableSelects();
@@ -312,7 +314,7 @@ function resetForm() {
   $('jobNoBadge').textContent = 'Job No. will be generated';
   $('lifecycleStatus').value = 'In Progress';
   $('category').value = '';
-  $('sourceType').value = 'Get';
+  $('sourceType').value = '';
   $('formWarnings').hidden = true;
   $('formSecondaryAction').textContent = 'Reset';
   syncSearchableSelects();
@@ -634,6 +636,7 @@ function showFieldError(control) {
   const fieldId = control.dataset.fieldId || control.id || '';
   const messages = {
     category: 'Please select a category.',
+    sourceType: 'Please select Get / Merge.',
     deployAt: 'Please select a deploy date.',
     platform: 'Please select a platform.',
     taskId: 'Please enter a task ID.',
