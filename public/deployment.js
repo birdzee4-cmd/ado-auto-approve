@@ -240,12 +240,13 @@ async function loadRecords() {
       '<tr><td><button class="job-link" data-view="' + escapeHtml(item.id) + '">' + escapeHtml(item.jobNo) + '</button></td>' +
       '<td>' + escapeHtml(formatDeploymentDate(item.plannedDeployAt)) + '</td>' +
       '<td>' + escapeHtml(item.taskId) + '</td><td>' + escapeHtml(item.project) + '</td>' +
+      '<td class="label-code-cell">' + escapeHtml(item.labelCode || '-') + '</td>' +
       '<td>' + (item.category === 'mobile' ? 'Mobile' : 'Web / Service') + '</td>' +
       '<td><span class="status-pill">' + escapeHtml(item.lifecycleStatus) + '</span></td>' +
       '<td>' + escapeHtml(item.deployResult || '-') + '</td>' +
       '<td class="record-row-actions"><button class="row-button" data-view="' + escapeHtml(item.id) + '">View</button>' +
       '<button class="row-button" data-edit="' + escapeHtml(item.id) + '">Edit</button></td></tr>'
-    ).join('') : '<tr><td colspan="8">No deployments found.</td></tr>';
+    ).join('') : '<tr><td colspan="9">No deployments found.</td></tr>';
     $('recordsBody').querySelectorAll('[data-view]').forEach(button =>
       button.addEventListener('click', () => viewDeployment(button.dataset.view, button)));
     $('recordsBody').querySelectorAll('[data-edit]').forEach(button =>

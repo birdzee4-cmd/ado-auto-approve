@@ -78,6 +78,7 @@
 .searchable-select { position:relative; min-width:0; }
 .job-link { padding:0; border:0; background:transparent; color:#374151; font:inherit; font-weight:800; cursor:pointer; text-align:left; }
 .job-link:hover,.job-link:focus { color:#9a6500; text-decoration:underline; outline:none; }
+.label-code-cell { min-width:220px; max-width:320px; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.45; }
 .record-row-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; min-width:120px; white-space:nowrap; }
 .record-row-actions .row-button { padding:6px 10px; border:1px solid #e7c56e; border-radius:6px; background:#fffaf0; }
 .record-row-actions .row-button:hover { border-color:#f5a400; background:#fff3c4; }
