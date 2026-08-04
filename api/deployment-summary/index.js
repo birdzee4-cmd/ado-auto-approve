@@ -7,8 +7,7 @@ module.exports = async function (context, req) {
   try {
     const query = req.query || {};
     const range = resolveRange(query, new Date());
-    const base = await store.listDeployments({
-      top: 1000,
+    const base = await store.listAllDeployments({
       category: query.category,
       from: range.from,
       to: range.to

@@ -29,3 +29,17 @@ test('resolves dashboard date presets', () => {
     preset: 'last-3-months', from: '2026-05-01', to: '2026-07-31'
   });
 });
+
+test('aggregates more than 1000 deployments without truncation', () => {
+  const records = Array.from({ length: 1501 }, (_, index) => ({
+    lifecycleStatus: 'Completed',
+    deployResult: '✅ Success',
+    category: index % 2 ? 'mobile' : 'web-service',
+    project: 'Project ' + (index % 5),
+    plannedDeployAt: '2026-07-01T00:00:00.000Z'
+  }));
+  const result = summary.aggregateDeployments(records, new Date('2026-07-31T00:00:00.000Z'));
+  assert.equal(result.counts.total, 1501);
+  assert.equal(result.counts.successful, 1501);
+  assert.equal(result.counts.successRate, 100);
+});

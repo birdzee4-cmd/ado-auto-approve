@@ -103,8 +103,17 @@ async function getDeployment(id) {
 }
 
 async function listDeployments(filters) {
-  const records = await clientFor('recordsTable');
   const query = filters || {};
+  const limit = Math.max(1, Math.min(Number(query.top || 200), 1000));
+  return listDeploymentsInternal(query, limit);
+}
+
+async function listAllDeployments(filters) {
+  return listDeploymentsInternal(filters || {}, Infinity);
+}
+
+async function listDeploymentsInternal(query, limit) {
+  const records = await clientFor('recordsTable');
   const clauses = [];
   if (model.CATEGORIES.includes(query.category)) clauses.push(`PartitionKey eq '${escapeOdata(query.category)}'`);
   if (query.lifecycleStatus) clauses.push(`lifecycleStatus eq '${escapeOdata(query.lifecycleStatus)}'`);
@@ -120,13 +129,12 @@ async function listDeployments(filters) {
     end.setUTCHours(23, 59, 59, 999);
     clauses.push(`plannedDeployAt le '${escapeOdata(end.toISOString())}'`);
   }
-  const top = Math.max(1, Math.min(Number(query.top || 200), 1000));
   const items = [];
   for await (const entity of records.listEntities({ queryOptions: { filter: clauses.join(' and ') || undefined } })) {
     const item = model.toPublicDeployment(entity);
     if (!matchesSearch(item, query.search)) continue;
     items.push(item);
-    if (items.length >= top) break;
+    if (items.length >= limit) break;
   }
   items.sort((a, b) => String(b.plannedDeployAt).localeCompare(String(a.plannedDeployAt)));
   return items;
@@ -345,6 +353,7 @@ module.exports = {
   updateDeployment,
   getDeployment,
   listDeployments,
+  listAllDeployments,
   findDuplicates,
   nextJobNo,
   listAudit,
