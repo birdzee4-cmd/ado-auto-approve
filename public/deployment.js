@@ -1,6 +1,6 @@
 import { escapeHtml, getUserEmailForDisplay, safeFetchJson, setText } from './core.js';
 
-const state = { user: null, master: [], records: [], editing: null, editingMaster: null, formBaseline: null };
+const state = { user: null, master: [], records: [], editing: null, editingMaster: null, formBaseline: null, detail: null, detailTrigger: null };
 const $ = id => document.getElementById(id);
 
 async function api(url, options) {
@@ -75,6 +75,20 @@ function bindForms() {
   });
   ['filterCategory', 'filterLifecycle', 'filterSourceType', 'filterFrom', 'filterTo', 'filterProject', 'filterProjectsMainSort', 'filterProjectsSubType', 'filterDeployType']
     .forEach(id => $(id).addEventListener('change', loadRecords));
+  $('closeDeploymentDetail').addEventListener('click', closeDeploymentDetail);
+  $('detailCloseButton').addEventListener('click', closeDeploymentDetail);
+  $('detailEditButton').addEventListener('click', () => {
+    if (!state.detail) return;
+    const id = state.detail.id;
+    closeDeploymentDetail();
+    editDeployment(id);
+  });
+  $('deploymentDetailBackdrop').addEventListener('click', event => {
+    if (event.target === $('deploymentDetailBackdrop')) closeDeploymentDetail();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !$('deploymentDetailBackdrop').hidden) closeDeploymentDetail();
+  });
   $('exportForm').addEventListener('submit', exportWorkbook);
   $('masterForm').addEventListener('submit', saveMaster);
   $('masterFilter').addEventListener('change', renderMasterTable);
@@ -223,16 +237,21 @@ async function loadRecords() {
     state.records = data.deployments || [];
     renderRecordFilterSummary(data.count ?? state.records.length);
     $('recordsBody').innerHTML = state.records.length ? state.records.map(item =>
-      `<tr><td><strong>${escapeHtml(item.jobNo)}</strong></td><td>${escapeHtml(formatDeploymentDate(item.plannedDeployAt))}</td>` +
-      `<td>${escapeHtml(item.taskId)}</td><td>${escapeHtml(item.project)}</td>` +
-      `<td>${item.category === 'mobile' ? 'Mobile' : 'Web / Service'}</td>` +
-      `<td><span class="status-pill">${escapeHtml(item.lifecycleStatus)}</span></td><td>${escapeHtml(item.deployResult || '-')}</td>` +
-      `<td><button class="row-button" data-edit="${escapeHtml(item.id)}">Edit</button></td></tr>`
+      '<tr><td><button class="job-link" data-view="' + escapeHtml(item.id) + '">' + escapeHtml(item.jobNo) + '</button></td>' +
+      '<td>' + escapeHtml(formatDeploymentDate(item.plannedDeployAt)) + '</td>' +
+      '<td>' + escapeHtml(item.taskId) + '</td><td>' + escapeHtml(item.project) + '</td>' +
+      '<td>' + (item.category === 'mobile' ? 'Mobile' : 'Web / Service') + '</td>' +
+      '<td><span class="status-pill">' + escapeHtml(item.lifecycleStatus) + '</span></td>' +
+      '<td>' + escapeHtml(item.deployResult || '-') + '</td>' +
+      '<td class="record-row-actions"><button class="row-button" data-view="' + escapeHtml(item.id) + '">View</button>' +
+      '<button class="row-button" data-edit="' + escapeHtml(item.id) + '">Edit</button></td></tr>'
     ).join('') : '<tr><td colspan="8">No deployments found.</td></tr>';
-    $('recordsBody').querySelectorAll('[data-edit]').forEach(button => button.addEventListener('click', () => editDeployment(button.dataset.edit)));
+    $('recordsBody').querySelectorAll('[data-view]').forEach(button =>
+      button.addEventListener('click', () => viewDeployment(button.dataset.view, button)));
+    $('recordsBody').querySelectorAll('[data-edit]').forEach(button =>
+      button.addEventListener('click', () => editDeployment(button.dataset.edit)));
   } catch (error) { notice(error.message, true); }
 }
-
 const recordFilterDefinitions = [
   ['filterSearch', 'Search'], ['filterCategory', 'Category'], ['filterLifecycle', 'Status'],
   ['filterSourceType', 'Get / Merge'], ['filterFrom', 'From'], ['filterTo', 'To'],
@@ -264,6 +283,72 @@ function setRecordDateRange(days) {
   $('filterFrom').value = localDateValue(start);
   $('filterTo').value = localDateValue(end);
   loadRecords();
+}
+async function viewDeployment(id, trigger) {
+  state.detailTrigger = trigger || document.activeElement;
+  try {
+    const data = await api('/api/deployments/' + encodeURIComponent(id));
+    state.detail = data.deployment;
+    renderDeploymentDetail(state.detail);
+    $('deploymentDetailBackdrop').hidden = false;
+    document.body.classList.add('detail-open');
+    $('deploymentDetailDrawer').focus();
+  } catch (error) { notice(error.message, true); }
+}
+
+function renderDeploymentDetail(item) {
+  const isMobile = item.category === 'mobile';
+  const overview = [
+    ['Status', item.lifecycleStatus], ['Category', isMobile ? 'Mobile App' : 'Web / Service'],
+    ['Planned deployment', formatDate(item.plannedDeployAt)], ['Actual deployment', formatDate(item.actualDeployAt)],
+    ['Result', item.deployResult]
+  ];
+  const project = [
+    ['Project', item.project], ['Project Main Sort', item.projectsMainSort],
+    ['Project Sub Type', item.projectsSubType], ['Deploy Type', item.deployType],
+    ['Get / Merge', item.sourceType], ['Platform', item.platform]
+  ];
+  const release = [
+    ['Task ID', item.taskId], ['Label Code', item.labelCode], ['Duration', item.durationDeploy],
+    ['Document Status', item.documentStatus]
+  ];
+  const rollback = [
+    ['SwapBack Type', item.swapBackType], ['SwapBack Date & Time', formatDate(item.swapBackAt)],
+    ['SwapBack Details', item.swapBackDetails]
+  ];
+  const additional = [
+    ['Remark', item.remark], ['Created by', item.createdBy], ['Created at', formatDate(item.createdAt)],
+    ['Updated by', item.updatedBy], ['Updated at', formatDate(item.updatedAt)]
+  ];
+  $('deploymentDetailTitle').textContent = item.jobNo || 'Job details';
+  $('deploymentDetailContent').innerHTML = [
+    detailSection('Deployment overview', overview, true),
+    detailSection('Project information', project),
+    detailSection('Task and release information', release),
+    item.swapBackType || item.swapBackAt || item.swapBackDetails ? detailSection('Rollback information', rollback) : '',
+    detailSection('Additional information', additional)
+  ].join('');
+}
+
+function detailSection(title, fields, showEmpty) {
+  const visible = fields.filter(([, value]) => showEmpty || hasDetailValue(value));
+  if (!visible.length) return '';
+  return '<section class="detail-section"><h3>' + escapeHtml(title) + '</h3><dl>' +
+    visible.map(([label, value]) => '<div><dt>' + escapeHtml(label) + '</dt><dd>' +
+      escapeHtml(hasDetailValue(value) ? String(value) : '—') + '</dd></div>').join('') +
+    '</dl></section>';
+}
+
+function hasDetailValue(value) {
+  return value !== null && value !== undefined && value !== '' && value !== '-';
+}
+
+function closeDeploymentDetail() {
+  $('deploymentDetailBackdrop').hidden = true;
+  document.body.classList.remove('detail-open');
+  state.detail = null;
+  if (state.detailTrigger && document.contains(state.detailTrigger)) state.detailTrigger.focus();
+  state.detailTrigger = null;
 }
 async function editDeployment(id) {
   try {
