@@ -6,7 +6,7 @@
   <link rel="icon" type="image/png" href="/assets/buzzebees-icon.png" />
   <title>Deployment Report - Buzzebees Internal Tools</title>
   <link rel="stylesheet" href="/core.css" />
-  <link rel="stylesheet" href="/deployment.css?v=dashboard-v1" />
+  <link rel="stylesheet" href="/deployment.css?v=records-filter-v2" />
 </head>
 <body>
   <nav class="navbar">
@@ -123,13 +123,24 @@
 
       <section class="deployment-view" id="view-records">
         <div class="deployment-heading"><div><p class="deployment-kicker">Search and update</p><h1>Deployment Records</h1></div></div>
-        <form id="recordFilters" class="deployment-card filter-grid">
-          <input id="filterSearch" placeholder="Job No., Task ID, Project or Label Code" />
-          <select id="filterCategory"><option value="">All categories</option><option value="web-service">Web / Service</option><option value="mobile">Mobile</option></select>
-          <select id="filterLifecycle"><option value="">All lifecycle statuses</option><option>Planned</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select>
-          <input id="filterFrom" type="date" aria-label="From date" />
-          <input id="filterTo" type="date" aria-label="To date" />
-          <button class="primary-button">Search</button>
+        <form id="recordFilters" class="deployment-card record-filter-panel">
+          <div class="record-filter-primary">
+            <label class="record-search-field"><span>Search</span><input id="filterSearch" type="search" autocomplete="off" placeholder="Job No., Task ID, Project or Label Code" /></label>
+            <label><span>Category</span><select id="filterCategory"><option value="">All categories</option><option value="web-service">Web / Service</option><option value="mobile">Mobile</option></select></label>
+            <label><span>Lifecycle status</span><select id="filterLifecycle"><option value="">All lifecycle statuses</option><option>Planned</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></label>
+            <label><span>From</span><input id="filterFrom" type="date" /></label>
+            <label><span>To</span><input id="filterTo" type="date" /></label>
+            <div class="record-filter-actions"><button class="primary-button">Search</button><button id="clearRecordFilters" class="secondary-button" type="button">Clear all</button></div>
+          </div>
+          <div class="record-filter-toolbar">
+            <div class="quick-range-buttons" aria-label="Quick date range"><button type="button" class="filter-tool-button" data-record-days="0">Today</button><button type="button" class="filter-tool-button" data-record-days="7">Last 7 days</button><button type="button" class="filter-tool-button" data-record-days="30">Last 30 days</button></div>
+            <button id="toggleRecordFilters" class="filter-tool-button" type="button" aria-expanded="false" aria-controls="recordAdvancedFilters">More filters ⌄</button>
+          </div>
+          <div id="recordAdvancedFilters" class="record-filter-advanced" hidden>
+            <label><span>Project</span><select id="filterProject"><option value="">All projects</option></select></label>
+            <label><span>Deploy result</span><select id="filterResult"><option value="">All results</option><option>✅ Success</option><option>⚠️ Success with Issue</option><option>🔄 Success with Issue (RB)</option><option>🔄 Rolled Back</option></select></label>
+          </div>
+          <div id="recordFilterSummary" class="record-filter-summary" hidden><span id="recordCount"></span><div id="recordFilterChips" class="record-filter-chips"></div></div>
         </form>
         <div class="deployment-card table-wrap"><table><thead><tr><th>Job No.</th><th>Plan</th><th>Task ID</th><th>Project</th><th>Category</th><th>Status</th><th>Result</th><th></th></tr></thead><tbody id="recordsBody"></tbody></table></div>
       </section>
@@ -175,6 +186,6 @@
     </section>
   </main>
 
-  <script type="module" src="/deployment.js?v=dashboard-v1"></script>
+  <script type="module" src="/deployment.js?v=records-filter-v2"></script>
 </body>
 </html>

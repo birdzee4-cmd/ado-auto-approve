@@ -109,6 +109,7 @@ async function listDeployments(filters) {
   if (model.CATEGORIES.includes(query.category)) clauses.push(`PartitionKey eq '${escapeOdata(query.category)}'`);
   if (query.lifecycleStatus) clauses.push(`lifecycleStatus eq '${escapeOdata(query.lifecycleStatus)}'`);
   if (query.deployResult) clauses.push(`deployResult eq '${escapeOdata(query.deployResult)}'`);
+  if (query.project) clauses.push(`project eq '${escapeOdata(query.project)}'`);
   if (query.from) clauses.push(`plannedDeployAt ge '${escapeOdata(new Date(query.from).toISOString())}'`);
   if (query.to) {
     const end = new Date(query.to);

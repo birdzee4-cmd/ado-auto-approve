@@ -63,7 +63,19 @@ function bindForms() {
   deploymentForm.addEventListener('focusout', event => { if (event.target.required && !event.target.validity.valid) showFieldError(event.target); });
   deploymentForm.addEventListener('submit', saveDeployment);
   $('formSecondaryAction').addEventListener('click', handleFormSecondaryAction);
-  $('recordFilters').addEventListener('submit', event => { event.preventDefault(); loadRecords(); });
+    $('recordFilters').addEventListener('submit', event => { event.preventDefault(); loadRecords(); });
+  $('clearRecordFilters').addEventListener('click', clearRecordFilters);
+  $('toggleRecordFilters').addEventListener('click', toggleRecordAdvancedFilters);
+  document.querySelectorAll('[data-record-days]').forEach(button =>
+    button.addEventListener('click', () => setRecordDateRange(Number(button.dataset.recordDays))));
+  $('recordFilterChips').addEventListener('click', event => {
+    const button = event.target.closest('[data-clear-record-filter]');
+    if (!button) return;
+    $(button.dataset.clearRecordFilter).value = '';
+    loadRecords();
+  });
+  ['filterCategory', 'filterLifecycle', 'filterFrom', 'filterTo', 'filterProject', 'filterResult']
+    .forEach(id => $(id).addEventListener('change', loadRecords));
   $('exportForm').addEventListener('submit', exportWorkbook);
   $('masterForm').addEventListener('submit', saveMaster);
   $('masterFilter').addEventListener('change', renderMasterTable);
@@ -205,11 +217,12 @@ function renderCompactList(id, records) {
 
 async function loadRecords() {
   const params = new URLSearchParams();
-  [['search', 'filterSearch'], ['category', 'filterCategory'], ['lifecycleStatus', 'filterLifecycle'], ['from', 'filterFrom'], ['to', 'filterTo']]
+  [['search', 'filterSearch'], ['category', 'filterCategory'], ['lifecycleStatus', 'filterLifecycle'], ['from', 'filterFrom'], ['to', 'filterTo'], ['project', 'filterProject'], ['deployResult', 'filterResult']]
     .forEach(([key, id]) => { if ($(id).value) params.set(key, $(id).value); });
   try {
     const data = await api('/api/deployments?' + params);
     state.records = data.deployments || [];
+    renderRecordFilterSummary(data.count ?? state.records.length);
     $('recordsBody').innerHTML = state.records.length ? state.records.map(item =>
       `<tr><td><strong>${escapeHtml(item.jobNo)}</strong></td><td>${escapeHtml(formatDeploymentDate(item.plannedDeployAt))}</td>` +
       `<td>${escapeHtml(item.taskId)}</td><td>${escapeHtml(item.project)}</td>` +
@@ -221,6 +234,43 @@ async function loadRecords() {
   } catch (error) { notice(error.message, true); }
 }
 
+const recordFilterDefinitions = [
+  ['filterSearch', 'Search'], ['filterCategory', 'Category'], ['filterLifecycle', 'Status'],
+  ['filterFrom', 'From'], ['filterTo', 'To'], ['filterProject', 'Project'], ['filterResult', 'Result']
+];
+
+function renderRecordFilterSummary(count) {
+  const active = recordFilterDefinitions.filter(([id]) => $(id).value);
+  $('recordCount').textContent = count + (count === 1 ? ' record found' : ' records found');
+  $('recordFilterSummary').hidden = false;
+  $('recordFilterChips').innerHTML = active.map(([id, label]) => {
+    const field = $(id);
+    const value = field.tagName === 'SELECT' ? field.options[field.selectedIndex].text : field.value;
+    return '<button type="button" class="record-filter-chip" data-clear-record-filter="' + id + '"><span>' +
+      escapeHtml(label) + ': ' + escapeHtml(value) + '</span><span aria-hidden="true">×</span></button>';
+  }).join('');
+}
+
+function clearRecordFilters() {
+  recordFilterDefinitions.forEach(([id]) => { $(id).value = ''; });
+  loadRecords();
+}
+
+function toggleRecordAdvancedFilters() {
+  const panel = $('recordAdvancedFilters');
+  const expanded = panel.hidden;
+  panel.hidden = !expanded;
+  $('toggleRecordFilters').setAttribute('aria-expanded', String(expanded));
+}
+
+function setRecordDateRange(days) {
+  const end = new Date();
+  const start = new Date(end);
+  if (days > 0) start.setDate(end.getDate() - days + 1);
+  $('filterFrom').value = localDateValue(start);
+  $('filterTo').value = localDateValue(end);
+  loadRecords();
+}
 async function editDeployment(id) {
   try {
     const data = await api('/api/deployments/' + encodeURIComponent(id));
@@ -364,6 +414,12 @@ function renderDeploymentMasterOptions() {
     select.value = selected;
     refreshSearchableSelect(definition.field);
   });
+  const filterProject = $('filterProject');
+  const selectedProject = filterProject.value;
+  const projects = state.master.filter(item => item.type === 'project' && item.active);
+  filterProject.innerHTML = '<option value="">All projects</option>' +
+    projects.map(item => '<option value="' + escapeHtml(item.value) + '">' + escapeHtml(item.value) + '</option>').join('');
+  filterProject.value = projects.some(item => item.value === selectedProject) ? selectedProject : '';
 }
 
 function ensureSelectValue(field, value) {
