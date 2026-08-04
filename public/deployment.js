@@ -303,7 +303,7 @@ function resetForm() {
   $('formTitle').textContent = 'New Deployment';
   $('jobNoBadge').textContent = 'Job No. will be generated';
   $('lifecycleStatus').value = 'In Progress';
-  $('category').value = 'web-service';
+  $('category').value = '';
   $('sourceType').value = 'Get';
   $('formWarnings').hidden = true;
   $('formSecondaryAction').textContent = 'Reset';
