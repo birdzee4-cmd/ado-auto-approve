@@ -49,9 +49,14 @@ function showView(name) {
 }
 
 function bindForms() {
-  $('category').addEventListener('change', updateConditionalFields);
+  $('category').addEventListener('change', () => {
+    if ($('category').value === 'mobile') $('platform').value = '';
+    else if ($('deployType').value === 'BackupCode') $('deployType').value = '';
+    updateConditionalFields();
+  });
   $('deployResult').addEventListener('change', updateConditionalFields);
   $('lifecycleStatus').addEventListener('change', updateConditionalFields);
+  $('platform').addEventListener('change', updateConditionalFields);
   $('deploymentForm').addEventListener('submit', saveDeployment);
   $('formSecondaryAction').addEventListener('click', handleFormSecondaryAction);
   $('recordFilters').addEventListener('submit', event => { event.preventDefault(); loadRecords(); });
@@ -66,13 +71,21 @@ function bindForms() {
 
 function updateConditionalFields() {
   const mobile = $('category').value === 'mobile';
+  const deployType = $('deployType');
+  const platform = $('platform');
   document.querySelectorAll('.web-field').forEach(el => { el.hidden = mobile; });
   document.querySelectorAll('.mobile-field').forEach(el => { el.hidden = !mobile; });
   if (mobile) {
     ensureSelectValue('deployType', 'BackupCode');
-    $('deployType').value = 'BackupCode';
+    deployType.value = 'BackupCode';
     if (!$('documentStatus').value) $('documentStatus').value = '📄RequestDone';
+  } else {
+    platform.value = '';
   }
+  deployType.disabled = mobile;
+  platform.disabled = !mobile;
+  setSearchableRequired('platform', mobile);
+  $('saveDeployment').disabled = mobile && !platform.value;
   const rollback = !mobile && ['🔄 Success with Issue (RB)', '🔄 Rolled Back'].includes($('deployResult').value);
   document.querySelectorAll('.rollback-field').forEach(el => { el.hidden = !rollback; });
   syncSearchableSelects();
@@ -591,6 +604,12 @@ function refreshSearchableSelect(id) {
   entry.input.placeholder = placeholder ? placeholder.textContent : 'Search and select';
   entry.input.disabled = entry.select.disabled;
   entry.input.setCustomValidity('');
+}
+
+function setSearchableRequired(id, required) {
+  const entry = searchableSelects.get(id);
+  if (entry) entry.input.required = required;
+  else if ($(id)) $(id).required = required;
 }
 
 function syncSearchableSelects() {

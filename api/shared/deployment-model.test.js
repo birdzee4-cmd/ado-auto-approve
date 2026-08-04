@@ -43,8 +43,26 @@ test('normalizes Mobile deployment fields', () => {
     durationDeploy: 'should be removed',
     deployResult: 'should be removed'
   }, { user: 'tester@buzzebees.com' });
+  assert.equal(entity.deployType, 'BackupCode');
+  assert.equal(entity.platform, 'Android');
   assert.equal(entity.sourceType, 'BackupCode');
   assert.equal(entity.documentStatus, 'Done');
   assert.equal(entity.durationDeploy, '');
   assert.equal(entity.deployResult, '');
+});
+
+test('requires an explicit Mobile platform', () => {
+  const entity = model.buildDeploymentEntity({
+    category: 'mobile',
+    plannedDeployAt: '2026-07-31T03:00:00.000Z',
+    taskId: '48002',
+    projectsMainSort: '[TH] Example',
+    projectsSubType: '[TH] Mobile Projects',
+    deployType: 'BackupCode',
+    project: 'Example Mobile',
+    labelCode: '0017_RR_DM001_20260731_1000_Example_Mobile'
+  }, { user: 'tester@buzzebees.com' });
+  const result = model.validateDeployment(entity);
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join(' '), /Mobile platform must be Android or iOS/);
 });
