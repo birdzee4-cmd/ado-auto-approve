@@ -124,8 +124,11 @@
       <section class="deployment-view" id="view-records">
         <div class="deployment-heading"><div><p class="deployment-kicker">Search and update</p><h1>Deployment Records</h1></div></div>
         <form id="recordFilters" class="deployment-card record-filter-panel">
-          <div class="record-filter-primary">
+          <div class="record-search-row">
             <label class="record-search-field"><span>Search</span><input id="filterSearch" type="search" autocomplete="off" placeholder="Job No., Task ID, Project or Label Code" /></label>
+            <div class="record-filter-actions"><button class="primary-button">Search</button><button id="clearRecordFilters" class="secondary-button" type="button">Clear all</button></div>
+          </div>
+          <div class="record-general-filters">
             <label><span>Category</span><select id="filterCategory"><option value="">All categories</option><option value="web-service">Web / Service</option><option value="mobile">Mobile</option></select></label>
             <label><span>Status</span><select id="filterLifecycle"><option value="">All statuses</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></label>
             <label><span>Get / Merge</span><select id="filterSourceType"><option value="">All Get / Merge</option><option>Get</option><option>Merge - Production</option></select></label>
@@ -141,7 +144,6 @@
                 <button type="button" class="filter-tool-button" data-record-days="30" aria-pressed="false">Last 30 days</button>
               </div>
             </div>
-            <div class="record-filter-actions"><button class="primary-button">Search</button><button id="clearRecordFilters" class="secondary-button" type="button">Clear all</button></div>
           </div>
           <div id="recordAdvancedFilters" class="record-filter-advanced">
             <label><span>Project</span><select id="filterProject"><option value="">All projects</option></select></label>
