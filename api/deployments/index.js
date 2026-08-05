@@ -18,11 +18,18 @@ module.exports = async function (context, req) {
       if (String(query.history || '').toLowerCase() === 'true' && query.project) {
         let allDeployments = await store.listAllDeployments({ project: query.project });
         if (query.excludeId) allDeployments = allDeployments.filter(item => item.id !== query.excludeId);
+        allDeployments.sort((a, b) => String(b.plannedDeployAt).localeCompare(String(a.plannedDeployAt)) ||
+          String(b.jobNo).localeCompare(String(a.jobNo)));
         const deployTypes = [...new Set(allDeployments.map(item => item.deployType).filter(Boolean))]
           .sort((a, b) => a.localeCompare(b));
         const deployments = query.deployType
           ? allDeployments.filter(item => item.deployType === query.deployType)
           : allDeployments;
+        const pageSize = 10;
+        const requestedPage = Math.max(1, Number.parseInt(query.page, 10) || 1);
+        const totalPages = Math.max(1, Math.ceil(deployments.length / pageSize));
+        const currentPage = Math.min(requestedPage, totalPages);
+        const pageStart = (currentPage - 1) * pageSize;
         const completedCount = allDeployments.filter(item => item.lifecycleStatus === 'Completed').length;
         const inProgressCount = allDeployments.filter(item => item.lifecycleStatus === 'In Progress').length;
         return http.json(context, 200, {
@@ -30,10 +37,13 @@ module.exports = async function (context, req) {
           count: deployments.length,
           totalCount: allDeployments.length,
           deployTypes,
+          currentPage,
+          pageSize,
+          totalPages,
           completedCount,
           inProgressCount,
           latestDeployAt: allDeployments.length ? allDeployments[0].plannedDeployAt : null,
-          deployments: deployments.slice(0, 5)
+          deployments: deployments.slice(pageStart, pageStart + pageSize)
         });
       }
       const deployments = await store.listDeployments(query);

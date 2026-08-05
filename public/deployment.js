@@ -7,6 +7,7 @@ let recordsAbortController = null;
 let projectHistoryRequestId = 0;
 let projectHistoryAbortController = null;
 let projectHistoryDeployType = '';
+let projectHistoryPage = 1;
 
 async function api(url, options) {
   const response = await fetch(url, options);
@@ -70,9 +71,16 @@ function bindForms() {
   $('formSecondaryAction').addEventListener('click', handleFormSecondaryAction);
   $('project').addEventListener('change', () => {
     projectHistoryDeployType = '';
+    projectHistoryPage = 1;
     loadProjectHistory();
   });
   $('projectHistoryContent').addEventListener('click', event => {
+    const pageButton = event.target.closest('[data-history-page]');
+    if (pageButton && !pageButton.disabled) {
+      projectHistoryPage = Number(pageButton.dataset.historyPage);
+      loadProjectHistory();
+      return;
+    }
     const detailButton = event.target.closest('[data-history-view]');
     if (detailButton) {
       viewDeployment(detailButton.dataset.historyView, detailButton);
@@ -84,6 +92,7 @@ function bindForms() {
     const filter = event.target.closest('[data-history-deploy-type]');
     if (!filter) return;
     projectHistoryDeployType = filter.value;
+    projectHistoryPage = 1;
     loadProjectHistory();
   });
     $('recordFilters').addEventListener('submit', event => { event.preventDefault(); loadRecords(); });
@@ -272,6 +281,7 @@ async function loadProjectHistory() {
   projectHistoryAbortController = controller;
   const params = new URLSearchParams({ history: 'true', project });
   if (projectHistoryDeployType) params.set('deployType', projectHistoryDeployType);
+  params.set('page', String(projectHistoryPage));
   if ($('deploymentId').value) params.set('excludeId', $('deploymentId').value);
 
   try {
@@ -293,6 +303,13 @@ function renderProjectHistory(project, data) {
   const records = data.deployments || [];
   const count = Number(data.count || 0);
   const totalCount = Number(data.totalCount ?? count);
+  const pageSize = Number(data.pageSize || 10);
+  const totalPages = Number(data.totalPages || 1);
+  const currentPage = Number(data.currentPage || 1);
+  projectHistoryPage = currentPage;
+  const rangeStart = count ? (currentPage - 1) * pageSize + 1 : 0;
+  const rangeEnd = count ? Math.min(currentPage * pageSize, count) : 0;
+  const pagination = renderProjectHistoryPagination(currentPage, totalPages);
   const deployTypes = data.deployTypes || [];
   const filterOptions = '<option value="">All Deploy Types</option>' + deployTypes.map(value =>
     '<option value="' + escapeHtml(value) + '"' + (value === projectHistoryDeployType ? ' selected' : '') + '>' + escapeHtml(value) + '</option>').join('');
@@ -321,7 +338,7 @@ function renderProjectHistory(project, data) {
     '<h3>' + escapeHtml(project) + '</h3></div>' +
     '<div class="project-history-actions">' +
       '<label class="history-filter-label"><span>Deploy Type</span><select data-history-deploy-type>' + filterOptions + '</select></label>' +
-      (count ? '<button type="button" class="history-text-button" data-history-all>View all ' + count + '</button>' : '') +
+      (count ? '<button type="button" class="history-text-button" data-history-all>Open Deployment Records</button>' : '') +
     '</div></div>' +
     '<div class="project-history-summary">' +
       '<div><strong>' + totalCount + '</strong><span>Total deployments</span></div>' +
@@ -329,10 +346,35 @@ function renderProjectHistory(project, data) {
       '<div><strong>' + Number(data.completedCount || 0) + '</strong><span>Completed</span></div>' +
       '<div><strong>' + Number(data.inProgressCount || 0) + '</strong><span>In progress</span></div>' +
     '</div>' +
-    '<div class="history-table-meta">Showing <strong>' + count + '</strong> of ' + totalCount + ' deployments</div>' +
+    '<div class="history-table-meta">Showing <strong>' + rangeStart + '&ndash;' + rangeEnd + '</strong> of ' + count + ' deployments</div>' +
     '<div class="project-history-table-wrap"><table class="project-history-table">' +
       '<thead><tr><th>Deploy Type</th><th>Projects</th><th>Label Code</th><th>Deploy Status</th><th class="history-detail-heading">Detail</th></tr></thead>' +
-      '<tbody>' + rows + '</tbody></table></div>';
+      '<tbody>' + rows + '</tbody></table></div>' + pagination;
+}
+
+function renderProjectHistoryPagination(currentPage, totalPages) {
+  if (totalPages <= 1) return '';
+  const pages = [...new Set([1, currentPage - 1, currentPage, currentPage + 1, totalPages]
+    .filter(page => page >= 1 && page <= totalPages))].sort((a, b) => a - b);
+  const pageButtons = [];
+  let previousPage = 0;
+  pages.forEach(page => {
+    if (previousPage && page - previousPage > 1) {
+      pageButtons.push('<span class="history-page-ellipsis" aria-hidden="true">…</span>');
+    }
+    pageButtons.push('<button type="button" class="history-page-button' + (page === currentPage ? ' active' : '') +
+      '" data-history-page="' + page + '" aria-label="Page ' + page + '"' +
+      (page === currentPage ? ' aria-current="page" disabled' : '') + '>' + page + '</button>');
+    previousPage = page;
+  });
+
+  return '<nav class="history-pagination" aria-label="Project deployment history pages">' +
+    '<button type="button" class="history-page-nav" data-history-page="' + (currentPage - 1) + '"' +
+      (currentPage === 1 ? ' disabled' : '') + '>Previous</button>' +
+    '<div class="history-page-numbers">' + pageButtons.join('') + '</div>' +
+    '<span class="history-page-mobile">Page ' + currentPage + ' of ' + totalPages + '</span>' +
+    '<button type="button" class="history-page-nav" data-history-page="' + (currentPage + 1) + '"' +
+      (currentPage === totalPages ? ' disabled' : '') + '>Next</button></nav>';
 }
 
 function projectHistoryResultClass(item) {
@@ -630,6 +672,7 @@ function formPayload() {
 function resetForm() {
   projectHistoryRequestId++;
   projectHistoryDeployType = '';
+  projectHistoryPage = 1;
   if (projectHistoryAbortController) projectHistoryAbortController.abort();
   projectHistoryAbortController = null;
   $('projectHistory').hidden = true;
