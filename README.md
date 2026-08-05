@@ -154,7 +154,8 @@ flowchart LR
 - `OFF` (Normal): ดำเนินการอนุมัติแบบ Manual ทีละรายการผ่านหน้าเว็บ
 - `ACTIVE (Manual)` (Dry-run): บอทช่วยจำลองการตรวจ PR คิว แต่จะไม่ส่งคำสั่ง Approve ไปยัง Azure DevOps จริง (มีไว้สำหรับทดสอบ)
 - `ACTIVE (Auto-Approve)` (Active): บอทตรวจคิว PR และ Release อัตโนมัติ หากผ่าน Guardrail และเงื่อนไขระบบ จะอนุมัติ (Approve) ให้อัตโนมัติทันที
-- พฤติกรรมปัจจุบันของหน้าเว็บจะ Reset โหมดกลับเป็น `OFF` ทุกครั้งที่โหลดหรือ refresh หน้า Dashboard เพื่อป้องกันการค้างสถานะจาก session ก่อนหน้า
+- หน้าเว็บจะ Reset โหมดกลับเป็น `OFF` เมื่อโหลดหรือ refresh หน้า Dashboard ตามปกติ เพื่อป้องกันการค้างสถานะจาก session ก่อนหน้า
+- กรณี Azure Static Web Apps browser session หมดอายุระหว่าง Auto-Approve ระบบจะเก็บโหมดเดิมไว้ใน `sessionStorage` สูงสุด 10 นาที หลัง sign-in กลับมาจะดึง PR ใหม่ในสถานะ `OFF` ก่อน และ Resume โหมดเดิมอัตโนมัติเฉพาะเมื่อ fresh scan สำเร็จ หาก scan ล้มเหลวจะคง `OFF` และไม่ส่ง approval
 - เมื่อเปิด `ACTIVE (Manual)` หรือ `ACTIVE (Auto-Approve)` ระบบจะบันทึก expiry เป็น `end_of_day` และแสดง Countdown ถึงเวลา 23:59:59 Asia/Bangkok ของวันนั้น จากนั้นจะกลับเป็น `OFF` อัตโนมัติ
 - ขณะเปิดโหมด Active/Dry-run หน้าเว็บจะสแกนคิวซ้ำทุก 60 วินาที และแสดงผลใน Auto Approve Status Console
 - หากกด `Refresh PR` ระหว่างที่เปิดโหมด Active/Dry-run ระบบจะถามยืนยันก่อนปิดโหมดกลับเป็น `OFF` แล้วจึงดึงข้อมูล PR ใหม่
