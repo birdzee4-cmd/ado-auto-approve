@@ -77,6 +77,7 @@ function bindForms() {
   });
   ['filterCategory', 'filterLifecycle', 'filterSourceType', 'filterFrom', 'filterTo', 'filterProject', 'filterProjectsMainSort', 'filterProjectsSubType', 'filterDeployType']
     .forEach(id => $(id).addEventListener('change', loadRecords));
+  ['filterFrom', 'filterTo'].forEach(id => $(id).addEventListener('change', () => setActiveQuickRange(null)));
   $('closeDeploymentDetail').addEventListener('click', closeDeploymentDetail);
   $('detailCloseButton').addEventListener('click', closeDeploymentDetail);
   $('detailEditButton').addEventListener('click', () => {
@@ -289,6 +290,7 @@ function renderRecordFilterSummary(count) {
 
 function clearRecordFilters() {
   recordFilterDefinitions.forEach(([id]) => setRecordFilterValue(id, ''));
+  setActiveQuickRange(null);
   renderRecordFilterSummary(state.records.length);
   loadRecords();
 }
@@ -306,7 +308,14 @@ function setRecordDateRange(days) {
   if (days > 0) start.setDate(end.getDate() - days + 1);
   $('filterFrom').value = localDateValue(start);
   $('filterTo').value = localDateValue(end);
+  setActiveQuickRange(days);
   loadRecords();
+}
+
+function setActiveQuickRange(days) {
+  document.querySelectorAll('[data-record-days]').forEach(button => {
+    button.setAttribute('aria-pressed', String(days !== null && Number(button.dataset.recordDays) === days));
+  });
 }
 async function copyLabelCode(button, id) {
   const item = state.records.find(record => record.id === id);
