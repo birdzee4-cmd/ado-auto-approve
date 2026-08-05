@@ -78,13 +78,35 @@
 .searchable-select { position:relative; min-width:0; }
 .job-link { padding:0; border:0; background:transparent; color:#374151; font:inherit; font-weight:800; cursor:pointer; text-align:left; }
 .job-link:hover,.job-link:focus { color:#9a6500; text-decoration:underline; outline:none; }
-.label-code-cell { min-width:220px; max-width:320px; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.45; }
+.records-table-wrap { max-height:calc(100vh - 300px); min-height:300px; border-radius:10px; scrollbar-color:#e3bd5c #fffaf0; }
+.records-table { width:100%; min-width:1420px; table-layout:fixed; border-collapse:separate; border-spacing:0; }
+.records-table .col-job { width:190px; }
+.records-table .col-plan { width:100px; }
+.records-table .col-task { width:85px; }
+.records-table .col-project { width:190px; }
+.records-table .col-label { width:340px; }
+.records-table .col-category { width:105px; }
+.records-table .col-status { width:110px; }
+.records-table .col-result { width:100px; }
+.records-table .col-actions { width:160px; }
+.records-table th { position:sticky; top:0; z-index:3; padding:13px 14px; border-bottom:2px solid #e8cb78; background:#fff7da; font-size:11px; letter-spacing:.03em; text-transform:uppercase; }
+.records-table td { padding:13px 14px; vertical-align:middle; line-height:1.4; }
+.records-table tbody tr:nth-child(even) td { background:#fffdf8; }
+.records-table tbody tr:hover td { background:#fff8df; }
+.records-table th:first-child,.records-table td:first-child { position:sticky; left:0; z-index:2; }
+.records-table th:first-child { z-index:4; }
+.records-table tbody tr:nth-child(odd) td:first-child { background:#fff; }
+.records-table tbody tr:nth-child(even) td:first-child { background:#fffdf8; }
+.records-table tbody tr:hover td:first-child { background:#fff8df; }
+.records-table td:nth-child(2),.records-table td:nth-child(3),.records-table td:nth-child(6),.records-table td:nth-child(7),.records-table td:nth-child(8) { white-space:nowrap; }
+.label-code-cell { white-space:normal; overflow-wrap:anywhere; }
+.label-code-text { display:block; color:#4b5563; font-family:Consolas,"Courier New",monospace; font-size:11.5px; line-height:1.45; }
 .label-code-copy-wrap { display:grid; grid-template-columns:minmax(0,1fr) 28px; align-items:start; gap:7px; min-width:0; }
 .label-copy-btn { display:inline-flex; align-items:center; justify-content:center; width:28px; height:24px; padding:0; border:1px solid #f6c453; border-radius:6px; background:#fff7d6; color:#8a5a00; cursor:pointer; font-size:13px; line-height:1; transition:background .15s,border-color .15s,color .15s; }
 .label-copy-btn:hover { background:#ffe8a3; border-color:#e5a900; color:#5f3b00; }
 .label-copy-btn.copied { background:#dcfce7; border-color:#86efac; color:#166534; }
 .label-copy-btn.copy-failed { background:#fee2e2; border-color:#fca5a5; color:#991b1b; }
-.record-row-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; min-width:120px; white-space:nowrap; }
+.record-row-actions { display:flex; align-items:center; flex-wrap:nowrap; gap:8px; min-width:120px; white-space:nowrap; }
 .record-row-actions .row-button { padding:6px 10px; border:1px solid #e7c56e; border-radius:6px; background:#fffaf0; }
 .record-row-actions .row-button:hover { border-color:#f5a400; background:#fff3c4; }
 .record-row-actions .row-button:last-child { background:#f5a400; border-color:#f5a400; color:#111827; }

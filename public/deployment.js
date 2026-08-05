@@ -240,7 +240,7 @@ async function loadRecords() {
       '<tr><td><button class="job-link" data-view="' + escapeHtml(item.id) + '">' + escapeHtml(item.jobNo) + '</button></td>' +
       '<td>' + escapeHtml(formatDeploymentDate(item.plannedDeployAt)) + '</td>' +
       '<td>' + escapeHtml(item.taskId) + '</td><td>' + escapeHtml(item.project) + '</td>' +
-      '<td class="label-code-cell"><div class="label-code-copy-wrap"><span>' + escapeHtml(item.labelCode || '-') + '</span>' +
+      '<td class="label-code-cell"><div class="label-code-copy-wrap"><span class="label-code-text">' + escapeHtml(item.labelCode || '-') + '</span>' +
       (item.labelCode ? '<button type="button" class="label-copy-btn" data-copy-label="' + escapeHtml(item.id) + '" title="Copy Label Code" aria-label="Copy Label Code">📋</button>' : '') +
       '</div></td>' +
       '<td>' + (item.category === 'mobile' ? 'Mobile' : 'Web / Service') + '</td>' +
