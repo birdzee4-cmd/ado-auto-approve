@@ -2,6 +2,8 @@ import { escapeHtml, getUserEmailForDisplay, safeFetchJson, setText } from './co
 
 const state = { user: null, master: [], records: [], editing: null, editingMaster: null, formBaseline: null, detail: null, detailTrigger: null };
 const $ = id => document.getElementById(id);
+let recordsRequestId = 0;
+let recordsAbortController = null;
 
 async function api(url, options) {
   const response = await fetch(url, options);
@@ -70,7 +72,7 @@ function bindForms() {
   $('recordFilterChips').addEventListener('click', event => {
     const button = event.target.closest('[data-clear-record-filter]');
     if (!button) return;
-    $(button.dataset.clearRecordFilter).value = '';
+    setRecordFilterValue(button.dataset.clearRecordFilter, '');
     loadRecords();
   });
   ['filterCategory', 'filterLifecycle', 'filterSourceType', 'filterFrom', 'filterTo', 'filterProject', 'filterProjectsMainSort', 'filterProjectsSubType', 'filterDeployType']
@@ -229,11 +231,16 @@ function renderCompactList(id, records) {
 }
 
 async function loadRecords() {
+  const requestId = ++recordsRequestId;
+  if (recordsAbortController) recordsAbortController.abort();
+  const controller = new AbortController();
+  recordsAbortController = controller;
   const params = new URLSearchParams();
   [['search', 'filterSearch'], ['category', 'filterCategory'], ['lifecycleStatus', 'filterLifecycle'], ['sourceType', 'filterSourceType'], ['from', 'filterFrom'], ['to', 'filterTo'], ['project', 'filterProject'], ['projectsMainSort', 'filterProjectsMainSort'], ['projectsSubType', 'filterProjectsSubType'], ['deployType', 'filterDeployType']]
     .forEach(([key, id]) => { if ($(id).value) params.set(key, $(id).value); });
   try {
-    const data = await api('/api/deployments?' + params);
+    const data = await api('/api/deployments?' + params, { signal: controller.signal });
+    if (requestId !== recordsRequestId) return;
     state.records = data.deployments || [];
     renderRecordFilterSummary(data.count ?? state.records.length);
     $('recordsBody').innerHTML = state.records.length ? state.records.map(item =>
@@ -255,7 +262,11 @@ async function loadRecords() {
       button.addEventListener('click', () => viewDeployment(button.dataset.view, button)));
     $('recordsBody').querySelectorAll('[data-edit]').forEach(button =>
       button.addEventListener('click', () => editDeployment(button.dataset.edit)));
-  } catch (error) { notice(error.message, true); }
+  } catch (error) {
+    if (error.name !== 'AbortError') notice(error.message, true);
+  } finally {
+    if (requestId === recordsRequestId) recordsAbortController = null;
+  }
 }
 const recordFilterDefinitions = [
   ['filterSearch', 'Search'], ['filterCategory', 'Category'], ['filterLifecycle', 'Status'],
@@ -277,8 +288,16 @@ function renderRecordFilterSummary(count) {
 }
 
 function clearRecordFilters() {
-  recordFilterDefinitions.forEach(([id]) => { $(id).value = ''; });
+  recordFilterDefinitions.forEach(([id]) => setRecordFilterValue(id, ''));
+  renderRecordFilterSummary(state.records.length);
   loadRecords();
+}
+
+function setRecordFilterValue(id, value) {
+  const field = $(id);
+  if (!field) return;
+  field.value = value;
+  refreshSearchableSelect(id);
 }
 
 function setRecordDateRange(days) {
@@ -549,6 +568,7 @@ function renderDeploymentMasterOptions() {
     filterSelect.innerHTML = '<option value="">' + escapeHtml(placeholder) + '</option>' +
       items.map(item => '<option value="' + escapeHtml(item.value) + '">' + escapeHtml(item.value) + '</option>').join('');
     filterSelect.value = items.some(item => item.value === selectedValue) ? selectedValue : '';
+    refreshSearchableSelect(fieldId);
   });
 }
 
