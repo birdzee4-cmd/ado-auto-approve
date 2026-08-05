@@ -132,17 +132,19 @@
             <label><span>Category</span><select id="filterCategory"><option value="">All categories</option><option value="web-service">Web / Service</option><option value="mobile">Mobile</option></select></label>
             <label><span>Status</span><select id="filterLifecycle"><option value="">All statuses</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></label>
             <label><span>Get / Merge</span><select id="filterSourceType"><option value="">All Get / Merge</option><option>Get</option><option>Merge - Production</option></select></label>
-            <div class="record-date-group">
-              <div class="record-date-fields">
-                <label><span>From</span><input id="filterFrom" type="date" /></label>
-                <label><span>To</span><input id="filterTo" type="date" /></label>
-              </div>
+          </div>
+          <div class="record-date-range-row">
+            <div class="record-date-shortcuts">
+              <span class="record-date-title">Date range</span>
               <div class="quick-range-buttons" aria-label="Quick date range">
-                <span class="quick-range-label">Quick date</span>
                 <button type="button" class="filter-tool-button" data-record-days="0" aria-pressed="false">Today</button>
                 <button type="button" class="filter-tool-button" data-record-days="7" aria-pressed="false">Last 7 days</button>
                 <button type="button" class="filter-tool-button" data-record-days="30" aria-pressed="false">Last 30 days</button>
               </div>
+            </div>
+            <div class="record-date-fields">
+              <label><span>From</span><input id="filterFrom" type="date" /></label>
+              <label><span>To</span><input id="filterTo" type="date" /></label>
             </div>
           </div>
           <div id="recordAdvancedFilters" class="record-filter-advanced">
