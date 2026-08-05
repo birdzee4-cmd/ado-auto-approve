@@ -6,6 +6,7 @@ let recordsRequestId = 0;
 let recordsAbortController = null;
 let projectHistoryRequestId = 0;
 let projectHistoryAbortController = null;
+let projectHistoryDeployType = '';
 
 async function api(url, options) {
   const response = await fetch(url, options);
@@ -67,7 +68,10 @@ function bindForms() {
   deploymentForm.addEventListener('focusout', event => { if (event.target.required && !event.target.validity.valid) showFieldError(event.target); });
   deploymentForm.addEventListener('submit', saveDeployment);
   $('formSecondaryAction').addEventListener('click', handleFormSecondaryAction);
-  $('project').addEventListener('change', loadProjectHistory);
+  $('project').addEventListener('change', () => {
+    projectHistoryDeployType = '';
+    loadProjectHistory();
+  });
   $('projectHistoryContent').addEventListener('click', event => {
     const detailButton = event.target.closest('[data-history-view]');
     if (detailButton) {
@@ -75,6 +79,12 @@ function bindForms() {
       return;
     }
     if (event.target.closest('[data-history-all]')) openAllProjectHistory();
+  });
+  $('projectHistoryContent').addEventListener('change', event => {
+    const filter = event.target.closest('[data-history-deploy-type]');
+    if (!filter) return;
+    projectHistoryDeployType = filter.value;
+    loadProjectHistory();
   });
     $('recordFilters').addEventListener('submit', event => { event.preventDefault(); loadRecords(); });
   $('clearRecordFilters').addEventListener('click', clearRecordFilters);
@@ -261,6 +271,7 @@ async function loadProjectHistory() {
   const controller = new AbortController();
   projectHistoryAbortController = controller;
   const params = new URLSearchParams({ history: 'true', project });
+  if (projectHistoryDeployType) params.set('deployType', projectHistoryDeployType);
   if ($('deploymentId').value) params.set('excludeId', $('deploymentId').value);
 
   try {
@@ -281,9 +292,13 @@ async function loadProjectHistory() {
 function renderProjectHistory(project, data) {
   const records = data.deployments || [];
   const count = Number(data.count || 0);
+  const totalCount = Number(data.totalCount ?? count);
+  const deployTypes = data.deployTypes || [];
+  const filterOptions = '<option value="">All Deploy Types</option>' + deployTypes.map(value =>
+    '<option value="' + escapeHtml(value) + '"' + (value === projectHistoryDeployType ? ' selected' : '') + '>' + escapeHtml(value) + '</option>').join('');
   const latest = data.latestDeployAt ? formatDeploymentDate(data.latestDeployAt) : '-';
   const content = $('projectHistoryContent');
-  if (!count) {
+  if (!totalCount) {
     content.innerHTML = '<div class="project-history-header"><div><p class="project-history-kicker">Project Deployment History</p>' +
       '<h3>' + escapeHtml(project) + '</h3></div></div>' +
       '<div class="project-history-empty">No previous deployments found for this project.</div>';
@@ -299,17 +314,22 @@ function renderProjectHistory(project, data) {
     '<td class="history-detail-cell"><button type="button" class="history-detail-button" data-history-view="' +
       escapeHtml(item.id) + '" aria-label="View deployment details for ' +
       escapeHtml(item.project || item.jobNo || 'this deployment') + '">Detail</button></td></tr>'
-  ).join('');
+  ).join('') || '<tr><td colspan="5" class="history-no-match">No ' +
+    escapeHtml(projectHistoryDeployType) + ' deployments found for ' + escapeHtml(project) + '.</td></tr>';
 
   content.innerHTML = '<div class="project-history-header"><div><p class="project-history-kicker">Project Deployment History</p>' +
     '<h3>' + escapeHtml(project) + '</h3></div>' +
-    '<button type="button" class="history-text-button" data-history-all>View all ' + count + '</button></div>' +
+    '<div class="project-history-actions">' +
+      '<label class="history-filter-label"><span>Deploy Type</span><select data-history-deploy-type>' + filterOptions + '</select></label>' +
+      (count ? '<button type="button" class="history-text-button" data-history-all>View all ' + count + '</button>' : '') +
+    '</div></div>' +
     '<div class="project-history-summary">' +
-      '<div><strong>' + count + '</strong><span>Total deployments</span></div>' +
+      '<div><strong>' + totalCount + '</strong><span>Total deployments</span></div>' +
       '<div><strong>' + escapeHtml(latest) + '</strong><span>Last deployed</span></div>' +
       '<div><strong>' + Number(data.completedCount || 0) + '</strong><span>Completed</span></div>' +
       '<div><strong>' + Number(data.inProgressCount || 0) + '</strong><span>In progress</span></div>' +
     '</div>' +
+    '<div class="history-table-meta">Showing <strong>' + count + '</strong> of ' + totalCount + ' deployments</div>' +
     '<div class="project-history-table-wrap"><table class="project-history-table">' +
       '<thead><tr><th>Deploy Type</th><th>Projects</th><th>Label Code</th><th>Deploy Status</th><th class="history-detail-heading">Detail</th></tr></thead>' +
       '<tbody>' + rows + '</tbody></table></div>';
@@ -328,6 +348,7 @@ function openAllProjectHistory() {
   if (!project) return;
   recordFilterDefinitions.forEach(([id]) => setRecordFilterValue(id, ''));
   setRecordFilterValue('filterProject', project);
+  setRecordFilterValue('filterDeployType', projectHistoryDeployType);
   setActiveQuickRange(null);
   showView('records');
 }
@@ -608,6 +629,7 @@ function formPayload() {
 
 function resetForm() {
   projectHistoryRequestId++;
+  projectHistoryDeployType = '';
   if (projectHistoryAbortController) projectHistoryAbortController.abort();
   projectHistoryAbortController = null;
   $('projectHistory').hidden = true;

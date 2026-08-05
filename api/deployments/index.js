@@ -16,16 +16,23 @@ module.exports = async function (context, req) {
     if (method === 'GET') {
       const query = req.query || {};
       if (String(query.history || '').toLowerCase() === 'true' && query.project) {
-        let deployments = await store.listAllDeployments({ project: query.project });
-        if (query.excludeId) deployments = deployments.filter(item => item.id !== query.excludeId);
-        const completedCount = deployments.filter(item => item.lifecycleStatus === 'Completed').length;
-        const inProgressCount = deployments.filter(item => item.lifecycleStatus === 'In Progress').length;
+        let allDeployments = await store.listAllDeployments({ project: query.project });
+        if (query.excludeId) allDeployments = allDeployments.filter(item => item.id !== query.excludeId);
+        const deployTypes = [...new Set(allDeployments.map(item => item.deployType).filter(Boolean))]
+          .sort((a, b) => a.localeCompare(b));
+        const deployments = query.deployType
+          ? allDeployments.filter(item => item.deployType === query.deployType)
+          : allDeployments;
+        const completedCount = allDeployments.filter(item => item.lifecycleStatus === 'Completed').length;
+        const inProgressCount = allDeployments.filter(item => item.lifecycleStatus === 'In Progress').length;
         return http.json(context, 200, {
           ok: true,
           count: deployments.length,
+          totalCount: allDeployments.length,
+          deployTypes,
           completedCount,
           inProgressCount,
-          latestDeployAt: deployments.length ? deployments[0].plannedDeployAt : null,
+          latestDeployAt: allDeployments.length ? allDeployments[0].plannedDeployAt : null,
           deployments: deployments.slice(0, 5)
         });
       }
