@@ -4,6 +4,8 @@ const state = { user: null, master: [], records: [], editing: null, editingMaste
 const $ = id => document.getElementById(id);
 let recordsRequestId = 0;
 let recordsAbortController = null;
+let projectHistoryRequestId = 0;
+let projectHistoryAbortController = null;
 
 async function api(url, options) {
   const response = await fetch(url, options);
@@ -65,6 +67,15 @@ function bindForms() {
   deploymentForm.addEventListener('focusout', event => { if (event.target.required && !event.target.validity.valid) showFieldError(event.target); });
   deploymentForm.addEventListener('submit', saveDeployment);
   $('formSecondaryAction').addEventListener('click', handleFormSecondaryAction);
+  $('project').addEventListener('change', loadProjectHistory);
+  $('projectHistoryContent').addEventListener('click', event => {
+    const detailButton = event.target.closest('[data-history-view]');
+    if (detailButton) {
+      viewDeployment(detailButton.dataset.historyView, detailButton);
+      return;
+    }
+    if (event.target.closest('[data-history-all]')) openAllProjectHistory();
+  });
     $('recordFilters').addEventListener('submit', event => { event.preventDefault(); loadRecords(); });
   $('clearRecordFilters').addEventListener('click', clearRecordFilters);
   document.querySelectorAll('[data-record-days]').forEach(button =>
@@ -229,6 +240,94 @@ function renderCompactList(id, records) {
     `<br><small>${escapeHtml(item.project || '-')}</small></strong>` +
     `<span>${escapeHtml(formatDeploymentDate(item.plannedDeployAt))}<br>${escapeHtml(item.lifecycleStatus || '')}</span></div>`
   ).join('') : '<p>No deployments found.</p>';
+}
+
+async function loadProjectHistory() {
+  const project = $('project').value;
+  const panel = $('projectHistory');
+  const content = $('projectHistoryContent');
+  const requestId = ++projectHistoryRequestId;
+  if (projectHistoryAbortController) projectHistoryAbortController.abort();
+  projectHistoryAbortController = null;
+
+  if (!project) {
+    panel.hidden = true;
+    content.innerHTML = '';
+    return;
+  }
+
+  panel.hidden = false;
+  content.innerHTML = '<div class="project-history-state"><span class="history-spinner" aria-hidden="true"></span>Loading deployment history...</div>';
+  const controller = new AbortController();
+  projectHistoryAbortController = controller;
+  const params = new URLSearchParams({ history: 'true', project });
+  if ($('deploymentId').value) params.set('excludeId', $('deploymentId').value);
+
+  try {
+    const data = await api('/api/deployments?' + params, { signal: controller.signal });
+    if (requestId !== projectHistoryRequestId) return;
+    renderProjectHistory(project, data);
+  } catch (error) {
+    if (error.name === 'AbortError' || requestId !== projectHistoryRequestId) return;
+    content.innerHTML = '<div class="project-history-state history-error">Unable to load deployment history. ' +
+      '<button type="button" class="history-text-button" data-history-retry>Try again</button></div>';
+    const retry = content.querySelector('[data-history-retry]');
+    if (retry) retry.addEventListener('click', loadProjectHistory, { once: true });
+  } finally {
+    if (requestId === projectHistoryRequestId) projectHistoryAbortController = null;
+  }
+}
+
+function renderProjectHistory(project, data) {
+  const records = data.deployments || [];
+  const count = Number(data.count || 0);
+  const latest = data.latestDeployAt ? formatDeploymentDate(data.latestDeployAt) : '-';
+  const content = $('projectHistoryContent');
+  if (!count) {
+    content.innerHTML = '<div class="project-history-header"><div><p class="project-history-kicker">Project Deployment History</p>' +
+      '<h3>' + escapeHtml(project) + '</h3></div></div>' +
+      '<div class="project-history-empty">No previous deployments found for this project.</div>';
+    return;
+  }
+
+  const rows = records.map(item =>
+    '<tr><td><button type="button" class="history-job-link" data-history-view="' + escapeHtml(item.id) + '">' +
+      escapeHtml(item.jobNo || 'Pending Job No.') + '</button></td>' +
+    '<td>' + escapeHtml(formatDeploymentDate(item.plannedDeployAt)) + '</td>' +
+    '<td>' + escapeHtml(item.deployType || '-') + '</td>' +
+    '<td><span class="status-pill ' + projectHistoryResultClass(item) + '">' +
+      escapeHtml(item.deployResult || item.lifecycleStatus || '-') + '</span></td></tr>'
+  ).join('');
+
+  content.innerHTML = '<div class="project-history-header"><div><p class="project-history-kicker">Project Deployment History</p>' +
+    '<h3>' + escapeHtml(project) + '</h3></div>' +
+    '<button type="button" class="history-text-button" data-history-all>View all ' + count + '</button></div>' +
+    '<div class="project-history-summary">' +
+      '<div><strong>' + count + '</strong><span>Total deployments</span></div>' +
+      '<div><strong>' + escapeHtml(latest) + '</strong><span>Last deployed</span></div>' +
+      '<div><strong>' + Number(data.completedCount || 0) + '</strong><span>Completed</span></div>' +
+      '<div><strong>' + Number(data.inProgressCount || 0) + '</strong><span>In progress</span></div>' +
+    '</div>' +
+    '<div class="project-history-table-wrap"><table class="project-history-table">' +
+      '<thead><tr><th>Job No.</th><th>Deploy Date</th><th>Deploy Type</th><th>Result</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table></div>';
+}
+
+function projectHistoryResultClass(item) {
+  const value = String(item.deployResult || item.lifecycleStatus || '').toLowerCase();
+  if (value.includes('success') && !value.includes('issue')) return 'history-success';
+  if (value.includes('rollback') || value.includes('rolled back') || value.includes('cancel')) return 'history-failed';
+  if (value.includes('issue') || value.includes('progress')) return 'history-warning';
+  return '';
+}
+
+function openAllProjectHistory() {
+  const project = $('project').value;
+  if (!project) return;
+  recordFilterDefinitions.forEach(([id]) => setRecordFilterValue(id, ''));
+  setRecordFilterValue('filterProject', project);
+  setActiveQuickRange(null);
+  showView('records');
 }
 
 async function loadRecords() {
@@ -444,6 +543,7 @@ async function editDeployment(id) {
     $('jobNoBadge').textContent = item.jobNo;
     updateConditionalFields();
     showView('form');
+    loadProjectHistory();
     state.formBaseline = deploymentFormSignature();
     $('formSecondaryAction').textContent = 'Back to Records';
   } catch (error) { notice(error.message, true); }
@@ -505,6 +605,11 @@ function formPayload() {
 }
 
 function resetForm() {
+  projectHistoryRequestId++;
+  if (projectHistoryAbortController) projectHistoryAbortController.abort();
+  projectHistoryAbortController = null;
+  $('projectHistory').hidden = true;
+  $('projectHistoryContent').innerHTML = '';
   $('deploymentForm').reset();
   clearFormErrors();
   state.editing = null;

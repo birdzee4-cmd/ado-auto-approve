@@ -6,7 +6,7 @@
   <link rel="icon" type="image/png" href="/assets/buzzebees-icon.png" />
   <title>Deployment Report - Buzzebees Internal Tools</title>
   <link rel="stylesheet" href="/core.css" />
-  <link rel="stylesheet" href="/deployment.css?v=records-table-v2" />
+  <link rel="stylesheet" href="/deployment.css?v=project-history-v1" />
 </head>
 <body>
   <nav class="navbar">
@@ -101,6 +101,9 @@
             <label class="plan-deploy-type"><span class="field-caption">Deploy Type <span id="deployTypeRequiredMarker" class="required-marker" aria-hidden="true">*</span></span><select id="deployType" required><option value="">Select Deploy Type</option></select></label>
             <label class="plan-project"><span class="field-caption">Project <span class="required-marker" aria-hidden="true">*</span></span><select id="project" required><option value="">Select Project</option></select></label>
           </div>
+          <section id="projectHistory" class="project-history" aria-live="polite" hidden>
+            <div id="projectHistoryContent"></div>
+          </section>
           <label class="form-wide"><span class="field-caption">Label Code <span class="required-marker" aria-hidden="true">*</span></span><textarea id="labelCode" rows="3" required></textarea></label>
 
           <div class="form-section-title result-section">Deployment result</div>
@@ -224,6 +227,6 @@
       </footer>
     </aside>
   </div>
-  <script type="module" src="/deployment.js?v=records-table-v2"></script>
+  <script type="module" src="/deployment.js?v=project-history-v1"></script>
 </body>
 </html>

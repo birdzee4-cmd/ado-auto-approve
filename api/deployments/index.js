@@ -14,7 +14,22 @@ module.exports = async function (context, req) {
         : http.json(context, 404, { ok: false, error: 'Deployment not found' });
     }
     if (method === 'GET') {
-      const deployments = await store.listDeployments(req.query || {});
+      const query = req.query || {};
+      if (String(query.history || '').toLowerCase() === 'true' && query.project) {
+        let deployments = await store.listAllDeployments({ project: query.project });
+        if (query.excludeId) deployments = deployments.filter(item => item.id !== query.excludeId);
+        const completedCount = deployments.filter(item => item.lifecycleStatus === 'Completed').length;
+        const inProgressCount = deployments.filter(item => item.lifecycleStatus === 'In Progress').length;
+        return http.json(context, 200, {
+          ok: true,
+          count: deployments.length,
+          completedCount,
+          inProgressCount,
+          latestDeployAt: deployments.length ? deployments[0].plannedDeployAt : null,
+          deployments: deployments.slice(0, 5)
+        });
+      }
+      const deployments = await store.listDeployments(query);
       return http.json(context, 200, { ok: true, count: deployments.length, deployments });
     }
     if (method === 'POST') {

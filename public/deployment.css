@@ -178,3 +178,38 @@
 .chart-empty { margin:auto; padding:70px 10px; text-align:center; color:#6b7280; font-size:13px; }
 @media(max-width:980px){.deployment-kpis{grid-template-columns:repeat(2,1fr)}.form-grid{grid-template-columns:repeat(2,1fr)}.record-core-filters,.record-project-filters,.export-panel,.dashboard-filters{grid-template-columns:repeat(2,1fr)}.record-date-range-row{grid-template-columns:1fr}.donut-layout{grid-template-columns:170px 1fr}.donut{width:155px;height:155px}.donut>div{width:92px;height:92px}}
 @media(max-width:720px){.record-search-row,.record-core-filters,.record-project-filters{grid-template-columns:1fr}.record-search-field{max-width:none}.record-date-range-row{padding:12px}.record-date-shortcuts{align-items:flex-start;flex-direction:column;gap:7px}.record-date-fields{grid-template-columns:1fr 1fr}.quick-range-buttons{flex-wrap:wrap}.deployment-page{grid-template-columns:1fr}.deployment-sidebar{position:static;min-height:auto;display:flex;overflow:auto;padding:10px}.deployment-nav{min-width:max-content;margin:0 5px 0 0}.deployment-content{padding:18px 12px}.deployment-two-column,.form-grid,.export-panel,.master-form,.dashboard-filters,.dashboard-charts,.donut-layout{grid-template-columns:1fr}.chart-wide{grid-column:auto}.deployment-heading{align-items:flex-start;flex-direction:column}.deployment-kpis{grid-template-columns:1fr 1fr}.chart-card{min-height:auto}.bar-row{grid-template-columns:105px 1fr 30px}.record-filter-toolbar,.record-filter-summary{align-items:flex-start;flex-direction:column}.record-filter-actions button{flex:1}}
+.project-history {
+  margin-top:14px; overflow:hidden; border:1px solid #ecd18a; border-radius:9px; background:#fffdf8;
+}
+.project-history[hidden] { display:none; }
+.project-history-header { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px 16px 11px; border-bottom:1px solid #f2dfae; }
+.project-history-kicker { margin:0 0 3px; color:#855800; font-size:10px; font-weight:900; letter-spacing:.07em; text-transform:uppercase; }
+.project-history-header h3 { margin:0; color:#111827; font-size:16px; overflow-wrap:anywhere; }
+.history-text-button { padding:4px 0; border:0; background:transparent; color:#855800; font:inherit; font-size:12px; font-weight:800; cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
+.history-text-button:hover,.history-text-button:focus { color:#5b3c00; }
+.project-history-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); border-bottom:1px solid #f2dfae; }
+.project-history-summary div { min-width:0; padding:12px 16px; border-right:1px solid #f2dfae; }
+.project-history-summary div:last-child { border-right:0; }
+.project-history-summary strong { display:block; color:#111827; font-size:17px; overflow-wrap:anywhere; }
+.project-history-summary span { display:block; margin-top:2px; color:#6b7280; font-size:10px; font-weight:700; text-transform:uppercase; }
+.project-history-table-wrap { overflow-x:auto; }
+.project-history-table { min-width:610px; font-size:12px; }
+.project-history-table th { padding:9px 16px; background:#fff8df; font-size:10px; text-transform:uppercase; }
+.project-history-table td { padding:10px 16px; vertical-align:middle; }
+.project-history-table tbody tr:last-child td { border-bottom:0; }
+.history-job-link { padding:0; border:0; background:transparent; color:#855800; font:inherit; font-weight:800; cursor:pointer; }
+.history-job-link:hover,.history-job-link:focus { color:#5b3c00; text-decoration:underline; }
+.status-pill.history-success { background:#dcfce7; color:#166534; }
+.status-pill.history-warning { background:#fef3c7; color:#92400e; }
+.status-pill.history-failed { background:#fee2e2; color:#991b1b; }
+.project-history-state,.project-history-empty { padding:18px 16px; color:#6b7280; font-size:12px; text-align:center; }
+.project-history-state { display:flex; align-items:center; justify-content:center; gap:9px; }
+.project-history-state.history-error { color:#991b1b; }
+.history-spinner { width:15px; height:15px; border:2px solid #f2d58b; border-top-color:#855800; border-radius:50%; animation:history-spin .75s linear infinite; }
+@keyframes history-spin { to { transform:rotate(360deg); } }
+@media(max-width:720px) {
+  .project-history-header { align-items:flex-start; }
+  .project-history-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .project-history-summary div:nth-child(2) { border-right:0; }
+  .project-history-summary div:nth-child(-n+2) { border-bottom:1px solid #f2dfae; }
+}
