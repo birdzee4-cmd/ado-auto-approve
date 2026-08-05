@@ -132,6 +132,10 @@
             <label><span>Category</span><select id="filterCategory"><option value="">All categories</option><option value="web-service">Web / Service</option><option value="mobile">Mobile</option></select></label>
             <label><span>Status</span><select id="filterLifecycle"><option value="">All statuses</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></label>
             <label><span>Get / Merge</span><select id="filterSourceType"><option value="">All Get / Merge</option><option>Get</option><option>Merge - Production</option></select></label>
+            <label><span>Project</span><select id="filterProject"><option value="">All projects</option></select></label>
+            <label><span>Project Main Sort</span><select id="filterProjectsMainSort"><option value="">All Project Main Sort</option></select></label>
+            <label><span>Project Sub Type</span><select id="filterProjectsSubType"><option value="">All Project Sub Type</option></select></label>
+            <label><span>Deploy Type</span><select id="filterDeployType"><option value="">All Deploy Types</option></select></label>
           </div>
           <div class="record-date-range-row">
             <div class="record-date-shortcuts">
@@ -146,12 +150,6 @@
               <label><span>From</span><input id="filterFrom" type="date" /></label>
               <label><span>To</span><input id="filterTo" type="date" /></label>
             </div>
-          </div>
-          <div id="recordAdvancedFilters" class="record-filter-advanced">
-            <label><span>Project</span><select id="filterProject"><option value="">All projects</option></select></label>
-            <label><span>Project Main Sort</span><select id="filterProjectsMainSort"><option value="">All Project Main Sort</option></select></label>
-            <label><span>Project Sub Type</span><select id="filterProjectsSubType"><option value="">All Project Sub Type</option></select></label>
-            <label><span>Deploy Type</span><select id="filterDeployType"><option value="">All Deploy Types</option></select></label>
           </div>
           <div id="recordFilterSummary" class="record-filter-summary" hidden><span id="recordCount"></span><div id="recordFilterChips" class="record-filter-chips"></div></div>
         </form>
