@@ -291,12 +291,14 @@ function renderProjectHistory(project, data) {
   }
 
   const rows = records.map(item =>
-    '<tr><td><button type="button" class="history-job-link" data-history-view="' + escapeHtml(item.id) + '">' +
-      escapeHtml(item.jobNo || 'Pending Job No.') + '</button></td>' +
-    '<td>' + escapeHtml(formatDeploymentDate(item.plannedDeployAt)) + '</td>' +
-    '<td>' + escapeHtml(item.deployType || '-') + '</td>' +
+    '<tr><td>' + escapeHtml(item.deployType || '-') + '</td>' +
+    '<td>' + escapeHtml(item.project || '-') + '</td>' +
+    '<td class="history-label-code">' + escapeHtml(item.labelCode || '-') + '</td>' +
     '<td><span class="status-pill ' + projectHistoryResultClass(item) + '">' +
-      escapeHtml(item.deployResult || item.lifecycleStatus || '-') + '</span></td></tr>'
+      escapeHtml(item.deployResult || item.lifecycleStatus || '-') + '</span></td>' +
+    '<td class="history-detail-cell"><button type="button" class="history-detail-button" data-history-view="' +
+      escapeHtml(item.id) + '" aria-label="View deployment details for ' +
+      escapeHtml(item.project || item.jobNo || 'this deployment') + '">Detail</button></td></tr>'
   ).join('');
 
   content.innerHTML = '<div class="project-history-header"><div><p class="project-history-kicker">Project Deployment History</p>' +
@@ -309,7 +311,7 @@ function renderProjectHistory(project, data) {
       '<div><strong>' + Number(data.inProgressCount || 0) + '</strong><span>In progress</span></div>' +
     '</div>' +
     '<div class="project-history-table-wrap"><table class="project-history-table">' +
-      '<thead><tr><th>Job No.</th><th>Deploy Date</th><th>Deploy Type</th><th>Result</th></tr></thead>' +
+      '<thead><tr><th>Deploy Type</th><th>Projects</th><th>Label Code</th><th>Deploy Status</th><th class="history-detail-heading">Detail</th></tr></thead>' +
       '<tbody>' + rows + '</tbody></table></div>';
 }
 
