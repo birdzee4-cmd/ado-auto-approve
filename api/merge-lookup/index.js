@@ -57,9 +57,9 @@ function pickRelevantBuild(pr, builds, rule) {
   return candidates[0];
 }
 
-async function getDetectedBuild(repositoryId, branchName, pr, rule) {
+async function getDetectedBuild(repositoryId, branchName, pr, rule, authOptions) {
   if (!repositoryId || !branchName) return { branch: '', build: null, count: 0 };
-  const result = await ado.getBuildsForBranch(repositoryId, branchName, 20);
+  const result = await ado.getBuildsForBranch(repositoryId, branchName, 20, authOptions);
   if (!result.ok) return { branch: branchName, build: null, count: 0, error: result.body };
   const builds = Array.isArray(result.body && result.body.value) ? result.body.value : [];
   return {
@@ -96,22 +96,69 @@ function classify(recommended, detected) {
 }
 
 module.exports = async function (context, req) {
+  const responseHeaders = {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store'
+  };
+  function jsonResponse(status, body) {
+    context.res = { status, headers: responseHeaders, body };
+  }
+
   const prId = parsePrId(req.query && req.query.prId);
   if (!prId) {
-    context.res = {
-      status: 400,
-      body: { ok: false, error: 'PR ID is required' }
-    };
+    jsonResponse(400, { ok: false, error: 'PR ID is required' });
     return;
   }
 
   try {
-    const prResp = await ado.getPullRequest(prId);
-    if (!prResp.ok || !prResp.body || !prResp.body.pullRequestId) {
-      context.res = {
-        status: prResp.status || 404,
-        body: { ok: false, error: 'Pull Request not found', detail: prResp.body || null }
+    const auth = require('../shared/auth');
+    const principal = auth.parseClientPrincipal(req.headers);
+    if (!principal) {
+      jsonResponse(401, { ok: false, error: 'Authentication required' });
+      return;
+    }
+
+    const delegated = require('../shared/ado-user-token');
+    const userToken = await delegated.getValidAccessToken(req, principal, { allowStoreRecovery: true });
+    if (!userToken.ok) {
+      jsonResponse(userToken.status || 428, {
+        ok: false,
+        error: userToken.error || 'Azure DevOps connection required',
+        detail: userToken.detail || '',
+        connectUrl: '/api/ado-auth-start?returnTo=/merge.html'
+      });
+      return;
+    }
+    if (userToken.setCookie) responseHeaders['Set-Cookie'] = userToken.setCookie;
+    const userAuth = { accessToken: userToken.accessToken };
+
+    const prResp = await ado.getPullRequest(prId, userAuth);
+    if (!prResp.ok) {
+      const adoStatus = Number(prResp.status);
+      const status = adoStatus === 401
+        ? 428
+        : [403, 404].includes(adoStatus)
+        ? adoStatus
+        : 502;
+      const errors = {
+        428: 'Azure DevOps connection is no longer valid',
+        403: 'Your Azure DevOps account cannot access this Pull Request',
+        404: 'Pull Request not found'
       };
+      jsonResponse(status, {
+        ok: false,
+        error: errors[status] || 'Azure DevOps lookup failed',
+        adoStatus: adoStatus || null,
+        detail: prResp.body || null,
+        connectUrl: status === 428 ? '/api/ado-auth-start?returnTo=/merge.html' : undefined
+      });
+      return;
+    }
+    if (!prResp.body || !prResp.body.pullRequestId) {
+      jsonResponse(502, {
+        ok: false,
+        error: 'Azure DevOps returned an invalid Pull Request response'
+      });
       return;
     }
 
@@ -119,11 +166,11 @@ module.exports = async function (context, req) {
     const repositoryId = pr.repository && pr.repository.id;
     const rule = findMergePipelineRule(pr);
 
-    let detectedTarget = await getDetectedBuild(repositoryId, pr.targetRefName, pr, rule);
+    let detectedTarget = await getDetectedBuild(repositoryId, pr.targetRefName, pr, rule, userAuth);
     let detectedSource = { branch: pr.sourceRefName, build: null, count: 0 };
     let detected = detectedTarget;
     if (!detectedTarget.build && pr.sourceRefName) {
-      detectedSource = await getDetectedBuild(repositoryId, pr.sourceRefName, pr, rule);
+      detectedSource = await getDetectedBuild(repositoryId, pr.sourceRefName, pr, rule, userAuth);
       detected = detectedSource.build ? detectedSource : detectedTarget;
     }
 
@@ -174,9 +221,7 @@ module.exports = async function (context, req) {
       ? pr.repository.webUrl + '/pullrequest/' + pr.pullRequestId
       : (pr.url || '');
 
-    context.res = {
-      status: 200,
-      body: {
+    jsonResponse(200, {
         ok: true,
         pr: {
           id: pr.pullRequestId,
@@ -227,16 +272,12 @@ module.exports = async function (context, req) {
             'not-found': 'No mapping rule or build run was found'
           }[status] || status
         }
-      }
-    };
+      });
   } catch (err) {
     context.log && context.log.error && context.log.error(err);
-    context.res = {
-      status: 500,
-      body: {
+    jsonResponse(500, {
         ok: false,
         error: err.message || 'Merge lookup failed'
-      }
-    };
+      });
   }
 };

@@ -126,14 +126,14 @@ flowchart LR
 
 นโยบายปัจจุบัน:
 
-- Dashboard PR Queue (`/api/list-prs`) ใช้ delegated Azure DevOps user token หลัง Connect Azure DevOps เพื่อดึงรายการ PR, reviewers, build status และ policy status ตามสิทธิ์ repo ของผู้ใช้คนนั้น
+- Dashboard PR Queue (`/api/list-prs`) และ Merge Lookup (`/api/merge-lookup`) ใช้ delegated Azure DevOps user token หลัง Connect Azure DevOps เพื่ออ่านข้อมูลตามสิทธิ์ repo ของผู้ใช้คนนั้น
 - System/background read path เช่น Daily Summary, Exception Scan, Hourly Sync, Build Failure Scan, health check และ release/system lookup บางจุดยังใช้ `ADO_PAT` เป็น service credential
 - Write/action path ใช้ delegated user token หลัง Connect Azure DevOps ได้แก่ Approve PR, Reject PR และ Approve Release
 - SharePoint Log บันทึกผู้ดำเนินการจาก Static Web Apps identity และ action ใน Azure DevOps จะเกิดด้วย Azure DevOps identity ของผู้ใช้ที่ connect
 - ถ้า Azure DevOps connected token หมดอายุหรือ refresh ไม่สำเร็จ backend จะตอบ `428` พร้อม `connectUrl` และหน้า Dashboard จะพาผู้ใช้กลับไป Connect ใหม่
 - Disconnect จะลบ token reference cookie และ token record ใน server-side token store ถ้าเปิดใช้งาน
 
-เหตุผลที่ Dashboard PR Queue ใช้ delegated user token:
+เหตุผลที่ interactive PR lookup ใช้ delegated user token:
 
 - ลดเคส Dashboard แสดง PR ที่ผู้ใช้ไม่มีสิทธิ์อ่านหรือไม่มีสิทธิ์ action จริงใน Azure DevOps
 - ถ้าผู้ใช้ไม่มีสิทธิ์ repo ใด repo หนึ่ง Dashboard จะไม่แสดง PR จาก repo นั้น เหมือนที่ Azure DevOps แสดง `Repository not found`
@@ -148,7 +148,7 @@ flowchart LR
 เป้าหมายระยะถัดไป:
 
 1. เพิ่ม diagnostics endpoint สำหรับ PR รายตัว เช่น `/api/pr-diagnostics?prId=...`
-2. พิจารณาย้าย `/api/merge-lookup` และ `/api/build-diagnostics` ไป delegated user identity แบบมี fallback
+2. พิจารณาย้าย `/api/build-diagnostics` ไป delegated user identity
 3. ทำข้อความ error ให้ชัดเมื่อผู้ใช้ไม่มีสิทธิ์ repo, project หรือ release approval
 4. คง background jobs ไว้กับ service credential หรือทำ service principal แยก เพราะไม่มี browser session
 
@@ -248,6 +248,8 @@ Activity ใช้ SharePoint approval log เป็นจุดตั้งต�
 ## Merge Lookup
 
 หน้า `/merge.html` ใช้สำหรับค้นหา CI/CD ของ PR ประเภท Merge โดยกรอก PR ID
+
+ผู้ใช้ต้อง Connect Azure DevOps ก่อน ระบบจะใช้ delegated token ของผู้ใช้ทั้งตอนอ่าน PR และค้นหา build run หาก connection ไม่มีหรือ refresh ไม่สำเร็จ หน้าเว็บจะแสดงปุ่ม Connect Azure DevOps แทนการ fallback ไปใช้ `ADO_PAT`
 
 Logic เป็นแบบ Hybrid:
 
@@ -813,7 +815,7 @@ api/shared/attention.js
 |---|---:|---|
 | `ADO_ORGANIZATION` | Yes | organization จาก `dev.azure.com/<org>` |
 | `ADO_PROJECT` | Yes | Azure DevOps project |
-| `ADO_PAT` | Yes | Service credential สำหรับ system/background read path เช่น release/system lookup, health check, daily/exception/hourly sync และ fallback บางจุด; Dashboard PR Queue และ action Approve / Reject / Approve Release ใช้ delegated user token หลัง Connect Azure DevOps |
+| `ADO_PAT` | Yes | Service credential สำหรับ system/background read path เช่น release/system lookup, health check และ daily/exception/hourly sync; Dashboard PR Queue, Merge Lookup และ action Approve / Reject / Approve Release ใช้ delegated user token หลัง Connect Azure DevOps |
 | `ADO_TARGET_BRANCH` | No | default `refs/heads/staging` |
 | `ADO_REVIEWER_GROUP` | No | default `IT Support Approve` |
 | `ADO_EXTERNAL_LOG_SYNC` | No | set `false` เพื่อปิด external vote sync log |

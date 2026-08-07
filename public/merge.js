@@ -28,6 +28,15 @@ async function checkMergeLookup() {
     }
     if (!r.ok || !r.data || !r.data.ok) {
       const d = r.data || {};
+      if ((r.status === 401 || r.status === 428) && d.connectUrl) {
+        showBox('mergeResult',
+          '<strong>' + escapeHtml(d.error || 'Azure DevOps connection required') + '</strong>' +
+          '<br><small>กรุณา Connect Azure DevOps แล้วลองค้นหาอีกครั้ง</small>' +
+          '<div class="merge-actions"><a class="primary-button merge-small-link" href="' +
+            escapeHtml(d.connectUrl) + '">Connect Azure DevOps</a></div>',
+          'error');
+        return;
+      }
       showBox('mergeResult', escapeHtml(d.error || 'Lookup failed'), 'error');
       return;
     }

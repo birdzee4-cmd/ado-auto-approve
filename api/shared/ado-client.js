@@ -13,8 +13,8 @@ function getConfig() {
   const org = process.env.ADO_ORGANIZATION;
   const project = process.env.ADO_PROJECT;
   const pat = process.env.ADO_PAT;
-  if (!org || !project || !pat) {
-    throw new Error('Missing ADO_ORGANIZATION / ADO_PROJECT / ADO_PAT');
+  if (!org || !project) {
+    throw new Error('Missing ADO_ORGANIZATION / ADO_PROJECT');
   }
   return { org, project, pat };
 }
@@ -57,6 +57,9 @@ function adoHostRequest(hostname, method, path, body, options) {
 
 function makeSingleAdoHostRequest(hostname, method, path, body, options) {
   const { pat } = getConfig();
+  if (!(options && options.accessToken) && !pat) {
+    throw new Error('Missing ADO_PAT');
+  }
   const auth = options && options.accessToken
     ? 'Bearer ' + options.accessToken
     : 'Basic ' + Buffer.from(':' + pat).toString('base64');
@@ -282,10 +285,10 @@ async function getPullRequestStatuses(repositoryId, prId) {
   return adoRequest('GET', path);
 }
 
-async function getBuildsForBranch(repositoryId, branchName, top) {
+async function getBuildsForBranch(repositoryId, branchName, top, options) {
   const { org, project } = getConfig();
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?repositoryId=${encodeURIComponent(repositoryId)}&repositoryType=TfsGit&branchName=${encodeURIComponent(branchName)}&queryOrder=queueTimeDescending&$top=${top || 10}&api-version=7.0`;
-  return adoRequest('GET', path);
+  return adoRequest('GET', path, null, options);
 }
 
 async function listBuilds(options) {
