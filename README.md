@@ -665,6 +665,25 @@ Auto-complete restored: PR #349701 repo=Net_Project.IPOne target=refs/heads/Stag
 
 ระบบมี duplicate guard ด้วย `Event_Key` ใน SharePoint (`teams:daily-summary:<dateKey>` และ `line:daily-summary:<dateKey>`) เพื่อไม่ให้ส่งซ้ำในวันเดียวกันในแต่ละช่องทางโดยเฉพาะ *(หมายเหตุ: ระบบ Duplicate Guard จะทำการกรองและมองข้าม Log ที่เกิดจากคำสั่งทดสอบ (Test Mode) เสมอ เพื่อไม่ให้ประวัติการกดทดสอบไปขัดขวางการส่งสรุปจริงตอนสิ้นวัน)*
 
+### Monthly PR Summary
+
+ระบบส่งสรุปภาพรวมประจำเดือนเข้า MS Teams ผ่าน endpoint
+POST /api/monthly-summary แนะนำให้ Azure Logic Apps Consumption เรียกวันที่ 1
+ของทุกเดือน เวลา 08:00 น. Asia/Bangkok หากไม่ส่ง reportMonth ระบบจะเลือก
+เดือนปฏิทินก่อนหน้าโดยอัตโนมัติ เช่น Job วันที่ 1 สิงหาคมจะสรุปเดือนกรกฎาคม
+ครบทั้งเดือน
+
+Request body สำหรับ Logic Apps ประกอบด้วย source เป็น Logic Apps และ
+scheduledFor เป็น 08:00 Asia/Bangkok ใช้ header x-monthly-summary-token
+หากไม่ได้ตั้ง MONTHLY_SUMMARY_TOKEN endpoint จะใช้ DAILY_SUMMARY_TOKEN เป็น
+fallback เพื่อใช้ credential ของ scheduler เดิมได้
+
+ข้อมูลประกอบด้วย PR overview, approval performance, build/deployment,
+attention snapshot, Top repositories และ comparison กับเดือนก่อนหน้า โดยคำนวณ
+จาก ADO, SharePoint Audit Log และ Deployment Archive โดยตรง ไม่ได้นำ Daily Summary
+สองรอบมาบวกกัน ระบบกันส่งซ้ำด้วย Event Key รูปแบบ
+teams:monthly-summary:YYYY-MM และ testMode=true จะใช้ Event Key แยกจากรอบจริง
+
 ## Authentication และ Authorization
 
 ระบบใช้ Azure Static Web Apps Auth + Microsoft Entra ID
@@ -692,6 +711,7 @@ Routes สำคัญ:
 | `/api/reject-pr` | `it_support_approve` |
 | `/api/approve-release` | `it_support_approve` |
 | `/api/daily-summary` | `anonymous` + header token |
+| `/api/monthly-summary` | `anonymous` + header token |
 | `/api/line-daily-summary` | `anonymous` + header token |
 | `/api/sync-deployments` | `anonymous` + header/query token |
 | `/api/exception-scan` | `anonymous` + header token |
@@ -751,6 +771,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/test-daily-summary` | POST | ทดสอบ Daily Summary |
 | `/api/test-exception-scan` | POST | ทดสอบ Build/Policy exception scan จากหน้า Health |
 | `/api/daily-summary` | POST | endpoint สำหรับ Logic Apps scheduler |
+| `/api/monthly-summary` | POST | ส่ง Monthly PR Summary เข้า Teams วันที่ 1 ของเดือน |
 | `/api/line-daily-summary` | POST | endpoint สำหรับ Logic Apps LINE Daily Summary scheduler (ส่ง 23:59 น.) |
 | `/api/exception-scan` | POST | endpoint สำหรับสแกน Build/Policy failed จาก approval logs |
 | `/api/build-failure-scan` | POST | endpoint สำหรับ Logic Apps polling หา Build failed จาก Azure DevOps REST API โดยตรง |
@@ -885,6 +906,7 @@ api/shared/attention.js
 | `TEAMS_WEBHOOK_URL` | For notification | Teams webhook endpoint |
 | `TEAMS_EXCEPTION_NOTIFICATIONS` | No | set `false` เพื่อปิด exception alerts |
 | `DAILY_SUMMARY_TOKEN` | For daily summary | token ที่ Logic Apps ส่งมาใน header |
+| `MONTHLY_SUMMARY_TOKEN` | Optional | token สำหรับ Monthly Summary; fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
 | `EXCEPTION_SCAN_TOKEN` | No | token สำหรับ `/api/exception-scan`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
 | `BUILD_FAILURE_SCAN_TOKEN` | No | token สำหรับ `/api/build-failure-scan`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
 | `HOURLY_SYNC_TOKEN` | No | token สำหรับ `/api/hourly-log-sync`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |

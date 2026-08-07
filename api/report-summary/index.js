@@ -85,8 +85,9 @@ module.exports = async function (context, req) {
     context.log(`Fetching report summary [${type}] for ${year}-${month}${type === 'daily' ? '-' + day : ''} (UTC range: ${startIso} to ${endIso})`);
 
     // 4) ดึง Log การทำรายการจาก SharePoint List ตามช่วงเวลา
-    // ดึงสูงสุด 2,000 รายการเพื่อป้องกันการค้าง
-    const logsResult = await sp.getLogItemsRange(startIso, endIso, 2000);
+    // Monthly reports may contain more than 2,000 audit rows. The SharePoint
+    // client still applies a bounded 10,000-item safety cap and pagination.
+    const logsResult = await sp.getLogItemsRange(startIso, endIso, 10000);
     if (!logsResult.ok) {
       throw new Error(`Failed to query SharePoint logs: HTTP ${logsResult.status}`);
     }
