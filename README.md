@@ -2,14 +2,21 @@
 
 ระบบ Dashboard สำหรับตรวจสอบและอนุมัติ Pull Request บน Azure DevOps โดยออกแบบให้ผู้ใช้งานกลุ่ม `IT Support Approve` สามารถเห็นงาน PR ที่รออนุมัติบน branch `staging` ได้จากหน้าเว็บเดียว พร้อมบันทึกผลการดำเนินการลง SharePoint Log, ตรวจสถานะ Build / Policy, แจ้งเตือน Teams เฉพาะเหตุการณ์สำคัญ, ส่ง Daily Summary รายวัน และมีหน้า Merge Lookup สำหรับช่วยตรวจสอบ CI/CD ของงานประเภท Merge
 
+> อัปเดตล่าสุด: 7 สิงหาคม 2026 (อ้างอิง `main`)
+
 Production URL:
 
 - Dashboard: https://mango-wave-09cff3700.7.azurestaticapps.net/dashboard.html
+- Applications: https://mango-wave-09cff3700.7.azurestaticapps.net/applications.html
 - Activity: https://mango-wave-09cff3700.7.azurestaticapps.net/activity.html
 - Merge Lookup: https://mango-wave-09cff3700.7.azurestaticapps.net/merge.html
+- Deployment Archive: https://mango-wave-09cff3700.7.azurestaticapps.net/deploy-history.html
+- Build Diagnostics: https://mango-wave-09cff3700.7.azurestaticapps.net/build-diagnostics.html
 - Audit Logs: https://mango-wave-09cff3700.7.azurestaticapps.net/logs.html
 - System Health: https://mango-wave-09cff3700.7.azurestaticapps.net/health.html
 - Report (Staging Deployments Summary): https://mango-wave-09cff3700.7.azurestaticapps.net/report.html
+- App Service Portal: https://mango-wave-09cff3700.7.azurestaticapps.net/portal.html
+- App Service Audit Logs: https://mango-wave-09cff3700.7.azurestaticapps.net/portal-logs.html
 
 ## Current Status
 
@@ -18,16 +25,18 @@ Production URL:
 - ระบบ deploy บน Azure Static Web Apps
 - Azure Functions runtime ใช้ Node.js 22
 - Authentication ใช้ Microsoft Entra ID ผ่าน Static Web Apps Auth
-- Authorization ของหน้าเว็บและ user-facing API ใช้ role `it_support_approve`; ผู้ใช้ที่ login แล้วมีเพียง `authenticated` จะถูกส่งไปหน้า 403
+- Authorization ของ ADO Auto-Approve ใช้ role `it_support_approve` หรือ `admin`; App Service Portal ใช้ `tester_appservice_manager` หรือ `admin`; ผู้ใช้ที่ login แล้วมีเพียง `authenticated` จะเข้าได้เฉพาะหน้า Applications และจะถูกส่งไปหน้า 403 เมื่อเปิดหน้าที่ไม่มีสิทธิ์
 - Azure DevOps action สำคัญใช้ delegated user identity หลังผู้ใช้กด Connect Azure DevOps
 - การอ่านคิว PR บน Dashboard ใช้ Azure DevOps Connected user token เพื่อให้เห็นตามสิทธิ์ repository จริงของผู้ใช้ ส่วน system/background jobs และ release/system lookup บางจุดยังใช้ `ADO_PAT` แบบ service credential
-- Dashboard หลักเป็น read/action page สำหรับ Active PR Queue และ Release approval ที่รอ action
+- หน้า Applications เป็น launcher กลางตามสิทธิ์ของผู้ใช้ ส่วน Dashboard หลักเป็น read/action page สำหรับ Active PR Queue และ Release approval ที่รอ action
 - MergeCode / MergeCodeProduction ถูกแยกเป็น manual workflow บน Azure DevOps
 - Activity เป็นหน้าดู approval log ล่าสุด 24 ชั่วโมง พร้อม filter และ paging
 - Audit Logs อ่านจาก SharePoint และเรียงล่าสุดก่อน
 - Daily Summary ส่งผ่าน Azure Logic Apps Consumption เวลา 18:00 Asia/Bangkok
 - SharePoint Log Retention รองรับ archive/export ก่อน cleanup โดย default เก็บ 365 วัน
 - Branch backup ล่าสุดใช้ `staging` ตัวพิมพ์เล็กเท่านั้น
+- Guarded Auto-Approve จะกลับมาทำงานหลัง browser auth refresh ได้ภายใน 10 นาที เฉพาะเมื่อ fresh PR scan สำเร็จ; หาก scan ล้มเหลวระบบจะคงโหมด `OFF` และไม่ส่ง approval
+- App Service Portal จัดการเฉพาะ App Service ชื่อ `stg-*` ใน scope ที่กำหนด พร้อมอ่าน setting names, restart แบบมี cooldown และแยก audit log โดยไม่บันทึก setting values
 
 ## วัตถุประสงค์
 
@@ -48,7 +57,7 @@ Production URL:
 ```mermaid
 flowchart LR
   User["User / IT Support"] --> SWA["Azure Static Web Apps"]
-  SWA --> Frontend["Static Frontend<br/>dashboard / activity / logs / health / merge"]
+  SWA --> Frontend["Static Frontend<br/>applications / dashboard / activity / reports / portal"]
   Frontend --> API["Azure Functions API<br/>Node.js 22"]
   API --> ADO["Azure DevOps REST API"]
   API --> Release["Azure DevOps Release API"]
@@ -56,6 +65,9 @@ flowchart LR
   API --> LockStore["Azure Table<br/>Approval action locks"]
   API --> SP["SharePoint List<br/>ADO AutoApprove Log"]
   API --> Teams["Teams Webhook"]
+  Frontend --> PortalAPI["App Service Portal API<br/>Azure Functions"]
+  PortalAPI --> ARM["Azure Resource Graph / ARM"]
+  PortalAPI --> PortalLog["SharePoint List<br/>App Service Portal Log"]
   Logic["Azure Logic Apps<br/>18:00 Asia/Bangkok"] --> API
 ```
 
@@ -64,6 +76,8 @@ flowchart LR
 | Document | Purpose |
 |---|---|
 | `docs/approve-release-workflow.md` | แผนภาพและ guardrails ของ workflow Approve Release |
+| `docs/app-service-portal-runbook.md` | คู่มือติดตั้ง ดูแล และตรวจสอบ App Service Portal |
+| `docs/function-app-api-migration-plan.md` | แผนแยก App Service Portal API ไปยัง Azure Function App |
 | `docs/TECH-REPORT-TH.md` | รายงานสรุปเทคโนโลยี สถาปัตยกรรม และภาพรวมค่าใช้จ่าย |
 | `docs/skills/SKILL.md` | ศูนย์รวมคู่มือกฎเกณฑ์และทักษะการพัฒนาของโปรเจกต์ |
 
@@ -72,6 +86,7 @@ flowchart LR
 | Page | Path | Purpose |
 |---|---|---|
 | Login | `/` | Login ผ่าน Microsoft Entra ID |
+| Applications | `/applications.html` | Launcher กลาง แสดง application ตาม role ของผู้ใช้ |
 | Dashboard | `/dashboard.html` | ตรวจ Active PR Queue, Approve/Reject PR, ดู Build/Policy/Release และกด Approve Release เมื่อมี pending approval |
 | Activity | `/activity.html` | ดู PR ที่ user approve หรือระบบ detect external approval ใน 24 ชั่วโมงล่าสุด พร้อม filter Build Failed / Policy Pending / source และ paging |
 | Merge Lookup | `/merge.html` | กรอก PR ID เพื่อหา CI/CD ของงาน Merge |
@@ -81,6 +96,8 @@ flowchart LR
 | System Health | `/health.html` | ตรวจ Backend, ADO, SharePoint, Teams, Daily Summary, Last Sync/Notification |
 | Forbidden | `/403.html` | แสดงเมื่อผู้ใช้ไม่มีสิทธิ์ |
 | Report | `/report.html` | ดูรายงานสรุปสถิติผลการดำเนินงานและสถิติ (รายวัน/รายเดือน) พร้อมตัวกรอง All/My actions, scope ของ Staging builds, รายการ failed build ล่าสุด และระบบซิงก์ข้อมูลบิลด์อัตโนมัติเบื้องหลัง |
+| App Service Portal | `/portal.html` | ค้นหา ดู setting names และ restart App Service ใน scope `stg-*` ตามสิทธิ์ |
+| App Service Audit Logs | `/portal-logs.html` | ตรวจสอบประวัติการอ่าน settings และ restart จาก SharePoint Log แยกเฉพาะ portal |
 
 ## Dashboard Behavior
 
