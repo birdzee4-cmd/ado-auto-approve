@@ -62,6 +62,8 @@ module.exports = async function (context, req) {
     const activityPageSize = Math.min(Math.max(Number(req.query && req.query.activityPageSize) || completedDisplayLimit, 1), 25);
     const activityStatus = normalizeFilter(req.query && req.query.activityStatus);
     const activitySource = normalizeFilter(req.query && req.query.activitySource);
+    const activityQuery = String(req.query && req.query.activityQuery || '').trim();
+    const activityQueryType = normalizeActivityQueryType(req.query && req.query.activityQueryType);
     const scanOnly = req.query && String(req.query.scanOnly || '').toLowerCase() === 'true';
     const branchBuildCache = {};
     const releaseLookupCache = {};
@@ -183,8 +185,18 @@ module.exports = async function (context, req) {
         context.log.warn('Failed to merge direct pending release approvals:', e.message);
       }
     }
-
-
+    const activityLookup = includeActivity && activityQuery
+      ? await lookupActivityReference(context, {
+        query: activityQuery,
+        queryType: activityQueryType,
+        org: org,
+        project: project,
+        readAuth: readAuth,
+        stagingPrefix: stagingPrefix,
+        reviewerGroup: reviewerGroup,
+        lookbackHours: completedLookbackHours
+      })
+      : null;
 
     const approvedLookup = includeActivity
       ? await buildRecentlyApprovedRows(context, {
@@ -199,6 +211,8 @@ module.exports = async function (context, req) {
         pageSize: activityPageSize,
         statusFilter: activityStatus,
         sourceFilter: activitySource,
+        hasPrIdFilter: !!activityQuery,
+        prIdFilter: activityLookup && activityLookup.prId || 0,
         branchBuildCache: branchBuildCache,
         releaseLookupCache: releaseLookupCache
       })
@@ -250,8 +264,11 @@ module.exports = async function (context, req) {
       approvedLookback: approvedLookup.meta,
       activityFilters: {
         status: activityStatus,
-        source: activitySource
+        source: activitySource,
+        query: activityQuery,
+        queryType: activityQueryType
       },
+      activityLookup: activityLookup,
       exceptionNotifications: {
         ok: activeNotificationResult.ok && completedNotificationResult.ok,
         active: activeNotificationResult,
@@ -463,6 +480,7 @@ async function buildRecentlyApprovedRows(context, options) {
   const approvals = Array.from(approvedByPr.values())
     .sort(compareDateDesc)
     .filter(log => matchesActivitySource(log, options.sourceFilter))
+    .filter(log => !options.hasPrIdFilter || log.prId === Number(options.prIdFilter))
     .slice(0, options.maxRows);
   meta.matchedLogs = approvals.length;
   meta.page = Math.max(Number(options.page) || 0, 0);
@@ -555,6 +573,221 @@ async function buildRecentlyApprovedRows(context, options) {
 function normalizeFilter(value) {
   const text = String(value || '').trim().toLowerCase();
   return text === 'all' ? '' : text;
+}
+
+function normalizeActivityQueryType(value) {
+  const text = String(value || '').trim().toLowerCase();
+  return text === 'pr' || text === 'build' ? text : 'auto';
+}
+
+function parseActivityReference(value, requestedType) {
+  const text = String(value || '').trim();
+  const type = normalizeActivityQueryType(requestedType);
+  const prUrlMatch = text.match(/\/pullrequest\/(\d+)/i);
+  const buildUrlMatch = text.match(/[?&]buildId=(\d+)/i) || text.match(/\/build\/results\?buildId=(\d+)/i);
+  if (prUrlMatch) return { ok: true, type: 'pr', id: Number(prUrlMatch[1]), raw: text };
+  if (buildUrlMatch) return { ok: true, type: 'build', id: Number(buildUrlMatch[1]), raw: text };
+  const idMatch = text.match(/^#?(\d+)$/);
+  if (!idMatch) {
+    return {
+      ok: false,
+      type: type,
+      id: 0,
+      raw: text,
+      error: 'Enter a numeric PR/Build ID or an Azure DevOps PR/Build URL.'
+    };
+  }
+  return { ok: true, type: type, id: Number(idMatch[1]), raw: text };
+}
+
+async function lookupActivityReference(context, options) {
+  const parsed = parseActivityReference(options.query, options.queryType);
+  const lookup = {
+    ok: false,
+    query: options.query,
+    requestedType: parsed.type,
+    resolvedType: '',
+    prId: 0,
+    buildId: 0,
+    found: false,
+    approvalLogFound: false,
+    approvalLogWithinLookback: false,
+    eligibleForActivity: false,
+    reasons: []
+  };
+  if (!parsed.ok) {
+    lookup.error = parsed.error;
+    lookup.reasons.push('invalid-query');
+    return lookup;
+  }
+
+  let pr = null;
+  let build = null;
+  const tryPr = parsed.type === 'pr' || parsed.type === 'auto';
+  if (tryPr) {
+    const prResult = await getPullRequestForActivity(options, parsed.id);
+    if (prResult.ok) pr = prResult.body;
+    if (!pr && parsed.type === 'pr') {
+      lookup.error = buildLookupHttpError('PR', parsed.id, prResult);
+      lookup.reasons.push('pr-not-found-or-inaccessible');
+      return lookup;
+    }
+  }
+
+  if (!pr && (parsed.type === 'build' || parsed.type === 'auto')) {
+    const buildResult = await getBuildForActivity(options, parsed.id);
+    if (!buildResult.ok) {
+      lookup.error = buildLookupHttpError('Build', parsed.id, buildResult);
+      lookup.reasons.push('build-not-found-or-inaccessible');
+      return lookup;
+    }
+    build = buildResult.body;
+    lookup.buildId = Number(build && build.id) || parsed.id;
+    lookup.resolvedType = 'build';
+    const linkedPrId = getPullRequestIdFromBuild(build);
+    if (!linkedPrId) {
+      lookup.found = true;
+      lookup.error = 'Build #' + lookup.buildId + ' was found, but Azure DevOps did not report a linked pull request.';
+      lookup.reasons.push('build-has-no-linked-pr');
+      return lookup;
+    }
+    const linkedPrResult = await getPullRequestForActivity(options, linkedPrId);
+    if (!linkedPrResult.ok) {
+      lookup.found = true;
+      lookup.prId = linkedPrId;
+      lookup.error = buildLookupHttpError('Linked PR', linkedPrId, linkedPrResult);
+      lookup.reasons.push('linked-pr-not-found-or-inaccessible');
+      return lookup;
+    }
+    pr = linkedPrResult.body;
+  }
+
+  if (!pr) {
+    lookup.error = 'No matching pull request or build was found.';
+    lookup.reasons.push('not-found-or-inaccessible');
+    return lookup;
+  }
+
+  lookup.ok = true;
+  lookup.found = true;
+  lookup.resolvedType = build ? 'build' : 'pr';
+  lookup.prId = Number(pr.pullRequestId) || 0;
+  lookup.pr = {
+    id: lookup.prId,
+    title: pr.title || '',
+    repository: pr.repository && pr.repository.name || '',
+    status: pr.status || '',
+    targetBranch: pr.targetRefName || '',
+    url: pr.repository && pr.repository.name
+      ? 'https://dev.azure.com/' + options.org + '/' + options.project + '/_git/' +
+        encodeURIComponent(pr.repository.name) + '/pullrequest/' + lookup.prId
+      : ''
+  };
+  if (build) {
+    lookup.build = {
+      id: lookup.buildId,
+      status: build.status || '',
+      result: build.result || '',
+      definition: build.definition && build.definition.name || '',
+      url: build._links && build._links.web && build._links.web.href || ''
+    };
+  }
+
+  const targetRef = String(pr.targetRefName || '').toLowerCase();
+  lookup.targetBranchMatches = targetRef.startsWith(options.stagingPrefix);
+  lookup.reviewerGroupMatches = hasReviewerGroup(pr, options.reviewerGroup);
+  if (!lookup.targetBranchMatches) lookup.reasons.push('target-branch-not-staging');
+  if (!lookup.reviewerGroupMatches) lookup.reasons.push('reviewer-group-not-found');
+
+  try {
+    const sp = require('../shared/sharepoint-client');
+    const historyResult = await sp.getLogForPR(lookup.prId);
+    if (!historyResult.ok) {
+      lookup.reasons.push('sharepoint-log-query-failed');
+      lookup.logError = 'SharePoint returned HTTP ' + historyResult.status;
+    } else {
+      const items = historyResult.body && Array.isArray(historyResult.body.value) ? historyResult.body.value : [];
+      const approvedLogs = items.filter(item => isApprovedLogAction(item && item.fields && item.fields.Action));
+      const cutoff = Date.now() - options.lookbackHours * 60 * 60 * 1000;
+      const recentApprovedLogs = approvedLogs.filter(item => {
+        const fields = item && item.fields || {};
+        const timestamp = item.createdDateTime || item.lastModifiedDateTime || fields.Last_Checked_At || '';
+        const time = Date.parse(timestamp);
+        return Number.isFinite(time) && time >= cutoff;
+      });
+      lookup.approvalLogFound = approvedLogs.length > 0;
+      lookup.approvalLogWithinLookback = recentApprovedLogs.length > 0;
+      lookup.approvalLogCount = approvedLogs.length;
+      lookup.latestApprovalAt = getLatestLogTimestamp(approvedLogs);
+      if (!lookup.approvalLogFound) lookup.reasons.push('approval-log-missing');
+      else if (!lookup.approvalLogWithinLookback) lookup.reasons.push('approval-log-older-than-lookback');
+    }
+  } catch (e) {
+    lookup.reasons.push('sharepoint-log-query-failed');
+    lookup.logError = e.message;
+  }
+
+  lookup.eligibleForActivity = lookup.targetBranchMatches &&
+    lookup.reviewerGroupMatches && lookup.approvalLogWithinLookback;
+  return lookup;
+}
+
+async function getPullRequestForActivity(options, prId) {
+  const path = '/' + encodeURIComponent(options.org) + '/' + encodeURIComponent(options.project) +
+    '/_apis/git/pullrequests/' + encodeURIComponent(String(prId)) + '?api-version=7.0';
+  const result = await callAdoApi('dev.azure.com', path, options.readAuth);
+  return parseAdoLookupResult(result);
+}
+
+async function getBuildForActivity(options, buildId) {
+  const path = '/' + encodeURIComponent(options.org) + '/' + encodeURIComponent(options.project) +
+    '/_apis/build/builds/' + encodeURIComponent(String(buildId)) + '?api-version=7.0';
+  const result = await callAdoApi('dev.azure.com', path, options.readAuth);
+  return parseAdoLookupResult(result);
+}
+
+function parseAdoLookupResult(result) {
+  if (!result || !result.ok) return { ok: false, status: result && result.status || 502 };
+  try {
+    return { ok: true, status: result.status, body: JSON.parse(result.body || '{}') };
+  } catch (e) {
+    return { ok: false, status: 502, error: 'Azure DevOps returned invalid JSON.' };
+  }
+}
+
+function buildLookupHttpError(label, id, result) {
+  const status = Number(result && result.status) || 0;
+  if (status === 403) return label + ' #' + id + ' exists, but the connected Azure DevOps account cannot access it.';
+  if (status === 404) return label + ' #' + id + ' was not found in the configured project.';
+  return 'Unable to read ' + label + ' #' + id + ' from Azure DevOps' + (status ? ' (HTTP ' + status + ')' : '') + '.';
+}
+
+function getPullRequestIdFromBuild(build) {
+  const triggerInfo = build && build.triggerInfo || {};
+  const direct = Number(triggerInfo['pr.number'] || triggerInfo['system.pullRequest.pullRequestId']);
+  if (Number.isFinite(direct) && direct > 0) return direct;
+  try {
+    const parameters = typeof build.parameters === 'string' ? JSON.parse(build.parameters) : (build.parameters || {});
+    const value = Number(parameters['system.pullRequest.pullRequestId'] || parameters['pr.number']);
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+function getLatestLogTimestamp(items) {
+  let latest = '';
+  let latestTime = -1;
+  for (const item of items || []) {
+    const fields = item && item.fields || {};
+    const value = item.createdDateTime || item.lastModifiedDateTime || fields.Last_Checked_At || '';
+    const time = Date.parse(value);
+    if (Number.isFinite(time) && time > latestTime) {
+      latest = value;
+      latestTime = time;
+    }
+  }
+  return latest;
 }
 
 function matchesActivitySource(log, sourceFilter) {
@@ -1360,6 +1593,13 @@ function findCurrentUserReviewer(reviewers, currentUser) {
     return reviewerValues.some(value => identities.includes(value));
   }) || null;
 }
+
+module.exports._test = {
+  normalizeActivityQueryType,
+  parseActivityReference,
+  getPullRequestIdFromBuild,
+  getLatestLogTimestamp
+};
 
 function normalizeIdentity(value) {
   return String(value || '').trim().toLowerCase();

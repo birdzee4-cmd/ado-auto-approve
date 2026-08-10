@@ -415,3 +415,6 @@ function buildAdoPrUrl(cfg, repository, prId) {
   return 'https://dev.azure.com/' + cfg.org + '/' + cfg.project +
     '/_git/' + encodeURIComponent(repository) + '/pullrequest/' + encodeURIComponent(String(prId));
 }
+
+module.exports.runHourlyLogSync = runHourlyLogSync;
+module.exports.parseOptions = parseOptions;
