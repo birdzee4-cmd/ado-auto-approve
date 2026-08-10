@@ -255,10 +255,14 @@ Logic เป็นแบบ Hybrid:
 
 1. ดึง PR จริงจาก Azure DevOps
 2. อ่าน repository, source branch, target branch
-3. ตรวจ build run ของ target branch
-4. ถ้า match branch rule เฉพาะ ให้ใช้ rule นั้น
-5. ถ้าไม่ match hardcoded rule แต่พบ CI run ให้ lookup จาก Staging CI/CD mapping
-6. แสดง Recommended CI/CD และ Detected Build
+3. ตรวจ build run ของ target branch และ source branch
+4. หากยังไม่พบ ให้ตรวจ PR status เพื่อหา build ที่ผูกกับ PR โดยตรง
+5. ถ้า match branch rule เฉพาะ ให้ใช้ rule นั้น
+6. ถ้าพบ CI run ให้ lookup จาก Staging CI/CD mapping
+7. หาก PR ปัจจุบันยังไม่มี build ให้แยก component จากชื่อ branch แล้วตรวจ build/PR เก่าของ CI เดียวกันย้อนหลัง 18 เดือน
+8. หากยังไม่มีหลักฐาน build จึงแสดง Possible CI/CD จาก branch-name matching
+
+Azure DevOps ถูกใช้แบบ read-only เท่านั้น ฟีเจอร์นี้ไม่ queue build, แก้ PR, เพิ่ม comment, เปลี่ยน pipeline หรือเขียนข้อมูลกลับ Azure DevOps
 
 ข้อมูลที่แสดง:
 
@@ -270,6 +274,8 @@ Logic เป็นแบบ Hybrid:
 - CD ID / CD path
 - Mapping source เช่น `branch-rule` หรือ `staging-csv`
 - Detected build run, status, result, branch, build link
+- Historical evidence พร้อม PR/build link และ confidence
+- Lookup warning แยกจากกรณีที่ไม่มี build จริง
 
 ### Staging CI/CD Mapping
 

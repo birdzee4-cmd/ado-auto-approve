@@ -104,17 +104,41 @@ function normalizeForCandidate(value) {
   return normalize(value).replace(/[^a-z0-9]+/g, '');
 }
 
+const GENERIC_CANDIDATE_TOKENS = new Set([
+  'net', 'node', 'react', 'web', 'api', 'service', 'services', 'module', 'plugin',
+  'moduleandplugin', 'merge', 'mergecode', 'mergecodeproduction', 'production',
+  'staging', 'stage', 'stg', 'master', 'main', 'develop', 'development', 'th',
+  'docker', 'vm', 'earth', 'dol', 'poppper', 'userstory', 'bug', 'fix'
+]);
+
+function candidateParts(value) {
+  return normalize(value)
+    .split(/[^a-z0-9]+/)
+    .map(normalizeForCandidate)
+    .filter(token => token && token.length >= 4)
+    .filter(token => !GENERIC_CANDIDATE_TOKENS.has(token))
+    .filter(token => !/^\d+$/.test(token))
+    .filter(token => !/^[a-f0-9]{12,}$/.test(token))
+    .filter(token => !/^from(vc|git)/.test(token));
+}
+
 function buildCandidateTokens(pr) {
   const repo = pr && pr.repository ? pr.repository.name : '';
   const rawTokens = [
-    repo,
+    ...candidateParts(pr && pr.sourceRefName),
+    ...candidateParts(pr && pr.targetRefName),
+    ...candidateParts(pr && pr.title),
     repo.replace(/^net[_\-.]?project[_\-.]?/i, ''),
     repo.replace(/^node[_\-.]?project[_\-.]?/i, ''),
     repo.replace(/^react[_\-.]?web[_\-.]?/i, '')
   ];
-  return rawTokens
+  return [...new Set(rawTokens
     .map(normalizeForCandidate)
-    .filter(token => token && token.length >= 3);
+    .filter(token => token && token.length >= 4)
+    .filter(token => !GENERIC_CANDIDATE_TOKENS.has(token))
+    .filter(token => !/^\d+$/.test(token))
+    .filter(token => !/^[a-f0-9]{12,}$/.test(token)))]
+    .sort((a, b) => b.length - a.length);
 }
 
 function scoreStagingCandidate(item, tokens) {
@@ -155,5 +179,6 @@ module.exports = {
   findMergePipelineRule,
   findStagingPipelineMappingByCi,
   findPossibleStagingPipelineMapping,
+  buildCandidateTokens,
   isMergePr
 };
