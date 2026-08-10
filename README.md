@@ -603,6 +603,16 @@ Free-tier guard:
 - รอบทุก 1 ชั่วโมงจะประมาณ 1,440 Logic Apps actions ต่อเดือน ซึ่งต่ำกว่า free grant 4,000 actions/month
 - Managed API execution ประมาณ 720 ครั้งต่อเดือน ซึ่งต่ำกว่า Azure Functions free grant มาก
 
+Provision หรือ rotate token และ deploy Logic App แบบ disabled → configure token → enabled:
+
+```
+powershell .\scripts\deploy-hourly-log-sync.ps1
+```
+
+หน้า Activity รองรับการค้นด้วย PR ID, Build ID หรือ Azure DevOps URL แล้ว หากพบ PR
+แต่ไม่มี approval log ระบบจะแสดงเหตุผลโดยตรง และผู้ใช้ role `admin` สามารถกด
+`Reconcile Logs` เพื่อเรียก reconciliation แบบ authenticated ได้โดย token ไม่ถูกส่งไป browser
+
 ### Auto-Complete Reconciler
 
 ระบบรองรับ background reconciler สำหรับตั้ง auto-complete กลับให้ PR ที่เคยถูก `Auto Approved` แต่ `autoCompleteSetBy` หายไปหลังถูก `Abandoned` แล้วกลับมา `Active`

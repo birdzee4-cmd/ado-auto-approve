@@ -34,6 +34,7 @@
     { "route": "/api/report-summary", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/health", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/list-prs", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },
+    { "route": "/api/activity-reconcile", "methods": ["POST"], "allowedRoles": ["admin"] },
     { "route": "/api/build-diagnostics", "methods": ["GET", "POST"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/merge-lookup", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/list-repositories", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },
