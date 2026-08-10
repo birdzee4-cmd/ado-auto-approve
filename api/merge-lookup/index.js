@@ -4,6 +4,8 @@ const {
   findStagingPipelineMappingByCi,
   findPossibleStagingPipelineMapping,
   buildCandidateTokens,
+  getPartnerCountry,
+  getPipelineCountry,
   isMergePr
 } = require('../shared/merge-pipeline-map');
 
@@ -150,6 +152,14 @@ function buildMatchesComponent(build, tokens) {
   return (tokens || []).some(token => token.length >= 5 && haystack.includes(token));
 }
 
+function buildMatchesCountry(build, countryCode) {
+  if (!countryCode) return true;
+  return getPipelineCountry({
+    ciName: build && build.definition && build.definition.name || '',
+    ciFolder: build && build.definition && build.definition.path || ''
+  }).code === countryCode;
+}
+
 function closestCompletedPr(build, pullRequests) {
   const buildTime = getBuildDate(build);
   const branch = normalizeName(build && build.sourceBranch);
@@ -167,6 +177,7 @@ async function getHistoricalEvidence(repositoryId, pr, mapping, authOptions) {
     return { evidence: [], count: 0, confidence: '', error: null };
   }
   const tokens = buildCandidateTokens(pr);
+  const country = getPartnerCountry(pr);
   if (!tokens.length) return { evidence: [], count: 0, confidence: '', error: null };
 
   const buildResult = await ado.listBuilds({
@@ -183,6 +194,7 @@ async function getHistoricalEvidence(repositoryId, pr, mapping, authOptions) {
   const builds = (Array.isArray(buildResult.body && buildResult.body.value) ? buildResult.body.value : [])
     .filter(build => !mapping.ciName || normalizeName(build && build.definition && build.definition.name) === normalizeName(mapping.ciName))
     .filter(build => buildMatchesComponent(build, tokens))
+    .filter(build => buildMatchesCountry(build, country.code))
     .filter(build => {
       const branch = normalizeName(build && build.sourceBranch);
       return branch !== normalizeName(pr && pr.sourceRefName) &&
@@ -295,6 +307,7 @@ module.exports = async function (context, req) {
     const pr = prResp.body;
     const repositoryId = pr.repository && pr.repository.id;
     const rule = findMergePipelineRule(pr);
+    const partnerCountry = getPartnerCountry(pr);
     const branchCandidate = !rule ? findPossibleStagingPipelineMapping(pr) : null;
 
     let detectedTarget = await getDetectedBuild(repositoryId, pr.targetRefName, pr, rule, userAuth);
@@ -320,6 +333,9 @@ module.exports = async function (context, req) {
     }
 
     const detectedBuild = buildToDto(detected.build, detected.branch);
+    const detectedCountry = detectedBuild
+      ? getPipelineCountry({ ciName: detectedBuild.name })
+      : { code: '', name: '', inferred: false };
     const stgMapping = !rule && detectedBuild
       ? findStagingPipelineMappingByCi(detectedBuild.name)
       : null;
@@ -333,6 +349,7 @@ module.exports = async function (context, req) {
       cdName: rule.cd && rule.cd.name || '',
       environment: rule.environment || '',
       confidence: rule.confidence || '',
+      country: partnerCountry,
       note: 'Recommended by branch mapping rule'
     } : stgMapping ? {
       source: 'staging-csv',
@@ -344,6 +361,7 @@ module.exports = async function (context, req) {
       cdPath: stgMapping.cdPath || '',
       environment: 'STG',
       confidence: 'high',
+      country: partnerCountry,
       note: 'Recommended by Staging CI/CD mapping CSV'
     } : historicalMatch ? {
       source: 'historical-builds',
@@ -355,6 +373,7 @@ module.exports = async function (context, req) {
       cdPath: branchCandidate.cdPath || '',
       environment: 'STG',
       confidence: historical.confidence || 'medium',
+      country: partnerCountry,
       note: 'Verified from previous build runs for the same branch component'
     } : null;
     const possible = !recommended && branchCandidate ? {
@@ -367,6 +386,7 @@ module.exports = async function (context, req) {
       cdPath: branchCandidate.cdPath || '',
       environment: 'STG',
       confidence: 'medium',
+      country: partnerCountry,
       note: 'Possible CI/CD inferred from component names in the PR branches. Please verify before use.'
     } : null;
     const lookupErrors = [
@@ -375,7 +395,10 @@ module.exports = async function (context, req) {
       detectedPrStatus.error ? { source: 'pr-statuses', ...detectedPrStatus.error } : null,
       historical.error ? { source: 'historical-builds', ...historical.error } : null
     ].filter(Boolean);
-    const status = historicalMatch
+    const countryMismatch = partnerCountry.code && detectedBuild && detectedCountry.code !== partnerCountry.code;
+    const status = countryMismatch
+      ? 'country-mismatch'
+      : historicalMatch
       ? 'historical'
       : recommended || detectedBuild
       ? classify(recommended, detectedBuild)
@@ -400,6 +423,7 @@ module.exports = async function (context, req) {
           creationDate: pr.creationDate || '',
           closedDate: pr.closedDate || '',
           url: webUrl,
+          country: partnerCountry,
           isMergePr: isMergePr(pr)
         },
         mapping: rule ? {
@@ -408,6 +432,7 @@ module.exports = async function (context, req) {
           label: rule.label,
           environment: rule.environment,
           confidence: rule.confidence,
+          country: partnerCountry,
           source: 'branch-rule'
         } : stgMapping ? {
           matched: true,
@@ -415,6 +440,7 @@ module.exports = async function (context, req) {
           label: stgMapping.ciName || '',
           environment: 'STG',
           confidence: 'high',
+          country: partnerCountry,
           source: 'staging-csv'
         } : historicalMatch ? {
           matched: true,
@@ -422,6 +448,7 @@ module.exports = async function (context, req) {
           label: branchCandidate.ciName || '',
           environment: 'STG',
           confidence: historical.confidence || 'medium',
+          country: partnerCountry,
           source: 'historical-builds'
         } : {
           matched: false
@@ -433,6 +460,7 @@ module.exports = async function (context, req) {
           targetBuildCount: detectedTarget.count,
           sourceBuildCount: detectedSource.count,
           prStatusBuildIds: detectedPrStatus.buildIds,
+          country: detectedCountry,
           origin: detected.origin || (detectedBuild ? 'branch' : '')
         },
         historical: {
@@ -448,6 +476,7 @@ module.exports = async function (context, req) {
             mismatch: 'Recommended CI is different from detected build run',
             'mapped-only': 'Found mapping rule, but no relevant build run was detected yet',
             'detected-only': 'Detected a build run, but no mapping rule matched this PR',
+            'country-mismatch': 'Detected CI/CD country is different from the PR partner country',
             historical: 'CI/CD was verified from previous build runs for the same component',
             possible: 'No build evidence was found, but possible CI/CD was inferred from the PR branches',
             unavailable: 'Azure DevOps build history could not be read',
@@ -468,6 +497,7 @@ module.exports._test = {
   parseBuildId,
   buildIdsFromStatuses,
   buildMatchesComponent,
+  buildMatchesCountry,
   closestCompletedPr,
   getHistoricalEvidence,
   pickRelevantBuild,

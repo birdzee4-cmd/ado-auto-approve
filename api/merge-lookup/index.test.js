@@ -24,6 +24,18 @@ test('buildMatchesComponent recognizes BuzzPosPilot historical builds', () => {
   }, ['buzzpospilot']), false);
 });
 
+test('buildMatchesCountry rejects a pipeline from another partner country', () => {
+  assert.equal(helpers.buildMatchesCountry({
+    definition: { name: 'MY_Stg_AD-UserManagement-Worker-CI' }
+  }, 'MY'), true);
+  assert.equal(helpers.buildMatchesCountry({
+    definition: { name: 'MY_Stg_AD-UserManagement-Worker-CI' }
+  }, 'TH'), false);
+  assert.equal(helpers.buildMatchesCountry({
+    definition: { name: 'STG_Service_Module_BuzzPosPilot-CI' }
+  }, 'TH'), true);
+});
+
 test('closestCompletedPr links each historical build to the latest preceding PR', () => {
   const result = helpers.closestCompletedPr({
     sourceBranch: 'refs/heads/target/buzzpospilot',

@@ -262,11 +262,24 @@ Logic เป็นแบบ Hybrid:
 7. หาก PR ปัจจุบันยังไม่มี build ให้แยก component จากชื่อ branch แล้วตรวจ build/PR เก่าของ CI เดียวกันย้อนหลัง 18 เดือน
 8. หากยังไม่มีหลักฐาน build จึงแสดง Possible CI/CD จาก branch-name matching
 
+การจับคู่ใช้ Partner Country จาก PR title/source branch/target branch เป็นเงื่อนไขบังคับ:
+
+| Code | Country |
+|---|---|
+| `TH` | Thailand |
+| `VN` | Vietnam |
+| `MY` | Malaysia |
+| `PH` | Philippines |
+| `ID` | Indonesia |
+
+ระบบให้ความสำคัญกับ country code ใน target branch ก่อน title และ source branch ตามลำดับ Pipeline เดิมที่ไม่มี country code ในชื่อหรือ folder จะถือเป็น Thailand เพื่อรองรับข้อมูล legacy และ pipeline ต่างประเทศจะไม่ถูกนำมาเป็น historical evidence ข้ามประเทศ
+
 Azure DevOps ถูกใช้แบบ read-only เท่านั้น ฟีเจอร์นี้ไม่ queue build, แก้ PR, เพิ่ม comment, เปลี่ยน pipeline หรือเขียนข้อมูลกลับ Azure DevOps
 
 ข้อมูลที่แสดง:
 
 - PR ID, title, repo, author, status, created time
+- Partner Country code และชื่อประเทศ
 - Source branch / target branch
 - Recommended CI name
 - Recommended CD name
