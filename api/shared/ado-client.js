@@ -279,10 +279,16 @@ async function getPullRequest(prId, options) {
 /**
  * ดึง PR statuses เช่น build validation / policy checks
  */
-async function getPullRequestStatuses(repositoryId, prId) {
+async function getPullRequestStatuses(repositoryId, prId, options) {
   const { org, project } = getConfig();
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${repositoryId}/pullRequests/${prId}/statuses?api-version=7.0`;
-  return adoRequest('GET', path);
+  return adoRequest('GET', path, null, options);
+}
+
+async function getBuildById(buildId, options) {
+  const { org, project } = getConfig();
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds/${encodeURIComponent(String(buildId))}?api-version=7.0`;
+  return adoRequest('GET', path, null, options);
 }
 
 async function getBuildsForBranch(repositoryId, branchName, top, options) {
@@ -304,13 +310,29 @@ async function listBuilds(options) {
   if (opts.statusFilter) params.push('statusFilter=' + encodeURIComponent(opts.statusFilter));
   if (opts.resultFilter) params.push('resultFilter=' + encodeURIComponent(opts.resultFilter));
   if (opts.branchName) params.push('branchName=' + encodeURIComponent(opts.branchName));
+  if (opts.definitions) params.push('definitions=' + encodeURIComponent(String(opts.definitions)));
   if (opts.repositoryId) {
     params.push('repositoryId=' + encodeURIComponent(opts.repositoryId));
     params.push('repositoryType=' + encodeURIComponent(opts.repositoryType || 'TfsGit'));
   }
 
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?${params.join('&')}`;
-  return adoRequest('GET', path);
+  const authOptions = opts.accessToken
+    ? { accessToken: opts.accessToken }
+    : opts.requestOptions || undefined;
+  return adoRequest('GET', path, null, authOptions);
+}
+
+async function getPullRequestsForTargetBranch(repositoryId, targetRefName, top, options) {
+  const { org, project } = getConfig();
+  const params = [
+    'api-version=7.0',
+    'searchCriteria.status=completed',
+    'searchCriteria.targetRefName=' + encodeURIComponent(targetRefName),
+    '$top=' + encodeURIComponent(String(top || 10))
+  ];
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${encodeURIComponent(repositoryId)}/pullrequests?${params.join('&')}`;
+  return adoRequest('GET', path, null, options);
 }
 
 async function getProjectId() {
@@ -734,8 +756,10 @@ module.exports = {
   releaseRequest,
   getPullRequest,
   getPullRequestStatuses,
+  getBuildById,
   getBuildsForBranch,
   listBuilds,
+  getPullRequestsForTargetBranch,
   getPolicyEvaluations,
   listActivePRs,
   listPullRequestsByStatus,
