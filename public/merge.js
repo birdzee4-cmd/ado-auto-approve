@@ -53,6 +53,10 @@ function renderMergeLookup(data) {
   const details = document.getElementById('mergeLookupDetails');
   if (!details) return;
   const pr = data.pr || {};
+  const country = pr.country || {};
+  const countryLabel = country.code
+    ? country.code + ' — ' + (country.name || country.code)
+    : 'Not detected';
   const recommended = data.recommended || {};
   const possible = data.possible || {};
   const recommendation = recommended.ciName ? recommended : possible;
@@ -64,6 +68,7 @@ function renderMergeLookup(data) {
   const statusClass = {
     matched: 'merge-ok',
     historical: 'merge-ok',
+    'country-mismatch': 'merge-warn',
     mismatch: 'merge-warn',
     'mapped-only': 'merge-info',
     'detected-only': 'merge-info',
@@ -80,8 +85,8 @@ function renderMergeLookup(data) {
 
   showBox('mergeResult',
     '<strong>' + escapeHtml(result.message || 'Lookup completed') + '</strong>' +
-    '<br><small>PR #' + escapeHtml(pr.id || '-') + ' | ' + escapeHtml(pr.repository || '-') + '</small>',
-    result.status === 'mismatch' || result.status === 'not-found' ? 'warning' : 'success');
+    '<br><small>PR #' + escapeHtml(pr.id || '-') + ' | ' + escapeHtml(pr.repository || '-') + ' | Partner Country: ' + escapeHtml(countryLabel) + '</small>',
+    result.status === 'mismatch' || result.status === 'country-mismatch' || result.status === 'not-found' ? 'warning' : 'success');
 
   const prLink = pr.url
     ? '<a href="' + escapeHtml(pr.url) + '" target="_blank" rel="noopener" class="secondary-button merge-small-link">Open PR</a>'
@@ -101,6 +106,7 @@ function renderMergeLookup(data) {
           '<div><span>By</span><strong>' + escapeHtml(pr.createdBy || '-') + '</strong></div>' +
           '<div><span>Status</span><strong>' + escapeHtml(pr.status || '-') + '</strong></div>' +
           '<div><span>Created</span><strong>' + escapeHtml(formatDateTime(pr.creationDate)) + '</strong></div>' +
+          '<div><span>Partner Country</span><strong>' + escapeHtml(countryLabel) + '</strong></div>' +
         '</div>' +
         '<div class="merge-branch-stack">' +
           '<div><span>From</span><code>' + escapeHtml(pr.sourceBranch || '-') + '</code></div>' +
@@ -120,6 +126,7 @@ function renderMergeLookup(data) {
           '<dt>CD ID</dt><dd>' + escapeHtml(recommendation.cdId || '-') + '</dd>' +
           '<dt>Source</dt><dd>' + escapeHtml(recommendation.source || '-') + '</dd>' +
           '<dt>Environment</dt><dd>' + escapeHtml(recommendation.environment || data.mapping && data.mapping.environment || '-') + '</dd>' +
+          '<dt>Partner Country</dt><dd>' + escapeHtml(countryLabel) + '</dd>' +
           '<dt>Confidence</dt><dd>' + escapeHtml(recommendation.confidence || data.mapping && data.mapping.confidence || '-') + '</dd>' +
           (hasPossible ? '<dt>Reason</dt><dd>' + escapeHtml(possible.note || '-') + '</dd>' : '') +
         '</dl>' +
@@ -131,6 +138,9 @@ function renderMergeLookup(data) {
           '<dt>Run</dt><dd>' + escapeHtml(detected && detected.id || '-') + '</dd>' +
           '<dt>Status</dt><dd>' + escapeHtml(formatBuildRunState(detected)) + '</dd>' +
           '<dt>Branch</dt><dd>' + escapeHtml(detected && detected.branch || '-') + '</dd>' +
+          '<dt>Pipeline Country</dt><dd>' + escapeHtml(data.detected && data.detected.country && data.detected.country.code
+            ? data.detected.country.code + ' — ' + data.detected.country.name
+            : '-') + '</dd>' +
           '<dt>Finished</dt><dd>' + escapeHtml(formatDateTime(detected && detected.finishTime)) + '</dd>' +
         '</dl>' +
         '<div class="merge-actions">' + ciLink + '</div>' +

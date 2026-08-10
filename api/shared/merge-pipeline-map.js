@@ -1,5 +1,13 @@
 const STG_CI_CD_MAP = require('./stg-ci-cd-map.json');
 
+const PARTNER_COUNTRIES = Object.freeze({
+  TH: 'Thailand',
+  VN: 'Vietnam',
+  MY: 'Malaysia',
+  PH: 'Philippines',
+  ID: 'Indonesia'
+});
+
 const MERGE_PIPELINE_RULES = [
   {
     key: 'wallet-backoffice-v28',
@@ -104,11 +112,40 @@ function normalizeForCandidate(value) {
   return normalize(value).replace(/[^a-z0-9]+/g, '');
 }
 
+function countryCodeFromText(value) {
+  const match = String(value || '').toUpperCase().match(/(?:^|[^A-Z0-9])(TH|VN|MY|PH|ID)(?=$|[^A-Z0-9])/);
+  return match ? match[1] : '';
+}
+
+function getPartnerCountry(pr) {
+  const sources = [
+    ['target-branch', pr && pr.targetRefName],
+    ['title', pr && pr.title],
+    ['source-branch', pr && pr.sourceRefName]
+  ];
+  for (const [source, value] of sources) {
+    const code = countryCodeFromText(value);
+    if (code) return { code, name: PARTNER_COUNTRIES[code], source };
+  }
+  return { code: '', name: '', source: '' };
+}
+
+function getPipelineCountry(item) {
+  const explicitCode = countryCodeFromText([
+    item && item.ciName,
+    item && item.cdName,
+    item && item.ciFolder,
+    item && item.cdPath
+  ].filter(Boolean).join(' '));
+  const code = explicitCode || 'TH';
+  return { code, name: PARTNER_COUNTRIES[code], inferred: !explicitCode };
+}
+
 const GENERIC_CANDIDATE_TOKENS = new Set([
   'net', 'node', 'react', 'web', 'api', 'service', 'services', 'module', 'plugin',
   'moduleandplugin', 'merge', 'mergecode', 'mergecodeproduction', 'production',
   'staging', 'stage', 'stg', 'master', 'main', 'develop', 'development', 'th',
-  'docker', 'vm', 'earth', 'dol', 'poppper', 'userstory', 'bug', 'fix'
+  'docker', 'vm', 'earth', 'dol', 'poppper', 'userstory', 'bug', 'fix', 'into', 'branch'
 ]);
 
 function candidateParts(value) {
@@ -141,7 +178,9 @@ function buildCandidateTokens(pr) {
     .sort((a, b) => b.length - a.length);
 }
 
-function scoreStagingCandidate(item, tokens) {
+function scoreStagingCandidate(item, tokens, countryCode) {
+  const pipelineCountry = getPipelineCountry(item);
+  if (countryCode && pipelineCountry.code !== countryCode) return 0;
   const ci = normalizeForCandidate(item && item.ciName);
   const cd = normalizeForCandidate(item && item.cdName);
   if (!ci) return 0;
@@ -152,14 +191,16 @@ function scoreStagingCandidate(item, tokens) {
   }
   if (ci.includes('stg')) score += 3;
   if (ci.includes('docker')) score += 2;
+  if (countryCode && pipelineCountry.code === countryCode) score += 100;
   return score;
 }
 
 function findPossibleStagingPipelineMapping(pr) {
   const tokens = buildCandidateTokens(pr);
+  const country = getPartnerCountry(pr);
   if (!tokens.length) return null;
   const candidates = (Array.isArray(STG_CI_CD_MAP) ? STG_CI_CD_MAP : [])
-    .map(item => ({ item, score: scoreStagingCandidate(item, tokens) }))
+    .map(item => ({ item, score: scoreStagingCandidate(item, tokens, country.code) }))
     .filter(result => result.score > 0)
     .sort((a, b) => b.score - a.score);
   if (!candidates.length) return null;
@@ -175,10 +216,14 @@ function isMergePr(pr) {
 }
 
 module.exports = {
+  PARTNER_COUNTRIES,
   MERGE_PIPELINE_RULES,
   findMergePipelineRule,
   findStagingPipelineMappingByCi,
   findPossibleStagingPipelineMapping,
   buildCandidateTokens,
+  countryCodeFromText,
+  getPartnerCountry,
+  getPipelineCountry,
   isMergePr
 };
