@@ -46,12 +46,33 @@
             <span>🔄</span>
             <span>Refresh Activity</span>
           </button>
+          <button id="btnReconcileActivity" class="secondary-button" hidden>
+            <span>🧭</span>
+            <span>Reconcile Logs</span>
+          </button>
         </div>
       </div>
 
       <div id="activityResult" hidden></div>
 
       <div class="activity-filter-panel">
+        <label class="filter-field activity-lookup-type">
+          <span>Find by</span>
+          <select id="activityQueryType">
+            <option value="auto">Auto detect</option>
+            <option value="pr">PR ID</option>
+            <option value="build">Build ID</option>
+          </select>
+        </label>
+        <label class="filter-field activity-search-field">
+          <span>PR / Build</span>
+          <input id="activityQuery" type="search" inputmode="numeric"
+            placeholder="ID or Azure DevOps URL" autocomplete="off" />
+        </label>
+        <div class="activity-search-actions">
+          <button id="btnSearchActivity" class="primary-button" type="button">Search</button>
+          <button id="btnClearActivitySearch" class="secondary-button" type="button">Clear</button>
+        </div>
         <label class="filter-field">
           <span>Latest Status</span>
           <select id="activityFilterStatus">

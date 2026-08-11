@@ -85,8 +85,9 @@ module.exports = async function (context, req) {
     context.log(`Fetching report summary [${type}] for ${year}-${month}${type === 'daily' ? '-' + day : ''} (UTC range: ${startIso} to ${endIso})`);
 
     // 4) ดึง Log การทำรายการจาก SharePoint List ตามช่วงเวลา
-    // ดึงสูงสุด 2,000 รายการเพื่อป้องกันการค้าง
-    const logsResult = await sp.getLogItemsRange(startIso, endIso, 2000);
+    // Monthly reports may contain more than 2,000 audit rows. The SharePoint
+    // client still applies a bounded 10,000-item safety cap and pagination.
+    const logsResult = await sp.getLogItemsRange(startIso, endIso, 10000);
     if (!logsResult.ok) {
       throw new Error(`Failed to query SharePoint logs: HTTP ${logsResult.status}`);
     }
@@ -221,10 +222,12 @@ module.exports = async function (context, req) {
       ? parseFloat(((succeededDeploys / totalDeploys) * 100).toFixed(2)) 
       : 0;
 
-    // จัดอันดับ Top Repository ที่มี Build ล้มเหลวบ่อยสุด
-    const topFailedRepos = Object.values(repoFailedDeploys)
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
+    // เก็บข้อมูลเต็มสำหรับ Export และตัดเฉพาะ Preview ที่ใช้แสดงบนหน้าเว็บ
+    const allFailedRepos = Object.values(repoFailedDeploys)
+      .sort((a, b) => b.count - a.count);
+    const topFailedRepos = allFailedRepos.slice(0, 5);
+    const allFailedDeployItems = failedDeployItems
+      .sort((a, b) => (Date.parse(b.finishedTime || '') || 0) - (Date.parse(a.finishedTime || '') || 0));
 
     // 8) ส่งผลลัพธ์กลับไปหาหน้าเว็บ
     jsonResponse(200, {
@@ -262,9 +265,9 @@ module.exports = async function (context, req) {
       },
       topActiveRepos: topActiveRepos,
       topFailedRepos: topFailedRepos,
-      failedDeployItems: failedDeployItems
-        .sort((a, b) => (Date.parse(b.finishedTime || '') || 0) - (Date.parse(a.finishedTime || '') || 0))
-        .slice(0, 10)
+      failedDeployItems: allFailedDeployItems.slice(0, 10),
+      allFailedRepos: allFailedRepos,
+      allFailedDeployItems: allFailedDeployItems
     });
 
   } catch (err) {

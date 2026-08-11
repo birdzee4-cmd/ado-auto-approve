@@ -183,27 +183,19 @@ function takePendingAutoResume() {
   return pending;
 }
 
-async function promptAutoResumeAfterAuth() {
-  const pending = takePendingAutoResume();
+async function resumeAutoModeAfterAuth(pending) {
   if (!pending) return false;
 
   const label = pending.mode === 'active' ? 'ACTIVE (Auto-Approve)' : 'ACTIVE (Manual)';
-  const happened = new Date(pending.occurredAt).toLocaleString('th-TH', {
-    dateStyle: 'short',
-    timeStyle: 'medium'
-  });
-  const detail = 'ก่อนหน้านี้โหมด ' + label + ' หยุดเพราะ browser session ต้อง sign-in ใหม่เมื่อ ' + happened + '\n\n' +
-    'ต้องการ Resume โหมดนี้ต่อไหม?\n\n' +
-    'ระบบจะดึง PR ใหม่จาก backend ก่อน และจะไม่ใช้ผล scan เก่ามา approve';
-
-  if (!confirm(detail)) {
-    writeToAutoConsole('Auto Approve resume was skipped after sign-in. Mode remains OFF.', 'info');
+  writeToAutoConsole('Browser sign-in recovered. Verifying a fresh PR scan before resuming ' + label + '.', 'info');
+  const scanSucceeded = await checkPrs(false);
+  if (!scanSucceeded) {
+    writeToAutoConsole('Automatic resume was cancelled because the fresh PR scan failed. Mode remains OFF and no approval was sent.', 'error');
+    await resetAutoApproveOnLoad();
     return false;
   }
-
-  writeToAutoConsole('Resuming ' + label + ' after browser sign-in. A fresh scan will run before any action.', 'info');
-  await changeAutoMode(pending.mode);
-  return true;
+  writeToAutoConsole('Fresh PR scan succeeded. Resuming ' + label + ' automatically.', 'info');
+  return changeAutoMode(pending.mode);
 }
 
 function consumeAdoAuthCallbackResult() {
@@ -256,12 +248,12 @@ function showAdoAuthNotice(type, title, detail) {
 
 // ===== Check PRs =====
 async function checkPrs(isSilent) {
-  if (!document.getElementById('prTableContainer')) return;
+  if (!document.getElementById('prTableContainer')) return false;
   if (_checkPrsInFlight) {
     if (isSilent && window._autoMode && window._autoMode !== 'normal') {
       writeToAutoConsole('Skipped automatic scan because the previous scan is still running.', 'info');
     }
-    return;
+    return false;
   }
 
   _checkPrsInFlight = true;
@@ -284,14 +276,14 @@ async function checkPrs(isSilent) {
     const listPrsUrl = isSilent ? '/api/list-prs?scanOnly=true' : '/api/list-prs';
     const r = await safeFetchJson(listPrsUrl, { timeoutMs: 55000 });
     if (handleBrowserAuthRedirect(r, isSilent)) {
-      return;
+      return false;
     }
     if (r.parseError) {
       if (!isSilent) showBox('prResult', '<div class="test-result result-error">❌ Backend ตอบไม่ใช่ JSON (HTTP ' + r.status + ')</div>');
       else if (window._autoMode && window._autoMode !== 'normal') {
         logAutoScanFailure(describeAutoScanHttpFailure(r, null));
       }
-      return;
+      return false;
     }
     if (!r.ok || !r.data || !r.data.ok) {
       const d = r.data || {};
@@ -301,7 +293,7 @@ async function checkPrs(isSilent) {
       } else if (window._autoMode && window._autoMode !== 'normal') {
         logAutoScanFailure(describeAutoScanHttpFailure(r, d));
       }
-      return;
+      return false;
     }
     const d = r.data;
     resetAutoScanFailureState();
@@ -323,12 +315,14 @@ async function checkPrs(isSilent) {
       d.completedDisplayLimit || 10
     );
     if (document.getElementById('systemHealthSummary')) checkHealthStatus();
+    return true;
   } catch (err) {
     if (!isSilent) {
       showBox('prResult', '<div class="test-result result-error">❌ ' + escapeHtml(err.message) + '</div>');
     } else if (window._autoMode && window._autoMode !== 'normal') {
       logAutoScanFailure(describeAutoScanException(err));
     }
+    return false;
   } finally {
     _checkPrsInFlight = false;
     if (!isSilent) {
@@ -1509,7 +1503,18 @@ function trackAutoSessionBuilds(prs) {
   updateStatsUI();
 }
 
-async function initAutoApprove() {
+async function resetAutoApproveOnLoad() {
+  return safeFetchJson('/api/auto-approve-settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      autoMode: 'normal',
+      durationMinutes: 'end_of_day'
+    })
+  });
+}
+
+async function initAutoApprove(preserveBackendMode) {
   const panel = document.getElementById('autoApprovePanel');
   if (!panel) return;
 
@@ -1536,15 +1541,12 @@ async function initAutoApprove() {
     window._autoPrApprovedCount = 0;
     window._autoReleaseApprovedCount = 0;
 
-    // Send update to backend to disable the mode on SharePoint too
-    await safeFetchJson('/api/auto-approve-settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        autoMode: 'normal',
-        durationMinutes: 'end_of_day'
-      })
-    });
+    // A normal load/refresh must still disable the backend mode. During the
+    // short auth-recovery handoff, preserve it until a fresh scan can verify
+    // the browser session and safely restore the previous mode.
+    if (!preserveBackendMode) {
+      await resetAutoApproveOnLoad();
+    }
     
     writeToAutoConsole('Auto Approve Mode has been initialized to OFF.', 'info');
   } catch (e) {
@@ -1706,11 +1708,13 @@ window.changeAutoMode = async function(mode) {
       
       checkPrs(true);
     }
+    return true;
   } catch (e) {
     window._autoMode = prevMode;
     updateModeButtonsUI(prevMode);
     alert('❌ ตั้งค่าไม่สำเร็จ: ' + e.message);
     writeToAutoConsole('Error setting auto mode: ' + e.message, 'error');
+    return false;
   }
 }
 
@@ -2138,9 +2142,10 @@ async function evaluateAutoApprovals(prs) {
     }
   });
   
-  await initAutoApprove();
-  const resumedAutoMode = await promptAutoResumeAfterAuth();
-  if (!resumedAutoMode) {
+  const pendingAutoResume = takePendingAutoResume();
+  await initAutoApprove(!!pendingAutoResume);
+  const resumedAutoMode = await resumeAutoModeAfterAuth(pendingAutoResume);
+  if (!resumedAutoMode && !pendingAutoResume) {
     await checkPrs();
   }
 })();

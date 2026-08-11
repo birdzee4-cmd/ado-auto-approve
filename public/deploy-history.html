@@ -53,51 +53,23 @@
 
       <!-- Filters Panel -->
       <div class="filter-panel">
-        <label class="filter-field">
-          <span>Year</span>
-          <select id="filterYear">
-            <option value="">All (Latest 1000)</option>
-            <option value="2026">2026</option>
-            <option value="2025">2025</option>
-            <option value="2024">2024</option>
-            <option value="2023">2023</option>
-            <option value="2022">2022</option>
-            <option value="2021">2021</option>
-            <option value="2020">2020</option>
-            <option value="2019">2019</option>
-            <option value="2018">2018</option>
-          </select>
-        </label>
-        <label class="filter-field">
-          <span>Repository</span>
-          <select id="filterRepo">
-            <option value="">All Repositories</option>
-          </select>
-        </label>
-        <label class="filter-field">
-          <span>Branch</span>
-          <select id="filterBranch">
-            <option value="">All Branches</option>
-          </select>
-        </label>
-        <label class="filter-field">
-          <span>Status</span>
-          <select id="filterStatus">
-            <option value="">All Statuses</option>
-            <option value="Succeeded">Succeeded</option>
-            <option value="Failed">Failed</option>
-            <option value="Canceled">Canceled</option>
-            <option value="InProgress">InProgress</option>
-          </select>
-        </label>
-        <label class="filter-field filter-field-wide">
-          <span>Keyword Search</span>
-          <input id="filterKeyword" type="search" placeholder="ค้นหาตามชื่อ Pipeline, รหัสเวอร์ชัน, ข้อความ Commit หรือผู้สั่งการ..." />
-        </label>
-        <div class="filter-actions">
-          <button id="btnSearch" class="primary-button">Search</button>
-          <button id="btnClear" class="secondary-button">Clear</button>
+        <div class="filter-primary-row">
+          <label class="filter-field filter-field-wide"><span>ค้นหา Deployment</span><input id="filterKeyword" type="search" autocomplete="off" placeholder="Pipeline, Version, Commit, ผู้สั่งการ หรือ Tag" /></label>
+          <label class="filter-field"><span>Status</span><select id="filterStatus"><option value="">All Statuses</option><option value="Succeeded">Succeeded</option><option value="Failed">Failed</option><option value="Canceled">Canceled</option><option value="InProgress">In Progress</option></select></label>
+          <label class="filter-field filter-date-field"><span>ตั้งแต่วันที่</span><input id="filterDateFrom" type="date" /></label>
+          <label class="filter-field filter-date-field"><span>ถึงวันที่</span><input id="filterDateTo" type="date" /></label>
+          <div class="filter-actions"><button id="btnSearch" class="primary-button">Search</button><button id="btnClear" class="secondary-button">Clear all</button></div>
         </div>
+        <div class="filter-toolbar">
+          <div class="quick-date-group"><button type="button" class="quick-date-button" data-days="0">วันนี้</button><button type="button" class="quick-date-button" data-days="7">7 วันล่าสุด</button><button type="button" class="quick-date-button" data-days="30">30 วันล่าสุด</button></div>
+          <button id="btnMoreFilters" type="button" class="more-filter-button" aria-expanded="false" aria-controls="advancedFilters">More filters <span>⌄</span></button>
+        </div>
+        <div id="advancedFilters" class="filter-advanced" hidden>
+          <label class="filter-field"><span>Year</span><select id="filterYear"><option value="">All (Latest 1000)</option><option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option><option value="2021">2021</option><option value="2020">2020</option><option value="2019">2019</option><option value="2018">2018</option></select></label>
+          <label class="filter-field"><span>Repository</span><select id="filterRepo"><option value="">All Repositories</option></select></label>
+          <label class="filter-field"><span>Branch</span><select id="filterBranch"><option value="">All Branches</option></select></label>
+        </div>
+        <div id="activeFilters" class="active-filters" aria-live="polite" hidden><span class="active-filters-label">กำลังกรอง:</span><div id="activeFilterChips" class="filter-chips"></div></div>
       </div>
 
       <!-- Sync Info / Meta -->

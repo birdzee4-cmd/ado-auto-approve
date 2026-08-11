@@ -375,7 +375,9 @@ async function getLogItemsRange(startIso, endIso, maxItems) {
   const siteId = await getSiteId();
   const listId = await getListId();
   const token = await getAccessToken();
-  const limit = Math.max(1, Math.min(parseInt(maxItems, 10) || 500, 2000));
+  // Monthly reporting can exceed the old 2,000-item ceiling. Keep a bounded
+  // upper limit, but allow callers to page through a full busy month.
+  const limit = Math.max(1, Math.min(parseInt(maxItems, 10) || 500, 10000));
   const pageSize = 100;
   const filter = `fields/Created ge '${startIso}' and fields/Created lt '${endIso}'`;
   let url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?expand=fields&$filter=${encodeURIComponent(filter)}&$orderby=lastModifiedDateTime desc&$top=${pageSize}`;

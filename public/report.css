@@ -139,10 +139,12 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  gap: 10px;
   padding-top: 2px;
 }
 
-.report-load-button {
+.report-load-button,
+.report-export-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -150,6 +152,26 @@
   min-width: 210px;
   min-height: 44px;
   border-radius: 8px;
+}
+
+.report-export-button {
+  border: 1px solid #15803d;
+  background: #ffffff;
+  color: #15803d;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.report-export-button:hover:not(:disabled) {
+  background: #f0fdf4;
+}
+
+.report-export-button:disabled {
+  border-color: #d1d5db;
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.75;
 }
 
 .button-icon {
@@ -183,6 +205,14 @@
   }
 
   .report-load-button {
+    width: 100%;
+  }
+
+  .filter-actions-row {
+    flex-direction: column-reverse;
+  }
+
+  .report-export-button {
     width: 100%;
   }
 }
