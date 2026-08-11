@@ -16,3 +16,6 @@ scratch/
 # Ignore local settings
 api/local.settings.json
 
+
+# Ignore local Azure Storage emulator data
+.azurite/

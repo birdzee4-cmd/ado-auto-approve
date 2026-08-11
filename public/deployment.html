@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/assets/buzzebees-icon.png" />
+  <title>Deployment Report - Buzzebees Internal Tools</title>
+  <link rel="stylesheet" href="/core.css" />
+  <link rel="stylesheet" href="/deployment.css?v=project-history-v4" />
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-left">
+      <a class="deployment-back" href="/applications.html" aria-label="Back to applications">←</a>
+      <img src="/assets/buzzebees-icon.png" alt="BUZZEBEES" class="nav-icon" />
+      <span class="brand">Deployment Report</span>
+    </div>
+    <div class="nav-right">
+      <span id="userName" class="user-name">Loading...</span>
+      <a href="/.auth/logout?post_logout_redirect_uri=/" class="logout-button">Logout</a>
+      <img src="/assets/buzzebees-powered.png" alt="Powered by BUZZEBEES" class="nav-logo" />
+    </div>
+  </nav>
+
+  <main class="deployment-page halftone-bg">
+    <aside class="deployment-sidebar" aria-label="Deployment navigation">
+      <button class="deployment-nav active" data-view="dashboard">Dashboard</button>
+      <button class="deployment-nav" data-view="form">New Deployment</button>
+      <button class="deployment-nav" data-view="records">Deployment Records</button>
+      <button class="deployment-nav" data-view="export">Export Excel</button>
+      <button class="deployment-nav admin-only" data-view="master" hidden>Master Data</button>
+      <button class="deployment-nav admin-only" data-view="import" hidden>Import Excel</button>
+      <button class="deployment-nav" data-view="audit">Audit History</button>
+    </aside>
+
+    <section class="deployment-content">
+      <div id="pageNotice" class="deployment-notice" hidden></div>
+
+      <section class="deployment-view active" id="view-dashboard">
+        <div class="deployment-heading">
+          <div><p class="deployment-kicker">Operations overview</p><h1>Deployment Dashboard</h1><p id="dashboardUpdated" class="heading-help">Loading dashboard...</p></div>
+          <button class="primary-button" data-open-form>+ New Deployment</button>
+        </div>
+        <form id="dashboardFilters" class="deployment-card dashboard-filters">
+          <label>Date Range<select id="dashboardRange"><option value="today">Today</option><option value="current-month" selected>Current Month</option><option value="last-3-months">Last 3 Months</option><option value="last-6-months">Last 6 Months</option><option value="all">All Time</option><option value="custom">Custom Range</option></select></label>
+          <label>Category<select id="dashboardCategory"><option value="">All Categories</option><option value="web-service">Web / Service</option><option value="mobile">Mobile App</option></select></label>
+          <label>Project<select id="dashboardProject"><option value="">All Projects</option></select></label>
+          <label>Deploy Type<select id="dashboardDeployType"><option value="">All Deploy Types</option></select></label>
+          <label id="dashboardFromLabel" hidden>From<input id="dashboardFrom" type="date" /></label>
+          <label id="dashboardToLabel" hidden>To<input id="dashboardTo" type="date" /></label>
+          <button class="primary-button" type="submit">Refresh</button>
+        </form>
+        <div class="deployment-kpis" id="kpiGrid"></div>
+        <div class="dashboard-charts">
+          <article class="deployment-card chart-card">
+            <h2>Deployment Result Overview</h2>
+            <div id="resultChart" class="donut-layout"></div>
+          </article>
+          <article class="deployment-card chart-card">
+            <h2>Job Status Overview</h2>
+            <div id="statusChart" class="bar-chart"></div>
+          </article>
+          <article class="deployment-card chart-card chart-wide">
+            <h2>Number of Deployments Over Time</h2>
+            <div id="trendChart" class="trend-chart"></div>
+          </article>
+          <article class="deployment-card chart-card">
+            <h2>Top Projects</h2>
+            <div id="projectChart" class="bar-chart"></div>
+          </article>
+          <article class="deployment-card chart-card">
+            <h2>Category Distribution</h2>
+            <div id="categoryChart" class="donut-layout"></div>
+          </article>
+        </div>
+        <div class="deployment-two-column dashboard-lists">
+          <article class="deployment-card"><h2>Upcoming Deployments</h2><div id="upcomingList" class="compact-list"></div></article>
+          <article class="deployment-card"><h2>Recent Activity</h2><div id="recentList" class="compact-list"></div></article>
+        </div>
+      </section>
+
+      <section class="deployment-view" id="view-form">
+        <div class="deployment-heading">
+          <div><p class="deployment-kicker">Plan and update</p><h1 id="formTitle">New Deployment</h1></div>
+          <span id="jobNoBadge" class="job-badge">Job No. will be generated</span>
+        </div>
+        <form id="deploymentForm" class="deployment-card deployment-form">
+          <input type="hidden" id="deploymentId" />
+          <input type="hidden" id="deploymentEtag" />
+          <div class="form-section-title">Deployment plan</div>
+          <p class="required-legend"><span aria-hidden="true">*</span> Required field</p>
+          <div class="form-grid">
+            <label class="plan-job-status"><span class="field-caption">Job Status</span><select id="lifecycleStatus" required><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></label>
+            <label class="plan-deploy-date"><span class="field-caption">Deploy Date <span class="required-marker" aria-hidden="true">*</span></span><input id="deployAt" type="date" required /></label>
+            <label class="plan-category"><span class="field-caption">Category <span class="required-marker" aria-hidden="true">*</span></span><select id="category" required><option value="">Select Category</option><option value="web-service">Web / Service</option><option value="mobile">Mobile App</option></select></label>
+            <label class="web-field plan-source-type"><span class="field-caption">Get / Merge <span id="sourceTypeRequiredMarker" class="required-marker" aria-hidden="true">*</span></span><select id="sourceType" required><option value="">Select Get / Merge</option><option>Get</option><option>Merge - Production</option></select></label>
+            <label class="mobile-field plan-platform" hidden><span class="field-caption">Platform <span id="platformRequiredMarker" class="required-marker" aria-hidden="true">*</span></span><select id="platform" required><option value="">Select Platform</option><option>Android</option><option>iOS</option></select></label>
+            <label class="plan-task-id"><span class="field-caption">Task ID <span class="required-marker" aria-hidden="true">*</span></span><input id="taskId" maxlength="200" placeholder="e.g. 41958 / 41959" required /></label>
+            <label class="plan-main-sort"><span class="field-caption">Project Main Sort <span class="required-marker" aria-hidden="true">*</span></span><select id="projectsMainSort" required><option value="">Select Project Main Sort</option></select></label>
+            <label class="plan-sub-type"><span class="field-caption">Project Sub Type <span class="required-marker" aria-hidden="true">*</span></span><select id="projectsSubType" required><option value="">Select Project Sub Type</option></select></label>
+            <label class="plan-deploy-type"><span class="field-caption">Deploy Type <span id="deployTypeRequiredMarker" class="required-marker" aria-hidden="true">*</span></span><select id="deployType" required><option value="">Select Deploy Type</option></select></label>
+            <label class="plan-project"><span class="field-caption">Project <span class="required-marker" aria-hidden="true">*</span></span><select id="project" required><option value="">Select Project</option></select></label>
+          </div>
+          <section id="projectHistory" class="project-history" aria-live="polite" hidden>
+            <div id="projectHistoryContent"></div>
+          </section>
+          <label class="form-wide"><span class="field-caption">Label Code <span class="required-marker" aria-hidden="true">*</span></span><textarea id="labelCode" rows="3" required></textarea></label>
+
+          <div class="form-section-title result-section">Deployment result</div>
+          <div class="form-grid result-section">
+            <label class="web-field">Duration<select id="durationDeploy"><option value="">Select</option><option>💼 In Working Hours</option><option>📢After hours - Informed!</option><option>🔕 No Updates After Hours.</option></select></label>
+            <label class="web-field">Deploy Result<select id="deployResult"><option value="">Not completed</option><option>✅ Success</option><option>⚠️ Success with Issue</option><option>🔄 Success with Issue (RB)</option><option>🔄 Rolled Back</option></select></label>
+            <label>Document Status<select id="documentStatus"><option value="">Select</option><option>📄RequestDone</option></select></label>
+            <label class="rollback-field" hidden>SwapBack Type<select id="swapBackType"><option value="">Select</option><option>Production Issue / Code</option><option>Production Issue / Configuration</option><option>Other / Requirement Customer</option></select></label>
+            <label class="rollback-field" hidden>SwapBack Date &amp; Time<input id="swapBackAt" type="datetime-local" /></label>
+          </div>
+          <label class="form-wide rollback-field" hidden>SwapBack Details<textarea id="swapBackDetails" rows="3"></textarea></label>
+          <label class="form-wide">Remark<textarea id="remark" rows="3"></textarea></label>
+          <div id="formWarnings" class="form-warnings" hidden></div>
+          <div class="form-actions">
+            <button type="button" class="secondary-button" id="formSecondaryAction">Reset</button>
+            <button type="submit" class="primary-button" id="saveDeployment">Save Deployment</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="deployment-view" id="view-records">
+        <div class="deployment-heading"><div><p class="deployment-kicker">Search and update</p><h1>Deployment Records</h1></div></div>
+        <form id="recordFilters" class="deployment-card record-filter-panel">
+          <div class="record-search-row">
+            <label class="record-search-field"><span>Search</span><input id="filterSearch" type="search" autocomplete="off" placeholder="Job No., Task ID, Project or Label Code" /></label>
+            <div class="record-filter-actions"><button class="primary-button">Search</button><button id="clearRecordFilters" class="secondary-button" type="button">Clear all</button></div>
+          </div>
+          <div class="record-general-filters">
+            <div class="record-core-filters">
+              <label><span>Category</span><select id="filterCategory"><option value="">All categories</option><option value="web-service">Web / Service</option><option value="mobile">Mobile</option></select></label>
+              <label><span>Status</span><select id="filterLifecycle"><option value="">All statuses</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></label>
+              <label><span>Get / Merge</span><select id="filterSourceType"><option value="">All Get / Merge</option><option>Get</option><option>Merge - Production</option></select></label>
+            </div>
+            <div class="record-project-filters">
+              <label><span>Project</span><select id="filterProject"><option value="">All projects</option></select></label>
+              <label><span>Project Main Sort</span><select id="filterProjectsMainSort"><option value="">All Project Main Sort</option></select></label>
+              <label><span>Project Sub Type</span><select id="filterProjectsSubType"><option value="">All Project Sub Type</option></select></label>
+              <label><span>Deploy Type</span><select id="filterDeployType"><option value="">All Deploy Types</option></select></label>
+            </div>
+          </div>
+          <div class="record-date-range-row">
+            <div class="record-date-shortcuts">
+              <span class="record-date-title">Date range</span>
+              <div class="quick-range-buttons" aria-label="Quick date range">
+                <button type="button" class="filter-tool-button" data-record-days="0" aria-pressed="false">Today</button>
+                <button type="button" class="filter-tool-button" data-record-days="7" aria-pressed="false">Last 7 days</button>
+                <button type="button" class="filter-tool-button" data-record-days="30" aria-pressed="false">Last 30 days</button>
+              </div>
+            </div>
+            <div class="record-date-fields">
+              <label><span>From</span><input id="filterFrom" type="date" /></label>
+              <label><span>To</span><input id="filterTo" type="date" /></label>
+            </div>
+          </div>
+          <div id="recordFilterSummary" class="record-filter-summary" hidden><span id="recordCount"></span><div id="recordFilterChips" class="record-filter-chips"></div></div>
+        </form>
+        <div class="deployment-card table-wrap records-table-wrap">
+          <table class="records-table">
+            <colgroup>
+              <col class="col-job" /><col class="col-plan" /><col class="col-task" />
+              <col class="col-project" /><col class="col-label" /><col class="col-category" />
+              <col class="col-status" /><col class="col-result" /><col class="col-actions" />
+            </colgroup>
+            <thead><tr><th>Job No.</th><th>Plan</th><th>Task ID</th><th>Project</th><th>Label Code</th><th>Category</th><th>Status</th><th>Result</th><th>Actions</th></tr></thead>
+            <tbody id="recordsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="deployment-view" id="view-export">
+        <div class="deployment-heading"><div><p class="deployment-kicker">Excel compatible</p><h1>Export Deployment Report</h1></div></div>
+        <form id="exportForm" class="deployment-card export-panel">
+          <label>Category<select id="exportCategory"><option value="">Web/Service + Mobile</option><option value="web-service">Web / Service</option><option value="mobile">Mobile</option></select></label>
+          <label>Job Status<select id="exportLifecycle"><option value="">All statuses</option><option>Planned</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></label>
+          <label>From<input id="exportFrom" type="date" /></label>
+          <label>To<input id="exportTo" type="date" /></label>
+          <button class="primary-button">Download .xlsx</button>
+        </form>
+      </section>
+
+      <section class="deployment-view" id="view-master">
+        <div class="deployment-heading"><div><p class="deployment-kicker">Selection management</p><h1>Master Data</h1><p class="heading-help">Manage the values users can select in the Deployment form.</p></div></div>
+        <form id="masterForm" class="deployment-card master-form">
+          <input id="masterId" type="hidden" />
+          <label>Selection Type<select id="masterType" required><option value="projects-main-sort">Project Main Sort</option><option value="projects-sub-type">Project Sub Type</option><option value="deploy-type">Deploy Type</option><option value="project">Project</option></select></label>
+          <label>Selection Value<input id="masterValue" required placeholder="Enter a value shown in the Deployment form" /></label>
+          <div class="master-actions"><button id="cancelMasterEdit" class="secondary-button" type="button" hidden>Cancel</button><button id="saveMaster" class="primary-button">Add Value</button></div>
+        </form>
+        <div class="deployment-card master-toolbar"><label>Show Selection Type<select id="masterFilter"><option value="">All Selection Types</option><option value="projects-main-sort">Project Main Sort</option><option value="projects-sub-type">Project Sub Type</option><option value="deploy-type">Deploy Type</option><option value="project">Project</option></select></label></div>
+        <div class="deployment-card table-wrap"><table><thead><tr><th>Selection Type</th><th>Selection Value</th><th>Status</th><th>Actions</th></tr></thead><tbody id="masterBody"></tbody></table></div>
+      </section>
+
+      <section class="deployment-view" id="view-import">
+        <div class="deployment-heading"><div><p class="deployment-kicker">Administrator</p><h1>Import Deployment History</h1></div></div>
+        <div class="deployment-card import-card">
+          <h2>Import Report Deploy_2026.xlsx</h2>
+          <p>Imports deployment records from both workbook sheets. Existing Job No. values are skipped, so the same file can be imported again safely. Values found in the workbook are also added to Master Data.</p>
+          <input id="importFile" type="file" accept=".xlsx" />
+          <button id="importButton" class="secondary-button" type="button">Import workbook</button>
+          <pre id="importResult" hidden></pre>
+        </div>
+      </section>
+
+      <section class="deployment-view" id="view-audit">
+        <div class="deployment-heading"><div><p class="deployment-kicker">Immutable history</p><h1>Audit History</h1></div></div>
+        <div class="deployment-card table-wrap"><table><thead><tr><th>Time</th><th>Action</th><th>Job No.</th><th>User</th><th>Change</th></tr></thead><tbody id="auditBody"></tbody></table></div>
+      </section>
+    </section>
+  </main>
+
+  <div id="deploymentDetailBackdrop" class="detail-backdrop" hidden>
+    <aside id="deploymentDetailDrawer" class="detail-drawer" role="dialog" aria-modal="true" aria-labelledby="deploymentDetailTitle" tabindex="-1">
+      <header class="detail-drawer-header">
+        <div><p class="deployment-kicker">Deployment details</p><h2 id="deploymentDetailTitle">Job details</h2></div>
+        <button id="closeDeploymentDetail" class="detail-close" type="button" aria-label="Close deployment details">×</button>
+      </header>
+      <div id="deploymentDetailContent" class="detail-drawer-content"></div>
+      <footer class="detail-drawer-actions">
+        <button id="detailCloseButton" class="secondary-button" type="button">Close</button>
+        <button id="detailEditButton" class="primary-button" type="button">Edit Deployment</button>
+      </footer>
+    </aside>
+  </div>
+  <script type="module" src="/deployment.js?v=project-history-v4"></script>
+</body>
+</html>

@@ -4,6 +4,10 @@
   "dependencies": {
     "@azure/arm-appservice": "^19.0.0",
     "@azure/data-tables": "^13.3.1",
-    "@azure/identity": "^4.13.1"
+    "@azure/identity": "^4.13.1",
+    "exceljs": "4.4.0"
+  },
+  "overrides": {
+    "uuid": "11.1.1"
   }
 }
