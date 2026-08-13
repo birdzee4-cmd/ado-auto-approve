@@ -5,7 +5,7 @@
  */
 
 const ado = require('../shared/ado-client');
-const catalog = require('../shared/build-diagnostics-catalog');
+const diagnosticsService = require('../shared/build-diagnostics-service');
 const sp = require('../shared/sharepoint-client');
 
 module.exports = async function (context, req) {
@@ -50,29 +50,16 @@ module.exports = async function (context, req) {
 
     context.log(`build-diagnostics: analyzing buildId=${buildId}`);
 
-    // ---- 3) เรียกดึง Timeline ของ Build จาก ADO ----
-    const timelineResult = await ado.getBuildTimeline(buildId);
-    if (!timelineResult.ok) {
+    // ---- 3) ดึงและวิเคราะห์ Log ของ failed tasks ทั้งหมด ----
+    const diagnosticInfo = await diagnosticsService.collectBuildDiagnostics(ado, buildId, { concurrency: 3 });
+    if (!diagnosticInfo.ok && diagnosticInfo.reason === 'timeline_fetch_failed') {
       jsonResponse(502, {
         ok: false,
-        error: 'Failed to fetch build timeline from Azure DevOps (HTTP ' + timelineResult.status + ')',
-        detail: JSON.stringify(timelineResult.body).substring(0, 500)
+        error: 'Failed to fetch build timeline from Azure DevOps (HTTP ' + diagnosticInfo.status + ')'
       });
       return;
     }
-
-    const records = timelineResult.body && Array.isArray(timelineResult.body.records)
-      ? timelineResult.body.records
-      : [];
-
-    // ค้นหาขั้นตอนที่รันล้มเหลว (เน้นเจาะจงที่ Task ที่รันล้มเหลวก่อน เพื่อไม่ให้ได้ตัวครอบอย่าง Job หรือ Phase)
-    let failedTask = records.find(r => r && r.type === 'Task' && r.state === 'completed' && r.result === 'failed' && r.log);
-    
-    if (!failedTask) {
-      failedTask = records.find(r => r && r.state === 'completed' && r.result === 'failed' && r.log);
-    }
-    
-    if (!failedTask) {
+    if (!diagnosticInfo.ok) {
       jsonResponse(404, {
         ok: false,
         error: 'No failed task with log link found in build timeline',
@@ -80,55 +67,15 @@ module.exports = async function (context, req) {
       });
       return;
     }
+    const failedTask = diagnosticInfo.failedTask;
+    const diagnostics = diagnosticInfo.diagnostics;
+    context.log(`build-diagnostics: analyzed ${diagnosticInfo.failedTasks.length} failed task(s), primary="${failedTask && failedTask.name || '-'}"`);
 
-    context.log(`build-diagnostics: found failed task "${failedTask.name}", logId=${failedTask.log.id}`);
-
-    // ---- 4) ดึงเนื้อหา Log ดิบของขั้นตอนที่ล้มเหลว ----
-    const logResult = await ado.getBuildLog(buildId, failedTask.log.id);
-    if (!logResult.ok) {
-      jsonResponse(502, {
-        ok: false,
-        error: 'Failed to fetch build task log content from Azure DevOps (HTTP ' + logResult.status + ')',
-        detail: String(logResult.body).substring(0, 500)
-      });
-      return;
-    }
-
-    let rawLogText = '';
-    if (typeof logResult.body === 'string') {
-      rawLogText = logResult.body;
-    } else if (logResult.body && Array.isArray(logResult.body.value)) {
-      rawLogText = logResult.body.value.join('\n');
-    } else {
-      rawLogText = JSON.stringify(logResult.body);
-    }
-
-    // ---- 5) วิเคราะห์ปัญหาผ่านระบบ Catalog ----
-    const diagnostics = catalog.diagnoseLog(rawLogText);
-
-    // ---- 6) ส่งแจ้งเตือนเข้า Teams หากมีการร้องขอ หรือมี Build Error และยังไม่เคยแจ้งเตือน ----
-    const sendToTeams = query.sendToTeams === 'true' || body.sendToTeams === true;
-    const suppressAutoNotify = query.suppressAutoNotify === 'true' || body.suppressAutoNotify === true;
+    // ---- 6) ส่ง Teams เฉพาะ explicit POST; GET ต้องไม่มี side effect ----
+    const sendToTeams = String(req.method || 'GET').toUpperCase() === 'POST' && body.sendToTeams === true;
     const teamsWebhookUrl = process.env.TEAMS_WEBHOOK_URL;
-    let shouldNotify = false;
 
     if (sendToTeams) {
-      shouldNotify = true;
-    } else if (!suppressAutoNotify && failedTask && teamsWebhookUrl) {
-      const eventKey = `teams:build-failed:${buildId}`;
-      try {
-        const existing = await sp.getLogByEventKey(eventKey);
-        const existingItems = existing.ok && existing.body && Array.isArray(existing.body.value) ? existing.body.value : [];
-        if (existingItems.length === 0) {
-          shouldNotify = true;
-          context.log(`build-diagnostics: Build #${buildId} is failed, triggering auto Teams notification.`);
-        }
-      } catch (e) {
-        context.log.warn(`build-diagnostics: failed to check duplicate for ${eventKey}:`, e.message);
-      }
-    }
-
-    if (shouldNotify) {
       const teams = require('../shared/teams-notifier');
       if (!teamsWebhookUrl) {
         jsonResponse(500, { ok: false, error: 'TEAMS_WEBHOOK_URL is not configured' });
@@ -215,6 +162,7 @@ module.exports = async function (context, req) {
       message += `|---|---|\n`;
       message += `| Failed Step | ${mdCell(failedTask.name)} |\n`;
       message += `| Root Cause Key | ${mdCell(diagnostics.errorKey)} |\n`;
+      message += `| Analysis | ${mdCell(diagnostics.analyzerSource)} / ${mdCell(diagnostics.status)} / ${mdCell(diagnostics.confidence)} confidence |\n`;
       if (diagnostics.failureLayer) message += `| Failure Layer | ${mdCell(diagnostics.failureLayer)} |\n`;
       if (failedCommand) message += `| Failed Command | \`${mdCell(failedCommand)}\` |\n`;
       if (exactLocation) message += `| File | \`${mdCell(exactLocation)}\` |\n`;
@@ -244,17 +192,16 @@ module.exports = async function (context, req) {
         message += `* **${sol.title}**\n${sol.details}\n\n`;
       }
 
-      if (diagnostics.snippet) {
-        const startLine = diagnostics.startLineNumber || 1;
-        const lines = diagnostics.snippet.split(/\r?\n/).filter(Boolean);
-        const snippetWithNumbers = lines
-          .map((line, idx) => `${startLine + idx} | ${line}`)
-          .join('\n');
-        message += `### 📋 ข้อผิดพลาดดิบจาก Log (Raw Log Snippet)\n`;
-        message += `\`\`\`text\n${snippetWithNumbers}\n\`\`\`\n\n`;
+      const evidence = Array.isArray(diagnostics.evidence) ? diagnostics.evidence : [];
+      if (evidence.length) {
+        message += `### หลักฐานจาก Log (Sanitized Evidence)\n`;
+        for (const item of evidence.slice(0, 8)) {
+          message += `- ${mdCell(item.taskName || failedTask.name)} line ${mdCell(item.lineNumber)}: \`${mdCell(item.text)}\`\n`;
+        }
+        message += `\n`;
       }
 
-      message += `💡 *หมายเหตุ: คุณสามารถดูรายละเอียดข้อผิดพลาดดิบแบบเรียงบรรทัดได้ที่หน้า Dashboard วิเคราะห์ปัญหาผ่านลิงก์ด้านบนครับ*\n\n`;
+      message += `💡 *หมายเหตุ: หลักฐานและ Log snippet ถูกปิดบัง credential ก่อนแสดงผล*\n\n`;
 
       try {
         const teamsResult = await teams.notifyTeams(teamsWebhookUrl, message);
@@ -303,6 +250,7 @@ module.exports = async function (context, req) {
         startTime: failedTask.startTime,
         finishTime: failedTask.finishTime
       },
+      failedTasks: diagnosticInfo.failedTasks,
       diagnostics: {
         matched: diagnostics.matched,
         errorKey: diagnostics.errorKey,
@@ -315,7 +263,17 @@ module.exports = async function (context, req) {
         warnings: diagnostics.warnings,
         solutions: diagnostics.solutions,
         snippet: diagnostics.snippet,
-        startLineNumber: diagnostics.startLineNumber
+        startLineNumber: diagnostics.startLineNumber,
+        status: diagnostics.status,
+        analyzerSource: diagnostics.analyzerSource,
+        confidence: diagnostics.confidence,
+        primaryFailure: diagnostics.primaryFailure,
+        evidence: diagnostics.evidence,
+        causalChain: diagnostics.causalChain,
+        wrapperErrors: diagnostics.wrapperErrors,
+        missingInformation: diagnostics.missingInformation,
+        failedTasks: diagnostics.failedTasks,
+        redactionSummary: diagnostics.redactionSummary
       },
       analyzedAt: new Date().toISOString()
     });

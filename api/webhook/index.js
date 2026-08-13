@@ -4,6 +4,14 @@
 const { notifyTeams } = require('../shared/teams-notifier');
 const sp = require('../shared/sharepoint-client');
 const ado = require('../shared/ado-client');
+const diagnosticsService = require('../shared/build-diagnostics-service');
+
+function escapeMarkdown(value) {
+    return String(value == null ? '-' : value)
+        .replace(/\|/g, '\\|')
+        .replace(/`/g, '\\`')
+        .replace(/\r?\n/g, ' ');
+}
 
 module.exports = async function (context, req) {
     context.log('webhook: called');
@@ -75,49 +83,28 @@ module.exports = async function (context, req) {
         let failMessage = '';
         let failedTaskName = '';
         try {
-            const timelineResult = await ado.getBuildTimeline(buildId);
-            if (timelineResult.ok && timelineResult.body && Array.isArray(timelineResult.body.records)) {
-                const records = timelineResult.body.records;
-                let failedTask = records.find(r => r && r.type === 'Task' && r.state === 'completed' && r.result === 'failed' && r.log);
-                if (!failedTask) {
-                    failedTask = records.find(r => r && r.state === 'completed' && r.result === 'failed' && r.log);
-                }
-                if (failedTask) {
-                    failedTaskName = failedTask.name || '';
-                    const logResult = await ado.getBuildLog(buildId, failedTask.log.id);
-                    if (logResult.ok) {
-                        let rawLogText = '';
-                        if (typeof logResult.body === 'string') {
-                            rawLogText = logResult.body;
-                        } else if (logResult.body && Array.isArray(logResult.body.value)) {
-                            rawLogText = logResult.body.value.join('\n');
-                        } else {
-                            rawLogText = JSON.stringify(logResult.body);
-                        }
-                        const catalog = require('../shared/build-diagnostics-catalog');
-                        const diag = catalog.diagnoseLog(rawLogText);
-                        
-                        failMessage += `### 🔍 วิเคราะห์ปัญหา (Diagnostics)\n`;
-                        failMessage += `**ปัญหา:** ${diag.title}\n\n`;
-                        failMessage += `**รายละเอียด:** ${diag.description}\n\n`;
-                        failMessage += `#### 🛠️ แนวทางแก้ไข\n`;
-                        for (const sol of diag.solutions) {
-                            failMessage += `* **${sol.title}**\n${sol.details}\n\n`;
-                        }
-
-                        if (diag.snippet) {
-                            const startLine = diag.startLineNumber || 1;
-                            const lines = diag.snippet.split(/\r?\n/).filter(Boolean);
-                            const snippetWithNumbers = lines
-                                .map((line, idx) => `${startLine + idx} | ${line}`)
-                                .join('\n');
-                            failMessage += `### 📋 ข้อผิดพลาดดิบจาก Log (Raw Log Snippet)\n`;
-                            failMessage += `\`\`\`text\n${snippetWithNumbers}\n\`\`\`\n\n`;
-                        }
-
-                        failMessage += `💡 *หมายเหตุ: คุณสามารถดูรายละเอียดข้อผิดพลาดดิบแบบเรียงบรรทัดได้ที่หน้า Dashboard วิเคราะห์ปัญหาผ่านลิงก์ด้านบนครับ*\n\n`;
+            const diagnosticInfo = await diagnosticsService.collectBuildDiagnostics(ado, buildId, { concurrency: 3 });
+            if (diagnosticInfo.ok && diagnosticInfo.diagnostics) {
+                const diag = diagnosticInfo.diagnostics;
+                failedTaskName = diagnosticInfo.failedTask && diagnosticInfo.failedTask.name || '';
+                failMessage += `### 🔍 วิเคราะห์สาเหตุหลัก (Rule Engine)\n`;
+                failMessage += `${diag.rootCauseSummary || diag.description || diag.title}\n\n`;
+                failMessage += `| Field | Value |\n|---|---|\n`;
+                failMessage += `| Root Cause Key | ${escapeMarkdown(diag.errorKey)} |\n`;
+                failMessage += `| Analysis | ${escapeMarkdown(diag.status)} / ${escapeMarkdown(diag.confidence)} confidence |\n\n`;
+                const evidence = Array.isArray(diag.evidence) ? diag.evidence : [];
+                if (evidence.length) {
+                    failMessage += `#### หลักฐานจาก Log (Sanitized Evidence)\n`;
+                    for (const item of evidence.slice(0, 8)) {
+                        failMessage += `- ${escapeMarkdown(item.taskName || failedTaskName)} line ${escapeMarkdown(item.lineNumber)}: \`${escapeMarkdown(item.text)}\`\n`;
                     }
+                    failMessage += `\n`;
                 }
+                failMessage += `#### 🛠️ แนวทางแก้ไข\n`;
+                for (const sol of diag.solutions || []) {
+                    failMessage += `* **${escapeMarkdown(sol.title)}**\n${escapeMarkdown(sol.details)}\n\n`;
+                }
+                failMessage += `💡 *หมายเหตุ: Log evidence ถูกปิดบัง credential ก่อนส่งเข้า Teams*\n\n`;
             }
         } catch (e) {
             context.log.warn('webhook diagnostics failed:', e.message);

@@ -9,7 +9,7 @@
 const ado = require('../shared/ado-client');
 const sp = require('../shared/sharepoint-client');
 const teams = require('../shared/teams-notifier');
-const diagnosticsCatalog = require('../shared/build-diagnostics-catalog');
+const diagnosticsService = require('../shared/build-diagnostics-service');
 
 module.exports = async function (context, req) {
   function jsonResponse(status, payload) {
@@ -191,46 +191,7 @@ async function buildDryRunResult(context, build) {
 
 async function getBuildDiagnosticsForBuild(context, buildId) {
   try {
-    const timelineResult = await ado.getBuildTimeline(buildId);
-    if (!timelineResult.ok) {
-      return {
-        ok: false,
-        reason: 'timeline_fetch_failed',
-        status: timelineResult.status
-      };
-    }
-
-    const records = timelineResult.body && Array.isArray(timelineResult.body.records)
-      ? timelineResult.body.records
-      : [];
-    let failedTask = records.find(r => r && r.type === 'Task' && r.state === 'completed' && r.result === 'failed' && r.log);
-    if (!failedTask) {
-      failedTask = records.find(r => r && r.state === 'completed' && r.result === 'failed' && r.log);
-    }
-    if (!failedTask || !failedTask.log || !failedTask.log.id) {
-      return {
-        ok: false,
-        reason: 'failed_task_log_not_found'
-      };
-    }
-
-    const logResult = await ado.getBuildLog(buildId, failedTask.log.id);
-    if (!logResult.ok) {
-      return {
-        ok: false,
-        reason: 'log_fetch_failed',
-        status: logResult.status,
-        failedTask: summarizeFailedTask(failedTask)
-      };
-    }
-
-    const rawLogText = normalizeLogBody(logResult.body);
-    const diagnostics = diagnosticsCatalog.diagnoseLog(rawLogText);
-    return {
-      ok: true,
-      failedTask: summarizeFailedTask(failedTask),
-      diagnostics: diagnostics
-    };
+    return await diagnosticsService.collectBuildDiagnostics(ado, buildId, { concurrency: 3 });
   } catch (e) {
     if (context && context.log && context.log.warn) {
       context.log.warn('Build diagnostics enrichment failed for build ' + buildId + ': ' + e.message);
@@ -241,22 +202,6 @@ async function getBuildDiagnosticsForBuild(context, buildId) {
       error: e.message
     };
   }
-}
-
-function normalizeLogBody(body) {
-  if (typeof body === 'string') return body;
-  if (body && Array.isArray(body.value)) return body.value.join('\n');
-  return JSON.stringify(body || '');
-}
-
-function summarizeFailedTask(task) {
-  return {
-    id: task && task.id || '',
-    name: task && task.name || '',
-    type: task && task.type || '',
-    startTime: task && task.startTime || '',
-    finishTime: task && task.finishTime || ''
-  };
 }
 
 function summarizeDiagnosticsForResponse(diagnosticInfo) {
@@ -272,10 +217,18 @@ function summarizeDiagnosticsForResponse(diagnosticInfo) {
   return {
     ok: true,
     failedTask: diagnosticInfo.failedTask || null,
+    failedTasks: diagnosticInfo.failedTasks || [],
+    status: diagnostics.status,
+    analyzerSource: diagnostics.analyzerSource,
+    confidence: diagnostics.confidence,
     errorKey: diagnostics.errorKey,
     failureLayer: diagnostics.failureLayer,
     rootCauseSummary: diagnostics.rootCauseSummary,
-    exactError: diagnostics.exactError
+    exactError: diagnostics.exactError,
+    evidence: diagnostics.evidence,
+    causalChain: diagnostics.causalChain,
+    missingInformation: diagnostics.missingInformation,
+    redactionSummary: diagnostics.redactionSummary
   };
 }
 
@@ -474,10 +427,19 @@ function appendDiagnosticsSection(lines, diagnosticInfo) {
   lines.push('', '| Field | Value |', '|---|---|');
   if (failedStep) lines.push('| Failed Step | ' + safe(failedStep) + ' |');
   lines.push('| Root Cause Key | ' + safe(diagnostics.errorKey || '-') + ' |');
+  lines.push('| Analysis | ' + safe(diagnostics.analyzerSource || 'rule') + ' / ' + safe(diagnostics.status || '-') + ' / ' + safe(diagnostics.confidence || '-') + ' confidence |');
   if (diagnostics.failureLayer) lines.push('| Failure Layer | ' + safe(diagnostics.failureLayer) + ' |');
   if (failedCommand) lines.push('| Failed Command | `' + safe(failedCommand) + '` |');
   if (exactLocation) lines.push('| File | `' + safe(exactLocation) + '` |');
   if (exactError.message) lines.push('| Message | ' + safe(exactError.message) + ' |');
+
+  const evidence = Array.isArray(diagnostics.evidence) ? diagnostics.evidence : [];
+  if (evidence.length) {
+    lines.push('', '### หลักฐานจาก Log (Sanitized Evidence)');
+    evidence.slice(0, 8).forEach(item => {
+      lines.push('- ' + safe(item.taskName || failedStep) + ' line ' + safe(item.lineNumber) + ': `' + safe(item.text) + '`');
+    });
+  }
 
   const impactChain = Array.isArray(diagnostics.impactChain) ? diagnostics.impactChain : [];
   if (impactChain.length) {
@@ -499,6 +461,7 @@ function appendDiagnosticsSection(lines, diagnosticInfo) {
       if (sol.details) lines.push(safe(sol.details), '');
     });
   }
+  lines.push('', '_Log evidence ถูกปิดบัง credential ก่อนส่งเข้า Teams_');
 }
 
 function formatLocation(exactError) {

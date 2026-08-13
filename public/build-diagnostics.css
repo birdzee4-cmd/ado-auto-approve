@@ -147,6 +147,20 @@
   margin: 0;
 }
 
+.meta-note {
+  margin-top: 3px;
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.analysis-status {
+  text-transform: capitalize;
+}
+
+.status-classified { color: #047857 !important; }
+.status-partial { color: #b45309 !important; }
+.status-unclassified { color: #b91c1c !important; }
+
 .section-kicker {
   display: block;
   font-size: 12px;
@@ -160,13 +174,120 @@
 .root-cause-card,
 .exact-error-card,
 .impact-chain-card,
-.warnings-card {
+.warnings-card,
+.evidence-card,
+.missing-info-card,
+.wrapper-errors-card,
+.failed-tasks-card {
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(217, 119, 6, 0.14);
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.section-title-row .section-kicker { margin-bottom: 0; }
+
+.redaction-badge {
+  padding: 5px 9px;
+  border: 1px solid #a7f3d0;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.evidence-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.evidence-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 11px 13px;
+  border: 1px solid #e5e7eb;
+  border-left: 4px solid #9ca3af;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.evidence-root-cause { border-left-color: #dc2626; }
+.evidence-consequence { border-left-color: #d97706; }
+.evidence-configuration { border-left-color: #2563eb; }
+.evidence-wrapper { border-left-color: #6b7280; opacity: 0.88; }
+
+.evidence-meta {
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.evidence-text {
+  color: #111827;
+  background: transparent;
+  font-family: Consolas, Menlo, Monaco, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.missing-info-card { border-left: 5px solid #f59e0b; }
+.wrapper-errors-card { border-left: 5px solid #9ca3af; }
+
+.failed-tasks-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.failed-task-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #374151;
+}
+
+.failed-task-item.is-primary {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.task-log-status {
+  flex: 0 0 auto;
+  color: #6b7280;
+  font-size: 11px;
+  text-transform: capitalize;
+}
+
+.task-analyzed { color: #047857; }
+.task-unavailable { color: #b91c1c; }
+
+@media (max-width: 700px) {
+  .diagnostics-page { padding: 18px; }
+  .section-title-row { align-items: flex-start; flex-direction: column; }
+  .failed-task-item { align-items: flex-start; flex-direction: column; }
+  .snippet-header { align-items: flex-start; flex-direction: column; gap: 10px; }
 }
 
 .root-cause-card {

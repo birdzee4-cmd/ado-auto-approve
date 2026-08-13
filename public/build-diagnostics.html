@@ -81,6 +81,14 @@
               <strong id="diagTime">-</strong>
             </div>
           </div>
+          <div class="meta-card">
+            <span class="meta-icon">🧭</span>
+            <div class="meta-content">
+              <span class="meta-label">Analysis Status</span>
+              <strong id="diagAnalysisStatus">-</strong>
+              <small id="diagAnalyzerSource" class="meta-note">Rule Engine</small>
+            </div>
+          </div>
         </div>
 
         <!-- Translated Analysis Card -->
@@ -96,6 +104,15 @@
         <div id="rootCauseCard" class="root-cause-card" hidden>
           <span class="section-kicker">Root Cause Summary</span>
           <p id="rootCauseSummary" class="root-cause-summary"></p>
+        </div>
+
+        <!-- Sanitized Evidence -->
+        <div id="evidenceCard" class="evidence-card" hidden>
+          <div class="section-title-row">
+            <span class="section-kicker">หลักฐานจาก Log (Sanitized Evidence)</span>
+            <span id="redactionBadge" class="redaction-badge" hidden></span>
+          </div>
+          <div id="evidenceList" class="evidence-list"></div>
         </div>
 
         <!-- Exact Error / Failure Location -->
@@ -116,6 +133,17 @@
           <div id="warningsList" class="warnings-list"></div>
         </div>
 
+        <!-- Missing Information / Wrapper Errors -->
+        <div id="missingInfoCard" class="missing-info-card" hidden>
+          <span class="section-kicker">ข้อมูลที่ยังขาด</span>
+          <ul id="missingInfoList" class="impact-chain-list"></ul>
+        </div>
+
+        <div id="wrapperErrorsCard" class="wrapper-errors-card" hidden>
+          <span class="section-kicker">Final Wrapper Errors (ไม่ใช่ Root Cause)</span>
+          <div id="wrapperErrorsList" class="evidence-list"></div>
+        </div>
+
         <!-- Solutions Section -->
         <div class="solutions-section">
           <h2>🛠️ แนวทางแก้ไข (Actionable Solutions)</h2>
@@ -124,10 +152,16 @@
           </div>
         </div>
 
+        <!-- Failed Tasks -->
+        <div id="failedTasksCard" class="failed-tasks-card" hidden>
+          <span class="section-kicker">Failed Tasks</span>
+          <div id="failedTasksList" class="failed-tasks-list"></div>
+        </div>
+
         <!-- Log Snippet Section -->
         <div class="log-snippet-section">
           <div class="snippet-header">
-            <h2>📋 ข้อผิดพลาดดิบจาก Log (Raw Log Snippet)</h2>
+            <h2>📋 Log Snippet ที่ปิดบังข้อมูลแล้ว (Sanitized)</h2>
             <button id="btnCopyLog" class="btn-mini btn-copy">📋 คัดลอก Log</button>
           </div>
           <div class="snippet-wrapper">

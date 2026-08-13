@@ -1,6 +1,9 @@
 {
   "name": "ado-auto-approve-api",
   "version": "1.0.0",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
   "dependencies": {
     "@azure/arm-appservice": "^19.0.0",
     "@azure/data-tables": "^13.3.1",
