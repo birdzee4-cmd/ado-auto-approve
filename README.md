@@ -788,7 +788,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/approve-release` | POST | Approve Azure DevOps Classic Release pre-deploy approval ที่ยัง pending ด้วย Azure DevOps identity ของผู้ใช้ที่ Connect แล้ว และ log SharePoint |
 | `/api/approval-hold` | POST | ตั้งค่า Hold หรือ Release สถานะระงับการอนุมัติของ PR บน Dashboard |
 | `/api/auto-approve-settings` | GET/POST | ดึงหรืออัปเดตการตั้งค่าโหมด Guarded Auto Approve |
-| `/api/build-diagnostics` | GET/POST | วิเคราะห์ Timeline และเนื้อหา Log ความล้มเหลวของ Build พร้อมบันทึก/ส่งแจ้งเตือน Teams |
+| `/api/build-diagnostics` | GET/POST | GET วิเคราะห์ failed task logs แบบ read-only; POST พร้อม `sendToTeams: true` ส่ง sanitized diagnostics เข้า Teams |
 | `/api/deploy-history` | GET | ดึงข้อมูลประวัติการ Deploy จากไฟล์ CSV บน SharePoint |
 | `/api/sync-deployments` | GET/POST | ดึงและประสานประวัติการรัน Build & Deploy จาก Azure DevOps บันทึกเก็บเป็นไฟล์ CSV ตามปีบน SharePoint (โดยคัดกรองยกเว้นพวก Scheduled/Infrastructure system tasks ที่มีชื่อ Pipeline มีคำว่า `schedule` หรือ `scripts` ออกโดยอัตโนมัติ) |
 | `/api/report-summary` | GET | ดึงข้อมูลรายงานสรุปสถิติผลการดำเนินงาน (การอนุมัติ, อัตรา Auto-Approve, อัตราความสำเร็จของบิลด์) |
@@ -824,12 +824,26 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `api/shared/attention.js` | PR aging / stuck / attention logic |
 | `api/shared/approval-hold.js` | ดึงสถานะและบันทึก Log การระงับการอนุมัติ (Hold State) |
 | `api/shared/build-diagnostics-catalog.js` | ฐานข้อมูลรูปแบบ Error และกฎการวิเคราะห์ปัญหาของ Build Log |
+| `api/shared/build-diagnostics-redactor.js` | ปิดบัง credential/token/private key ก่อน Log ออกจาก backend |
+| `api/shared/build-diagnostics-analyzer.js` | Rule Engine canonical result, evidence, confidence และ causal chain |
+| `api/shared/build-diagnostics-service.js` | ดึง failed task logs แบบจำกัด concurrency จัดอันดับ Root Cause และรวม partial results |
 | `api/shared/notification-service.js` | exception notification orchestration |
 | `api/shared/teams-notifier.js` | Teams webhook client |
 | `api/shared/line-notifier.js` | LINE Messaging API client |
 | `api/shared/merge-pipeline-map.js` | Merge branch rule + Staging CSV lookup |
 | `api/shared/stg-ci-cd-map.json` | generated Staging CI/CD mapping |
 | `api/shared/user-profile.js` | optional Graph display name lookup |
+
+### Build Diagnostics Data Flow และ Security
+
+`Timeline → failed task logs → normalize/redact → Rule Engine → rank → Dashboard/Teams`
+
+- วิเคราะห์ failed tasks ทุก task และเลือกสาเหตุที่มีหลักฐานเฉพาะเจาะจงที่สุดเป็น Primary Failure
+- API เพิ่ม `status`, `confidence`, `evidence`, `causalChain`, `wrapperErrors`, `missingInformation`, `failedTasks` และ `redactionSummary` โดยรักษาฟิลด์เดิมไว้
+- `GET /api/build-diagnostics` ไม่มี side effect และไม่ส่ง Teams; การแจ้งอัตโนมัติมาจาก failure scanner/webhook ซึ่ง deduplicate ด้วย build event key
+- Dashboard และ Teams ได้เฉพาะ sanitized snippet/evidence; ห้ามเขียน Raw Log, prompt หรือค่า Secret ลง application logs
+- Release นี้ใช้ Rule Engine เท่านั้น ไม่มี AI SDK, AI credential, token cost หรือการส่ง Log ไปยังโมเดลภายนอก
+- จุดต่อ AI ในอนาคตต้องคืน canonical schema เดียวกันและอยู่หลัง redaction โดยเปิดผ่าน feature flag/Security review เท่านั้น
 
 ## Attention / PR Aging Logic
 

@@ -82,13 +82,27 @@ function renderPage(data) {
 
   // Set Title & Description
   const diagnostics = data.diagnostics || {};
-  document.getElementById('diagTitle').textContent = diagnostics.title || 'ไม่ระบุหัวข้อปัญหา';
+  const status = diagnostics.status || (diagnostics.matched === false ? 'unclassified' : 'classified');
+  const confidence = diagnostics.confidence || 'low';
+  const statusEl = document.getElementById('diagAnalysisStatus');
+  statusEl.textContent = `${status} · ${confidence} confidence`;
+  statusEl.className = `analysis-status status-${status}`;
+  document.getElementById('diagAnalyzerSource').textContent = diagnostics.analyzerSource === 'rule'
+    ? 'วิเคราะห์โดย Rule Engine'
+    : (diagnostics.analyzerSource || 'Rule Engine');
+  document.getElementById('diagTitle').textContent = status === 'unclassified'
+    ? 'ยังไม่พบสาเหตุหลัก'
+    : (diagnostics.title || 'ไม่ระบุหัวข้อปัญหา');
   document.getElementById('diagDescription').textContent = diagnostics.description || '-';
 
   renderRootCause(diagnostics);
+  renderEvidence(diagnostics.evidence, diagnostics.redactionSummary);
   renderExactError(diagnostics.exactError);
-  renderImpactChain(diagnostics.impactChain);
+  renderImpactChain(diagnostics.causalChain || diagnostics.impactChain);
   renderWarnings(diagnostics.warnings);
+  renderMissingInformation(diagnostics.missingInformation);
+  renderWrapperErrors(diagnostics.wrapperErrors);
+  renderFailedTasks(data.failedTasks || diagnostics.failedTasks, diagnostics.primaryFailure);
 
   // Set Snippet with line numbers
   const snippetEl = document.getElementById('rawLogSnippet');
@@ -159,6 +173,40 @@ function renderRootCause(diagnostics) {
 
   summaryEl.textContent = summary;
   card.hidden = false;
+}
+
+function renderEvidence(evidence, redactionSummary) {
+  const card = document.getElementById('evidenceCard');
+  const list = document.getElementById('evidenceList');
+  const badge = document.getElementById('redactionBadge');
+  if (!card || !list || !badge) return;
+  list.innerHTML = '';
+  const items = Array.isArray(evidence) ? evidence : [];
+  if (!items.length) {
+    card.hidden = true;
+    return;
+  }
+  items.forEach((item) => list.appendChild(createEvidenceItem(item)));
+  const redactedCount = Number(redactionSummary && redactionSummary.total || 0);
+  badge.textContent = redactedCount ? `🔒 ปิดบังข้อมูล ${redactedCount} จุด` : '🔒 ผ่านการตรวจข้อมูลสำคัญ';
+  badge.hidden = false;
+  card.hidden = false;
+}
+
+function createEvidenceItem(item) {
+  const row = document.createElement('div');
+  row.className = `evidence-item evidence-${item.kind || 'error'}`;
+  const meta = document.createElement('span');
+  meta.className = 'evidence-meta';
+  const task = item.taskName || 'Build Log';
+  const line = item.lineNumber ? ` · line ${item.lineNumber}` : '';
+  meta.textContent = `${task}${line} · ${item.kind || 'error'}`;
+  const text = document.createElement('code');
+  text.className = 'evidence-text';
+  text.textContent = item.text || '-';
+  row.appendChild(meta);
+  row.appendChild(text);
+  return row;
 }
 
 function renderExactError(exactError) {
@@ -248,6 +296,52 @@ function renderWarnings(warnings) {
   });
 
   card.hidden = false;
+}
+
+function renderMissingInformation(items) {
+  const card = document.getElementById('missingInfoCard');
+  const list = document.getElementById('missingInfoList');
+  if (!card || !list) return;
+  list.innerHTML = '';
+  const values = Array.isArray(items) ? items : [];
+  values.forEach((value) => {
+    const item = document.createElement('li');
+    item.textContent = value;
+    list.appendChild(item);
+  });
+  card.hidden = values.length === 0;
+}
+
+function renderWrapperErrors(items) {
+  const card = document.getElementById('wrapperErrorsCard');
+  const list = document.getElementById('wrapperErrorsList');
+  if (!card || !list) return;
+  list.innerHTML = '';
+  const values = Array.isArray(items) ? items : [];
+  values.forEach((item) => list.appendChild(createEvidenceItem(item)));
+  card.hidden = values.length === 0;
+}
+
+function renderFailedTasks(tasks, primaryFailure) {
+  const card = document.getElementById('failedTasksCard');
+  const list = document.getElementById('failedTasksList');
+  if (!card || !list) return;
+  list.innerHTML = '';
+  const values = Array.isArray(tasks) ? tasks : [];
+  values.forEach((task) => {
+    const item = document.createElement('div');
+    const isPrimary = primaryFailure && primaryFailure.taskId === task.id;
+    item.className = `failed-task-item${isPrimary ? ' is-primary' : ''}`;
+    const name = document.createElement('strong');
+    name.textContent = task.name || task.id || 'Unknown task';
+    const status = document.createElement('span');
+    status.className = `task-log-status task-${task.logStatus || 'unknown'}`;
+    status.textContent = isPrimary ? `Primary · ${task.logStatus || 'analyzed'}` : (task.logStatus || 'unknown');
+    item.appendChild(name);
+    item.appendChild(status);
+    list.appendChild(item);
+  });
+  card.hidden = values.length === 0;
 }
 
 function formatExactLocation(exactError) {
