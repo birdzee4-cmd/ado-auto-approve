@@ -291,6 +291,14 @@ async function getBuildById(buildId, options) {
   return adoRequest('GET', path, null, options);
 }
 
+async function getBuildChanges(buildId, options) {
+  const { org, project } = getConfig();
+  const path = '/' + encodeURIComponent(org) + '/' + encodeURIComponent(project) +
+    '/_apis/build/builds/' + encodeURIComponent(String(buildId)) +
+    '/changes?$top=250&includeSourceChange=true&api-version=7.1';
+  return adoRequest('GET', path, null, options);
+}
+
 async function getBuildsForBranch(repositoryId, branchName, top, options) {
   const { org, project } = getConfig();
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?repositoryId=${encodeURIComponent(repositoryId)}&repositoryType=TfsGit&branchName=${encodeURIComponent(branchName)}&queryOrder=queueTimeDescending&$top=${top || 10}&api-version=7.0`;
@@ -757,6 +765,7 @@ module.exports = {
   getPullRequest,
   getPullRequestStatuses,
   getBuildById,
+  getBuildChanges,
   getBuildsForBranch,
   listBuilds,
   getPullRequestsForTargetBranch,

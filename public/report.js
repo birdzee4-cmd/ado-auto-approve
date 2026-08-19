@@ -354,7 +354,16 @@ function exportReportToExcel() {
       ['Matched Latest Build Success Rate (%)', autoApproveOutcome.successRate || 0],
       ['Auto-Approved PR Build Coverage (%)', autoApproveOutcome.coverageRate || 0],
       ['Auto-Approved PRs', autoApproveOutcome.totalAutoApprovedPrs || 0],
+      ['Merged PRs', autoApproveOutcome.mergedPrs || 0],
+      ['Awaiting Merge PRs', autoApproveOutcome.awaitingMergePrs || 0],
+      ['Abandoned/Not Merged PRs', autoApproveOutcome.notMergedPrs || 0],
+      ['Unknown Merge State PRs', autoApproveOutcome.unknownMergePrs || 0],
       ['Matched Auto-Approved PRs', autoApproveOutcome.matchedPrs || 0],
+      ['Matched Merged PRs', autoApproveOutcome.matchedMergedPrs || 0],
+      ['Merged PR Build Coverage (%)', autoApproveOutcome.mergedBuildCoverageRate || 0],
+      ['Matched by PR ID', autoApproveOutcome.matchMethods && autoApproveOutcome.matchMethods.prId || 0],
+      ['Matched by Merge Commit', autoApproveOutcome.matchMethods && autoApproveOutcome.matchMethods.mergeCommit || 0],
+      ['Matched by Build Changes', autoApproveOutcome.matchMethods && autoApproveOutcome.matchMethods.buildChanges || 0],
       ['Latest Build Succeeded PRs', autoApproveOutcome.succeededPrs || 0]
     ], { headerRows: [0, 8], widths: [210, 260] }),
     buildSpreadsheetWorksheet('Top Active Repos', [
@@ -467,6 +476,7 @@ function clearStatsUi() {
     dataQualityNote.hidden = true;
     dataQualityNote.textContent = '';
   }
+  setText('statOutcomeFunnel', '');
   setText('statMatchedBuildSuccessNote', '');
 }
 
@@ -503,11 +513,12 @@ function renderStatsUi(data) {
   setText('statAutoApproveRateMeta', `อัตโนมัติ ${stats.autoApproved || 0} จาก ${completedApprovals} การอนุมัติสำเร็จ`);
   setText('statTotalDeploysMeta', `สำเร็จ ${stats.succeededDeploys || 0} • ไม่สำเร็จ ${stats.failedDeploys || 0} • กำลังทำงาน ${stats.inProgressDeploys || 0} • รอคิว ${stats.queuedDeploys || 0} • ไม่ทราบ ${stats.unknownDeploys || 0}`);
   setText('statBuildSuccessRateMeta', `สำเร็จ ${stats.succeededDeploys || 0} จาก Completed Builds ${stats.completedDeploys || 0} ครั้ง`);
-  setText('statAutoApproveOutcomeRate', outcome.totalAutoApprovedPrs > 0 ? `${outcome.endToEndSuccessRate || 0}%` : '—');
-  setText('statAutoApproveOutcomeMeta', `ยืนยัน Staging สำเร็จ ${outcome.succeededPrs || 0} จาก ${outcome.totalAutoApprovedPrs || 0} Auto-Approved PR`);
+  setText('statAutoApproveOutcomeRate', outcome.completedPrs > 0 ? `${outcome.successRate || 0}%` : '—');
+  setText('statAutoApproveOutcomeMeta', `สำเร็จ ${outcome.succeededPrs || 0} จาก ${outcome.completedPrs || 0} PR ที่จับคู่ Completed Build ได้`);
   setText('statBuildCoverageRate', `${outcome.coverageRate || 0}%`);
-  setText('statBuildCoverageMeta', `จับคู่ PR ID ได้ ${outcome.matchedPrs || 0} จาก ${outcome.totalAutoApprovedPrs || 0} PR • จับคู่ไม่ได้ ${outcome.unmatchedPrs || 0}`);
-  setText('statMatchedBuildSuccessNote', `Success เฉพาะ PR ที่จับคู่และ Completed: ${outcome.succeededPrs || 0}/${outcome.completedPrs || 0} (${outcome.successRate || 0}%)`);
+  setText('statBuildCoverageMeta', `ตรวจสอบ Build ได้ ${outcome.matchedPrs || 0}/${outcome.totalAutoApprovedPrs || 0} PR • Merged แต่ยังไม่พบ Build ${outcome.unmatchedMergedPrs || 0}`);
+  setText('statOutcomeFunnel', `Funnel: Auto-Approved ${outcome.totalAutoApprovedPrs || 0} → Merged ${outcome.mergedPrs || 0} → Matched Build ${outcome.matchedPrs || 0} → Completed ${outcome.completedPrs || 0} → Succeeded ${outcome.succeededPrs || 0}`);
+  setText('statMatchedBuildSuccessNote', `Confirmed Success ขั้นต่ำ: ${outcome.succeededPrs || 0}/${outcome.totalAutoApprovedPrs || 0} (${outcome.endToEndSuccessRate || 0}%) • รอ Merge ${outcome.awaitingMergePrs || 0} • ไม่ได้ Merge/ยกเลิก ${outcome.notMergedPrs || 0} • ไม่ทราบสถานะ ${outcome.unknownMergePrs || 0}`);
   const freshness = document.getElementById('reportFreshness');
   if (freshness) {
     const generatedAt = data.generatedAt ? formatShortDate(data.generatedAt) : 'ไม่ทราบเวลา';
@@ -759,8 +770,11 @@ function renderDataQualityNote(data) {
   if (stats.unknownDeploys > 0) {
     warnings.push('มี ' + stats.unknownDeploys + ' Pipeline Runs ที่มีสถานะไม่รู้จัก');
   }
-  if (outcome.unmatchedPrs > 0) {
-    warnings.push('มี ' + outcome.unmatchedPrs + ' Auto-Approved PR ที่จับคู่ Build ด้วย PR ID ไม่ได้');
+  if (outcome.unmatchedMergedPrs > 0) {
+    warnings.push('มี ' + outcome.unmatchedMergedPrs + ' PR ที่ Merge แล้วแต่ยังจับคู่ Staging Build ไม่ได้');
+  }
+  if (outcome.unknownMergePrs > 0) {
+    warnings.push('ตรวจสอบสถานะ Merge ไม่ได้ ' + outcome.unknownMergePrs + ' PR');
   }
   if (scope.buildScope === 'related_repo') {
     warnings.push('กำลังใช้ Repository fallback ซึ่งอาจรวม Build ของ PR อื่นใน Repository เดียวกัน');

@@ -84,6 +84,11 @@ module.exports = async function (context, req) {
 
     const startIso = startUtc.toISOString();
     const endIso = endUtc.toISOString();
+    const outcomeWindowHours = 48;
+    const outcomeEndUtc = new Date(Math.min(
+      endUtc.getTime() + outcomeWindowHours * 60 * 60 * 1000,
+      Date.now()
+    ));
     const trendBuckets = createTrendBuckets(startUtc, endUtc, type, offsetMs);
 
     context.log(`Fetching report summary [${type}] for ${year}-${month}${type === 'daily' ? '-' + day : ''} (UTC range: ${startIso} to ${endIso})`);
@@ -176,7 +181,7 @@ module.exports = async function (context, req) {
 
     if (type === 'daily') {
       try {
-        const liveDeployments = await fetchLiveDeployments(context, startIso, endIso);
+        const liveDeployments = await fetchLiveDeployments(context, startIso, outcomeEndUtc.toISOString());
         deployments = mergeDeploymentRows(deployments, liveDeployments);
         context.log(`Merged live daily ADO builds into report data: ${liveDeployments.length} live rows, ${deployments.length} total rows.`);
       } catch (e) {
@@ -253,7 +258,19 @@ module.exports = async function (context, req) {
     const deploySuccessRate = completedDeploys > 0
       ? parseFloat(((succeededDeploys / completedDeploys) * 100).toFixed(2))
       : 0;
-    const autoApproveOutcome = summarizeAutoApproveOutcome(autoApprovedPrs, latestAutoApproveBuilds);
+    const autoApproveOutcome = await buildAutoApproveOutcome(
+      context,
+      autoApprovedPrs,
+      deployments,
+      latestAutoApproveBuilds,
+      {
+        startTs: startTs,
+        reportEndTs: endTs,
+        observationEndTs: outcomeEndUtc.getTime(),
+        observationWindowHours: outcomeWindowHours,
+        enableBuildChanges: type === 'daily'
+      }
+    );
 
     // เก็บข้อมูลเต็มสำหรับ Export และตัดเฉพาะ Preview ที่ใช้แสดงบนหน้าเว็บ
     const allFailedRepos = Object.values(repoFailedDeploys)
@@ -586,34 +603,248 @@ function recordAutoApprovedPr(autoApprovedPrs, prId, repo, timestamp) {
   });
 }
 
-function recordLatestAutoApproveBuild(autoApprovedPrs, latestBuilds, row, buildTs) {
+function recordLatestAutoApproveBuild(autoApprovedPrs, latestBuilds, row, buildTs, matchMethod) {
   if (!Number.isFinite(buildTs)) return;
   const candidates = Array.from(new Set(getDeploymentPrCandidates(row).map(value => String(value || '')).filter(Boolean)));
   candidates.forEach(prId => {
-    const approvedPr = autoApprovedPrs.get(prId);
-    if (!approvedPr) return;
-    if (Number.isFinite(approvedPr.approvedAt) && buildTs < approvedPr.approvedAt) return;
-    const existing = latestBuilds.get(prId);
-    if (existing && existing.finishedAt > buildTs) return;
-    latestBuilds.set(prId, {
-      prId: prId,
-      status: classifyDeploymentStatus(row.Status),
-      finishedAt: buildTs,
-      buildNumber: row.BuildNumber || ''
+    recordMatchedAutoApproveBuild(autoApprovedPrs, latestBuilds, prId, row, buildTs, matchMethod || 'prId');
+  });
+}
+
+function recordMatchedAutoApproveBuild(autoApprovedPrs, latestBuilds, prId, row, buildTs, matchMethod) {
+  const key = String(prId || '');
+  const approvedPr = autoApprovedPrs.get(key);
+  if (!approvedPr || !Number.isFinite(buildTs)) return;
+  if (Number.isFinite(approvedPr.approvedAt) && buildTs < approvedPr.approvedAt) return;
+  const existing = latestBuilds.get(key);
+  if (existing && existing.finishedAt > buildTs) return;
+  latestBuilds.set(key, {
+    prId: key,
+    status: classifyDeploymentStatus(row.Status),
+    finishedAt: buildTs,
+    buildNumber: row.BuildNumber || '',
+    buildId: extractBuildId(row.AdoBuildUrl) || row.BuildId || '',
+    matchMethod: matchMethod || 'prId'
+  });
+}
+
+async function buildAutoApproveOutcome(context, autoApprovedPrs, deployments, seedBuilds, options) {
+  const opts = options || {};
+  const observationEndTs = Number.isFinite(opts.observationEndTs) ? opts.observationEndTs : Date.now();
+  const candidateRows = (Array.isArray(deployments) ? deployments : [])
+    .filter(row => {
+      if (!isStagingDeploymentRow(row)) return false;
+      const ts = Date.parse(row.FinishedTime || '');
+      return Number.isFinite(ts) && ts >= opts.startTs && ts < observationEndTs;
+    });
+  const latestBuilds = new Map(seedBuilds || []);
+
+  candidateRows.forEach(row => {
+    recordLatestAutoApproveBuild(autoApprovedPrs, latestBuilds, row, Date.parse(row.FinishedTime || ''), 'prId');
+  });
+
+  const prEvidence = await fetchAutoApprovePrEvidence(context, autoApprovedPrs);
+  matchBuildsByMergeCommit(autoApprovedPrs, prEvidence, latestBuilds, candidateRows);
+
+  if (opts.enableBuildChanges) {
+    await matchBuildsByChanges(context, autoApprovedPrs, prEvidence, latestBuilds, candidateRows);
+  }
+
+  return summarizeAutoApproveOutcome(autoApprovedPrs, latestBuilds, prEvidence, {
+    observationEnd: new Date(observationEndTs).toISOString(),
+    observationWindowHours: opts.observationWindowHours || 0
+  });
+}
+
+async function fetchAutoApprovePrEvidence(context, autoApprovedPrs) {
+  const evidence = new Map();
+  const entries = Array.from(autoApprovedPrs.entries());
+  await mapWithConcurrency(entries, 8, async entry => {
+    const prId = entry[0];
+    const approval = entry[1];
+    try {
+      const result = await ado.getPullRequest(prId);
+      if (!result.ok || !result.body) {
+        evidence.set(prId, buildUnknownPrEvidence(approval));
+        return;
+      }
+      const pr = result.body;
+      const mergeCommit = normalizeCommitId(pr.lastMergeCommit && pr.lastMergeCommit.commitId);
+      const status = String(pr.status || '').toLowerCase();
+      const mergedAt = Date.parse(
+        pr.closedDate ||
+        pr.completionDate ||
+        pr.lastMergeCommit && pr.lastMergeCommit.committer && pr.lastMergeCommit.committer.date ||
+        ''
+      );
+      evidence.set(prId, {
+        state: status === 'completed' && mergeCommit
+          ? 'merged'
+          : status === 'active'
+            ? 'awaitingMerge'
+            : status === 'abandoned'
+              ? 'notMerged'
+              : 'unknown',
+        mergeCommit: mergeCommit,
+        mergedAt: Number.isFinite(mergedAt) ? mergedAt : null,
+        repo: pr.repository && pr.repository.name || approval.repo || '',
+        repoKey: normalizeRepoKey(pr.repository && pr.repository.name || approval.repo || ''),
+        targetBranch: pr.targetRefName || ''
+      });
+    } catch (error) {
+      evidence.set(prId, buildUnknownPrEvidence(approval));
+      if (context && context.log && context.log.warn) {
+        context.log.warn('Report PR evidence lookup failed for #' + prId + ': ' + error.message);
+      }
+    }
+  });
+  return evidence;
+}
+
+function buildUnknownPrEvidence(approval) {
+  return {
+    state: 'unknown',
+    mergeCommit: '',
+    mergedAt: null,
+    repo: approval && approval.repo || '',
+    repoKey: normalizeRepoKey(approval && approval.repo || ''),
+    targetBranch: ''
+  };
+}
+
+function matchBuildsByMergeCommit(autoApprovedPrs, prEvidence, latestBuilds, candidateRows) {
+  candidateRows.forEach(row => {
+    const buildCommit = normalizeCommitId(row.CommitHash);
+    if (!buildCommit) return;
+    const buildTs = Date.parse(row.FinishedTime || '');
+    const buildRepoKey = normalizeRepoKey(getDeploymentRepoName(row));
+    prEvidence.forEach((evidence, prId) => {
+      if (!evidence.mergeCommit || !commitIdsMatch(evidence.mergeCommit, buildCommit)) return;
+      if (evidence.repoKey && buildRepoKey && evidence.repoKey !== buildRepoKey) return;
+      recordMatchedAutoApproveBuild(autoApprovedPrs, latestBuilds, prId, row, buildTs, 'mergeCommit');
     });
   });
 }
 
-function summarizeAutoApproveOutcome(autoApprovedPrs, latestBuilds) {
+async function matchBuildsByChanges(context, autoApprovedPrs, prEvidence, latestBuilds, candidateRows) {
+  const requests = new Map();
+  prEvidence.forEach((evidence, prId) => {
+    if (!evidence.mergeCommit || latestBuilds.has(prId)) return;
+    const approval = autoApprovedPrs.get(prId);
+    const earliestTs = Math.max(
+      approval && Number.isFinite(approval.approvedAt) ? approval.approvedAt : 0,
+      Number.isFinite(evidence.mergedAt) ? evidence.mergedAt : 0
+    );
+    candidateRows
+      .filter(row => {
+        const buildId = extractBuildId(row.AdoBuildUrl) || row.BuildId || '';
+        const buildTs = Date.parse(row.FinishedTime || '');
+        const repoKey = normalizeRepoKey(getDeploymentRepoName(row));
+        return buildId && Number.isFinite(buildTs) && buildTs >= earliestTs &&
+          (!evidence.repoKey || !repoKey || evidence.repoKey === repoKey);
+      })
+      .sort((a, b) => Date.parse(a.FinishedTime || '') - Date.parse(b.FinishedTime || ''))
+      .slice(0, 4)
+      .forEach(row => {
+        const buildId = String(extractBuildId(row.AdoBuildUrl) || row.BuildId || '');
+        if (!requests.has(buildId)) requests.set(buildId, row);
+      });
+  });
+
+  const changesByBuild = new Map();
+  await mapWithConcurrency(Array.from(requests.entries()).slice(0, 200), 6, async entry => {
+    const buildId = entry[0];
+    try {
+      const result = await ado.getBuildChanges(buildId);
+      const changes = result.ok && result.body && Array.isArray(result.body.value)
+        ? result.body.value
+        : [];
+      changesByBuild.set(buildId, new Set(changes.map(change => normalizeCommitId(change && change.id)).filter(Boolean)));
+    } catch (error) {
+      changesByBuild.set(buildId, new Set());
+      if (context && context.log && context.log.warn) {
+        context.log.warn('Report build changes lookup failed for build ' + buildId + ': ' + error.message);
+      }
+    }
+  });
+
+  prEvidence.forEach((evidence, prId) => {
+    if (!evidence.mergeCommit || latestBuilds.has(prId)) return;
+    requests.forEach((row, buildId) => {
+      const changes = changesByBuild.get(buildId);
+      if (!changes || !Array.from(changes).some(commit => commitIdsMatch(commit, evidence.mergeCommit))) return;
+      const buildRepoKey = normalizeRepoKey(getDeploymentRepoName(row));
+      if (evidence.repoKey && buildRepoKey && evidence.repoKey !== buildRepoKey) return;
+      recordMatchedAutoApproveBuild(
+        autoApprovedPrs,
+        latestBuilds,
+        prId,
+        row,
+        Date.parse(row.FinishedTime || ''),
+        'buildChanges'
+      );
+    });
+  });
+}
+
+function normalizeCommitId(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function commitIdsMatch(left, right) {
+  const a = normalizeCommitId(left);
+  const b = normalizeCommitId(right);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (Math.min(a.length, b.length) < 7) return false;
+  return a.startsWith(b) || b.startsWith(a);
+}
+
+async function mapWithConcurrency(items, concurrency, worker) {
+  const queue = Array.from(items || []);
+  let cursor = 0;
+  async function run() {
+    while (cursor < queue.length) {
+      const index = cursor++;
+      await worker(queue[index], index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, queue.length) }, run));
+}
+
+function summarizeAutoApproveOutcome(autoApprovedPrs, latestBuilds, prEvidence, observation) {
   const totalAutoApprovedPrs = autoApprovedPrs.size;
   let succeededPrs = 0;
   let failedPrs = 0;
   let inProgressPrs = 0;
+  let mergedPrs = 0;
+  let awaitingMergePrs = 0;
+  let notMergedPrs = 0;
+  let unknownMergePrs = 0;
+  let matchedMergedPrs = 0;
+  const matchMethods = { prId: 0, mergeCommit: 0, buildChanges: 0 };
+
+  if (prEvidence && prEvidence.size) {
+    prEvidence.forEach(item => {
+      if (item.state === 'merged') mergedPrs += 1;
+      else if (item.state === 'awaitingMerge') awaitingMergePrs += 1;
+      else if (item.state === 'notMerged') notMergedPrs += 1;
+      else unknownMergePrs += 1;
+    });
+  } else {
+    unknownMergePrs = totalAutoApprovedPrs;
+  }
 
   latestBuilds.forEach(build => {
     if (build.status === 'succeeded') succeededPrs += 1;
     else if (isFailedStatus(build.status) || build.status.includes('partial')) failedPrs += 1;
     else inProgressPrs += 1;
+    if (Object.prototype.hasOwnProperty.call(matchMethods, build.matchMethod)) {
+      matchMethods[build.matchMethod] += 1;
+    }
+    if (prEvidence && prEvidence.get(build.prId) && prEvidence.get(build.prId).state === 'merged') {
+      matchedMergedPrs += 1;
+    }
   });
 
   const matchedPrs = latestBuilds.size;
@@ -626,6 +857,18 @@ function summarizeAutoApproveOutcome(autoApprovedPrs, latestBuilds) {
     failedPrs: failedPrs,
     inProgressPrs: inProgressPrs,
     unmatchedPrs: Math.max(0, totalAutoApprovedPrs - matchedPrs),
+    mergedPrs: mergedPrs,
+    awaitingMergePrs: awaitingMergePrs,
+    notMergedPrs: notMergedPrs,
+    unknownMergePrs: unknownMergePrs,
+    matchedMergedPrs: matchedMergedPrs,
+    unmatchedMergedPrs: Math.max(0, mergedPrs - matchedMergedPrs),
+    mergedBuildCoverageRate: mergedPrs > 0
+      ? Number(((matchedMergedPrs / mergedPrs) * 100).toFixed(2))
+      : 0,
+    matchMethods: matchMethods,
+    observationEnd: observation && observation.observationEnd || '',
+    observationWindowHours: observation && observation.observationWindowHours || 0,
     successRate: completedPrs > 0
       ? Number(((succeededPrs / completedPrs) * 100).toFixed(2))
       : 0,
@@ -769,5 +1012,7 @@ module.exports._test = {
   recordLatestAutoApproveBuild,
   summarizeAutoApproveOutcome,
   classifyDeploymentStatus,
-  isDeploymentRelatedToReport
+  isDeploymentRelatedToReport,
+  matchBuildsByMergeCommit,
+  commitIdsMatch
 };

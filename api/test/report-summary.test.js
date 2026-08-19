@@ -4,7 +4,9 @@ const assert = require('node:assert/strict');
 const reportSummary = require('../report-summary');
 const {
   classifyDeploymentStatus,
+  commitIdsMatch,
   isDeploymentRelatedToReport,
+  matchBuildsByMergeCommit,
   recordAutoApprovedPr,
   recordLatestAutoApproveBuild,
   summarizeAutoApproveOutcome
@@ -30,6 +32,20 @@ test('auto-approve outcome uses the latest completed build after approval per PR
     failedPrs: 1,
     inProgressPrs: 0,
     unmatchedPrs: 0,
+    mergedPrs: 0,
+    awaitingMergePrs: 0,
+    notMergedPrs: 0,
+    unknownMergePrs: 2,
+    matchedMergedPrs: 0,
+    unmatchedMergedPrs: 0,
+    mergedBuildCoverageRate: 0,
+    matchMethods: {
+      prId: 2,
+      mergeCommit: 0,
+      buildChanges: 0
+    },
+    observationEnd: '',
+    observationWindowHours: 0,
     successRate: 50,
     endToEndSuccessRate: 50,
     coverageRate: 100
@@ -95,6 +111,44 @@ test('related build scope requires a matching PR ID unless repository fallback i
     relatedRepos,
     true
   ), false);
+});
+
+test('merge commit matching links a staging build without a PR ID', () => {
+  const approved = new Map();
+  const builds = new Map();
+  const evidence = new Map();
+  recordAutoApprovedPr(approved, 401, 'repo-a', '2026-08-01T03:00:00.000Z');
+  evidence.set('401', {
+    state: 'merged',
+    mergeCommit: 'abcdef1234567890',
+    repoKey: 'repo a'
+  });
+
+  matchBuildsByMergeCommit(approved, evidence, builds, [{
+    PrId: '',
+    RepoName: 'repo-a',
+    CommitHash: 'abcdef1234567890',
+    Status: 'Succeeded',
+    BuildNumber: '4001',
+    FinishedTime: '2026-08-01T04:00:00.000Z'
+  }]);
+
+  assert.equal(builds.get('401').status, 'succeeded');
+  assert.equal(builds.get('401').matchMethod, 'mergeCommit');
+  const outcome = summarizeAutoApproveOutcome(approved, builds, evidence);
+  assert.equal(outcome.mergedPrs, 1);
+  assert.equal(outcome.unmatchedMergedPrs, 0);
+  assert.deepEqual(outcome.matchMethods, {
+    prId: 0,
+    mergeCommit: 1,
+    buildChanges: 0
+  });
+});
+
+test('commit matching accepts normal SHA prefixes but rejects ambiguous short values', () => {
+  assert.equal(commitIdsMatch('abcdef1234567890', 'abcdef1'), true);
+  assert.equal(commitIdsMatch('abcdef1234567890', 'abc'), false);
+  assert.equal(commitIdsMatch('abcdef1234567890', '9999999999999999'), false);
 });
 
 function buildRow(prId, status, buildNumber) {

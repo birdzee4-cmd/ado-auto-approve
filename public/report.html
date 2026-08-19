@@ -161,8 +161,8 @@
           <strong id="statBuildSuccessRate">-</strong>
           <small id="statBuildSuccessRateMeta">รอข้อมูล</small>
         </div>
-        <div class="stats-card highlight-purple" title="ใช้ Latest Staging Build หนึ่งรายการต่อ Auto-Approved PR และนับเฉพาะ Build ที่เสร็จแล้ว">
-          <span>Auto-Approve → Staging Success</span>
+        <div class="stats-card highlight-purple" title="คำนวณจาก PR ที่จับคู่กับ Completed Staging Build ได้ โดยตรวจ PR ID, merge commit และ Build Changes">
+          <span>Staging Success ของ PR ที่ตรวจสอบได้</span>
           <strong id="statAutoApproveOutcomeRate">-</strong>
           <small id="statAutoApproveOutcomeMeta">รอข้อมูล</small>
         </div>
@@ -174,7 +174,8 @@
       </div>
       <div class="stats-method-note" role="note">
         <strong>วิธีนับ KPI หลัง Auto-Approve:</strong>
-        KPI หลักนับ PR ที่ยืนยันว่า Latest Staging Build สำเร็จเทียบกับ Auto-Approved PR ทั้งหมด
+        ติดตามผลหลังช่วงอนุมัติสูงสุด 48 ชั่วโมง และจับคู่ด้วย PR ID, merge commit หรือ Build Changes
+        <span id="statOutcomeFunnel"></span>
         <span id="statMatchedBuildSuccessNote"></span>
       </div>
 
