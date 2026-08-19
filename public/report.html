@@ -37,8 +37,9 @@
           <h1>Report Summary</h1>
           <p>วิเคราะห์ปริมาณงาน สถิติประสิทธิภาพการอนุมัติอัตโนมัติ และอัตราความสำเร็จของบิลด์ประจำวันและรายเดือน</p>
         </div>
-        <div class="sync-status-pill" id="syncStatusContainer">
+        <div class="sync-status-pill" id="syncStatusContainer" role="status" aria-live="polite">
           <span id="txtSyncStatus">⏳ ตรวจสอบข้อมูลล่าสุดในระบบ...</span>
+          <small id="reportFreshness">Timezone: Asia/Bangkok</small>
         </div>
       </div>
 
@@ -46,23 +47,29 @@
       <div class="filter-panel">
         <div class="filter-section filter-section-period">
           <div class="filter-section-title">ช่วงรายงาน</div>
+          <div class="quick-range-group" aria-label="เลือกช่วงรายงานแบบด่วน">
+            <button type="button" class="quick-range-button" data-range="today">วันนี้</button>
+            <button type="button" class="quick-range-button" data-range="yesterday">เมื่อวาน</button>
+            <button type="button" class="quick-range-button" data-range="month">เดือนนี้</button>
+            <button type="button" class="quick-range-button" data-range="previous-month">เดือนก่อน</button>
+          </div>
           <div class="filter-grid filter-grid-period">
             <div class="filter-field">
-              <span>ประเภทรายงาน</span>
+              <label for="filterType">ประเภทรายงาน</label>
               <select id="filterType">
                 <option value="daily">รายวัน (Daily Summary)</option>
                 <option value="monthly">รายเดือน (Monthly Summary)</option>
               </select>
             </div>
             <div class="filter-field">
-              <span>ปี</span>
+              <label for="filterYear">ปี</label>
               <select id="filterYear">
                 <option value="2026">2026</option>
                 <option value="2025">2025</option>
               </select>
             </div>
             <div class="filter-field">
-              <span>เดือน</span>
+              <label for="filterMonth">เดือน</label>
               <select id="filterMonth">
                 <option value="1">มกราคม (Jan)</option>
                 <option value="2">กุมภาพันธ์ (Feb)</option>
@@ -79,17 +86,17 @@
               </select>
             </div>
             <div class="filter-field" id="filterDayContainer" style="display: none;">
-              <span>วันที่</span>
+              <label for="filterDay">วันที่</label>
               <select id="filterDay">
                 <!-- Will be populated dynamically -->
               </select>
             </div>
             <div class="filter-field time-filter-field" id="filterStartTimeContainer" style="display: none;">
-              <span>ตั้งแต่เวลา</span>
+              <label for="filterStartTime">ตั้งแต่เวลา</label>
               <select id="filterStartTime"></select>
             </div>
             <div class="filter-field time-filter-field" id="filterEndTimeContainer" style="display: none;">
-              <span>ถึงชั่วโมง</span>
+              <label for="filterEndTime">ถึงเวลา (ไม่รวมเวลาสิ้นสุด)</label>
               <select id="filterEndTime"></select>
             </div>
           </div>
@@ -99,14 +106,14 @@
           <div class="filter-section-title">ขอบเขตข้อมูล</div>
           <div class="filter-grid filter-grid-scope">
             <div class="filter-field">
-              <span>PR Actions</span>
+              <label for="filterActionScope">PR Actions</label>
               <select id="filterActionScope">
                 <option value="all">ทั้งหมด (All users)</option>
                 <option value="mine">เฉพาะของฉัน (My actions only)</option>
               </select>
             </div>
             <div class="filter-field">
-              <span>Staging Builds</span>
+              <label for="filterBuildScope">Staging Builds</label>
               <select id="filterBuildScope">
                 <option value="all">ทั้งหมดบน Staging Pipeline</option>
                 <option value="related">เฉพาะ Build ของ PR ที่แสดงในรายงาน</option>
@@ -127,7 +134,7 @@
         </div>
       </div>
 
-      <div id="reportResult" hidden></div>
+      <div id="reportResult" role="alert" aria-live="assertive" hidden></div>
       <div id="reportScopeNote" class="scope-note" hidden></div>
 
       <!-- Stats Summary Cards Grid -->
@@ -135,22 +142,40 @@
         <div class="stats-card highlight-blue">
           <span>Pull Requests ทั้งหมด</span>
           <strong id="statTotalPrs">-</strong>
+          <small id="statTotalPrsMeta">รอข้อมูล</small>
         </div>
         <div class="stats-card highlight-green">
           <span>อัตรา Auto-Approve</span>
           <strong id="statAutoApproveRate">-</strong>
+          <small id="statAutoApproveRateMeta">รอข้อมูล</small>
         </div>
         <div class="stats-card highlight-orange">
           <span>การ Deploy ขึ้น Staging</span>
           <strong id="statTotalDeploys">-</strong>
+          <small id="statTotalDeploysMeta">รอข้อมูล</small>
         </div>
         <div class="stats-card highlight-red">
           <span>อัตราสำเร็จ Staging Build</span>
           <strong id="statBuildSuccessRate">-</strong>
+          <small id="statBuildSuccessRateMeta">รอข้อมูล</small>
         </div>
       </div>
 
       <!-- Visual Charts Section -->
+      <div class="chart-card trend-card">
+        <div class="section-heading">
+          <div>
+            <h3>แนวโน้มประสิทธิภาพ</h3>
+            <p>Auto-Approve และ Build Success ตามช่วงเวลาที่เลือก</p>
+          </div>
+          <span class="timezone-badge">Asia/Bangkok</span>
+        </div>
+        <div class="chart-container chart-container-trend">
+          <canvas id="trendChart" role="img" aria-label="กราฟแนวโน้มอัตรา Auto-Approve และความสำเร็จของ Staging Build"></canvas>
+          <div id="trendChartEmpty" class="empty-state" style="display: none;">— ไม่มีข้อมูลแนวโน้มในช่วงที่เลือก —</div>
+        </div>
+      </div>
+
       <div class="charts-grid">
         <div class="chart-card">
           <h3><span>🎨</span> สัดส่วนผลการอนุมัติ (Approve Actions)</h3>
@@ -187,7 +212,21 @@
       </div>
 
       <div class="detail-card">
-        <h3>Recent Failed Staging Builds</h3>
+        <div class="section-heading failed-build-heading">
+          <div>
+            <h3>Recent Failed Staging Builds</h3>
+            <p id="failedBuildCount">แสดงรายการล่าสุดจากช่วงที่เลือก</p>
+          </div>
+          <div class="failed-build-tools">
+            <label class="visually-hidden" for="failedBuildSearch">ค้นหา Failed Build</label>
+            <input id="failedBuildSearch" type="search" placeholder="ค้นหา repo, branch, PR..." autocomplete="off" />
+            <label class="visually-hidden" for="failedBuildSort">เรียง Failed Build</label>
+            <select id="failedBuildSort">
+              <option value="newest">ใหม่ที่สุด</option>
+              <option value="repo">Repository A–Z</option>
+            </select>
+          </div>
+        </div>
         <div id="failedBuildsList" class="failed-builds-list">
           <div class="empty-state">— ไม่มีข้อมูลบิลด์พังในช่วงที่เลือก —</div>
         </div>

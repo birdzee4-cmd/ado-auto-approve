@@ -6,8 +6,11 @@ import {
 // เก็บออบเจ็กต์ Chart เพื่อใช้ทำลาย (destroy) ก่อนสร้างใหม่
 let approveChartInstance = null;
 let buildChartInstance = null;
+let trendChartInstance = null;
 let failedBuildsRenderToken = 0;
 let latestReportData = null;
+let failedBuildSourceItems = [];
+const diagnosticsCache = new Map();
 
 // ตั้งค่าเมื่อโหลดหน้าจอ
 async function init() {
@@ -27,6 +30,7 @@ async function init() {
   const filterDay = document.getElementById('filterDay');
 
   if (filterType) filterType.value = 'daily';
+  populateYearOptions(currentYear);
   if (filterYear) filterYear.value = String(currentYear);
   if (filterMonth) filterMonth.value = String(currentMonth);
 
@@ -69,6 +73,13 @@ async function init() {
   });
   bind('btnLoadReport', loadReport);
   bind('btnExportReport', exportReportToExcel);
+  document.querySelectorAll('[data-range]').forEach(button => {
+    button.addEventListener('click', () => applyQuickRange(button.dataset.range));
+  });
+  const failedBuildSearch = document.getElementById('failedBuildSearch');
+  const failedBuildSort = document.getElementById('failedBuildSort');
+  if (failedBuildSearch) failedBuildSearch.addEventListener('input', () => renderFailedBuilds(failedBuildSourceItems, true));
+  if (failedBuildSort) failedBuildSort.addEventListener('change', () => renderFailedBuilds(failedBuildSourceItems, true));
 
   // สร้างรายชื่อตัวเลือกวันที่
   populateDays(currentYear, currentMonth, currentDay);
@@ -80,6 +91,42 @@ async function init() {
 
   // ดึงข้อมูลและอัปเดตประวัติการดีพลอยล่าสุดแบบเบื้องหลัง (Background Sync)
   triggerBackgroundSync();
+}
+
+function populateYearOptions(currentYear) {
+  const select = document.getElementById('filterYear');
+  if (!select) return;
+  const firstYear = 2025;
+  select.innerHTML = '';
+  for (let year = currentYear + 1; year >= firstYear; year--) {
+    const option = document.createElement('option');
+    option.value = String(year);
+    option.textContent = String(year);
+    select.appendChild(option);
+  }
+}
+
+async function applyQuickRange(range) {
+  const offsetMs = 7 * 60 * 60 * 1000;
+  const now = new Date(Date.now() + offsetMs);
+  let target = new Date(now);
+  let type = 'daily';
+  if (range === 'yesterday') target = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  if (range === 'month' || range === 'previous-month') {
+    type = 'monthly';
+    if (range === 'previous-month') target = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  }
+
+  document.getElementById('filterType').value = type;
+  document.getElementById('filterYear').value = String(target.getUTCFullYear());
+  document.getElementById('filterMonth').value = String(target.getUTCMonth() + 1);
+  populateDays(target.getUTCFullYear(), target.getUTCMonth() + 1, target.getUTCDate());
+  handleTypeChange();
+  invalidateReportExport();
+  document.querySelectorAll('[data-range]').forEach(button => {
+    button.classList.toggle('is-active', button.dataset.range === range);
+  });
+  await loadReport();
 }
 
 // ดึงข้อมูลการดีพลอยล่าสุดแบบเบื้องหลังเพื่ออัปเดตแคช (SharePoint CSV)
@@ -258,6 +305,7 @@ async function loadReport() {
 
 function invalidateReportExport() {
   latestReportData = null;
+  document.querySelectorAll('[data-range]').forEach(button => button.classList.remove('is-active'));
   updateExportButton();
 }
 
@@ -382,6 +430,9 @@ function clearStatsUi() {
   setText('statAutoApproveRate', '-');
   setText('statTotalDeploys', '-');
   setText('statBuildSuccessRate', '-');
+  ['statTotalPrsMeta', 'statAutoApproveRateMeta', 'statTotalDeploysMeta', 'statBuildSuccessRateMeta']
+    .forEach(id => setText(id, 'ไม่สามารถแสดงข้อมูลได้'));
+  failedBuildSourceItems = [];
 
   destroyCharts();
 
@@ -408,6 +459,10 @@ function destroyCharts() {
     buildChartInstance.destroy();
     buildChartInstance = null;
   }
+  if (trendChartInstance) {
+    trendChartInstance.destroy();
+    trendChartInstance = null;
+  }
 }
 
 // เรนเดอร์ข้อมูลสถิติ ตัวเลข กราฟ และอันดับ Repository
@@ -417,12 +472,23 @@ function renderStatsUi(data) {
   
   // 1) อัปเดต KPI Cards
   setText('statTotalPrs', String(stats.totalPrs || 0));
-  setText('statAutoApproveRate', stats.totalPrs > 0 ? `${stats.autoApproveRate}%` : '0%');
+  setText('statAutoApproveRate', (stats.autoApproved + stats.manualApproved) > 0 ? `${stats.autoApproveRate}%` : '0%');
   setText('statTotalDeploys', String(stats.totalDeploys || 0));
   setText('statBuildSuccessRate', stats.totalDeploys > 0 ? `${stats.deploySuccessRate}%` : '0%');
+  setText('statTotalPrsMeta', `${stats.totalActions || 0} actions ในช่วงที่เลือก`);
+  setText('statAutoApproveRateMeta', `${stats.autoApproved || 0} จาก ${(stats.autoApproved || 0) + (stats.manualApproved || 0)} approvals`);
+  setText('statTotalDeploysMeta', `${stats.failedDeploys || 0} failed/canceled`);
+  setText('statBuildSuccessRateMeta', `${stats.succeededDeploys || 0} จาก ${stats.totalDeploys || 0} builds`);
+  const freshness = document.getElementById('reportFreshness');
+  if (freshness) {
+    const generatedAt = data.generatedAt ? formatShortDate(data.generatedAt) : 'ไม่ทราบเวลา';
+    freshness.textContent = `ข้อมูลรายงาน ณ ${generatedAt} · ${data.timezone || 'Asia/Bangkok'}`;
+  }
 
   // 2) วาดกราฟและอัปเดต Chart.js
   destroyCharts();
+
+  renderTrendChart(data.trend || [], data.type);
 
   // วาด Approve Chart
   const approveCanvas = document.getElementById('approveChart');
@@ -558,6 +624,70 @@ function renderStatsUi(data) {
   renderFailedBuilds(data.failedDeployItems || []);
 }
 
+function renderTrendChart(trend, reportType) {
+  const canvas = document.getElementById('trendChart');
+  const empty = document.getElementById('trendChartEmpty');
+  if (!canvas || !empty) return;
+  const items = Array.isArray(trend) ? trend : [];
+  const hasData = items.some(item => item.autoApproveRate !== null || item.buildSuccessRate !== null);
+  canvas.style.display = hasData ? 'block' : 'none';
+  empty.style.display = hasData ? 'none' : 'block';
+  if (!hasData) return;
+
+  const labels = items.map(item => {
+    if (reportType === 'daily') return String(item.key || '').slice(11) + ':00';
+    const date = new Date(String(item.key || '') + 'T00:00:00+07:00');
+    return Number.isNaN(date.getTime())
+      ? item.key
+      : date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' });
+  });
+
+  trendChartInstance = new window.Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Auto-Approve Rate',
+          data: items.map(item => item.autoApproveRate),
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.12)',
+          tension: 0.3,
+          spanGaps: true
+        },
+        {
+          label: 'Build Success Rate',
+          data: items.map(item => item.buildSuccessRate),
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59, 130, 246, 0.12)',
+          tension: 0.3,
+          spanGaps: true
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      scales: {
+        y: {
+          min: 0,
+          max: 100,
+          ticks: { callback: value => value + '%' }
+        }
+      },
+      plugins: {
+        legend: { position: 'bottom' },
+        tooltip: {
+          callbacks: {
+            label: context => context.dataset.label + ': ' + context.parsed.y + '%'
+          }
+        }
+      }
+    }
+  });
+}
+
 function renderScopeNote(data) {
   const scopeNote = document.getElementById('reportScopeNote');
   if (!scopeNote) return;
@@ -587,18 +717,31 @@ function formatReportRange(range) {
     end.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Bangkok' });
 }
 
-function renderFailedBuilds(items) {
+function renderFailedBuilds(items, preserveSource) {
   const list = document.getElementById('failedBuildsList');
   if (!list) return;
+  if (!preserveSource) failedBuildSourceItems = Array.isArray(items) ? items.slice() : [];
+  const search = String((document.getElementById('failedBuildSearch') || {}).value || '').trim().toLowerCase();
+  const sort = String((document.getElementById('failedBuildSort') || {}).value || 'newest');
+  const filteredItems = failedBuildSourceItems.filter(item => {
+    if (!search) return true;
+    return [item.prId, item.repo, item.branch, item.buildNumber, item.triggeredBy]
+      .some(value => String(value || '').toLowerCase().includes(search));
+  }).sort((left, right) => {
+    if (sort === 'repo') return String(left.repo || '').localeCompare(String(right.repo || ''), 'th');
+    return (Date.parse(right.finishedTime || '') || 0) - (Date.parse(left.finishedTime || '') || 0);
+  });
   failedBuildsRenderToken += 1;
   const renderToken = failedBuildsRenderToken;
+  const count = document.getElementById('failedBuildCount');
+  if (count) count.textContent = 'แสดง ' + filteredItems.length + ' จาก ' + failedBuildSourceItems.length + ' รายการล่าสุด';
 
-  if (!Array.isArray(items) || items.length === 0) {
-    list.innerHTML = '<div class="empty-state">— ไม่มีข้อมูลบิลด์พังในช่วงที่เลือก —</div>';
+  if (filteredItems.length === 0) {
+    list.innerHTML = '<div class="empty-state">— ไม่พบ Failed Build ที่ตรงกับเงื่อนไข —</div>';
     return;
   }
 
-  list.innerHTML = items.map((item, index) => {
+  list.innerHTML = filteredItems.map((item, index) => {
     const prText = item.prId ? '#' + item.prId : 'N/A';
     const buildText = item.buildNumber || 'Open build';
     const buildId = getBuildIdFromUrl(item.buildUrl);
@@ -621,15 +764,25 @@ function renderFailedBuilds(items) {
       <div class="failed-build-cell failed-build-cell--finished">
         <span class="failed-build-label">Finished</span>
         <span class="failed-build-value failed-build-value--compact" title="${escapeHtml(formatShortDate(item.finishedTime))}">${escapeHtml(formatShortDate(item.finishedTime))}</span>
+        ${item.triggeredBy ? `<span class="failed-build-subvalue" title="${escapeHtml(item.triggeredBy)}">โดย ${escapeHtml(item.triggeredBy)}</span>` : ''}
       </div>
       <div class="failed-build-cell failed-build-cell--build">${buildLink}</div>
       <div class="failed-build-analysis" data-analysis-for="${escapeHtml(String(index))}">
-        ${buildId ? renderAnalysisLoading() : ''}
+        ${buildId ? `<button type="button" class="analysis-toggle" data-analysis-toggle="${index}">ดูสาเหตุของ Build</button>` : ''}
       </div>
     </div>`;
   }).join('');
 
-  hydrateFailedBuildDiagnostics(items, renderToken);
+  list.querySelectorAll('[data-analysis-toggle]').forEach(button => {
+    button.addEventListener('click', async () => {
+      const index = Number(button.dataset.analysisToggle);
+      const item = filteredItems[index];
+      const target = document.querySelector(`[data-analysis-for="${String(index)}"]`);
+      if (!item || !target) return;
+      target.innerHTML = renderAnalysisLoading();
+      await loadFailedBuildDiagnostics(item, index, renderToken);
+    }, { once: true });
+  });
 }
 
 function renderAnalysisLoading() {
@@ -639,24 +792,25 @@ function renderAnalysisLoading() {
   </div>`;
 }
 
-async function hydrateFailedBuildDiagnostics(items, renderToken) {
-  await Promise.all(items.map(async (item, index) => {
-    const buildId = getBuildIdFromUrl(item && item.buildUrl);
-    if (!buildId) return;
-
-    try {
-      const result = await safeFetchJson('/api/build-diagnostics?buildId=' + encodeURIComponent(buildId) + '&suppressAutoNotify=true');
-      if (renderToken !== failedBuildsRenderToken) return;
-
-      const diagnostics = result && result.ok && result.data && result.data.ok
-        ? result.data.diagnostics || {}
-        : null;
-      renderFailedBuildAnalysis(index, diagnostics);
-    } catch (err) {
-      if (renderToken !== failedBuildsRenderToken) return;
-      renderFailedBuildAnalysis(index, null);
-    }
-  }));
+async function loadFailedBuildDiagnostics(item, index, renderToken) {
+  const buildId = getBuildIdFromUrl(item && item.buildUrl);
+  if (!buildId) return;
+  if (diagnosticsCache.has(buildId)) {
+    renderFailedBuildAnalysis(index, diagnosticsCache.get(buildId));
+    return;
+  }
+  try {
+    const result = await safeFetchJson('/api/build-diagnostics?buildId=' + encodeURIComponent(buildId) + '&suppressAutoNotify=true');
+    if (renderToken !== failedBuildsRenderToken) return;
+    const diagnostics = result && result.ok && result.data && result.data.ok
+      ? result.data.diagnostics || {}
+      : null;
+    diagnosticsCache.set(buildId, diagnostics);
+    renderFailedBuildAnalysis(index, diagnostics);
+  } catch (err) {
+    if (renderToken !== failedBuildsRenderToken) return;
+    renderFailedBuildAnalysis(index, null);
+  }
 }
 
 function renderFailedBuildAnalysis(index, diagnostics) {
@@ -664,7 +818,7 @@ function renderFailedBuildAnalysis(index, diagnostics) {
   if (!target) return;
 
   if (!diagnostics) {
-    target.innerHTML = '';
+    target.innerHTML = '<div class="failed-build-analysis-card failed-build-analysis-card--error">ไม่สามารถโหลดรายละเอียดปัญหาได้</div>';
     return;
   }
 

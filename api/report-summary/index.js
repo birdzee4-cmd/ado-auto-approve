@@ -81,6 +81,7 @@ module.exports = async function (context, req) {
 
     const startIso = startUtc.toISOString();
     const endIso = endUtc.toISOString();
+    const trendBuckets = createTrendBuckets(startUtc, endUtc, type, offsetMs);
 
     context.log(`Fetching report summary [${type}] for ${year}-${month}${type === 'daily' ? '-' + day : ''} (UTC range: ${startIso} to ${endIso})`);
 
@@ -130,8 +131,10 @@ module.exports = async function (context, req) {
       const action = String(fields.Action || '').toLowerCase();
       if (action.includes('auto approved') || action.includes('autoapproved')) {
         autoApproved++;
+        addApprovalToTrend(trendBuckets, fields.Created, offsetMs, true);
       } else if (action.includes('approved')) {
         manualApproved++;
+        addApprovalToTrend(trendBuckets, fields.Created, offsetMs, false);
       } else if (action.includes('reject')) {
         rejected++;
       } else if (action.includes('hold')) {
@@ -203,8 +206,10 @@ module.exports = async function (context, req) {
 
       if (status === 'succeeded') {
         succeededDeploys++;
+        addDeploymentToTrend(trendBuckets, finishedTime, offsetMs, 'succeeded');
       } else if (isFailedStatus(status)) {
         failedDeploys++;
+        addDeploymentToTrend(trendBuckets, finishedTime, offsetMs, 'failed');
         if (repo && repo !== 'Unknown') {
           const repoKey = normalizeRepoKey(repo);
           if (!repoFailedDeploys[repoKey]) {
@@ -215,6 +220,7 @@ module.exports = async function (context, req) {
         failedDeployItems.push(buildFailedDeployItem(row));
       } else if (status === 'inprogress') {
         inProgressDeploys++;
+        addDeploymentToTrend(trendBuckets, finishedTime, offsetMs, 'inProgress');
       }
     });
 
@@ -263,6 +269,9 @@ module.exports = async function (context, req) {
         inProgressDeploys: inProgressDeploys,
         deploySuccessRate: deploySuccessRate
       },
+      trend: finalizeTrendBuckets(trendBuckets),
+      generatedAt: new Date().toISOString(),
+      timezone: 'Asia/Bangkok',
       topActiveRepos: topActiveRepos,
       topFailedRepos: topFailedRepos,
       failedDeployItems: allFailedDeployItems.slice(0, 10),
@@ -575,4 +584,69 @@ function inferRepoNameFromPipeline(pipelineName) {
     .replace(/_docker-CI$/i, '')
     .replace(/-CI$/i, '')
     .trim();
+}
+
+function createTrendBuckets(startUtc, endUtc, type, offsetMs) {
+  const buckets = new Map();
+  const stepMs = type === 'daily' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  for (let ts = startUtc.getTime(); ts < endUtc.getTime(); ts += stepMs) {
+    const key = getTrendBucketKey(new Date(ts), type, offsetMs);
+    buckets.set(key, {
+      key: key,
+      autoApproved: 0,
+      manualApproved: 0,
+      totalDeploys: 0,
+      succeededDeploys: 0,
+      failedDeploys: 0,
+      inProgressDeploys: 0
+    });
+  }
+  Object.defineProperty(buckets, 'reportType', { value: type });
+  return buckets;
+}
+
+function getTrendBucketKey(date, type, offsetMs) {
+  const local = new Date(date.getTime() + offsetMs);
+  const dateKey = [
+    local.getUTCFullYear(),
+    String(local.getUTCMonth() + 1).padStart(2, '0'),
+    String(local.getUTCDate()).padStart(2, '0')
+  ].join('-');
+  return type === 'daily'
+    ? dateKey + 'T' + String(local.getUTCHours()).padStart(2, '0')
+    : dateKey;
+}
+
+function addApprovalToTrend(buckets, timestamp, offsetMs, isAuto) {
+  const date = new Date(timestamp || '');
+  if (Number.isNaN(date.getTime())) return;
+  const bucket = buckets.get(getTrendBucketKey(date, buckets.reportType, offsetMs));
+  if (!bucket) return;
+  if (isAuto) bucket.autoApproved += 1;
+  else bucket.manualApproved += 1;
+}
+
+function addDeploymentToTrend(buckets, timestamp, offsetMs, status) {
+  const date = new Date(timestamp || '');
+  if (Number.isNaN(date.getTime())) return;
+  const bucket = buckets.get(getTrendBucketKey(date, buckets.reportType, offsetMs));
+  if (!bucket) return;
+  bucket.totalDeploys += 1;
+  if (status === 'succeeded') bucket.succeededDeploys += 1;
+  else if (status === 'failed') bucket.failedDeploys += 1;
+  else if (status === 'inProgress') bucket.inProgressDeploys += 1;
+}
+
+function finalizeTrendBuckets(buckets) {
+  return Array.from(buckets.values()).map(bucket => {
+    const totalApproved = bucket.autoApproved + bucket.manualApproved;
+    return Object.assign({}, bucket, {
+      autoApproveRate: totalApproved > 0
+        ? Number(((bucket.autoApproved / totalApproved) * 100).toFixed(2))
+        : null,
+      buildSuccessRate: bucket.totalDeploys > 0
+        ? Number(((bucket.succeededDeploys / bucket.totalDeploys) * 100).toFixed(2))
+        : null
+    });
+  });
 }
