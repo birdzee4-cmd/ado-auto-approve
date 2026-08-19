@@ -279,6 +279,18 @@
   font-weight: 600;
 }
 
+.data-quality-note {
+  margin: -8px 0 18px;
+  padding: 10px 12px;
+  border: 1px solid rgba(217, 119, 6, 0.28);
+  border-radius: 8px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
 /* ===== Stats Summary Cards ===== */
 .stats-grid {
   display: grid;
@@ -354,6 +366,12 @@
   color: #6b21a8;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.stats-method-note span {
+  display: block;
+  margin-top: 3px;
+  font-weight: 700;
 }
 
 /* ===== Visual Charts Grid ===== */

@@ -42,7 +42,10 @@ module.exports = async function (context, req) {
     const startTime = type === 'daily' ? parseTimeOfDay(req.query.startTime || '00:00', '00:00', false) : null;
     const endTime = type === 'daily' ? parseTimeOfDay(req.query.endTime || '24:00', '24:00', true) : null;
     const actionScope = req.query.actionScope === 'mine' ? 'mine' : 'all';
-    const buildScope = req.query.buildScope === 'related' ? 'related' : 'all';
+    const requestedBuildScope = String(req.query.buildScope || '').toLowerCase();
+    const buildScope = requestedBuildScope === 'related' || requestedBuildScope === 'related_repo'
+      ? requestedBuildScope
+      : 'all';
     const principal = auth.parseClientPrincipal(req.headers);
     const currentUser = auth.getUserEmail(principal);
     const currentUserAliases = buildUserAliases(principal);
@@ -185,7 +188,11 @@ module.exports = async function (context, req) {
     let totalDeploys = 0;
     let succeededDeploys = 0;
     let failedDeploys = 0;
+    let canceledDeploys = 0;
+    let partialDeploys = 0;
     let inProgressDeploys = 0;
+    let queuedDeploys = 0;
+    let unknownDeploys = 0;
     const repoFailedDeploys = {}; // normalized repository -> { repo, count }
     const failedDeployItems = [];
     const latestAutoApproveBuilds = new Map();
@@ -201,19 +208,26 @@ module.exports = async function (context, req) {
       const finishedTime = row.FinishedTime || '';
       const ts = Date.parse(finishedTime);
       if (isNaN(ts) || ts < startTs || ts >= endTs) return;
-      if (buildScope === 'related' && !isDeploymentRelatedToReport(row, relatedPrIds, relatedRepoKeys)) return;
+      if (buildScope !== 'all' && !isDeploymentRelatedToReport(
+        row,
+        relatedPrIds,
+        relatedRepoKeys,
+        buildScope === 'related_repo'
+      )) return;
 
       recordLatestAutoApproveBuild(autoApprovedPrs, latestAutoApproveBuilds, row, ts);
 
       totalDeploys++;
-      const status = String(row.Status || '').toLowerCase();
+      const statusCategory = classifyDeploymentStatus(row.Status);
       const repo = getDeploymentRepoName(row);
 
-      if (status === 'succeeded') {
+      if (statusCategory === 'succeeded') {
         succeededDeploys++;
         addDeploymentToTrend(trendBuckets, finishedTime, offsetMs, 'succeeded');
-      } else if (isFailedStatus(status)) {
+      } else if (statusCategory === 'failed' || statusCategory === 'canceled' || statusCategory === 'partial') {
         failedDeploys++;
+        if (statusCategory === 'canceled') canceledDeploys++;
+        if (statusCategory === 'partial') partialDeploys++;
         addDeploymentToTrend(trendBuckets, finishedTime, offsetMs, 'failed');
         if (repo && repo !== 'Unknown') {
           const repoKey = normalizeRepoKey(repo);
@@ -223,14 +237,21 @@ module.exports = async function (context, req) {
           repoFailedDeploys[repoKey].count += 1;
         }
         failedDeployItems.push(buildFailedDeployItem(row));
-      } else if (status === 'inprogress') {
+      } else if (statusCategory === 'inProgress') {
         inProgressDeploys++;
         addDeploymentToTrend(trendBuckets, finishedTime, offsetMs, 'inProgress');
+      } else if (statusCategory === 'queued') {
+        queuedDeploys++;
+        addDeploymentToTrend(trendBuckets, finishedTime, offsetMs, 'queued');
+      } else {
+        unknownDeploys++;
+        addDeploymentToTrend(trendBuckets, finishedTime, offsetMs, 'unknown');
       }
     });
 
-    const deploySuccessRate = totalDeploys > 0 
-      ? parseFloat(((succeededDeploys / totalDeploys) * 100).toFixed(2)) 
+    const completedDeploys = succeededDeploys + failedDeploys;
+    const deploySuccessRate = completedDeploys > 0
+      ? parseFloat(((succeededDeploys / completedDeploys) * 100).toFixed(2))
       : 0;
     const autoApproveOutcome = summarizeAutoApproveOutcome(autoApprovedPrs, latestAutoApproveBuilds);
 
@@ -272,7 +293,12 @@ module.exports = async function (context, req) {
         totalDeploys: totalDeploys,
         succeededDeploys: succeededDeploys,
         failedDeploys: failedDeploys,
+        canceledDeploys: canceledDeploys,
+        partialDeploys: partialDeploys,
         inProgressDeploys: inProgressDeploys,
+        queuedDeploys: queuedDeploys,
+        unknownDeploys: unknownDeploys,
+        completedDeploys: completedDeploys,
         deploySuccessRate: deploySuccessRate
       },
       trend: finalizeTrendBuckets(trendBuckets),
@@ -409,13 +435,13 @@ function buildUserAliases(principal) {
   return Array.from(aliases).filter(Boolean);
 }
 
-function isDeploymentRelatedToReport(row, relatedPrIds, relatedRepoKeys) {
+function isDeploymentRelatedToReport(row, relatedPrIds, relatedRepoKeys, allowRepoFallback) {
   if (!relatedPrIds || relatedPrIds.size === 0) return false;
   const candidates = getDeploymentPrCandidates(row);
   if (candidates.some(value => value && relatedPrIds.has(String(value)))) return true;
 
   const hasPrSignal = candidates.some(Boolean);
-  if (hasPrSignal) return false;
+  if (hasPrSignal || !allowRepoFallback) return false;
 
   const repoKey = normalizeRepoKey(getDeploymentRepoName(row));
   return !!repoKey && relatedRepoKeys && relatedRepoKeys.has(repoKey);
@@ -533,6 +559,17 @@ function isFailedStatus(status) {
   return value === 'failed' || value === 'canceled';
 }
 
+function classifyDeploymentStatus(status) {
+  const value = String(status || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
+  if (value === 'succeeded' || value === 'success') return 'succeeded';
+  if (value === 'failed' || value === 'failure') return 'failed';
+  if (value === 'canceled' || value === 'cancelled') return 'canceled';
+  if (value === 'partiallysucceeded' || value === 'partialsuccess') return 'partial';
+  if (value === 'inprogress' || value === 'running') return 'inProgress';
+  if (value === 'notstarted' || value === 'queued' || value === 'postponed') return 'queued';
+  return 'unknown';
+}
+
 function recordAutoApprovedPr(autoApprovedPrs, prId, repo, timestamp) {
   const key = String(prId || '');
   if (!key) return;
@@ -560,7 +597,7 @@ function recordLatestAutoApproveBuild(autoApprovedPrs, latestBuilds, row, buildT
     if (existing && existing.finishedAt > buildTs) return;
     latestBuilds.set(prId, {
       prId: prId,
-      status: String(row.Status || '').toLowerCase(),
+      status: classifyDeploymentStatus(row.Status),
       finishedAt: buildTs,
       buildNumber: row.BuildNumber || ''
     });
@@ -591,6 +628,9 @@ function summarizeAutoApproveOutcome(autoApprovedPrs, latestBuilds) {
     unmatchedPrs: Math.max(0, totalAutoApprovedPrs - matchedPrs),
     successRate: completedPrs > 0
       ? Number(((succeededPrs / completedPrs) * 100).toFixed(2))
+      : 0,
+    endToEndSuccessRate: totalAutoApprovedPrs > 0
+      ? Number(((succeededPrs / totalAutoApprovedPrs) * 100).toFixed(2))
       : 0,
     coverageRate: totalAutoApprovedPrs > 0
       ? Number(((matchedPrs / totalAutoApprovedPrs) * 100).toFixed(2))
@@ -712,12 +752,13 @@ function addDeploymentToTrend(buckets, timestamp, offsetMs, status) {
 function finalizeTrendBuckets(buckets) {
   return Array.from(buckets.values()).map(bucket => {
     const totalApproved = bucket.autoApproved + bucket.manualApproved;
+    const completedDeploys = bucket.succeededDeploys + bucket.failedDeploys;
     return Object.assign({}, bucket, {
       autoApproveRate: totalApproved > 0
         ? Number(((bucket.autoApproved / totalApproved) * 100).toFixed(2))
         : null,
-      buildSuccessRate: bucket.totalDeploys > 0
-        ? Number(((bucket.succeededDeploys / bucket.totalDeploys) * 100).toFixed(2))
+      buildSuccessRate: completedDeploys > 0
+        ? Number(((bucket.succeededDeploys / completedDeploys) * 100).toFixed(2))
         : null
     });
   });
@@ -726,5 +767,7 @@ function finalizeTrendBuckets(buckets) {
 module.exports._test = {
   recordAutoApprovedPr,
   recordLatestAutoApproveBuild,
-  summarizeAutoApproveOutcome
+  summarizeAutoApproveOutcome,
+  classifyDeploymentStatus,
+  isDeploymentRelatedToReport
 };

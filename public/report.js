@@ -342,10 +342,16 @@ function exportReportToExcel() {
       ['Auto-Approve Rate (%)', stats.autoApproveRate || 0],
       ['Staging Deployments', stats.totalDeploys || 0],
       ['Succeeded Builds', stats.succeededDeploys || 0],
-      ['Failed/Canceled Builds', stats.failedDeploys || 0],
+      ['Completed Builds', stats.completedDeploys || 0],
+      ['Failed/Canceled/Partial Builds', stats.failedDeploys || 0],
+      ['Canceled Builds', stats.canceledDeploys || 0],
+      ['Partially Succeeded Builds', stats.partialDeploys || 0],
       ['In Progress Builds', stats.inProgressDeploys || 0],
-      ['Build Success Rate (%)', stats.deploySuccessRate || 0],
-      ['Auto-Approve to Latest Build Success Rate (%)', autoApproveOutcome.successRate || 0],
+      ['Queued/Not Started Builds', stats.queuedDeploys || 0],
+      ['Unknown Status Builds', stats.unknownDeploys || 0],
+      ['Completed Build Success Rate (%)', stats.deploySuccessRate || 0],
+      ['Auto-Approve to Staging End-to-End Success Rate (%)', autoApproveOutcome.endToEndSuccessRate || 0],
+      ['Matched Latest Build Success Rate (%)', autoApproveOutcome.successRate || 0],
       ['Auto-Approved PR Build Coverage (%)', autoApproveOutcome.coverageRate || 0],
       ['Auto-Approved PRs', autoApproveOutcome.totalAutoApprovedPrs || 0],
       ['Matched Auto-Approved PRs', autoApproveOutcome.matchedPrs || 0],
@@ -449,6 +455,7 @@ function clearStatsUi() {
   const failedList = document.getElementById('failedReposList');
   const failedBuildsList = document.getElementById('failedBuildsList');
   const scopeNote = document.getElementById('reportScopeNote');
+  const dataQualityNote = document.getElementById('reportDataQuality');
   if (activeList) activeList.innerHTML = '<div class="empty-state">— ไม่มีข้อมูลสรุปสถิติ —</div>';
   if (failedList) failedList.innerHTML = '<div class="empty-state">— ไม่มีข้อมูลสรุปสถิติ —</div>';
   if (failedBuildsList) failedBuildsList.innerHTML = '<div class="empty-state">— ไม่มีข้อมูลบิลด์พังในช่วงที่เลือก —</div>';
@@ -456,6 +463,11 @@ function clearStatsUi() {
     scopeNote.hidden = true;
     scopeNote.textContent = '';
   }
+  if (dataQualityNote) {
+    dataQualityNote.hidden = true;
+    dataQualityNote.textContent = '';
+  }
+  setText('statMatchedBuildSuccessNote', '');
 }
 
 // ทำลายออบเจ็กต์กราฟตัวเก่า
@@ -479,22 +491,23 @@ function renderStatsUi(data) {
   const stats = data.stats || {};
   const outcome = data.autoApproveOutcome || {};
   renderScopeNote(data);
+  renderDataQualityNote(data);
   
   // 1) อัปเดต KPI Cards
   setText('statTotalPrs', String(stats.totalPrs || 0));
   setText('statAutoApproveRate', (stats.autoApproved + stats.manualApproved) > 0 ? `${stats.autoApproveRate}%` : '0%');
   setText('statTotalDeploys', String(stats.totalDeploys || 0));
-  setText('statBuildSuccessRate', stats.totalDeploys > 0 ? `${stats.deploySuccessRate}%` : '0%');
+  setText('statBuildSuccessRate', stats.completedDeploys > 0 ? `${stats.deploySuccessRate}%` : '—');
   const completedApprovals = (stats.autoApproved || 0) + (stats.manualApproved || 0);
-  const inProgressText = stats.inProgressDeploys ? ` • กำลังทำงาน ${stats.inProgressDeploys}` : '';
   setText('statTotalPrsMeta', `${stats.totalPrs || 0} PR ไม่ซ้ำ • ${stats.totalActions || 0} Approval Actions`);
   setText('statAutoApproveRateMeta', `อัตโนมัติ ${stats.autoApproved || 0} จาก ${completedApprovals} การอนุมัติสำเร็จ`);
-  setText('statTotalDeploysMeta', `สำเร็จ ${stats.succeededDeploys || 0} • ล้มเหลว/ยกเลิก ${stats.failedDeploys || 0}${inProgressText}`);
-  setText('statBuildSuccessRateMeta', `สำเร็จ ${stats.succeededDeploys || 0} จากการรันทั้งหมด ${stats.totalDeploys || 0} ครั้ง`);
-  setText('statAutoApproveOutcomeRate', `${outcome.successRate || 0}%`);
-  setText('statAutoApproveOutcomeMeta', `สำเร็จ ${outcome.succeededPrs || 0} จาก ${outcome.completedPrs || 0} PR ที่มี Completed Build`);
+  setText('statTotalDeploysMeta', `สำเร็จ ${stats.succeededDeploys || 0} • ไม่สำเร็จ ${stats.failedDeploys || 0} • กำลังทำงาน ${stats.inProgressDeploys || 0} • รอคิว ${stats.queuedDeploys || 0} • ไม่ทราบ ${stats.unknownDeploys || 0}`);
+  setText('statBuildSuccessRateMeta', `สำเร็จ ${stats.succeededDeploys || 0} จาก Completed Builds ${stats.completedDeploys || 0} ครั้ง`);
+  setText('statAutoApproveOutcomeRate', outcome.totalAutoApprovedPrs > 0 ? `${outcome.endToEndSuccessRate || 0}%` : '—');
+  setText('statAutoApproveOutcomeMeta', `ยืนยัน Staging สำเร็จ ${outcome.succeededPrs || 0} จาก ${outcome.totalAutoApprovedPrs || 0} Auto-Approved PR`);
   setText('statBuildCoverageRate', `${outcome.coverageRate || 0}%`);
-  setText('statBuildCoverageMeta', `จับคู่ได้ ${outcome.matchedPrs || 0} จาก ${outcome.totalAutoApprovedPrs || 0} Auto-Approved PR • ยังไม่พบ Build ${outcome.unmatchedPrs || 0}`);
+  setText('statBuildCoverageMeta', `จับคู่ PR ID ได้ ${outcome.matchedPrs || 0} จาก ${outcome.totalAutoApprovedPrs || 0} PR • จับคู่ไม่ได้ ${outcome.unmatchedPrs || 0}`);
+  setText('statMatchedBuildSuccessNote', `Success เฉพาะ PR ที่จับคู่และ Completed: ${outcome.succeededPrs || 0}/${outcome.completedPrs || 0} (${outcome.successRate || 0}%)`);
   const freshness = document.getElementById('reportFreshness');
   if (freshness) {
     const generatedAt = data.generatedAt ? formatShortDate(data.generatedAt) : 'ไม่ทราบเวลา';
@@ -563,10 +576,16 @@ function renderStatsUi(data) {
       buildChartInstance = new window.Chart(buildCanvas, {
         type: 'doughnut',
         data: {
-          labels: ['Succeeded', 'Failed/Canceled', 'In Progress'],
+          labels: ['Succeeded', 'Failed/Canceled/Partial', 'In Progress', 'Queued/Not Started', 'Unknown'],
           datasets: [{
-            data: [stats.succeededDeploys || 0, stats.failedDeploys || 0, stats.inProgressDeploys || 0],
-            backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
+            data: [
+              stats.succeededDeploys || 0,
+              stats.failedDeploys || 0,
+              stats.inProgressDeploys || 0,
+              stats.queuedDeploys || 0,
+              stats.unknownDeploys || 0
+            ],
+            backgroundColor: ['#10b981', '#ef4444', '#f59e0b', '#3b82f6', '#9ca3af'],
             borderWidth: 1,
             borderColor: '#ffffff'
           }]
@@ -672,7 +691,7 @@ function renderTrendChart(trend, reportType) {
           spanGaps: true
         },
         {
-          label: 'Build Success Rate',
+          label: 'Completed Build Success Rate',
           data: items.map(item => item.buildSuccessRate),
           borderColor: '#3b82f6',
           backgroundColor: 'rgba(59, 130, 246, 0.12)',
@@ -712,14 +731,43 @@ function renderScopeNote(data) {
     ? 'PR actions: เฉพาะของฉัน'
     : 'PR actions: ทั้งหมด';
   const buildText = scope.buildScope === 'related'
-    ? 'Staging builds: เฉพาะ Build ของ PR ที่แสดงในรายงาน'
-    : 'Staging builds: ทั้งหมดบน Staging Pipeline';
-  const relatedText = scope.buildScope === 'related'
-    ? ' | PR ที่ใช้จับคู่: ' + (scope.relatedPrCount || 0)
+    ? 'Staging builds: Strict PR ID matching'
+    : scope.buildScope === 'related_repo'
+      ? 'Staging builds: PR ID หรือ Repository (ประมาณการ)'
+      : 'Staging builds: ทั้งหมดบน Staging Pipeline';
+  const relatedText = scope.buildScope !== 'all'
+    ? ' | PR candidates: ' + (scope.relatedPrCount || 0)
     : '';
   const rangeText = formatReportRange(data.range);
   scopeNote.hidden = false;
   scopeNote.textContent = [rangeText, actionText, buildText + relatedText].filter(Boolean).join(' | ');
+}
+
+function renderDataQualityNote(data) {
+  const note = document.getElementById('reportDataQuality');
+  if (!note) return;
+  const stats = data.stats || {};
+  const outcome = data.autoApproveOutcome || {};
+  const scope = data.scope || {};
+  const categorizedRuns = (stats.succeededDeploys || 0) + (stats.failedDeploys || 0) +
+    (stats.inProgressDeploys || 0) + (stats.queuedDeploys || 0) + (stats.unknownDeploys || 0);
+  const warnings = [];
+
+  if (categorizedRuns !== (stats.totalDeploys || 0)) {
+    warnings.push('ผลรวมสถานะ Build ไม่เท่ากับ Pipeline Runs ทั้งหมด');
+  }
+  if (stats.unknownDeploys > 0) {
+    warnings.push('มี ' + stats.unknownDeploys + ' Pipeline Runs ที่มีสถานะไม่รู้จัก');
+  }
+  if (outcome.unmatchedPrs > 0) {
+    warnings.push('มี ' + outcome.unmatchedPrs + ' Auto-Approved PR ที่จับคู่ Build ด้วย PR ID ไม่ได้');
+  }
+  if (scope.buildScope === 'related_repo') {
+    warnings.push('กำลังใช้ Repository fallback ซึ่งอาจรวม Build ของ PR อื่นใน Repository เดียวกัน');
+  }
+
+  note.hidden = warnings.length === 0;
+  note.textContent = warnings.length ? 'ตรวจสอบคุณภาพข้อมูล: ' + warnings.join(' • ') : '';
 }
 
 function formatReportRange(range) {

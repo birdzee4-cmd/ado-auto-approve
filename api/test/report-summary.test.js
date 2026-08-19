@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 
 const reportSummary = require('../report-summary');
 const {
+  classifyDeploymentStatus,
+  isDeploymentRelatedToReport,
   recordAutoApprovedPr,
   recordLatestAutoApproveBuild,
   summarizeAutoApproveOutcome
@@ -29,6 +31,7 @@ test('auto-approve outcome uses the latest completed build after approval per PR
     inProgressPrs: 0,
     unmatchedPrs: 0,
     successRate: 50,
+    endToEndSuccessRate: 50,
     coverageRate: 100
   });
 });
@@ -43,11 +46,55 @@ test('auto-approve outcome separates build coverage from completed-build success
   recordLatestAutoApproveBuild(approved, builds, buildRow(202, 'InProgress', '2002'), Date.parse('2026-08-01T05:00:00.000Z'));
 
   const outcome = summarizeAutoApproveOutcome(approved, builds);
+  assert.equal(outcome.endToEndSuccessRate, 33.33);
   assert.equal(outcome.successRate, 100);
   assert.equal(outcome.coverageRate, 66.67);
   assert.equal(outcome.completedPrs, 1);
   assert.equal(outcome.inProgressPrs, 1);
   assert.equal(outcome.unmatchedPrs, 1);
+});
+
+test('deployment statuses are grouped into mutually exclusive report categories', () => {
+  assert.equal(classifyDeploymentStatus('Succeeded'), 'succeeded');
+  assert.equal(classifyDeploymentStatus('success'), 'succeeded');
+  assert.equal(classifyDeploymentStatus('Failed'), 'failed');
+  assert.equal(classifyDeploymentStatus('Canceled'), 'canceled');
+  assert.equal(classifyDeploymentStatus('Partially Succeeded'), 'partial');
+  assert.equal(classifyDeploymentStatus('inProgress'), 'inProgress');
+  assert.equal(classifyDeploymentStatus('notStarted'), 'queued');
+  assert.equal(classifyDeploymentStatus('queued'), 'queued');
+  assert.equal(classifyDeploymentStatus('postponed'), 'queued');
+  assert.equal(classifyDeploymentStatus('custom-status'), 'unknown');
+});
+
+test('related build scope requires a matching PR ID unless repository fallback is enabled', () => {
+  const relatedPrIds = new Set(['301']);
+  const relatedRepos = new Set(['repo a']);
+
+  assert.equal(isDeploymentRelatedToReport(
+    { PrId: '301', RepoName: 'repo-a' },
+    relatedPrIds,
+    relatedRepos,
+    false
+  ), true);
+  assert.equal(isDeploymentRelatedToReport(
+    { PrId: '', RepoName: 'repo-a' },
+    relatedPrIds,
+    relatedRepos,
+    false
+  ), false);
+  assert.equal(isDeploymentRelatedToReport(
+    { PrId: '', RepoName: 'repo-a' },
+    relatedPrIds,
+    relatedRepos,
+    true
+  ), true);
+  assert.equal(isDeploymentRelatedToReport(
+    { PrId: '999', RepoName: 'repo-a' },
+    relatedPrIds,
+    relatedRepos,
+    true
+  ), false);
 });
 
 function buildRow(prId, status, buildNumber) {

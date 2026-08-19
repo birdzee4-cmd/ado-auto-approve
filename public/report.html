@@ -116,7 +116,8 @@
               <label for="filterBuildScope">Staging Builds</label>
               <select id="filterBuildScope">
                 <option value="all">ทั้งหมดบน Staging Pipeline</option>
-                <option value="related">เฉพาะ Build ของ PR ที่แสดงในรายงาน</option>
+                <option value="related">เฉพาะ Build ที่จับคู่ PR ID ได้ตรงกัน</option>
+                <option value="related_repo">ประมาณการจาก PR ID หรือ Repository</option>
               </select>
             </div>
           </div>
@@ -136,6 +137,7 @@
 
       <div id="reportResult" role="alert" aria-live="assertive" hidden></div>
       <div id="reportScopeNote" class="scope-note" hidden></div>
+      <div id="reportDataQuality" class="data-quality-note" role="status" aria-live="polite" hidden></div>
 
       <!-- Stats Summary Cards Grid -->
       <div class="stats-grid">
@@ -155,12 +157,12 @@
           <small id="statTotalDeploysMeta">รอข้อมูล</small>
         </div>
         <div class="stats-card highlight-red">
-          <span>อัตราสำเร็จของ Staging Pipeline ทั้งหมด</span>
+          <span>อัตราสำเร็จของ Completed Staging Builds</span>
           <strong id="statBuildSuccessRate">-</strong>
           <small id="statBuildSuccessRateMeta">รอข้อมูล</small>
         </div>
         <div class="stats-card highlight-purple" title="ใช้ Latest Staging Build หนึ่งรายการต่อ Auto-Approved PR และนับเฉพาะ Build ที่เสร็จแล้ว">
-          <span>อัตราสำเร็จหลัง Auto-Approve</span>
+          <span>Auto-Approve → Staging Success</span>
           <strong id="statAutoApproveOutcomeRate">-</strong>
           <small id="statAutoApproveOutcomeMeta">รอข้อมูล</small>
         </div>
@@ -172,7 +174,8 @@
       </div>
       <div class="stats-method-note" role="note">
         <strong>วิธีนับ KPI หลัง Auto-Approve:</strong>
-        ใช้ Latest Staging Build หลังการอนุมัติหนึ่งรายการต่อ PR, จับคู่ด้วย PR ID และไม่นับ Build ที่ยังทำงานอยู่ในอัตราสำเร็จ
+        KPI หลักนับ PR ที่ยืนยันว่า Latest Staging Build สำเร็จเทียบกับ Auto-Approved PR ทั้งหมด
+        <span id="statMatchedBuildSuccessNote"></span>
       </div>
 
       <!-- Visual Charts Section -->
