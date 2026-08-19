@@ -724,6 +724,13 @@ Body: {"source":"Logic Apps","scheduledFor":"08:05 Asia/Bangkok"}
 สามารถระบุ `reportMonth` รูปแบบ `YYYY-MM` เพื่อส่งเดือนที่ต้องการ หรือกำหนด
 `testMode: true` เพื่อทดสอบด้วย Event Key แยกจากรอบจริง
 
+Provision หรือ rotate token และ deploy LINE Monthly Logic App แบบ
+disabled → configure token → enabled:
+
+```powershell
+powershell .\scripts\deploy-line-monthly-summary.ps1
+```
+
 ข้อมูลประกอบด้วย PR overview, approval performance, build/deployment,
 attention snapshot, Top repositories และ comparison กับเดือนก่อนหน้า โดยคำนวณ
 จาก ADO, SharePoint Audit Log และ Deployment Archive โดยตรง ไม่ได้นำ Daily Summary
