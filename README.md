@@ -1,8 +1,8 @@
 # ADO Auto-Approve
 
-ระบบ Dashboard สำหรับตรวจสอบและอนุมัติ Pull Request บน Azure DevOps โดยออกแบบให้ผู้ใช้งานกลุ่ม `IT Support Approve` สามารถเห็นงาน PR ที่รออนุมัติบน branch `staging` ได้จากหน้าเว็บเดียว พร้อมบันทึกผลการดำเนินการลง SharePoint Log, ตรวจสถานะ Build / Policy, แจ้งเตือน Teams เฉพาะเหตุการณ์สำคัญ, ส่ง Daily Summary รายวัน และมีหน้า Merge Lookup สำหรับช่วยตรวจสอบ CI/CD ของงานประเภท Merge
+ระบบ Dashboard สำหรับตรวจสอบและอนุมัติ Pull Request บน Azure DevOps โดยออกแบบให้ผู้ใช้งานกลุ่ม `IT Support Approve` สามารถเห็นงาน PR ที่รออนุมัติบน branch `staging` ได้จากหน้าเว็บเดียว พร้อมบันทึกผลการดำเนินการลง SharePoint Log, ตรวจสถานะ Build / Policy, แจ้งเตือน Teams เฉพาะเหตุการณ์สำคัญ, ส่ง Daily / Monthly Summary ผ่าน Teams และ LINE OA, แสดง Report Summary ของการอนุมัติและ Staging builds และมีหน้า Merge Lookup สำหรับช่วยตรวจสอบ CI/CD ของงานประเภท Merge
 
-> อัปเดตล่าสุด: 7 สิงหาคม 2026 (อ้างอิง `main`)
+> อัปเดตล่าสุด: 19 สิงหาคม 2026 (อ้างอิง `main` commit `73795c6`)
 
 Production URL:
 
@@ -32,7 +32,9 @@ Production URL:
 - MergeCode / MergeCodeProduction ถูกแยกเป็น manual workflow บน Azure DevOps
 - Activity เป็นหน้าดู approval log ล่าสุด 24 ชั่วโมง พร้อม filter และ paging
 - Audit Logs อ่านจาก SharePoint และเรียงล่าสุดก่อน
-- Daily Summary ส่งผ่าน Azure Logic Apps Consumption เวลา 18:00 Asia/Bangkok
+- Daily Summary ส่งผ่าน Azure Logic Apps Consumption ไปยัง Teams เวลา 18:00 และ LINE OA เวลา 23:59 Asia/Bangkok
+- Monthly Summary สรุปเดือนก่อนหน้าผ่าน Teams เวลา 08:00 และ LINE OA เวลา 08:05 ของวันที่ 1 โดยใช้ token และ duplicate guard แยกตามช่องทาง
+- Report Summary รองรับช่วงด่วน วันนี้ / เมื่อวาน / เดือนนี้ / เดือนก่อน, กราฟแนวโน้มรายชั่วโมงหรือรายวัน, เวลาอัปเดตข้อมูลใน timezone `Asia/Bangkok` และค้นหา/เรียง Failed Staging Builds พร้อมเปิด Build Diagnostics เมื่อผู้ใช้ต้องการ
 - SharePoint Log Retention รองรับ archive/export ก่อน cleanup โดย default เก็บ 365 วัน
 - Branch backup ล่าสุดใช้ `staging` ตัวพิมพ์เล็กเท่านั้น
 - Guarded Auto-Approve จะกลับมาทำงานหลัง browser auth refresh ได้ภายใน 10 นาที เฉพาะเมื่อ fresh PR scan สำเร็จ; หาก scan ล้มเหลวระบบจะคงโหมด `OFF` และไม่ส่ง approval
@@ -65,10 +67,11 @@ flowchart LR
   API --> LockStore["Azure Table<br/>Approval action locks"]
   API --> SP["SharePoint List<br/>ADO AutoApprove Log"]
   API --> Teams["Teams Webhook"]
+  API --> LINE["LINE Messaging API"]
   Frontend --> PortalAPI["App Service Portal API<br/>Azure Functions"]
   PortalAPI --> ARM["Azure Resource Graph / ARM"]
   PortalAPI --> PortalLog["SharePoint List<br/>App Service Portal Log"]
-  Logic["Azure Logic Apps<br/>18:00 Asia/Bangkok"] --> API
+  Logic["Azure Logic Apps<br/>Daily / Monthly schedules"] --> API
 ```
 
 ## Documentation
@@ -95,7 +98,7 @@ flowchart LR
 | Audit Logs | `/logs.html` | ค้นหา SharePoint Log ตาม PR, action, source, keyword |
 | System Health | `/health.html` | ตรวจ Backend, ADO, SharePoint, Teams, Daily Summary, Last Sync/Notification |
 | Forbidden | `/403.html` | แสดงเมื่อผู้ใช้ไม่มีสิทธิ์ |
-| Report | `/report.html` | ดูรายงานสรุปสถิติผลการดำเนินงานและสถิติ (รายวัน/รายเดือน) พร้อมตัวกรอง All/My actions, scope ของ Staging builds, รายการ failed build ล่าสุด และระบบซิงก์ข้อมูลบิลด์อัตโนมัติเบื้องหลัง |
+| Report | `/report.html` | ดู KPI และกราฟแนวโน้มการอนุมัติ/ความสำเร็จของ Staging builds แบบรายวันหรือรายเดือน พร้อม Quick Range, ตัวกรอง scope, Export Excel, ค้นหา/เรียง Failed Builds และเปิด Build Diagnostics รายการที่ต้องการ |
 | App Service Portal | `/portal.html` | ค้นหา ดู setting names และ restart App Service ใน scope `stg-*` ตามสิทธิ์ |
 | App Service Audit Logs | `/portal-logs.html` | ตรวจสอบประวัติการอ่าน settings และ restart จาก SharePoint Log แยกเฉพาะ portal |
 
@@ -316,6 +319,29 @@ api/shared/stg-ci-cd-map.json
 4. commit / push / deploy
 
 ไม่ควรแก้ `stg-ci-cd-map.json` ด้วยมือถ้าไม่จำเป็น เพราะเสี่ยงข้อมูลไม่ตรง CSV ต้นทาง
+
+## Report Summary
+
+หน้า `/report.html` รวมข้อมูลจาก SharePoint Audit Log และ Deployment Archive เพื่อดูประสิทธิภาพการอนุมัติ PR และ Staging builds ใน timezone `Asia/Bangkok`
+
+ตัวกรองและการใช้งาน:
+
+- เลือกรายงานรายวันหรือรายเดือน และกำหนดช่วงเวลาแบบรายชั่วโมงสำหรับรายงานรายวัน
+- ปุ่มช่วงด่วน: วันนี้, เมื่อวาน, เดือนนี้ และเดือนก่อน
+- เลือก PR Actions ทั้งหมดหรือเฉพาะของผู้ใช้ปัจจุบัน
+- เลือก Staging builds ทั้งหมดหรือเฉพาะ build ที่สัมพันธ์กับ PR ในรายงาน
+- Export รายละเอียดและสรุปผลเป็นไฟล์ Excel หลังโหลดข้อมูลสำเร็จ
+
+ข้อมูลที่แสดง:
+
+- KPI: จำนวน PR, อัตรา Auto-Approve, จำนวน Staging deploys และอัตราสำเร็จของ build พร้อมตัวเลขประกอบ
+- กราฟแนวโน้ม Auto-Approve Rate และ Build Success Rate แบบรายชั่วโมงสำหรับรายงานรายวัน หรือรายวันสำหรับรายงานรายเดือน
+- สัดส่วน approval actions, สถานะ deployments, Top Active Repositories และ Top Staging Failures
+- เวลา generate รายงานและ timezone เพื่อให้ตรวจ freshness ของข้อมูลได้
+- Recent Failed Staging Builds พร้อมค้นหาจาก PR/repository/branch/build/user และเรียงตามเวลาหรือชื่อ repository
+- Build Diagnostics โหลดเมื่อกด `ดูสาเหตุของ Build` และ cache ผลต่อ build เพื่อลด request ที่ไม่จำเป็น
+
+API `/api/report-summary` ส่ง `trend`, `generatedAt` และ `timezone` เพิ่มจากข้อมูลสรุปเดิม โดย trend bucket ที่ไม่มีข้อมูลจะใช้ค่า `null` สำหรับ rate เพื่อไม่ให้กราฟตีความเป็น 0% ผิดจากความจริง
 
 ## Audit Logs
 
@@ -824,7 +850,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/build-diagnostics` | GET/POST | GET วิเคราะห์ failed task logs แบบ read-only; POST พร้อม `sendToTeams: true` ส่ง sanitized diagnostics เข้า Teams |
 | `/api/deploy-history` | GET | ดึงข้อมูลประวัติการ Deploy จากไฟล์ CSV บน SharePoint |
 | `/api/sync-deployments` | GET/POST | ดึงและประสานประวัติการรัน Build & Deploy จาก Azure DevOps บันทึกเก็บเป็นไฟล์ CSV ตามปีบน SharePoint (โดยคัดกรองยกเว้นพวก Scheduled/Infrastructure system tasks ที่มีชื่อ Pipeline มีคำว่า `schedule` หรือ `scripts` ออกโดยอัตโนมัติ) |
-| `/api/report-summary` | GET | ดึงข้อมูลรายงานสรุปสถิติผลการดำเนินงาน (การอนุมัติ, อัตรา Auto-Approve, อัตราความสำเร็จของบิลด์) |
+| `/api/report-summary` | GET | ดึง KPI, trend รายชั่วโมง/รายวัน, เวลา generate, scope และรายละเอียด Failed Staging Builds สำหรับ Report Summary |
 | `/api/pr-history/{prId}` | GET | อ่าน history ของ PR จาก SharePoint |
 | `/api/logs` | GET | อ่าน audit logs จาก SharePoint |
 | `/api/health` | GET | ตรวจ system health หลัง login สำหรับผู้ใช้ที่มี role `it_support_approve` |
@@ -1155,11 +1181,12 @@ node -e "JSON.parse(require('fs').readFileSync('public/staticwebapp.config.json'
 | Approval Hold | ปรับเปลี่ยนสถานะ Hold / Unlock และจำกัด Action การควบคุมของ PR ได้ถูกต้อง |
 | Deployment Archive | แสดงและค้นหาประวัติการ Deploy Staging ย้อนหลัง คัดกรองตาม Repository, Branch และดึงไฟล์ CSV จาก SharePoint |
 | Build Diagnostics | ตรวจสอบ Timeline วิเคราะห์หา Failed Task และแปลรายละเอียดออกมาได้อย่างถูกต้องพร้อมส่ง Teams |
-| Report | แสดงผลสถิติการอนุมัติ, อัตรา Auto-Approve, อัตราสำเร็จของบิลด์ (รายวัน/รายเดือน), filter scope ของผู้ใช้/บิลด์ และรายการ Staging build failed ล่าสุด โดยคัดกรองข้ามพวก scheduled task ของระบบและซิงก์ข้อมูลเบื้องหลังสำเร็จ |
+| Report | แสดง KPI และ trend การอนุมัติ/ความสำเร็จของบิลด์แบบรายวันหรือรายเดือน, Quick Range, data freshness/timezone, filter scope, Export Excel และค้นหา/เรียง Failed Builds พร้อมโหลด diagnostics เมื่อกดดู โดยคัดกรอง scheduled system tasks และซิงก์ข้อมูลเบื้องหลังสำเร็จ |
 | SharePoint Log | action ผ่านเว็บมี log |
 | User Identity Action | Approve / Reject / Approve Release ใน Azure DevOps แสดง identity ของผู้ใช้ที่ Connect ไม่ใช่ service PAT |
 | Audit Logs | ค้นหาได้และเรียงล่าสุดก่อน |
-| Daily Summary | ส่ง Teams เวลา 18:00 ผ่าน Logic Apps และไม่ duplicate |
+| Daily Summary | ส่ง Teams เวลา 18:00 และ LINE OA เวลา 23:59 ผ่าน Logic Apps โดยไม่ duplicate ข้ามรอบจริงของแต่ละช่องทาง |
+| Monthly Summary | ส่งสรุปเดือนก่อนหน้าทาง Teams เวลา 08:00 และ LINE OA เวลา 08:05 ของวันที่ 1 โดยใช้ token และ Event Key แยกตามช่องทาง |
 | Health | ตรวจ Backend, ADO, SharePoint, Teams, Daily Summary ได้ |
 | Merge Lookup | กรอก PR แล้วได้ CI/CD เมื่อมี mapping |
 
