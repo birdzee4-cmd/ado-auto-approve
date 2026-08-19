@@ -731,6 +731,12 @@ disabled → configure token → enabled:
 powershell .\scripts\deploy-line-monthly-summary.ps1
 ```
 
+Teams Monthly ใช้ token แยกและ SecureString deployment เช่นเดียวกัน:
+
+```powershell
+powershell .\scripts\deploy-teams-monthly-summary.ps1
+```
+
 ข้อมูลประกอบด้วย PR overview, approval performance, build/deployment,
 attention snapshot, Top repositories และ comparison กับเดือนก่อนหน้า โดยคำนวณ
 จาก ADO, SharePoint Audit Log และ Deployment Archive โดยตรง ไม่ได้นำ Daily Summary
