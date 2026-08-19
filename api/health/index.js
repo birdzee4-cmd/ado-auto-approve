@@ -47,6 +47,7 @@ module.exports = async function (context, req) {
   checks.push(checkDailySummaryConfig());
   checks.push(checkLineConfig());
   checks.push(checkLineDailySummaryConfig());
+  checks.push(checkLineMonthlySummaryConfig());
   checks.push(checkHourlySyncConfig());
   checks.push(checkAutoCompleteReconcileConfig());
   checks.push(await checkApprovalLockStore(context));
@@ -102,6 +103,18 @@ module.exports = async function (context, req) {
           timeZone: 'Asia/Bangkok',
           localTime: '23:59',
           nextRunAt: getNextDailySummaryRun(generatedAt, 23, 59)
+        },
+        lineMonthlySummary: {
+          enabled: !!(
+            process.env.LINE_MONTHLY_SUMMARY_TOKEN ||
+            process.env.MONTHLY_SUMMARY_TOKEN ||
+            process.env.LINE_DAILY_SUMMARY_TOKEN ||
+            process.env.DAILY_SUMMARY_TOKEN
+          ) && !!process.env.LINE_CHANNEL_ACCESS_TOKEN && !!process.env.LINE_TARGET_ID,
+          scheduler: 'Azure Logic Apps Consumption',
+          timeZone: 'Asia/Bangkok',
+          localTime: 'Day 1 at 08:05',
+          nextRunAt: getNextMonthlyRun(generatedAt, 8, 5)
         },
         hourlyLogSync: {
           enabled: !!(process.env.HOURLY_SYNC_TOKEN || process.env.DAILY_SUMMARY_TOKEN),
@@ -239,6 +252,24 @@ function checkLineDailySummaryConfig() {
   return buildCheck('line-daily-summary', 'LINE Daily Summary', 'ok', 'LINE daily summary token is configured', startedAt, {
     scheduler: 'Azure Logic Apps Consumption',
     schedule: '23:59 Asia/Bangkok'
+  });
+}
+
+function checkLineMonthlySummaryConfig() {
+  const startedAt = Date.now();
+  const token = process.env.LINE_MONTHLY_SUMMARY_TOKEN ||
+    process.env.MONTHLY_SUMMARY_TOKEN ||
+    process.env.LINE_DAILY_SUMMARY_TOKEN ||
+    process.env.DAILY_SUMMARY_TOKEN || '';
+  if (!token) {
+    return buildCheck('line-monthly-summary', 'LINE Monthly Summary', 'warning', 'LINE_MONTHLY_SUMMARY_TOKEN is not configured', startedAt, {
+      scheduler: 'Azure Logic Apps Consumption',
+      schedule: 'Day 1 at 08:05 Asia/Bangkok'
+    });
+  }
+  return buildCheck('line-monthly-summary', 'LINE Monthly Summary', 'ok', 'LINE monthly summary token is configured', startedAt, {
+    scheduler: 'Azure Logic Apps Consumption',
+    schedule: 'Day 1 at 08:05 Asia/Bangkok'
   });
 }
 
@@ -515,6 +546,31 @@ function getNextHourlyRun(nowIso) {
   next.setUTCMinutes(0, 0, 0);
   next.setUTCHours(next.getUTCHours() + 1);
   return next.toISOString();
+}
+
+function getNextMonthlyRun(nowIso, targetHour, targetMinute) {
+  const offsetMs = 7 * 60 * 60 * 1000;
+  const now = new Date(nowIso);
+  const bkkNow = new Date(now.getTime() + offsetMs);
+  let runUtcMs = Date.UTC(
+    bkkNow.getUTCFullYear(),
+    bkkNow.getUTCMonth(),
+    1,
+    targetHour || 8,
+    targetMinute || 0,
+    0
+  ) - offsetMs;
+  if (runUtcMs <= now.getTime()) {
+    runUtcMs = Date.UTC(
+      bkkNow.getUTCFullYear(),
+      bkkNow.getUTCMonth() + 1,
+      1,
+      targetHour || 8,
+      targetMinute || 0,
+      0
+    ) - offsetMs;
+  }
+  return new Date(runUtcMs).toISOString();
 }
 
 function getNextMinuteIntervalRun(nowIso, intervalMinutes) {

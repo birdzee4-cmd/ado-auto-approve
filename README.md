@@ -696,22 +696,41 @@ Auto-complete restored: PR #349701 repo=Net_Project.IPOne target=refs/heads/Stag
 
 ### Monthly PR Summary
 
-ระบบส่งสรุปภาพรวมประจำเดือนเข้า MS Teams ผ่าน endpoint
-POST /api/monthly-summary แนะนำให้ Azure Logic Apps Consumption เรียกวันที่ 1
-ของทุกเดือน เวลา 08:00 น. Asia/Bangkok หากไม่ส่ง reportMonth ระบบจะเลือก
-เดือนปฏิทินก่อนหน้าโดยอัตโนมัติ เช่น Job วันที่ 1 สิงหาคมจะสรุปเดือนกรกฎาคม
-ครบทั้งเดือน
+ระบบส่งสรุปภาพรวมประจำเดือนเข้า MS Teams และ LINE OA ผ่าน endpoint แยกกัน:
 
-Request body สำหรับ Logic Apps ประกอบด้วย source เป็น Logic Apps และ
-scheduledFor เป็น 08:00 Asia/Bangkok ใช้ header x-monthly-summary-token
-หากไม่ได้ตั้ง MONTHLY_SUMMARY_TOKEN endpoint จะใช้ DAILY_SUMMARY_TOKEN เป็น
-fallback เพื่อใช้ credential ของ scheduler เดิมได้
+```text
+POST /api/monthly-summary       # Teams เวลา 08:00 น.
+POST /api/line-monthly-summary  # LINE OA เวลา 08:05 น.
+```
+
+แนะนำให้ Azure Logic Apps Consumption เรียกวันที่ 1 ของทุกเดือนตามเวลา
+Asia/Bangkok หากไม่ส่ง `reportMonth` ระบบจะเลือกเดือนปฏิทินก่อนหน้าโดยอัตโนมัติ
+เช่น Job วันที่ 1 สิงหาคมจะสรุปเดือนกรกฎาคมครบทั้งเดือน
+
+Request body สำหรับ Logic Apps ประกอบด้วย `source` เป็น `Logic Apps` และ
+`scheduledFor` ตามเวลาของแต่ละช่องทาง Teams ใช้ header
+`x-monthly-summary-token` ส่วน LINE ใช้ `x-line-monthly-summary-token`
+หากไม่ได้ตั้ง token เฉพาะ endpoint จะ fallback ไปใช้ summary token เดิมได้
+
+ตัวอย่าง Logic Apps HTTP action สำหรับ LINE:
+
+```text
+Method: POST
+URI: https://<host>/api/line-monthly-summary
+Header: x-line-monthly-summary-token: <LINE_MONTHLY_SUMMARY_TOKEN>
+Body: {"source":"Logic Apps","scheduledFor":"08:05 Asia/Bangkok"}
+```
+
+สามารถระบุ `reportMonth` รูปแบบ `YYYY-MM` เพื่อส่งเดือนที่ต้องการ หรือกำหนด
+`testMode: true` เพื่อทดสอบด้วย Event Key แยกจากรอบจริง
 
 ข้อมูลประกอบด้วย PR overview, approval performance, build/deployment,
 attention snapshot, Top repositories และ comparison กับเดือนก่อนหน้า โดยคำนวณ
 จาก ADO, SharePoint Audit Log และ Deployment Archive โดยตรง ไม่ได้นำ Daily Summary
-สองรอบมาบวกกัน ระบบกันส่งซ้ำด้วย Event Key รูปแบบ
-teams:monthly-summary:YYYY-MM และ testMode=true จะใช้ Event Key แยกจากรอบจริง
+สองรอบมาบวกกัน ระบบกันส่งซ้ำแยกตามช่องทางด้วย Event Key รูปแบบ
+`teams:monthly-summary:YYYY-MM` และ `line:monthly-summary:YYYY-MM`
+โดย `testMode=true` จะใช้ Event Key แยกจากรอบจริง ข้อความ LINE ใช้รายการแบบ
+plain text แทน Markdown table และจำกัด Top repository/PR ที่ต้องติดตามไว้ 5 รายการ
 
 ## Authentication และ Authorization
 
@@ -742,6 +761,7 @@ Routes สำคัญ:
 | `/api/daily-summary` | `anonymous` + header token |
 | `/api/monthly-summary` | `anonymous` + header token |
 | `/api/line-daily-summary` | `anonymous` + header token |
+| `/api/line-monthly-summary` | `anonymous` + header token |
 | `/api/sync-deployments` | `anonymous` + header/query token |
 | `/api/exception-scan` | `anonymous` + header token |
 | `/api/build-failure-scan` | `anonymous` + header token |
@@ -802,6 +822,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/daily-summary` | POST | endpoint สำหรับ Logic Apps scheduler |
 | `/api/monthly-summary` | POST | ส่ง Monthly PR Summary เข้า Teams วันที่ 1 ของเดือน |
 | `/api/line-daily-summary` | POST | endpoint สำหรับ Logic Apps LINE Daily Summary scheduler (ส่ง 23:59 น.) |
+| `/api/line-monthly-summary` | POST | ส่ง Monthly PR Summary เข้า LINE OA วันที่ 1 เวลา 08:05 น. |
 | `/api/exception-scan` | POST | endpoint สำหรับสแกน Build/Policy failed จาก approval logs |
 | `/api/build-failure-scan` | POST | endpoint สำหรับ Logic Apps polling หา Build failed จาก Azure DevOps REST API โดยตรง |
 | `/api/hourly-log-sync` | POST | endpoint สำหรับ Logic Apps hourly background reconciliation เติม external vote log ที่ตกหล่น |
@@ -976,6 +997,7 @@ api/shared/attention.js
 | `LINE_CHANNEL_ACCESS_TOKEN` | For LINE notification | Channel Access Token (Long-lived) ของ LINE OA |
 | `LINE_TARGET_ID` | For LINE notification | ID ปลายทางที่ต้องการส่งข้อความ (Group ID `C...` หรือ User ID `U...`) |
 | `LINE_DAILY_SUMMARY_TOKEN` | For LINE summary | Token ที่ตั้งไว้เพื่อใช้ตรวจสอบสิทธิ์ใน header สำหรับ `/api/line-daily-summary` |
+| `LINE_MONTHLY_SUMMARY_TOKEN` | Optional | Token สำหรับ `/api/line-monthly-summary`; fallback ไปใช้ `MONTHLY_SUMMARY_TOKEN`, `LINE_DAILY_SUMMARY_TOKEN` หรือ `DAILY_SUMMARY_TOKEN` |
 
 ### Webhook
 

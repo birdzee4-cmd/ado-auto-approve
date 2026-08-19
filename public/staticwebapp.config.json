@@ -73,6 +73,7 @@
     { "route": "/api/daily-summary", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/monthly-summary", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/line-daily-summary", "methods": ["POST"], "allowedRoles": ["anonymous"] },
+    { "route": "/api/line-monthly-summary", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/exception-scan", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/build-failure-scan", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/hourly-log-sync", "methods": ["POST"], "allowedRoles": ["anonymous"] },

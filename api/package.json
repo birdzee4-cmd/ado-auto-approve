@@ -2,7 +2,7 @@
   "name": "ado-auto-approve-api",
   "version": "1.0.0",
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js monthly-summary/index.test.js line-monthly-summary/index.test.js"
   },
   "dependencies": {
     "@azure/arm-appservice": "^19.0.0",
