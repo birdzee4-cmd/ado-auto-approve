@@ -319,6 +319,7 @@ function exportReportToExcel() {
 
   const data = latestReportData;
   const stats = data.stats || {};
+  const autoApproveOutcome = data.autoApproveOutcome || {};
   const scope = data.scope || {};
   const exportedAt = new Date();
   const sheets = [
@@ -343,7 +344,12 @@ function exportReportToExcel() {
       ['Succeeded Builds', stats.succeededDeploys || 0],
       ['Failed/Canceled Builds', stats.failedDeploys || 0],
       ['In Progress Builds', stats.inProgressDeploys || 0],
-      ['Build Success Rate (%)', stats.deploySuccessRate || 0]
+      ['Build Success Rate (%)', stats.deploySuccessRate || 0],
+      ['Auto-Approve to Latest Build Success Rate (%)', autoApproveOutcome.successRate || 0],
+      ['Auto-Approved PR Build Coverage (%)', autoApproveOutcome.coverageRate || 0],
+      ['Auto-Approved PRs', autoApproveOutcome.totalAutoApprovedPrs || 0],
+      ['Matched Auto-Approved PRs', autoApproveOutcome.matchedPrs || 0],
+      ['Latest Build Succeeded PRs', autoApproveOutcome.succeededPrs || 0]
     ], { headerRows: [0, 8], widths: [210, 260] }),
     buildSpreadsheetWorksheet('Top Active Repos', [
       ['Rank', 'Repository', 'Pull Requests'],
@@ -430,7 +436,10 @@ function clearStatsUi() {
   setText('statAutoApproveRate', '-');
   setText('statTotalDeploys', '-');
   setText('statBuildSuccessRate', '-');
-  ['statTotalPrsMeta', 'statAutoApproveRateMeta', 'statTotalDeploysMeta', 'statBuildSuccessRateMeta']
+  setText('statAutoApproveOutcomeRate', '-');
+  setText('statBuildCoverageRate', '-');
+  ['statTotalPrsMeta', 'statAutoApproveRateMeta', 'statTotalDeploysMeta', 'statBuildSuccessRateMeta',
+    'statAutoApproveOutcomeMeta', 'statBuildCoverageMeta']
     .forEach(id => setText(id, 'ไม่สามารถแสดงข้อมูลได้'));
   failedBuildSourceItems = [];
 
@@ -468,6 +477,7 @@ function destroyCharts() {
 // เรนเดอร์ข้อมูลสถิติ ตัวเลข กราฟ และอันดับ Repository
 function renderStatsUi(data) {
   const stats = data.stats || {};
+  const outcome = data.autoApproveOutcome || {};
   renderScopeNote(data);
   
   // 1) อัปเดต KPI Cards
@@ -475,10 +485,16 @@ function renderStatsUi(data) {
   setText('statAutoApproveRate', (stats.autoApproved + stats.manualApproved) > 0 ? `${stats.autoApproveRate}%` : '0%');
   setText('statTotalDeploys', String(stats.totalDeploys || 0));
   setText('statBuildSuccessRate', stats.totalDeploys > 0 ? `${stats.deploySuccessRate}%` : '0%');
-  setText('statTotalPrsMeta', `${stats.totalActions || 0} actions ในช่วงที่เลือก`);
-  setText('statAutoApproveRateMeta', `${stats.autoApproved || 0} จาก ${(stats.autoApproved || 0) + (stats.manualApproved || 0)} approvals`);
-  setText('statTotalDeploysMeta', `${stats.failedDeploys || 0} failed/canceled`);
-  setText('statBuildSuccessRateMeta', `${stats.succeededDeploys || 0} จาก ${stats.totalDeploys || 0} builds`);
+  const completedApprovals = (stats.autoApproved || 0) + (stats.manualApproved || 0);
+  const inProgressText = stats.inProgressDeploys ? ` • กำลังทำงาน ${stats.inProgressDeploys}` : '';
+  setText('statTotalPrsMeta', `${stats.totalPrs || 0} PR ไม่ซ้ำ • ${stats.totalActions || 0} Approval Actions`);
+  setText('statAutoApproveRateMeta', `อัตโนมัติ ${stats.autoApproved || 0} จาก ${completedApprovals} การอนุมัติสำเร็จ`);
+  setText('statTotalDeploysMeta', `สำเร็จ ${stats.succeededDeploys || 0} • ล้มเหลว/ยกเลิก ${stats.failedDeploys || 0}${inProgressText}`);
+  setText('statBuildSuccessRateMeta', `สำเร็จ ${stats.succeededDeploys || 0} จากการรันทั้งหมด ${stats.totalDeploys || 0} ครั้ง`);
+  setText('statAutoApproveOutcomeRate', `${outcome.successRate || 0}%`);
+  setText('statAutoApproveOutcomeMeta', `สำเร็จ ${outcome.succeededPrs || 0} จาก ${outcome.completedPrs || 0} PR ที่มี Completed Build`);
+  setText('statBuildCoverageRate', `${outcome.coverageRate || 0}%`);
+  setText('statBuildCoverageMeta', `จับคู่ได้ ${outcome.matchedPrs || 0} จาก ${outcome.totalAutoApprovedPrs || 0} Auto-Approved PR • ยังไม่พบ Build ${outcome.unmatchedPrs || 0}`);
   const freshness = document.getElementById('reportFreshness');
   if (freshness) {
     const generatedAt = data.generatedAt ? formatShortDate(data.generatedAt) : 'ไม่ทราบเวลา';

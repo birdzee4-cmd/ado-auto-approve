@@ -140,25 +140,39 @@
       <!-- Stats Summary Cards Grid -->
       <div class="stats-grid">
         <div class="stats-card highlight-blue">
-          <span>Pull Requests ทั้งหมด</span>
+          <span>PR ที่มีกิจกรรมการอนุมัติ</span>
           <strong id="statTotalPrs">-</strong>
           <small id="statTotalPrsMeta">รอข้อมูล</small>
         </div>
         <div class="stats-card highlight-green">
-          <span>อัตรา Auto-Approve</span>
+          <span>สัดส่วนการอนุมัติอัตโนมัติ</span>
           <strong id="statAutoApproveRate">-</strong>
           <small id="statAutoApproveRateMeta">รอข้อมูล</small>
         </div>
         <div class="stats-card highlight-orange">
-          <span>การ Deploy ขึ้น Staging</span>
+          <span>Staging Pipeline Runs</span>
           <strong id="statTotalDeploys">-</strong>
           <small id="statTotalDeploysMeta">รอข้อมูล</small>
         </div>
         <div class="stats-card highlight-red">
-          <span>อัตราสำเร็จ Staging Build</span>
+          <span>อัตราสำเร็จของ Staging Pipeline ทั้งหมด</span>
           <strong id="statBuildSuccessRate">-</strong>
           <small id="statBuildSuccessRateMeta">รอข้อมูล</small>
         </div>
+        <div class="stats-card highlight-purple" title="ใช้ Latest Staging Build หนึ่งรายการต่อ Auto-Approved PR และนับเฉพาะ Build ที่เสร็จแล้ว">
+          <span>อัตราสำเร็จหลัง Auto-Approve</span>
+          <strong id="statAutoApproveOutcomeRate">-</strong>
+          <small id="statAutoApproveOutcomeMeta">รอข้อมูล</small>
+        </div>
+        <div class="stats-card highlight-cyan" title="สัดส่วน Auto-Approved PR ที่ระบบจับคู่กับ Staging Build ได้">
+          <span>ความครอบคลุมในการจับคู่ Build</span>
+          <strong id="statBuildCoverageRate">-</strong>
+          <small id="statBuildCoverageMeta">รอข้อมูล</small>
+        </div>
+      </div>
+      <div class="stats-method-note" role="note">
+        <strong>วิธีนับ KPI หลัง Auto-Approve:</strong>
+        ใช้ Latest Staging Build หลังการอนุมัติหนึ่งรายการต่อ PR, จับคู่ด้วย PR ID และไม่นับ Build ที่ยังทำงานอยู่ในอัตราสำเร็จ
       </div>
 
       <!-- Visual Charts Section -->
@@ -178,14 +192,14 @@
 
       <div class="charts-grid">
         <div class="chart-card">
-          <h3><span>🎨</span> สัดส่วนผลการอนุมัติ (Approve Actions)</h3>
+          <h3><span>🎨</span> สัดส่วนวิธีการอนุมัติ (Approval Actions)</h3>
           <div class="chart-container">
             <canvas id="approveChart"></canvas>
             <div id="approveChartEmpty" class="empty-state" style="display: none;">— ไม่มีข้อมูลสรุปสถิติ —</div>
           </div>
         </div>
         <div class="chart-card">
-          <h3><span>⚡</span> ความสำเร็จของบิลด์ (Staging Deployments)</h3>
+          <h3><span>⚡</span> ผลลัพธ์ Staging Pipeline Runs (ทั้งหมด)</h3>
           <div class="chart-container">
             <canvas id="buildChart"></canvas>
             <div id="buildChartEmpty" class="empty-state" style="display: none;">— ไม่มีข้อมูลสรุปสถิติ —</div>

@@ -342,6 +342,19 @@
 .stats-card.highlight-green::before { background: #10b981; }
 .stats-card.highlight-orange::before { background: #f59e0b; }
 .stats-card.highlight-red::before { background: #ef4444; }
+.stats-card.highlight-purple::before { background: #8b5cf6; }
+.stats-card.highlight-cyan::before { background: #06b6d4; }
+
+.stats-method-note {
+  margin: -14px 0 28px;
+  padding: 10px 12px;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 8px;
+  background: #faf5ff;
+  color: #6b21a8;
+  font-size: 12px;
+  line-height: 1.5;
+}
 
 /* ===== Visual Charts Grid ===== */
 .charts-grid {

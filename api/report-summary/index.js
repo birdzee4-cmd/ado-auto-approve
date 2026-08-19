@@ -109,6 +109,7 @@ module.exports = async function (context, req) {
     const repoPrCount = {}; // repository -> Set of unique PRs
     const relatedPrIds = new Set();
     const relatedRepoKeys = new Set();
+    const autoApprovedPrs = new Map();
 
     logs.forEach(item => {
       const fields = item.fields || {};
@@ -132,6 +133,7 @@ module.exports = async function (context, req) {
       if (action.includes('auto approved') || action.includes('autoapproved')) {
         autoApproved++;
         addApprovalToTrend(trendBuckets, fields.Created, offsetMs, true);
+        recordAutoApprovedPr(autoApprovedPrs, prId, repo, fields.Created);
       } else if (action.includes('approved')) {
         manualApproved++;
         addApprovalToTrend(trendBuckets, fields.Created, offsetMs, false);
@@ -186,6 +188,7 @@ module.exports = async function (context, req) {
     let inProgressDeploys = 0;
     const repoFailedDeploys = {}; // normalized repository -> { repo, count }
     const failedDeployItems = [];
+    const latestAutoApproveBuilds = new Map();
 
     const startTs = startUtc.getTime();
     const endTs = endUtc.getTime();
@@ -199,6 +202,8 @@ module.exports = async function (context, req) {
       const ts = Date.parse(finishedTime);
       if (isNaN(ts) || ts < startTs || ts >= endTs) return;
       if (buildScope === 'related' && !isDeploymentRelatedToReport(row, relatedPrIds, relatedRepoKeys)) return;
+
+      recordLatestAutoApproveBuild(autoApprovedPrs, latestAutoApproveBuilds, row, ts);
 
       totalDeploys++;
       const status = String(row.Status || '').toLowerCase();
@@ -227,6 +232,7 @@ module.exports = async function (context, req) {
     const deploySuccessRate = totalDeploys > 0 
       ? parseFloat(((succeededDeploys / totalDeploys) * 100).toFixed(2)) 
       : 0;
+    const autoApproveOutcome = summarizeAutoApproveOutcome(autoApprovedPrs, latestAutoApproveBuilds);
 
     // เก็บข้อมูลเต็มสำหรับ Export และตัดเฉพาะ Preview ที่ใช้แสดงบนหน้าเว็บ
     const allFailedRepos = Object.values(repoFailedDeploys)
@@ -270,6 +276,7 @@ module.exports = async function (context, req) {
         deploySuccessRate: deploySuccessRate
       },
       trend: finalizeTrendBuckets(trendBuckets),
+      autoApproveOutcome: autoApproveOutcome,
       generatedAt: new Date().toISOString(),
       timezone: 'Asia/Bangkok',
       topActiveRepos: topActiveRepos,
@@ -526,6 +533,71 @@ function isFailedStatus(status) {
   return value === 'failed' || value === 'canceled';
 }
 
+function recordAutoApprovedPr(autoApprovedPrs, prId, repo, timestamp) {
+  const key = String(prId || '');
+  if (!key) return;
+  const approvedTs = Date.parse(timestamp || '');
+  const existing = autoApprovedPrs.get(key);
+  autoApprovedPrs.set(key, {
+    prId: key,
+    repo: repo || (existing && existing.repo) || '',
+    approvedAt: Number.isNaN(approvedTs)
+      ? existing && existing.approvedAt || null
+      : existing && Number.isFinite(existing.approvedAt)
+        ? Math.min(existing.approvedAt, approvedTs)
+        : approvedTs
+  });
+}
+
+function recordLatestAutoApproveBuild(autoApprovedPrs, latestBuilds, row, buildTs) {
+  if (!Number.isFinite(buildTs)) return;
+  const candidates = Array.from(new Set(getDeploymentPrCandidates(row).map(value => String(value || '')).filter(Boolean)));
+  candidates.forEach(prId => {
+    const approvedPr = autoApprovedPrs.get(prId);
+    if (!approvedPr) return;
+    if (Number.isFinite(approvedPr.approvedAt) && buildTs < approvedPr.approvedAt) return;
+    const existing = latestBuilds.get(prId);
+    if (existing && existing.finishedAt > buildTs) return;
+    latestBuilds.set(prId, {
+      prId: prId,
+      status: String(row.Status || '').toLowerCase(),
+      finishedAt: buildTs,
+      buildNumber: row.BuildNumber || ''
+    });
+  });
+}
+
+function summarizeAutoApproveOutcome(autoApprovedPrs, latestBuilds) {
+  const totalAutoApprovedPrs = autoApprovedPrs.size;
+  let succeededPrs = 0;
+  let failedPrs = 0;
+  let inProgressPrs = 0;
+
+  latestBuilds.forEach(build => {
+    if (build.status === 'succeeded') succeededPrs += 1;
+    else if (isFailedStatus(build.status) || build.status.includes('partial')) failedPrs += 1;
+    else inProgressPrs += 1;
+  });
+
+  const matchedPrs = latestBuilds.size;
+  const completedPrs = succeededPrs + failedPrs;
+  return {
+    totalAutoApprovedPrs: totalAutoApprovedPrs,
+    matchedPrs: matchedPrs,
+    completedPrs: completedPrs,
+    succeededPrs: succeededPrs,
+    failedPrs: failedPrs,
+    inProgressPrs: inProgressPrs,
+    unmatchedPrs: Math.max(0, totalAutoApprovedPrs - matchedPrs),
+    successRate: completedPrs > 0
+      ? Number(((succeededPrs / completedPrs) * 100).toFixed(2))
+      : 0,
+    coverageRate: totalAutoApprovedPrs > 0
+      ? Number(((matchedPrs / totalAutoApprovedPrs) * 100).toFixed(2))
+      : 0
+  };
+}
+
 function buildFailedDeployItem(row) {
   return {
     prId: row.PrId || row.PR_ID || row.PullRequestId || extractPrId(row.Branch) || extractPrId(row.CommitMessage) || '',
@@ -650,3 +722,9 @@ function finalizeTrendBuckets(buckets) {
     });
   });
 }
+
+module.exports._test = {
+  recordAutoApprovedPr,
+  recordLatestAutoApproveBuild,
+  summarizeAutoApproveOutcome
+};
