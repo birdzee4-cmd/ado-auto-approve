@@ -5,6 +5,10 @@ function isTeamsEnabled() {
   return !!process.env.TEAMS_WEBHOOK_URL && process.env.TEAMS_EXCEPTION_NOTIFICATIONS !== 'false';
 }
 
+function isManualMergeCodeTeamsEnabled() {
+  return !!process.env.TEAMS_WEBHOOK_URL && process.env.TEAMS_MANUAL_MERGECODE_NOTIFICATIONS !== 'false';
+}
+
 async function notifyPrIssueIfNeeded(context, pr, options) {
   if (!isTeamsEnabled() || !pr || !pr.id) {
     return { skipped: true, reason: 'disabled_or_missing_pr' };
@@ -72,6 +76,40 @@ async function notifyOperationFailed(context, opts) {
     statusSnapshot: opts.statusSnapshot,
     adoPrUrl: opts.adoPrUrl
   }, buildOperationFailedMessage(opts));
+}
+
+async function notifyManualMergeCodeIfNeeded(context, pr, options) {
+  if (!isManualMergeCodeTeamsEnabled() || !pr || !pr.id) {
+    return { skipped: true, reason: 'disabled_or_missing_pr' };
+  }
+  if (!isMergeCodeTarget(pr)) {
+    return { skipped: true, reason: 'not_mergecode' };
+  }
+
+  const opts = options || {};
+  const baseEventKey = buildManualMergeCodeEventKey(pr);
+  const initialEventKey = baseEventKey + ':created';
+  const initialResult = await sendOnce(
+    context,
+    initialEventKey,
+    buildManualMergeCodeLogOptions(pr, initialEventKey, 0),
+    buildManualMergeCodeMessage(pr, 0)
+  );
+
+  if (!initialResult || initialResult.reason !== 'duplicate' || opts.allowReminder === false) {
+    return initialResult;
+  }
+
+  const reminderHours = getDueManualReminderHours(pr, opts.now);
+  if (!reminderHours) return initialResult;
+
+  const reminderEventKey = baseEventKey + ':reminder:' + reminderHours + 'h';
+  return sendOnce(
+    context,
+    reminderEventKey,
+    buildManualMergeCodeLogOptions(pr, reminderEventKey, reminderHours),
+    buildManualMergeCodeMessage(pr, reminderHours)
+  );
 }
 
 async function sendOnce(context, eventKey, logOptions, message) {
@@ -223,6 +261,89 @@ function buildOperationFailedMessage(opts) {
   return lines.join('\n');
 }
 
+function buildManualMergeCodeLogOptions(pr, eventKey, reminderHours) {
+  return {
+    prId: pr.id,
+    action: reminderHours ? 'MergeCode Manual Reminder' : 'MergeCode Manual Alert',
+    user: 'System',
+    repository: pr.repository,
+    prTitle: pr.title,
+    targetBranch: pr.targetBranch,
+    result: reminderHours ? 'Manual action overdue (' + reminderHours + 'h)' : 'Manual action required',
+    reason: 'MergeCode target branch requires manual action in Azure DevOps.',
+    source: 'Teams Notification',
+    eventKey: eventKey,
+    statusSnapshot: pr.statusSnapshot,
+    adoPrUrl: pr.url
+  };
+}
+
+function buildManualMergeCodeMessage(pr, reminderHours) {
+  const s = pr.statusSnapshot || {};
+  const age = formatAge(pr.creationDate);
+  const heading = reminderHours
+    ? '🔴 **MergeCode Manual overdue — ' + reminderHours + 'h reminder**'
+    : '🟠 **Action required — MergeCode Manual**';
+  const lines = [
+    heading,
+    '',
+    'PR นี้ต้องดำเนินการแบบ Manual ใน Azure DevOps',
+    '',
+    '| Field | Value |',
+    '| --- | --- |',
+    '| **PR** | #' + safe(pr.id) + ' |',
+    '| **Title** | ' + safe(pr.title) + ' |',
+    '| **Repository** | ' + safe(pr.repository) + ' |',
+    '| **Branch** | ' + safe(pr.sourceBranch) + ' → ' + safe(pr.targetBranch) + ' |',
+    '| **Created by** | ' + safe(pr.createdBy) + ' |',
+    '| **Waiting** | ' + safe(age) + ' |',
+    '| **Build** | ' + safe([s.buildStatus, s.buildResult].filter(Boolean).join(' / ') || '-') + ' |',
+    '| **Policy** | ' + safe(s.policyStatus || '-') + ' |'
+  ];
+  if (pr.url) lines.push('', '🔗 [Open PR in Azure DevOps](' + pr.url + ')');
+  return lines.join('\n');
+}
+
+function buildManualMergeCodeEventKey(pr) {
+  const repositoryKey = normalizeKey(pr.repositoryId || pr.repository || 'unknown-repository');
+  return 'teams:manual-mergecode:' + repositoryKey + ':' + normalizeKey(pr.id);
+}
+
+function isMergeCodeTarget(pr) {
+  return pr && (pr.isMergeCodeTarget === true || String(pr.targetBranch || '').toLowerCase().includes('mergecode'));
+}
+
+function getDueManualReminderHours(pr, now) {
+  const createdMs = Date.parse(pr && pr.creationDate || '');
+  if (!Number.isFinite(createdMs)) return 0;
+  const nowMs = now == null ? Date.now() : new Date(now).getTime();
+  if (!Number.isFinite(nowMs) || nowMs < createdMs) return 0;
+  const ageHours = (nowMs - createdMs) / (60 * 60 * 1000);
+  const thresholds = getManualReminderHours();
+  for (let index = thresholds.length - 1; index >= 0; index -= 1) {
+    if (ageHours >= thresholds[index]) return thresholds[index];
+  }
+  return 0;
+}
+
+function getManualReminderHours() {
+  const configured = process.env.MERGECODE_REMINDER_HOURS || '4,24';
+  return Array.from(new Set(String(configured).split(',')
+    .map(value => Number(value.trim()))
+    .filter(value => Number.isFinite(value) && value > 0)))
+    .sort((a, b) => a - b);
+}
+
+function formatAge(creationDate) {
+  const createdMs = Date.parse(creationDate || '');
+  if (!Number.isFinite(createdMs)) return '-';
+  const minutes = Math.max(0, Math.floor((Date.now() - createdMs) / 60000));
+  if (minutes < 60) return minutes + 'm';
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours + 'h ' + (minutes % 60) + 'm';
+  return Math.floor(hours / 24) + 'd ' + (hours % 24) + 'h';
+}
+
 function safe(value) {
   return String(value || '-').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 }
@@ -238,5 +359,13 @@ function normalizeKey(value) {
 module.exports = {
   notifyPrIssueIfNeeded,
   notifyRejected,
-  notifyOperationFailed
+  notifyOperationFailed,
+  notifyManualMergeCodeIfNeeded,
+  _test: {
+    buildManualMergeCodeEventKey,
+    buildManualMergeCodeMessage,
+    getDueManualReminderHours,
+    getManualReminderHours,
+    isMergeCodeTarget
+  }
 };

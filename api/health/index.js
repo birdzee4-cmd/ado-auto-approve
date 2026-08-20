@@ -294,16 +294,19 @@ function checkAutoCompleteReconcileConfig() {
   const startedAt = Date.now();
   const token = process.env.AUTO_COMPLETE_RECONCILE_TOKEN || process.env.DAILY_SUMMARY_TOKEN || '';
   if (!token) {
-    return buildCheck('auto-complete-reconcile', 'Auto-Complete Reconciler', 'warning', 'AUTO_COMPLETE_RECONCILE_TOKEN is not configured', startedAt, {
+    return buildCheck('auto-complete-reconcile', '5-minute PR Reconciler', 'warning', 'AUTO_COMPLETE_RECONCILE_TOKEN is not configured', startedAt, {
       scheduler: 'Azure Logic Apps Consumption',
       schedule: 'Every 5 minutes',
-      fallback: 'DAILY_SUMMARY_TOKEN'
+      fallback: 'DAILY_SUMMARY_TOKEN',
+      manualMergeCodeNotifications: 'Unavailable until the scheduler token is configured'
     });
   }
-  return buildCheck('auto-complete-reconcile', 'Auto-Complete Reconciler', 'ok', 'Auto-complete reconciler token is configured', startedAt, {
+  return buildCheck('auto-complete-reconcile', '5-minute PR Reconciler', 'ok', 'REST polling token is configured', startedAt, {
     scheduler: 'Azure Logic Apps Consumption',
     schedule: 'Every 5 minutes',
-    repoScope: process.env.AUTO_COMPLETE_RECONCILE_REPOS || 'all matching staging repositories'
+    repoScope: process.env.AUTO_COMPLETE_RECONCILE_REPOS || 'all matching staging repositories',
+    manualMergeCodeRepoScope: process.env.MERGECODE_SCAN_REPOS || 'all readable repositories',
+    manualMergeCodeNotifications: process.env.TEAMS_MANUAL_MERGECODE_NOTIFICATIONS === 'false' ? 'disabled' : 'enabled'
   });
 }
 

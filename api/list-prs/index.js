@@ -955,7 +955,7 @@ async function syncExternalVoteLogs(context, prRows, currentUser) {
 
 async function syncExceptionNotifications(context, prRows, options) {
   const rows = Array.isArray(prRows) ? prRows.slice(0, 25) : [];
-  if (!rows.length || process.env.TEAMS_EXCEPTION_NOTIFICATIONS === 'false') {
+  if (!rows.length) {
     return { ok: true, checked: 0, sent: 0, skipped: true };
   }
 
@@ -973,6 +973,11 @@ async function syncExceptionNotifications(context, prRows, options) {
   for (const pr of rows) {
     try {
       checked += 1;
+      const manualResult = await notifications.notifyManualMergeCodeIfNeeded(context, pr, options);
+      if (manualResult && manualResult.ok) sent += 1;
+      if (manualResult && manualResult.ok === false && manualResult.error) {
+        errors.push('PR #' + pr.id + ' manual notification: ' + manualResult.error);
+      }
       const result = await notifications.notifyPrIssueIfNeeded(context, pr, options);
       if (result && result.ok) sent += 1;
       if (result && result.ok === false && result.error) errors.push('PR #' + pr.id + ': ' + result.error);

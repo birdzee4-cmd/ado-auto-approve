@@ -1,6 +1,7 @@
 const ado = require('./ado-client');
 const sp = require('./sharepoint-client');
 const approvalHold = require('./approval-hold');
+const notifications = require('./notification-service');
 
 const DEFAULT_SKIP_LABELS = ['no-auto-complete', 'manual-complete', 'hold'];
 
@@ -10,36 +11,7 @@ async function runAutoCompleteReconcile(context, options) {
   const settings = await sp.getAutoApproveSettings();
   const mode = normalizeMode(settings.autoMode);
   const dryRun = opts.dryRun || mode === 'dry-run' || isTrue(process.env.AUTO_COMPLETE_RECONCILE_DRY_RUN);
-
-  if (mode === 'normal') {
-    const skipped = buildResult({
-      ok: true,
-      skipped: true,
-      reason: 'Auto-Approve mode is normal',
-      mode,
-      dryRun,
-      startedAt,
-      finishedAt: new Date().toISOString()
-    });
-    logSummary(context, skipped);
-    return skipped;
-  }
-
   const cfg = getReconcileConfig();
-  const identityResult = await ado.getConnectionData();
-  if (!identityResult.ok || !identityResult.body || !identityResult.body.authenticatedUser) {
-    return buildResult({
-      ok: false,
-      error: 'Cannot resolve service account identity: HTTP ' + identityResult.status,
-      mode,
-      dryRun,
-      startedAt,
-      finishedAt: new Date().toISOString()
-    });
-  }
-
-  const serviceUser = identityResult.body.authenticatedUser;
-  const serviceUserId = serviceUser.id;
   const listResult = await ado.listPullRequestsByStatus('active', {
     top: cfg.pageSize,
     maxPages: cfg.maxPages
@@ -58,6 +30,42 @@ async function runAutoCompleteReconcile(context, options) {
   const activePrs = listResult.body && Array.isArray(listResult.body.value)
     ? listResult.body.value
     : [];
+  const manualMergeCode = await notifyManualMergeCodePrs(context, activePrs, cfg);
+
+  if (mode === 'normal') {
+    const skipped = buildResult({
+      ok: manualMergeCode.errors.length === 0,
+      skipped: true,
+      reason: 'Auto-Approve mode is normal',
+      mode,
+      dryRun,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      totalActive: activePrs.length,
+      pagesFetched: listResult.pagesFetched || 1,
+      manualMergeCode
+    });
+    logSummary(context, skipped);
+    return skipped;
+  }
+
+  const identityResult = await ado.getConnectionData();
+  if (!identityResult.ok || !identityResult.body || !identityResult.body.authenticatedUser) {
+    return buildResult({
+      ok: false,
+      error: 'Cannot resolve service account identity: HTTP ' + identityResult.status,
+      mode,
+      dryRun,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      totalActive: activePrs.length,
+      pagesFetched: listResult.pagesFetched || 1,
+      manualMergeCode
+    });
+  }
+
+  const serviceUser = identityResult.body.authenticatedUser;
+  const serviceUserId = serviceUser.id;
   const targetPrs = activePrs.filter(pr => isPotentialTarget(pr, cfg));
   const holdStates = await getHoldStates(context, targetPrs);
   const rows = [];
@@ -126,6 +134,7 @@ async function runAutoCompleteReconcile(context, options) {
     targetBranchPatterns: cfg.targetPatterns,
     repoAllowlist: cfg.repoAllowlist,
     reviewerGroup: cfg.reviewerGroup,
+    manualMergeCode,
     rows
   });
 
@@ -134,6 +143,79 @@ async function runAutoCompleteReconcile(context, options) {
     await writeSummaryLog(context, result, serviceUser);
   }
   return result;
+}
+
+async function notifyManualMergeCodePrs(context, activePrs, cfg) {
+  const candidates = (Array.isArray(activePrs) ? activePrs : [])
+    .filter(pr => isManualMergeCodeCandidate(pr, cfg));
+  const rows = [];
+  const errors = [];
+  let sent = 0;
+  let skipped = 0;
+  const adoCfg = ado.getConfig();
+
+  for (const pr of candidates) {
+    const row = {
+      id: pr.pullRequestId,
+      title: pr.title || '',
+      repository: pr.repository && pr.repository.name || '',
+      repositoryId: getRepositoryId(pr),
+      sourceBranch: pr.sourceRefName || '',
+      targetBranch: pr.targetRefName || '',
+      createdBy: pr.createdBy && pr.createdBy.displayName || '',
+      creationDate: pr.creationDate,
+      statusSnapshot: {},
+      isMergeCodeTarget: true,
+      url: buildAdoPrUrl(adoCfg, pr)
+    };
+    try {
+      const result = await notifications.notifyManualMergeCodeIfNeeded(context, row, {
+        scope: 'rest-polling',
+        allowReminder: true
+      });
+      if (result && result.ok) sent += 1;
+      else skipped += 1;
+      if (result && result.ok === false) {
+        errors.push('PR #' + row.id + ': ' + (result.error || 'Teams HTTP ' + result.status));
+      }
+      rows.push({
+        prId: row.id,
+        repository: row.repository,
+        targetBranch: row.targetBranch,
+        notification: result
+      });
+    } catch (e) {
+      skipped += 1;
+      errors.push('PR #' + row.id + ': ' + e.message);
+      logWarn(context, 'MergeCode REST polling notification failed for PR #' + row.id + ': ' + e.message);
+    }
+  }
+
+  return {
+    source: 'ADO REST Active PR Scan',
+    checked: candidates.length,
+    sent,
+    skipped,
+    errors: errors.slice(0, 10),
+    rows
+  };
+}
+
+function isManualMergeCodeCandidate(pr, cfg) {
+  if (!pr || String(pr.status || '').toLowerCase() !== 'active') return false;
+  if (pr.isDraft === true) return false;
+  if (!isMergeCodeBranch(pr.targetRefName)) return false;
+  const repoName = pr.repository && pr.repository.name || '';
+  if (cfg.manualMergeCodeRepoAllowlist.length && !cfg.manualMergeCodeRepoAllowlist.includes(repoName)) return false;
+  return hasReviewerGroup(pr, cfg.reviewerGroup);
+}
+
+function buildAdoPrUrl(cfg, pr) {
+  const repository = pr && pr.repository && pr.repository.name || '';
+  const prId = pr && pr.pullRequestId;
+  if (!cfg || !cfg.org || !cfg.project || !repository || !prId) return '';
+  return 'https://dev.azure.com/' + encodeURIComponent(cfg.org) + '/' + encodeURIComponent(cfg.project) +
+    '/_git/' + encodeURIComponent(repository) + '/pullrequest/' + encodeURIComponent(String(prId));
 }
 
 function normalizeOptions(options) {
@@ -149,6 +231,7 @@ function getReconcileConfig() {
       .concat(splitList(process.env.ADO_TARGET_BRANCH))
       .filter(Boolean),
     repoAllowlist: splitList(process.env.AUTO_COMPLETE_RECONCILE_REPOS),
+    manualMergeCodeRepoAllowlist: splitList(process.env.MERGECODE_SCAN_REPOS),
     skipLabels: splitList(process.env.AUTO_COMPLETE_RECONCILE_SKIP_LABELS, DEFAULT_SKIP_LABELS),
     reviewerGroup: process.env.ADO_REVIEWER_GROUP || 'IT Support Approve',
     pageSize: clampNumber(process.env.AUTO_COMPLETE_RECONCILE_PAGE_SIZE, 25, 500, 100),
@@ -365,5 +448,7 @@ module.exports = {
   matchBranchPattern,
   hasSkipLabel,
   hasReviewerGroup,
-  getReconcileConfig
+  getReconcileConfig,
+  notifyManualMergeCodePrs,
+  isManualMergeCodeCandidate
 };

@@ -528,7 +528,26 @@ Diagnostic Tools:
 
 ## Teams Notification
 
-ระบบมี notification 2 กลุ่มหลัก:
+ระบบแยก notification ตามประเภทเหตุการณ์เพื่อลด noise:
+
+### MergeCode Manual Notification
+
+Logic Apps ที่เรียก `POST /api/auto-complete-reconcile` ทุก 5 นาทีจะใช้ Azure DevOps REST API ดึง Active PR ทั้งโปรเจกต์ แล้วกรอง PR ที่ target branch มีคำว่า `MergeCode` เพื่อส่ง Teams แจ้งว่าเป็นงานที่ต้องดำเนินการ Manual พร้อมลิงก์เปิด PR โดยตรง การสแกนส่วนนี้ทำงานแม้ Auto-Approve mode เป็น `normal`
+
+หลักการทำงาน:
+
+- REST polling ทุก 5 นาทีเป็น trigger หลัก โดยใช้ service credential/PAT เดิมของ background job
+- กรองเฉพาะ Active PR ที่ไม่ใช่ Draft และมี reviewer group ตาม `ADO_REVIEWER_GROUP`
+- Dashboard PR scan เป็น fallback เมื่อผู้ใช้เปิดหน้า Dashboard
+- กันข้อความแรกซ้ำด้วย `Event_Key = teams:manual-mergecode:<repository>:<prId>:created`
+- เมื่อ REST polling หรือ Dashboard scan พบว่างานยังค้าง จะส่ง reminder ตาม `MERGECODE_REMINDER_HOURS` (default `4,24`) โดยแต่ละ threshold ส่งได้ครั้งเดียว
+- บันทึกการส่งสำเร็จลง SharePoint Log เพื่อ audit และใช้ตรวจ duplicate
+
+สามารถปิดเฉพาะ notification กลุ่มนี้ด้วย:
+
+```text
+TEAMS_MANUAL_MERGECODE_NOTIFICATIONS=false
+```
 
 ### Build / Policy Exception Notification
 
@@ -865,7 +884,7 @@ GRAPH_USER_PROFILE_LOOKUP=true
 | `/api/exception-scan` | POST | endpoint สำหรับสแกน Build/Policy failed จาก approval logs |
 | `/api/build-failure-scan` | POST | endpoint สำหรับ Logic Apps polling หา Build failed จาก Azure DevOps REST API โดยตรง |
 | `/api/hourly-log-sync` | POST | endpoint สำหรับ Logic Apps hourly background reconciliation เติม external vote log ที่ตกหล่น |
-| `/api/auto-complete-reconcile` | POST | endpoint สำหรับ Logic Apps reset auto-complete กลับให้ PR ที่เคย Auto Approved หลัง abandon/reactivate |
+| `/api/auto-complete-reconcile` | POST | endpoint สำหรับ Logic Apps ทุก 5 นาที: scan/notify งาน MergeCode Manual และ reset auto-complete ให้ PR ที่เคย Auto Approved หลัง abandon/reactivate |
 | `/api/log-retention-cleanup` | POST | endpoint สำหรับ archive/export/delete SharePoint logs เก่ากว่า retention window |
 | `/api/table-retention-cleanup` | POST | endpoint สำหรับลบ Azure Table records เก่าของ `ApprovalLocks` และ `AdoUserTokens` |
 | `/api/webhook` | POST | legacy/webhook notification endpoint |
@@ -1008,6 +1027,9 @@ api/shared/attention.js
 |---|---:|---|
 | `TEAMS_WEBHOOK_URL` | For notification | Teams webhook endpoint |
 | `TEAMS_EXCEPTION_NOTIFICATIONS` | No | set `false` เพื่อปิด exception alerts |
+| `TEAMS_MANUAL_MERGECODE_NOTIFICATIONS` | No | set `false` เพื่อปิดแจ้งเตือนงาน MergeCode / MergeCodeProduction ที่ต้องทำ Manual (default: enabled เมื่อมี Teams webhook) |
+| `MERGECODE_REMINDER_HOURS` | No | ชั่วโมงที่ใช้แจ้งเตือนงาน MergeCode Manual ที่ยังค้าง คั่นด้วย comma (default: `4,24`) |
+| `MERGECODE_SCAN_REPOS` | No | comma-separated repo allowlist สำหรับ MergeCode REST scan; ถ้าว่างจะตรวจทุก repo ที่ service credential อ่านได้ |
 | `DAILY_SUMMARY_TOKEN` | For daily summary | token ที่ Logic Apps ส่งมาใน header |
 | `MONTHLY_SUMMARY_TOKEN` | Optional | token สำหรับ Monthly Summary; fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
 | `EXCEPTION_SCAN_TOKEN` | No | token สำหรับ `/api/exception-scan`; ถ้าไม่ตั้งจะ fallback ไปใช้ `DAILY_SUMMARY_TOKEN` |
