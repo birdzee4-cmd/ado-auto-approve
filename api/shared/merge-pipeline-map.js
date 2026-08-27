@@ -68,6 +68,20 @@ const MERGE_PIPELINE_RULES = [
     cd: {
       name: 'stg web rulebasedengine CD'
     }
+  },
+  {
+    key: 'net-web-gaysorn-docker',
+    label: 'Net Web Gaysorn Docker',
+    repository: 'Net_Web_Gaysorn',
+    targetIncludes: ['_OP_Website_Gaysorn_Docker_'],
+    environment: 'STG',
+    confidence: 'high',
+    ci: {
+      name: 'STG_Net_Web_Gaysorn_docker-CI'
+    },
+    cd: {
+      name: 'stg web gaysorn docker CD'
+    }
   }
 ];
 
@@ -95,8 +109,8 @@ function findMergePipelineRule(pr) {
 
   return MERGE_PIPELINE_RULES.find(rule =>
     repositoryMatches(rule, repoName) &&
-    containsAny(sourceBranch, rule.sourceIncludes) &&
-    containsAny(targetBranch, rule.targetIncludes)
+    (!rule.sourceIncludes || !rule.sourceIncludes.length || containsAny(sourceBranch, rule.sourceIncludes)) &&
+    (!rule.targetIncludes || !rule.targetIncludes.length || containsAny(targetBranch, rule.targetIncludes))
   ) || null;
 }
 

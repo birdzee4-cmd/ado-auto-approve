@@ -27,6 +27,19 @@ test('generic Net repository name alone does not produce a pipeline candidate', 
   assert.equal(result, null);
 });
 
+test('PR 359856 selects the Gaysorn docker CI/CD branch rule', () => {
+  const result = mapping.findMergePipelineRule({
+    title: '#359856 merge code',
+    repository: { name: 'Net_Web_Gaysorn' },
+    sourceRefName: 'refs/heads/Task/T-867906-tay-fix-bug',
+    targetRefName: 'refs/heads/MergeCodeProduction/20260826_1442_OP_Website_Gaysorn_Docker_FromVC30.00_Git_7a96c5c125105a53125d0182fd4a123051c362f6'
+  });
+
+  assert.equal(result.key, 'net-web-gaysorn-docker');
+  assert.equal(result.ci.name, 'STG_Net_Web_Gaysorn_docker-CI');
+  assert.equal(result.cd.name, 'stg web gaysorn docker CD');
+});
+
 test('candidate tokens prioritize the component and exclude generic repository terms', () => {
   const tokens = mapping.buildCandidateTokens(buzzPosPilotPr());
   assert.equal(tokens.includes('buzzpospilot'), true);
