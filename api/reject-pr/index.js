@@ -172,7 +172,9 @@ module.exports = async function (context, req) {
         result: 'Success', reason: reason,
         ...statusSnapshot
       });
-      logStatus = logResult.ok ? 'logged' : 'failed: HTTP ' + logResult.status;
+      logStatus = logResult.ok
+        ? (logResult.fallback === 'azure-table' ? 'stored in Azure Table fallback' : 'logged')
+        : 'failed: HTTP ' + logResult.status;
     } catch (e) {
       logStatus = 'failed: ' + e.message;
     }

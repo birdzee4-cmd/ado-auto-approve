@@ -17,6 +17,7 @@
  */
 
 const https = require('https');
+const fallbackStore = require('./sharepoint-fallback-store');
 
 let cachedToken = null;
 let tokenExpiresAt = 0;
@@ -270,6 +271,16 @@ async function addLogItem(fields) {
     { 'Authorization': 'Bearer ' + token },
     { fields: listFields }
   );
+  if (fallbackStore.isQuotaLimitResult(result)) {
+    const item = await fallbackStore.saveAuditLog(listFields, result.status);
+    return {
+      ok: true,
+      status: 202,
+      body: item,
+      fallback: 'azure-table',
+      sharePointStatus: result.status
+    };
+  }
   return result;
 }
 
@@ -286,6 +297,7 @@ async function getLogForPR(prId) {
     'Authorization': 'Bearer ' + token,
     'Prefer': 'HonorNonIndexedQueriesWarningMayFailRandomly'
   });
+  if (result.ok) await appendFallbackLogItems(result, { prId, top: 50 });
   return result;
 }
 
@@ -308,6 +320,7 @@ async function getLogByEventKey(eventKey) {
     'Authorization': 'Bearer ' + token,
     'Prefer': 'HonorNonIndexedQueriesWarningMayFailRandomly'
   });
+  if (result.ok) await appendFallbackLogItems(result, { eventKey, top: 5 });
   return result;
 }
 
@@ -337,7 +350,19 @@ async function getRecentLogItems(top) {
     'Authorization': 'Bearer ' + token,
     'Prefer': 'HonorNonIndexedQueriesWarningMayFailRandomly'
   });
+  if (result.ok) await appendFallbackLogItems(result, { top: limit });
   return result;
+}
+
+async function appendFallbackLogItems(result, options) {
+  try {
+    const fallbackItems = await fallbackStore.getAuditLogItems(options);
+    if (!fallbackItems.length) return;
+    const current = result.body && Array.isArray(result.body.value) ? result.body.value : [];
+    result.body = Object.assign({}, result.body, { value: current.concat(fallbackItems) });
+  } catch (err) {
+    // A fallback read must not break ordinary SharePoint audit-log reads.
+  }
 }
 
 async function getLogItemsSince(sinceIso, maxItems) {
@@ -635,6 +660,9 @@ function buildLogFields(opts) {
 
 async function getAutoApproveSettings() {
   try {
+    const fallbackSettings = await fallbackStore.getAutoApproveSettings();
+    if (fallbackSettings) return fallbackSettings;
+
     const configuredItemId = getConfiguredAutoApproveSettingsItemId();
     const result = configuredItemId
       ? await getListItemById(configuredItemId)
@@ -693,20 +721,39 @@ async function updateAutoApproveSettings(mode, expiryIso, userEmail) {
   
   const listFields = await filterFieldsForList(fields);
   
+  let result;
   if (items.length > 0) {
     const itemId = items[0].id;
     const updateUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items/${itemId}/fields`;
-    return await httpRequest('PATCH', updateUrl, {
+    result = await httpRequest('PATCH', updateUrl, {
       'Authorization': 'Bearer ' + token,
       'Content-Type': 'application/json'
     }, listFields);
   } else {
     const createUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items`;
-    return await httpRequest('POST', createUrl, {
+    result = await httpRequest('POST', createUrl, {
       'Authorization': 'Bearer ' + token,
       'Content-Type': 'application/json'
     }, { fields: listFields });
   }
+
+  if (result.ok) {
+    try { await fallbackStore.clearAutoApproveSettings(); } catch (err) {}
+    return result;
+  }
+
+  if (fallbackStore.isQuotaLimitResult(result)) {
+    const settings = await fallbackStore.saveAutoApproveSettings(mode, expiryIso, userEmail);
+    return {
+      ok: true,
+      status: 202,
+      body: settings,
+      fallback: 'azure-table',
+      sharePointStatus: result.status
+    };
+  }
+
+  return result;
 }
 
 module.exports = {

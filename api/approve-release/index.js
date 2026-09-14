@@ -202,7 +202,9 @@ module.exports = async function (context, req) {
       releaseName: current.releaseName || body.releaseName || '',
       environmentName: current.environmentName || body.environmentName || '',
       releaseUrl: current.releaseUrl || body.releaseUrl || '',
-      logStatus: logResult.ok ? 'logged' : 'failed: HTTP ' + logResult.status,
+      logStatus: logResult.ok
+        ? (logResult.fallback === 'azure-table' ? 'stored in Azure Table fallback' : 'logged')
+        : 'failed: HTTP ' + logResult.status,
       lockOperationId: approvalLock.operationId,
       timestamp: new Date().toISOString()
     });

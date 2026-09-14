@@ -1021,6 +1021,9 @@ api/shared/attention.js
 | `SHAREPOINT_LIST_NAME` | No | default `ADO Auto-Approve Log` |
 | `SHAREPOINT_AUTO_APPROVE_SETTINGS_ITEM_ID` | No | ID ของ settings item เดิม; เมื่อกำหนด ระบบจะอ่าน/เขียน item นี้โดยตรงและไม่สร้าง settings item ซ้ำ |
 | `SHAREPOINT_AUTO_CREATE_LOG_COLUMNS` | No | set `false` เพื่อปิด auto-create optional columns |
+| `SHAREPOINT_FALLBACK_STORAGE_CONNECTION_STRING` | No | Azure Storage connection string สำหรับสำรอง Auto Approve settings และ audit log เมื่อ SharePoint ตอบ quota error; ถ้าไม่ตั้งจะใช้ approval-lock/token storage |
+| `SHAREPOINT_FALLBACK_SETTINGS_TABLE` | No | default `AutoApproveSettings` |
+| `SHAREPOINT_FALLBACK_LOGS_TABLE` | No | default `SharePointFallbackLogs` |
 
 ### Teams / Notification
 
