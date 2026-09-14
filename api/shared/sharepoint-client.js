@@ -25,6 +25,13 @@ let cachedListId = null;
 let cachedListColumns = null;
 let optionalColumnsEnsured = false;
 
+function resetResolvedResourceCache() {
+  cachedSiteId = null;
+  cachedListId = null;
+  cachedListColumns = null;
+  optionalColumnsEnsured = false;
+}
+
 const OPTIONAL_LOG_COLUMNS = [
   'Build_Status',
   'Build_Result',
@@ -635,6 +642,12 @@ async function getAutoApproveSettings() {
 }
 
 async function updateAutoApproveSettings(mode, expiryIso, userEmail) {
+  // Settings writes are infrequent and must not depend on a long-lived Function
+  // instance retaining the ID of a SharePoint site/list that was recreated.
+  // Resolve the resources again for every mode change so the write targets the
+  // list currently configured in the Static Web App settings.
+  resetResolvedResourceCache();
+
   const siteId = await getSiteId();
   const listId = await getListId();
   const token = await getAccessToken();
