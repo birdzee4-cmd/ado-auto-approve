@@ -311,6 +311,19 @@ async function getLogByEventKey(eventKey) {
   return result;
 }
 
+function getConfiguredAutoApproveSettingsItemId() {
+  return String(process.env.SHAREPOINT_AUTO_APPROVE_SETTINGS_ITEM_ID || '').trim();
+}
+
+async function getListItemById(itemId) {
+  const siteId = await getSiteId();
+  const listId = await getListId();
+  const token = await getAccessToken();
+  const safeItemId = encodeURIComponent(String(itemId || '').trim());
+  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items/${safeItemId}?expand=fields`;
+  return await httpRequest('GET', url, { 'Authorization': 'Bearer ' + token });
+}
+
 /**
  * Query log ล่าสุด ใช้สำหรับ system health / last notification
  */
@@ -622,11 +635,16 @@ function buildLogFields(opts) {
 
 async function getAutoApproveSettings() {
   try {
-    const result = await getLogByEventKey('settings:auto-approve');
+    const configuredItemId = getConfiguredAutoApproveSettingsItemId();
+    const result = configuredItemId
+      ? await getListItemById(configuredItemId)
+      : await getLogByEventKey('settings:auto-approve');
     if (!result.ok) {
       return { autoMode: 'normal', expiryTime: '', enabledBy: '' };
     }
-    const items = result.body && result.body.value || [];
+    const items = configuredItemId
+      ? [result.body]
+      : result.body && result.body.value || [];
     if (items.length === 0) {
       return { autoMode: 'normal', expiryTime: '', enabledBy: '' };
     }
@@ -651,9 +669,16 @@ async function updateAutoApproveSettings(mode, expiryIso, userEmail) {
   const siteId = await getSiteId();
   const listId = await getListId();
   const token = await getAccessToken();
-  
-  const checkResult = await getLogByEventKey('settings:auto-approve');
-  const items = checkResult.ok && checkResult.body && checkResult.body.value || [];
+
+  const configuredItemId = getConfiguredAutoApproveSettingsItemId();
+  let items = [];
+  if (configuredItemId) {
+    items = [{ id: configuredItemId }];
+  } else {
+    const checkResult = await getLogByEventKey('settings:auto-approve');
+    if (!checkResult.ok) return checkResult;
+    items = checkResult.body && checkResult.body.value || [];
+  }
   
   const fields = {
     Title: 'Auto Approve Settings',

@@ -1019,6 +1019,7 @@ api/shared/attention.js
 | `SHAREPOINT_HOSTNAME` | Yes | เช่น `buzzebees.sharepoint.com` |
 | `SHAREPOINT_SITE_PATH` | Yes | เช่น `/sites/ADOAuto-Approve` |
 | `SHAREPOINT_LIST_NAME` | No | default `ADO Auto-Approve Log` |
+| `SHAREPOINT_AUTO_APPROVE_SETTINGS_ITEM_ID` | No | ID ของ settings item เดิม; เมื่อกำหนด ระบบจะอ่าน/เขียน item นี้โดยตรงและไม่สร้าง settings item ซ้ำ |
 | `SHAREPOINT_AUTO_CREATE_LOG_COLUMNS` | No | set `false` เพื่อปิด auto-create optional columns |
 
 ### Teams / Notification
