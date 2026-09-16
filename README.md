@@ -8,6 +8,7 @@ Production URL:
 
 - Dashboard: https://mango-wave-09cff3700.7.azurestaticapps.net/dashboard.html
 - Applications: https://mango-wave-09cff3700.7.azurestaticapps.net/applications.html
+- Operations Hub: https://mango-wave-09cff3700.7.azurestaticapps.net/operations.html
 - Activity: https://mango-wave-09cff3700.7.azurestaticapps.net/activity.html
 - Merge Lookup: https://mango-wave-09cff3700.7.azurestaticapps.net/merge.html
 - Deployment Archive: https://mango-wave-09cff3700.7.azurestaticapps.net/deploy-history.html
@@ -29,6 +30,7 @@ Production URL:
 - Azure DevOps action สำคัญใช้ delegated user identity หลังผู้ใช้กด Connect Azure DevOps
 - การอ่านคิว PR บน Dashboard ใช้ Azure DevOps Connected user token เพื่อให้เห็นตามสิทธิ์ repository จริงของผู้ใช้ ส่วน system/background jobs และ release/system lookup บางจุดยังใช้ `ADO_PAT` แบบ service credential
 - หน้า Applications เป็น launcher กลางตามสิทธิ์ของผู้ใช้ ส่วน Dashboard หลักเป็น read/action page สำหรับ Active PR Queue และ Release approval ที่รอ action
+- Operations Hub เป็น read-only application module ใน repo/SWA เดิม โดย Power Automate เป็น automation engine, SharePoint List เป็น incident store และ Managed API ใน `api/` อ่านข้อมูลให้ Dashboard
 - MergeCode / MergeCodeProduction ถูกแยกเป็น manual workflow บน Azure DevOps
 - Activity เป็นหน้าดู approval log ล่าสุด 24 ชั่วโมง พร้อม filter และ paging
 - Audit Logs อ่านจาก SharePoint และเรียงล่าสุดก่อน
@@ -80,6 +82,7 @@ flowchart LR
 |---|---|
 | `docs/approve-release-workflow.md` | แผนภาพและ guardrails ของ workflow Approve Release |
 | `docs/app-service-portal-runbook.md` | คู่มือติดตั้ง ดูแล และตรวจสอบ App Service Portal |
+| `docs/operations-hub.md` | Architecture, SharePoint schema, API settings และ rollout ของ Operations Hub |
 | `docs/function-app-api-migration-plan.md` | แผนแยก App Service Portal API ไปยัง Azure Function App |
 | `docs/TECH-REPORT-TH.md` | รายงานสรุปเทคโนโลยี สถาปัตยกรรม และภาพรวมค่าใช้จ่าย |
 | `docs/skills/SKILL.md` | ศูนย์รวมคู่มือกฎเกณฑ์และทักษะการพัฒนาของโปรเจกต์ |
@@ -90,6 +93,7 @@ flowchart LR
 |---|---|---|
 | Login | `/` | Login ผ่าน Microsoft Entra ID |
 | Applications | `/applications.html` | Launcher กลาง แสดง application ตาม role ของผู้ใช้ |
+| Operations Hub | `/operations.html` | Dashboard และ Incident tracking จาก Power Automate/SharePoint พร้อมสถานะ Azure DevOps Work Item |
 | Dashboard | `/dashboard.html` | ตรวจ Active PR Queue, Approve/Reject PR, ดู Build/Policy/Release และกด Approve Release เมื่อมี pending approval |
 | Activity | `/activity.html` | ดู PR ที่ user approve หรือระบบ detect external approval ใน 24 ชั่วโมงล่าสุด พร้อม filter Build Failed / Policy Pending / source และ paging |
 | Merge Lookup | `/merge.html` | กรอก PR ID เพื่อหา CI/CD ของงาน Merge |

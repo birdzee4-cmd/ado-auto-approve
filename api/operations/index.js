@@ -1,0 +1,101 @@
+const auth = require('../shared/auth');
+const sharePoint = require('../shared/operations-sharepoint-client');
+
+module.exports = async function (context, req) {
+  const roleCheck = auth.requireAnyRole(context, req, ['it_support_approve', 'admin']);
+  if (!roleCheck.ok) return jsonResponse(context, roleCheck.status, roleCheck.body);
+
+  const path = normalizePath(req.params && req.params.path);
+  try {
+    if (path === 'dashboard') {
+      const incidents = await sharePoint.listIncidents(1000);
+      return jsonResponse(context, 200, { ok: true, data: dashboardSummary(incidents) });
+    }
+
+    if (path === 'incidents') {
+      const incidents = filterIncidents(await sharePoint.listIncidents(1000), req.query || {});
+      return jsonResponse(context, 200, { ok: true, data: { items: incidents, count: incidents.length } });
+    }
+
+    const detailMatch = /^incidents\/([A-Za-z0-9._:-]+)$/.exec(path);
+    if (detailMatch) {
+      const incident = await sharePoint.getIncident(detailMatch[1]);
+      if (!incident) return jsonResponse(context, 404, { ok: false, error: 'Incident not found' });
+      return jsonResponse(context, 200, {
+        ok: true,
+        data: { incident, timeline: buildTimeline(incident) }
+      });
+    }
+
+    return jsonResponse(context, 404, { ok: false, error: 'Operations API route not found' });
+  } catch (err) {
+    context.log.error('Operations SharePoint API failed:', sanitizeError(err));
+    return jsonResponse(context, 503, {
+      ok: false,
+      error: 'Operations incident store is unavailable',
+      detail: 'Check the Operations Hub SharePoint List and API settings.'
+    });
+  }
+};
+
+function normalizePath(path) {
+  const value = String(path || '').replace(/^\/+|\/+$/g, '');
+  if (!value || value.includes('..') || value.includes('\\') || /%2f|%5c/i.test(value)) return '';
+  return value;
+}
+
+function filterIncidents(items, query) {
+  const status = String(query.status || '').trim().toUpperCase();
+  const search = String(query.search || '').trim().toLowerCase();
+  return (items || []).filter(item => {
+    const statusMatch = !status || [item.status, item.trackingStatus, item.workflowStatus, item.adoState]
+      .some(value => String(value || '').toUpperCase() === status);
+    const haystack = [item.incidentId, item.alertName, item.resource, item.service, item.environment, item.workItemId, item.assignedTo]
+      .join(' ').toLowerCase();
+    return statusMatch && (!search || haystack.includes(search));
+  });
+}
+
+function dashboardSummary(incidents) {
+  const items = incidents || [];
+  return {
+    totalIncidents: items.length,
+    adoWorkItems: items.filter(item => Boolean(item.workItemId)).length,
+    openWorkItems: items.filter(item => item.trackingStatus === 'OPEN').length,
+    closedWorkItems: items.filter(item => item.trackingStatus === 'CLOSED').length,
+    awaitingApproval: items.filter(item => item.workflowStatus === 'AWAITING_APPROVAL' || item.trackingStatus === 'PENDING').length,
+    failedItems: items.filter(item => item.trackingStatus === 'FAILED').length,
+    recentIncidents: items.slice(0, 10),
+    generatedAt: new Date().toISOString()
+  };
+}
+
+function buildTimeline(incident) {
+  const events = [];
+  addTimeline(events, incident.receivedAt, 'ALERT_RECEIVED', 'RECEIVED', 'Power Automate recorded the alert.');
+  addTimeline(events, incident.adoCreatedAt, 'ADO_WORK_ITEM_CREATED', incident.adoState || 'CREATED', incident.workItemId ? `Work item #${incident.workItemId}` : '');
+  addTimeline(events, incident.adoClosedAt, 'ADO_WORK_ITEM_CLOSED', incident.adoState || 'CLOSED', 'Azure DevOps work item closed.');
+  addTimeline(events, incident.lastSyncedAt, 'LAST_SYNCED', incident.workflowStatus || 'SYNCED', incident.errorDetail || 'Latest status synchronized from Power Automate.');
+  return events.sort((a, b) => (Date.parse(b.timestamp) || 0) - (Date.parse(a.timestamp) || 0));
+}
+
+function addTimeline(events, timestamp, eventType, result, detail) {
+  if (!timestamp) return;
+  events.push({ eventId: `${eventType}:${timestamp}`, timestamp, eventType, result, detail });
+}
+
+function jsonResponse(context, status, payload) {
+  context.res = {
+    status,
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+    body: JSON.stringify(payload)
+  };
+}
+
+function sanitizeError(err) {
+  return { name: err && err.name, code: err && err.code, message: err && err.message };
+}
+
+module.exports.dashboardSummary = dashboardSummary;
+module.exports.filterIncidents = filterIncidents;
+module.exports.normalizePath = normalizePath;

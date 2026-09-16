@@ -8,6 +8,9 @@
   "routes": [
     { "route": "/applications.html", "allowedRoles": ["authenticated"] },
     { "route": "/applications", "rewrite": "/applications.html", "allowedRoles": ["authenticated"] },
+    { "route": "/operations.html", "allowedRoles": ["it_support_approve", "admin"], "headers": { "Cache-Control": "no-store, no-cache, must-revalidate" } },
+    { "route": "/operations", "rewrite": "/operations.html", "allowedRoles": ["it_support_approve", "admin"] },
+    { "route": "/operations-assets/*", "allowedRoles": ["it_support_approve", "admin"], "headers": { "Cache-Control": "no-store, no-cache, must-revalidate" } },
     { "route": "/dashboard.html", "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/dashboard", "rewrite": "/dashboard.html", "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/portal.html", "allowedRoles": ["tester_appservice_manager", "admin"] },
@@ -33,6 +36,7 @@
     { "route": "/build-diagnostics.html", "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/build-diagnostics", "rewrite": "/build-diagnostics.html", "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/userinfo", "allowedRoles": ["authenticated"] },
+    { "route": "/api/operations/*", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/deployments/*", "methods": ["GET", "PUT"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/deployments", "methods": ["GET", "POST"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/deployment-summary", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },

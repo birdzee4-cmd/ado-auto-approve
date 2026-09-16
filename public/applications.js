@@ -27,6 +27,15 @@ const APPS = [
     icon: 'D',
     permission: 'canManageDeployments',
     chips: ['Planning', 'Deployment History', 'Excel Export']
+  },
+  {
+    id: 'operations',
+    title: 'Operations Hub',
+    description: 'Track Power Automate incidents and Azure DevOps work-item status from one read-only dashboard.',
+    href: '/operations.html',
+    icon: 'O',
+    permission: 'canAccessOperationsHub',
+    chips: ['Dashboard', 'Incidents', 'ADO Tracking']
   }
 ];
 
