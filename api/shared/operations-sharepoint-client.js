@@ -150,15 +150,20 @@ function mapSharePointIncident(item) {
   const workflowStatus = textField(fields, ['WorkflowStatus', 'AutomationStatus']) || 'RECEIVED';
   const workItemIdValue = textField(fields, ['AdoWorkItemId', 'ADOWorkItemId', 'WorkItemId']);
   const workItemId = /^\d+$/.test(workItemIdValue) ? Number(workItemIdValue) : undefined;
-  const receivedAt = dateField(fields, ['ReceivedAt', 'FirstSeen']) || item.createdDateTime || '';
+  const resource = textField(fields, ['Resource', 'Service']) || '-';
+  const receivedAt = dateField(fields, ['ReceivedAt']) || item.createdDateTime || '';
+  const firstSeenAt = dateField(fields, ['FirstSeenAt', 'FirstSeen']) || receivedAt;
+  const resolvedAt = dateField(fields, ['ResolvedAt']);
+  const lastAlertAt = dateField(fields, ['LastAlertAt']);
   const lastSyncedAt = dateField(fields, ['LastSyncedAt', 'LastSeen']) || item.lastModifiedDateTime || receivedAt;
+  const lastSeen = latestDate([resolvedAt, lastAlertAt, lastSyncedAt, firstSeenAt, receivedAt]);
 
   return {
     incidentId,
     alertName: textField(fields, ['AlertName', 'Title']) || 'Untitled alert',
-    resource: textField(fields, ['Resource', 'Service']) || '-',
+    resource,
     service: textField(fields, ['Service', 'Resource']) || '-',
-    environment: textField(fields, ['Environment']),
+    environment: textField(fields, ['Environment']) || inferEnvironment(resource),
     metric: textField(fields, ['Metric']),
     severity: textField(fields, ['Severity']),
     priority: textField(fields, ['Priority']) || '-',
@@ -166,10 +171,20 @@ function mapSharePointIncident(item) {
     workflowStatus,
     trackingStatus: trackingStatus(alertStatus, workflowStatus, adoState, workItemId),
     approvalOutcome: textField(fields, ['ApprovalOutcome']),
+    approvalAttempt: numberField(fields, ['ApprovalAttempt']),
+    approvalId: textField(fields, ['ApprovalId']),
+    approvalBy: textField(fields, ['ApprovalBy']),
+    approvalComment: textField(fields, ['ApprovalComment']),
+    approvalRequestedAt: dateField(fields, ['ApprovalRequestedAt']),
+    approvalCompletedAt: dateField(fields, ['ApprovalCompletedAt']),
     receivedAt,
-    firstSeen: receivedAt,
-    lastSeen: lastSyncedAt,
+    firstSeen: firstSeenAt,
+    resolvedAt,
+    durationMinutes: durationMinutes(firstSeenAt, resolvedAt),
+    lastAlertAt,
+    lastSeen,
     lastSyncedAt,
+    occurrenceCount: numberField(fields, ['OccurrenceCount']),
     workItemId,
     workItemUrl: safeAdoUrl(textField(fields, ['AdoWorkItemUrl', 'ADOWorkItemUrl', 'WorkItemUrl'])),
     adoState,
@@ -178,6 +193,15 @@ function mapSharePointIncident(item) {
     adoClosedAt: dateField(fields, ['AdoClosedAt']),
     errorDetail: textField(fields, ['ErrorDetail']),
     sourceMessageId: textField(fields, ['SourceMessageId']),
+    lastSourceMessageId: textField(fields, ['LastSourceMessageId']),
+    flowRunId: textField(fields, ['FlowRunId']),
+    subscription: textField(fields, ['Subscription']),
+    resourceGroup: textField(fields, ['ResourceGroup']),
+    appServicePlan: textField(fields, ['AppServicePlan']),
+    defaultHost: textField(fields, ['DefaultHost']),
+    currentValue: textField(fields, ['CurrentValue']),
+    thresholdDetail: textField(fields, ['ThresholdDetail']),
+    alertSummary: textField(fields, ['AlertSummary']),
     source: 'Power Automate / SharePoint'
   };
 }
@@ -201,6 +225,34 @@ function dateField(fields, names) {
   return Number.isFinite(parsed) ? new Date(parsed).toISOString() : '';
 }
 
+function numberField(fields, names) {
+  const value = textField(fields, names);
+  if (value === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function durationMinutes(firstSeenAt, resolvedAt) {
+  const started = Date.parse(firstSeenAt || '');
+  const resolved = Date.parse(resolvedAt || '');
+  if (!Number.isFinite(started) || !Number.isFinite(resolved) || resolved <= started) return undefined;
+  return Math.round((resolved - started) / 60000);
+}
+
+function inferEnvironment(resource) {
+  const value = String(resource || '').trim().toLowerCase();
+  if (value.startsWith('prd-')) return 'Production';
+  if (value.startsWith('stg-')) return 'Staging';
+  if (value.startsWith('uat-')) return 'UAT';
+  if (value.startsWith('dev-')) return 'Development';
+  return 'Unknown';
+}
+
+function latestDate(values) {
+  return (values || []).filter(value => Number.isFinite(Date.parse(value || '')))
+    .sort((left, right) => Date.parse(right) - Date.parse(left))[0] || '';
+}
+
 function normalizeAlertStatus(status, adoState) {
   const value = String(status || '').trim().toUpperCase();
   if (value === 'FIRING' || value === 'RESOLVED') return value;
@@ -210,6 +262,7 @@ function normalizeAlertStatus(status, adoState) {
 function trackingStatus(alertStatus, workflowStatus, adoState, workItemId) {
   const workflow = String(workflowStatus || '').toUpperCase();
   if (workflow === 'FAILED' || workflow === 'ACTION_REQUIRED') return 'FAILED';
+  if (workflow === 'CANCELLED') return 'CANCELLED';
   if (workflow === 'AWAITING_APPROVAL' || workflow === 'RECEIVED') return 'PENDING';
   if (workItemId && isClosedAdoState(adoState)) return 'CLOSED';
   if (workItemId) return 'OPEN';
@@ -242,5 +295,7 @@ module.exports = {
   listIncidents,
   mapSharePointIncident,
   trackingStatus,
-  safeAdoUrl
+  safeAdoUrl,
+  durationMinutes,
+  inferEnvironment
 };

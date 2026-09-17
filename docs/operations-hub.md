@@ -52,7 +52,7 @@ Recommended columns:
 | `IncidentId` | Single line text, indexed | Stable incident/correlation ID |
 | `SourceMessageId` | Single line text, indexed | Outlook message ID for deduplication |
 | `AlertStatus` | Choice | `FIRING` or `RESOLVED` |
-| `WorkflowStatus` | Choice | `RECEIVED`, `AWAITING_APPROVAL`, `CREATED`, `REJECTED`, `FAILED` |
+| `WorkflowStatus` | Choice | `RECEIVED`, `AWAITING_APPROVAL`, `CREATED`, `REJECTED`, `FAILED`, `CANCELLED` |
 | `Priority` | Choice | P1-P4 |
 | `Service` | Single line text | Affected service |
 | `Resource` | Single line text | Affected resource |
@@ -60,7 +60,26 @@ Recommended columns:
 | `Metric` | Single line text | Alert metric |
 | `Severity` | Single line text | Source severity |
 | `ReceivedAt` | Date and time | Alert receipt time |
+| `FirstSeenAt` | Date and time | Time monitoring first detected the incident |
+| `ResolvedAt` | Date and time | Time monitoring detected recovery; must be later than `FirstSeenAt` |
+| `LastAlertAt` | Date and time | Time of the most recently processed alert email |
+| `LastSourceMessageId` | Single line text | Most recently processed Outlook message ID |
+| `OccurrenceCount` | Number, 0 decimals | Number of alert emails processed for the incident |
+| `FlowRunId` | Single line text | Latest Power Automate run ID |
 | `ApprovalOutcome` | Single line text | Approve, Reject, or Timeout |
+| `ApprovalAttempt` | Number, 0 decimals | Number of approval attempts |
+| `ApprovalId` | Single line text | Latest Power Automate approval ID |
+| `ApprovalRequestedAt` | Date and time | Time the latest approval was requested |
+| `ApprovalCompletedAt` | Date and time | Time the latest approval completed |
+| `ApprovalBy` | Single line text | Latest approval responder |
+| `ApprovalComment` | Multiple lines text | Latest approval comment |
+| `Subscription` | Single line text | Azure subscription from monitoring |
+| `ResourceGroup` | Single line text | Azure resource group from monitoring |
+| `AppServicePlan` | Single line text | Azure App Service plan from monitoring |
+| `DefaultHost` | Single line text | Default App Service host name |
+| `CurrentValue` | Single line text | Metric value reported by monitoring |
+| `ThresholdDetail` | Multiple lines text | Monitoring threshold and condition details |
+| `AlertSummary` | Multiple lines text | Human-readable alert summary |
 | `AdoWorkItemId` | Number | Azure DevOps work-item ID |
 | `AdoWorkItemUrl` | Hyperlink or single line text | Work-item URL |
 | `AdoState` | Single line text | Current ADO state |
@@ -71,6 +90,16 @@ Recommended columns:
 | `ErrorDetail` | Multiple lines text | Flow error safe for operator display |
 
 Power Automate should upsert by `IncidentId` or `SourceMessageId`, save the returned ADO ID/URL after creation, and update ADO state through a work-item update trigger plus scheduled reconciliation.
+
+### Incident time and correlation rules
+
+- `FirstSeenAt` is the start of the monitoring incident. `ReceivedAt` is when Outlook/Power Automate received the email; they are not interchangeable.
+- `ResolvedAt` is the monitoring recovery time and must be later than `FirstSeenAt`.
+- For a FIRING email, create the stable `IncidentId` from normalized `Alert + Resource + FirstSeenAt` and use `SourceMessageId` for email-level deduplication.
+- For a RESOLVED email, match an open incident with the same normalized Alert and Resource, no existing `ResolvedAt`, and `FirstSeenAt < ResolvedAt`. If more than one record matches, choose the latest valid `FirstSeenAt`.
+- If no FIRING record matches a RESOLVED email, store the RESOLVED record as `CANCELLED`. This is an expected transition-period outcome, not a Flow failure, and must not create an approval or ADO work item.
+- If `ResolvedAt <= FirstSeenAt`, do not correlate the records. Store a safe diagnostic in `ErrorDetail` without treating the Flow run as a technical failure.
+- Infer Environment from Resource prefixes: `prd-` = Production, `stg-` = Staging, `uat-` = UAT, and `dev-` = Development. Use `Unknown` when no supported prefix is present.
 
 ## Static Web App settings
 

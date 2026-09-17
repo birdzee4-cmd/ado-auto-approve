@@ -64,6 +64,7 @@ function dashboardSummary(incidents) {
     openWorkItems: items.filter(item => item.trackingStatus === 'OPEN').length,
     closedWorkItems: items.filter(item => item.trackingStatus === 'CLOSED').length,
     awaitingApproval: items.filter(item => item.workflowStatus === 'AWAITING_APPROVAL' || item.trackingStatus === 'PENDING').length,
+    cancelledItems: items.filter(item => item.trackingStatus === 'CANCELLED').length,
     failedItems: items.filter(item => item.trackingStatus === 'FAILED').length,
     recentIncidents: items.slice(0, 10),
     generatedAt: new Date().toISOString()
@@ -73,7 +74,11 @@ function dashboardSummary(incidents) {
 function buildTimeline(incident) {
   const events = [];
   addTimeline(events, incident.receivedAt, 'ALERT_RECEIVED', 'RECEIVED', 'Power Automate recorded the alert.');
+  addTimeline(events, incident.firstSeen, 'ALERT_FIRING', 'FIRING', 'Monitoring first detected the incident.');
+  addTimeline(events, incident.approvalRequestedAt, 'APPROVAL_REQUESTED', 'AWAITING_APPROVAL', 'Approval was requested.');
+  addTimeline(events, incident.approvalCompletedAt, 'APPROVAL_COMPLETED', incident.approvalOutcome || 'COMPLETED', incident.approvalComment || 'Approval completed.');
   addTimeline(events, incident.adoCreatedAt, 'ADO_WORK_ITEM_CREATED', incident.adoState || 'CREATED', incident.workItemId ? `Work item #${incident.workItemId}` : '');
+  addTimeline(events, incident.resolvedAt, 'ALERT_RESOLVED', 'RESOLVED', incident.durationMinutes == null ? 'Monitoring reported recovery.' : `Recovered after ${incident.durationMinutes} minutes.`);
   addTimeline(events, incident.adoClosedAt, 'ADO_WORK_ITEM_CLOSED', incident.adoState || 'CLOSED', 'Azure DevOps work item closed.');
   addTimeline(events, incident.lastSyncedAt, 'LAST_SYNCED', incident.workflowStatus || 'SYNCED', incident.errorDetail || 'Latest status synchronized from Power Automate.');
   return events.sort((a, b) => (Date.parse(b.timestamp) || 0) - (Date.parse(a.timestamp) || 0));

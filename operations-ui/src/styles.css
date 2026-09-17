@@ -161,6 +161,7 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-status-firing, .ops-status-failed, .ops-status-action-required, .ops-status-needs-review, .ops-status-degraded, .ops-status-open { color: #9d2929; background: #fff0f0; border-color: #e9abab; }
 .ops-status-resolved, .ops-status-succeeded, .ops-status-connected, .ops-status-enabled, .ops-status-closed { color: #096847; background: #ecfaf4; border-color: #9cd8c3; }
 .ops-status-queued, .ops-status-processing, .ops-status-pending { color: #7b5607; background: #fff8e5; border-color: #e8cc7f; }
+.ops-status-cancelled { color: #67510c; background: #fff8df; border-color: #d9bd65; }
 .ops-status-not-created { color: #57534c; background: #f4f1e9; border-color: #c8c2b5; }
 
 .ops-drawer-backdrop { position: fixed; inset: 0; z-index: 80; display: flex; justify-content: flex-end; background: rgba(15, 15, 15, .48); }

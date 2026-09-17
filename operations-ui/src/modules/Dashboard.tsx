@@ -3,7 +3,7 @@ import { operationsApi } from '../api';
 import { EmptyState, ErrorState, LoadingState, PageHeading, StatusBadge } from '../components';
 import type { DashboardData } from '../types';
 
-const emptyDashboard: DashboardData = { totalIncidents: 0, adoWorkItems: 0, openWorkItems: 0, closedWorkItems: 0, awaitingApproval: 0, failedItems: 0, recentIncidents: [] };
+const emptyDashboard: DashboardData = { totalIncidents: 0, adoWorkItems: 0, openWorkItems: 0, closedWorkItems: 0, awaitingApproval: 0, cancelledItems: 0, failedItems: 0, recentIncidents: [] };
 
 export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -31,6 +31,7 @@ export function Dashboard() {
           <Kpi label="Open work items" value={data.openWorkItems} tone="danger" />
           <Kpi label="Closed work items" value={data.closedWorkItems} tone="success" />
           <Kpi label="Awaiting approval" value={data.awaitingApproval} tone="dark" />
+          <Kpi label="Cancelled" value={data.cancelledItems} tone="yellow" />
           <Kpi label="Flow failures" value={data.failedItems} tone="danger" />
         </div>
         <article className="ops-panel">

@@ -1,7 +1,7 @@
 export type RouteId = 'dashboard' | 'incidents';
 
 export type IncidentStatus = 'FIRING' | 'RESOLVED';
-export type TrackingStatus = 'OPEN' | 'CLOSED' | 'PENDING' | 'FAILED' | 'NOT_CREATED';
+export type TrackingStatus = 'OPEN' | 'CLOSED' | 'PENDING' | 'FAILED' | 'CANCELLED' | 'NOT_CREATED';
 
 export interface CurrentUser {
   name: string;
@@ -24,6 +24,9 @@ export interface Incident {
   approvalOutcome?: string;
   service?: string;
   firstSeen: string;
+  resolvedAt?: string;
+  durationMinutes?: number;
+  lastAlertAt?: string;
   lastSeen: string;
   receivedAt?: string;
   lastSyncedAt?: string;
@@ -33,6 +36,22 @@ export interface Incident {
   assignedTo?: string;
   adoCreatedAt?: string;
   adoClosedAt?: string;
+  approvalAttempt?: number;
+  approvalId?: string;
+  approvalBy?: string;
+  approvalComment?: string;
+  approvalRequestedAt?: string;
+  approvalCompletedAt?: string;
+  occurrenceCount?: number;
+  lastSourceMessageId?: string;
+  flowRunId?: string;
+  subscription?: string;
+  resourceGroup?: string;
+  appServicePlan?: string;
+  defaultHost?: string;
+  currentValue?: string;
+  thresholdDetail?: string;
+  alertSummary?: string;
   errorDetail?: string;
   source?: string;
 }
@@ -43,6 +62,7 @@ export interface DashboardData {
   openWorkItems: number;
   closedWorkItems: number;
   awaitingApproval: number;
+  cancelledItems: number;
   failedItems: number;
   recentIncidents: Incident[];
   generatedAt?: string;
