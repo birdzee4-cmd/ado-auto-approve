@@ -40,9 +40,41 @@ test('SharePoint incident mapping derives safe dashboard fields', () => {
   });
 
   assert.equal(incident.incidentId, 'INC-001');
+  assert.equal(incident.sharePointId, 12);
+  assert.equal(incident.displayId, 'INC-2026-000012');
+  assert.equal(incident.createdAt, '2026-09-16T01:00:00.000Z');
   assert.equal(incident.workItemId, 12345);
   assert.equal(incident.trackingStatus, 'OPEN');
   assert.match(incident.workItemUrl, /^https:\/\/dev\.azure\.com\//);
+});
+
+test('Incident display IDs use SharePoint ID with six-digit padding', () => {
+  assert.equal(sharePoint.formatIncidentDisplayId({
+    id: '1',
+    fields: { FirstSeenAt: '2026-01-15T08:00:00+07:00' }
+  }), 'INC-2026-000001');
+  assert.equal(sharePoint.formatIncidentDisplayId({
+    id: '27',
+    fields: { FirstSeenAt: '2026-09-21T13:24:00+07:00' }
+  }), 'INC-2026-000027');
+  assert.equal(sharePoint.formatIncidentDisplayId({
+    id: '123456',
+    fields: { FirstSeenAt: '2027-02-01T00:00:00+07:00' }
+  }), 'INC-2027-123456');
+});
+
+test('Incident display ID year falls back from FirstSeenAt to Created and current year', () => {
+  assert.equal(sharePoint.formatIncidentDisplayId({
+    id: '27',
+    createdDateTime: '2025-12-31T18:30:00Z',
+    fields: { FirstSeenAt: '2026-01-01T00:30:00+07:00' }
+  }), 'INC-2026-000027');
+  assert.equal(sharePoint.formatIncidentDisplayId({
+    id: '28',
+    createdDateTime: '2027-04-10T02:00:00Z',
+    fields: { FirstSeenAt: 'not-a-date' }
+  }), 'INC-2027-000028');
+  assert.equal(sharePoint.formatIncidentDisplayId({ fields: {} }, new Date('2028-06-01T00:00:00Z')), 'INC-2028-UNKNOWN');
 });
 
 test('Operations dashboard summarizes ADO tracking states', () => {
@@ -106,10 +138,14 @@ test('Environment is inferred from the supported resource prefixes', () => {
 
 test('Operations filters support tracking status and search', () => {
   const items = [
-    { incidentId: 'INC-1', alertName: 'Checkout down', resource: 'checkout', trackingStatus: 'OPEN' },
-    { incidentId: 'INC-2', alertName: 'Worker fixed', resource: 'worker', trackingStatus: 'CLOSED' }
+    { sharePointId: 27, displayId: 'INC-2026-000027', incidentId: 'inc-20260921132400-checkout-api', alertName: 'Checkout down', resource: 'checkout', trackingStatus: 'OPEN' },
+    { sharePointId: 28, displayId: 'INC-2026-000028', incidentId: 'inc-20260921140000-worker', alertName: 'Worker fixed', resource: 'worker', trackingStatus: 'CLOSED' }
   ];
   assert.deepEqual(operations.filterIncidents(items, { status: 'open', search: 'checkout' }), [items[0]]);
+  assert.deepEqual(operations.filterIncidents(items, { search: 'inc-2026-000027' }), [items[0]]);
+  assert.deepEqual(operations.filterIncidents(items, { search: '27' }), [items[0]]);
+  assert.deepEqual(operations.filterIncidents(items, { search: 'INC-20260921132400-CHECKOUT-API' }), [items[0]]);
+  assert.deepEqual(operations.filterIncidents(items, { status: 'closed' }), [items[1]]);
   assert.equal(operations.normalizePath('../health'), '');
 });
 

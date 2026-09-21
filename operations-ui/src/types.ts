@@ -11,6 +11,8 @@ export interface CurrentUser {
 }
 
 export interface Incident {
+  sharePointId?: number;
+  displayId: string;
   incidentId: string;
   alertName: string;
   resource: string;
@@ -24,6 +26,7 @@ export interface Incident {
   approvalOutcome?: string;
   service?: string;
   firstSeen: string;
+  createdAt?: string;
   resolvedAt?: string;
   durationMinutes?: number;
   lastAlertAt?: string;

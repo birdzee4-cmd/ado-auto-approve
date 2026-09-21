@@ -50,7 +50,7 @@ function filterIncidents(items, query) {
   return (items || []).filter(item => {
     const statusMatch = !status || [item.status, item.trackingStatus, item.workflowStatus, item.adoState]
       .some(value => String(value || '').toUpperCase() === status);
-    const haystack = [item.incidentId, item.alertName, item.resource, item.service, item.environment, item.workItemId, item.assignedTo]
+    const haystack = [item.displayId, item.sharePointId, item.incidentId, item.alertName, item.resource, item.service, item.environment, item.workItemId, item.assignedTo]
       .join(' ').toLowerCase();
     return statusMatch && (!search || haystack.includes(search));
   });

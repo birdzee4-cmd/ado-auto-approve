@@ -4,6 +4,10 @@ let cachedToken = null;
 let tokenExpiresAt = 0;
 let cachedSiteId = null;
 let cachedListId = null;
+const incidentYearFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Bangkok',
+  year: 'numeric'
+});
 
 function getConfig() {
   const config = {
@@ -144,6 +148,8 @@ async function getIncident(incidentId) {
 
 function mapSharePointIncident(item) {
   const fields = item && item.fields || {};
+  const sharePointId = sharePointItemId(item);
+  const createdAt = dateField(fields, ['Created']) || isoDate(item && item.createdDateTime);
   const incidentId = textField(fields, ['IncidentId', 'CorrelationId']) || `SP-${item && item.id || 'unknown'}`;
   const adoState = textField(fields, ['AdoState', 'ADOState', 'WorkItemState']);
   const alertStatus = normalizeAlertStatus(textField(fields, ['AlertStatus', 'Status']), adoState);
@@ -159,6 +165,8 @@ function mapSharePointIncident(item) {
   const lastSeen = latestDate([resolvedAt, lastAlertAt, lastSyncedAt, firstSeenAt, receivedAt]);
 
   return {
+    sharePointId,
+    displayId: formatIncidentDisplayId(item),
     incidentId,
     alertName: textField(fields, ['AlertName', 'Title']) || 'Untitled alert',
     resource,
@@ -178,6 +186,7 @@ function mapSharePointIncident(item) {
     approvalRequestedAt: dateField(fields, ['ApprovalRequestedAt']),
     approvalCompletedAt: dateField(fields, ['ApprovalCompletedAt']),
     receivedAt,
+    createdAt,
     firstSeen: firstSeenAt,
     resolvedAt,
     durationMinutes: durationMinutes(firstSeenAt, resolvedAt),
@@ -206,6 +215,31 @@ function mapSharePointIncident(item) {
   };
 }
 
+function formatIncidentDisplayId(item, now = new Date()) {
+  const fields = item && item.fields || {};
+  const firstSeenAt = textField(fields, ['FirstSeenAt', 'FirstSeen']);
+  const createdAt = textField(fields, ['Created']) || item && item.createdDateTime;
+  const year = incidentYear(firstSeenAt) || incidentYear(createdAt) || incidentYear(now) || '0000';
+  const sharePointId = sharePointItemId(item);
+  const sequence = sharePointId == null ? 'UNKNOWN' : String(sharePointId).padStart(6, '0');
+  return `INC-${year}-${sequence}`;
+}
+
+function sharePointItemId(item) {
+  const fields = item && item.fields || {};
+  const value = item && item.id != null ? item.id : fields.ID;
+  const normalized = String(value == null ? '' : value).trim();
+  if (!/^\d+$/.test(normalized)) return undefined;
+  const parsed = Number(normalized);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function incidentYear(value) {
+  const parsed = value instanceof Date ? value : new Date(value || '');
+  if (!Number.isFinite(parsed.getTime())) return '';
+  return incidentYearFormatter.format(parsed);
+}
+
 function textField(fields, names) {
   for (const name of names) {
     const value = fields && fields[name];
@@ -220,6 +254,10 @@ function textField(fields, names) {
 
 function dateField(fields, names) {
   const value = textField(fields, names);
+  return isoDate(value);
+}
+
+function isoDate(value) {
   if (!value) return '';
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? new Date(parsed).toISOString() : '';
@@ -291,6 +329,7 @@ function compareNewest(left, right) {
 }
 
 module.exports = {
+  formatIncidentDisplayId,
   getIncident,
   listIncidents,
   mapSharePointIncident,

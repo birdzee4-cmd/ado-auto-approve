@@ -156,6 +156,8 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-incident-card { width: 100%; display: grid; grid-template-columns: minmax(230px, 1.5fr) 70px 130px 190px; align-items: center; gap: 16px; padding: 16px 18px; border: 1px solid var(--ops-line); border-left: 4px solid var(--ops-yellow); border-radius: 9px; background: var(--ops-paper); color: #292723; text-align: left; cursor: pointer; box-shadow: 0 7px 18px rgba(42, 37, 27, .045); }
 .ops-incident-card:hover { border-color: #cdb16f; box-shadow: 0 10px 24px rgba(42, 37, 27, .09); }
 .ops-incident-main { display: grid; gap: 4px; }
+.ops-incident-display-id { color: #25231f; font-size: 1rem; letter-spacing: .025em; }
+.ops-incident-alert { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; font-weight: 600; }
 .ops-incident-main small, .ops-incident-time { color: var(--ops-muted); font-size: .78rem; }
 .ops-status { display: inline-flex; width: max-content; min-height: 25px; align-items: center; padding: 4px 8px; border: 1px solid #c8c2b5; border-radius: 999px; background: #f4f1e9; color: #57534c; font-size: .68rem; font-weight: 800; letter-spacing: .035em; }
 .ops-status-firing, .ops-status-failed, .ops-status-action-required, .ops-status-needs-review, .ops-status-degraded, .ops-status-open { color: #9d2929; background: #fff0f0; border-color: #e9abab; }
@@ -169,12 +171,14 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-drawer-head { display: flex; justify-content: space-between; gap: 18px; padding-bottom: 18px; border-bottom: 3px solid var(--ops-yellow); }
 .ops-drawer-head small { color: var(--ops-muted); }
 .ops-drawer-head h2 { margin: 5px 0 0; font-size: 1.45rem; }
+.ops-drawer-head p { margin: 7px 0 0; color: var(--ops-muted); font-weight: 600; }
 .ops-icon-button { width: 38px; height: 38px; border: 1px solid #c9c2b3; border-radius: 7px; background: white; cursor: pointer; font-size: 1.4rem; }
 .ops-detail-grid { display: grid; grid-template-columns: 120px 1fr; gap: 0; margin: 20px 0; }
 .ops-detail-grid dt, .ops-detail-grid dd { margin: 0; padding: 10px 0; border-bottom: 1px solid #e9e4da; }
 .ops-detail-grid dt { color: var(--ops-muted); font-size: .8rem; }
 .ops-detail-grid dd { overflow-wrap: anywhere; font-weight: 600; }
 .ops-detail-grid a { color: #875900; }
+.ops-technical-id { display: inline-block; max-width: 100%; padding: 3px 6px; border-radius: 4px; background: #f0ede5; color: #5c574e; font-size: .78rem; font-weight: 500; user-select: all; }
 .ops-timeline h3 { margin: 24px 0 13px; }
 .ops-timeline > div { display: grid; grid-template-columns: 10px 1fr; gap: 12px; min-height: 57px; }
 .ops-timeline > div > span { position: relative; width: 9px; height: 9px; margin-top: 5px; border-radius: 50%; background: var(--ops-yellow); box-shadow: 0 0 0 4px #fff3d3; }

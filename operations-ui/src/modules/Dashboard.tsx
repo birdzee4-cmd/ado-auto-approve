@@ -35,10 +35,10 @@ export function Dashboard() {
           <Kpi label="Flow failures" value={data.failedItems} tone="danger" />
         </div>
         <article className="ops-panel">
-          <div className="ops-panel-heading"><div><span>INCIDENT FEED</span><h2>Recent incidents</h2></div><small>{data.generatedAt ? `Updated ${new Date(data.generatedAt).toLocaleTimeString()}` : 'Current status'}</small></div>
+          <div className="ops-panel-heading"><div><span>INCIDENT FEED</span><h2>Recent incidents</h2></div><small>{data.generatedAt ? `Updated ${formatTime(data.generatedAt)}` : 'Current status'}</small></div>
           {data.recentIncidents.length === 0 ? <EmptyState title="No incidents recorded" detail="Incidents written to the Operations Hub SharePoint List by Power Automate will appear here." /> : (
             <div className="ops-table-wrap"><table><thead><tr><th>Incident</th><th>Service</th><th>ADO state</th><th>Tracking</th><th>Last synced</th></tr></thead><tbody>
-              {data.recentIncidents.map(item => <tr key={item.incidentId}><td><strong>{item.incidentId}</strong><small>{item.alertName}</small></td><td>{item.service || item.resource}</td><td>{item.adoState || 'Not created'}</td><td><StatusBadge value={item.trackingStatus} /></td><td>{formatDate(item.lastSyncedAt || item.lastSeen)}</td></tr>)}
+              {data.recentIncidents.map(item => <tr key={item.incidentId}><td><strong>{item.displayId || item.incidentId}</strong><small>{item.alertName}</small></td><td>{item.service || item.resource}</td><td>{item.adoState || 'Not created'}</td><td><StatusBadge value={item.trackingStatus} /></td><td>{formatDate(item.lastSyncedAt || item.lastSeen)}</td></tr>)}
             </tbody></table></div>
           )}
         </article>
@@ -52,5 +52,13 @@ function Kpi({ label, value, tone }: { label: string; value: number; tone: strin
 }
 
 function formatDate(value?: string) {
-  return value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString() : '-';
+  return value && Number.isFinite(Date.parse(value))
+    ? new Date(value).toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })
+    : '-';
+}
+
+function formatTime(value?: string) {
+  return value && Number.isFinite(Date.parse(value))
+    ? new Date(value).toLocaleTimeString('en-US', { timeZone: 'Asia/Bangkok' })
+    : '-';
 }
