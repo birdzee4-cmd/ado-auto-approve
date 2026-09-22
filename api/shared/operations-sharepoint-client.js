@@ -309,7 +309,7 @@ function trackingStatus(alertStatus, workflowStatus, adoState, workItemId) {
 }
 
 function isClosedAdoState(state) {
-  return ['CLOSED', 'DONE', 'REMOVED', 'RESOLVED'].includes(String(state || '').trim().toUpperCase());
+  return ['CLOSED', 'DONE', 'REMOVED', 'RESOLVED', 'REJECT', 'REJECTED'].includes(String(state || '').trim().toUpperCase());
 }
 
 function safeAdoUrl(value) {

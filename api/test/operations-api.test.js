@@ -48,6 +48,24 @@ test('SharePoint incident mapping derives safe dashboard fields', () => {
   assert.match(incident.workItemUrl, /^https:\/\/dev\.azure\.com\//);
 });
 
+test('Rejected ADO work items are treated as closed', () => {
+  for (const adoState of ['Reject', 'Rejected']) {
+    const incident = sharePoint.mapSharePointIncident({
+      id: '14',
+      fields: {
+        IncidentId: `INC-${adoState}`,
+        AlertStatus: 'FIRING',
+        WorkflowStatus: 'REJECTED',
+        AdoWorkItemId: '12346',
+        AdoState: adoState
+      }
+    });
+
+    assert.equal(incident.trackingStatus, 'CLOSED');
+    assert.equal(incident.status, 'FIRING');
+  }
+});
+
 test('Incident display IDs use SharePoint ID with six-digit padding', () => {
   assert.equal(sharePoint.formatIncidentDisplayId({
     id: '1',
