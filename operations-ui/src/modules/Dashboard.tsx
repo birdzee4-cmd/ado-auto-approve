@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { operationsApi } from '../api';
-import { EmptyState, ErrorState, LoadingState, PageHeading, StatusBadge } from '../components';
+import { AdoStateBadge, EmptyState, ErrorState, LoadingState, PageHeading, StatusBadge } from '../components';
 import type { DashboardData } from '../types';
 
 const emptyDashboard: DashboardData = { totalIncidents: 0, adoWorkItems: 0, openWorkItems: 0, closedWorkItems: 0, awaitingApproval: 0, cancelledItems: 0, failedItems: 0, recentIncidents: [], selectedDate: '', daily: { newIncidents: 0, resolvedIncidents: 0, adoCreated: 0, failedIncidents: 0, pendingApproval: 0, openBacklog: 0, incidents: [] }, dailySeries: [], needsAttention: [] };
@@ -41,7 +41,7 @@ export function Dashboard() {
           <div className="ops-panel-heading"><div><span>DAILY INCIDENT LOG</span><h2>Incidents first seen on {formatDay(data.selectedDate)}</h2></div><small>{data.generatedAt ? `Updated ${formatTime(data.generatedAt)}` : 'Current status'}</small></div>
           {data.daily.incidents.length === 0 ? <EmptyState title="No incidents for this date" detail="Choose another operating date or open the incident explorer to search all records." /> : (
             <div className="ops-table-wrap"><table><thead><tr><th>Incident</th><th>Service</th><th>ADO state</th><th>Tracking</th><th>Last synced</th></tr></thead><tbody>
-              {data.daily.incidents.map(item => <tr key={item.incidentId}><td><strong>{item.displayId || item.incidentId}</strong><small>{item.alertName}</small></td><td>{item.service || item.resource}</td><td>{item.adoState || 'Not created'}</td><td><StatusBadge value={item.trackingStatus} /></td><td>{formatDate(item.lastSyncedAt || item.lastSeen)}</td></tr>)}
+              {data.daily.incidents.map(item => <tr key={item.incidentId}><td><strong>{item.displayId || item.incidentId}</strong><small>{item.alertName}</small></td><td>{item.service || item.resource}</td><td><AdoStateBadge value={item.adoState} /></td><td><StatusBadge value={item.trackingStatus} /></td><td>{formatDate(item.lastSyncedAt || item.lastSeen)}</td></tr>)}
             </tbody></table></div>
           )}
         </article>

@@ -5,6 +5,19 @@ export function StatusBadge({ value }: { value: string }) {
   return <span className={`ops-status ops-status-${className}`}>{value.replace(/_/g, ' ')}</span>;
 }
 
+export function AdoStateBadge({ value }: { value?: string }) {
+  const label = value?.trim() || 'Not created';
+  const normalized = label.toLowerCase();
+  let tone = 'neutral';
+
+  if (['closed', 'done', 'resolved'].includes(normalized)) tone = 'success';
+  else if (['reject', 'rejected'].includes(normalized)) tone = 'danger';
+  else if (['processing', 'active', 'pending', 'awaiting approval'].includes(normalized)) tone = 'active';
+  else if (['new', 'open'].includes(normalized)) tone = 'new';
+
+  return <span className={`ops-status ops-ado-state ops-ado-state-${tone}`}>{label}</span>;
+}
+
 export function EmptyState({ title, detail }: { title: string; detail: string }) {
   return (
     <div className="ops-empty">

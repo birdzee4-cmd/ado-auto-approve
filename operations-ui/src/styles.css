@@ -192,6 +192,12 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-status-queued, .ops-status-processing, .ops-status-pending { color: #7b5607; background: #fff8e5; border-color: #e8cc7f; }
 .ops-status-cancelled { color: #67510c; background: #fff8df; border-color: #d9bd65; }
 .ops-status-not-created { color: #57534c; background: #f4f1e9; border-color: #c8c2b5; }
+.ops-ado-state { min-width: 70px; justify-content: center; text-transform: none; }
+.ops-ado-state-success { color: #096847; background: #e8f8f1; border-color: #83cdb3; }
+.ops-ado-state-danger { color: #a51f2d; background: #fff0f1; border-color: #e99aa4; }
+.ops-ado-state-active { color: #7b5607; background: #fff6dc; border-color: #dfbd59; }
+.ops-ado-state-new { color: #175b91; background: #edf6ff; border-color: #93c5e8; }
+.ops-ado-state-neutral { color: #57534c; background: #f4f1e9; border-color: #c8c2b5; }
 
 .ops-drawer-backdrop { position: fixed; inset: 0; z-index: 80; display: flex; justify-content: flex-end; background: rgba(15, 15, 15, .48); }
 .ops-detail-drawer { width: min(520px, 100%); height: 100%; padding: 25px; overflow-y: auto; background: var(--ops-paper); box-shadow: -24px 0 60px rgba(0, 0, 0, .25); }
