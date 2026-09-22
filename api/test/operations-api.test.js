@@ -95,6 +95,23 @@ test('Operations dashboard summarizes ADO tracking states', () => {
   assert.equal(summary.failedItems, 1);
 });
 
+test('Operations dashboard provides a Bangkok daily brief and 14-day series', () => {
+  const items = [
+    { incidentId: 'a', firstSeen: '2026-09-21T17:30:00Z', resolvedAt: '2026-09-22T02:00:00Z', trackingStatus: 'CLOSED', workflowStatus: 'CREATED', adoCreatedAt: '2026-09-22T01:00:00Z' },
+    { incidentId: 'b', receivedAt: '2026-09-22T08:00:00+07:00', trackingStatus: 'PENDING', workflowStatus: 'AWAITING_APPROVAL' },
+    { incidentId: 'c', firstSeen: '2026-09-21T12:00:00Z', trackingStatus: 'OPEN', workflowStatus: 'CREATED' }
+  ];
+  const summary = operations.dashboardSummary(items, { date: '2026-09-22' }, new Date('2026-09-22T06:00:00Z'));
+  assert.equal(summary.selectedDate, '2026-09-22');
+  assert.equal(summary.daily.newIncidents, 2);
+  assert.equal(summary.daily.resolvedIncidents, 1);
+  assert.equal(summary.daily.adoCreated, 1);
+  assert.equal(summary.daily.pendingApproval, 1);
+  assert.equal(summary.dailySeries.length, 14);
+  assert.equal(summary.dailySeries.at(-1).date, '2026-09-22');
+  assert.equal(operations.dashboardSummary(items, { date: '2026-02-31' }, new Date('2026-09-22T06:00:00Z')).selectedDate, '2026-09-22');
+});
+
 test('SharePoint mapping keeps monitoring timestamps distinct and derives environment', () => {
   const incident = sharePoint.mapSharePointIncident({
     id: '13',

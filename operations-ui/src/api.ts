@@ -44,7 +44,7 @@ export async function loadCurrentUser(): Promise<CurrentUser> {
 }
 
 export const operationsApi = {
-  dashboard: () => request<DashboardData>('/api/operations/dashboard'),
+  dashboard: (date = '') => request<DashboardData>(`/api/operations/dashboard${date ? `?date=${encodeURIComponent(date)}` : ''}`),
   incidents: (status = '', search = '') => {
     const query = new URLSearchParams();
     if (status) query.set('status', status);

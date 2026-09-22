@@ -9,7 +9,7 @@ module.exports = async function (context, req) {
   try {
     if (path === 'dashboard') {
       const incidents = await sharePoint.listIncidents(1000);
-      return jsonResponse(context, 200, { ok: true, data: dashboardSummary(incidents) });
+      return jsonResponse(context, 200, { ok: true, data: dashboardSummary(incidents, req.query || {}) });
     }
 
     if (path === 'incidents') {
@@ -56,8 +56,19 @@ function filterIncidents(items, query) {
   });
 }
 
-function dashboardSummary(incidents) {
+function dashboardSummary(incidents, query = {}, now = new Date()) {
   const items = incidents || [];
+  const selectedDate = validBangkokDate(query.date) || bangkokDateKey(now);
+  const dailyItems = items
+    .filter(item => incidentDateKey(item) === selectedDate)
+    .sort((a, b) => incidentTimestamp(b) - incidentTimestamp(a));
+  const resolvedToday = items.filter(item => dateKey(item.resolvedAt) === selectedDate);
+  const adoCreatedToday = items.filter(item => dateKey(item.adoCreatedAt) === selectedDate);
+  const needsAttention = items
+    .filter(item => ['OPEN', 'PENDING', 'FAILED'].includes(item.trackingStatus))
+    .sort((a, b) => incidentTimestamp(b) - incidentTimestamp(a))
+    .slice(0, 8);
+
   return {
     totalIncidents: items.length,
     adoWorkItems: items.filter(item => Boolean(item.workItemId)).length,
@@ -67,8 +78,71 @@ function dashboardSummary(incidents) {
     cancelledItems: items.filter(item => item.trackingStatus === 'CANCELLED').length,
     failedItems: items.filter(item => item.trackingStatus === 'FAILED').length,
     recentIncidents: items.slice(0, 10),
+    selectedDate,
+    daily: {
+      newIncidents: dailyItems.length,
+      resolvedIncidents: resolvedToday.length,
+      adoCreated: adoCreatedToday.length,
+      failedIncidents: dailyItems.filter(item => item.trackingStatus === 'FAILED').length,
+      pendingApproval: dailyItems.filter(item => item.workflowStatus === 'AWAITING_APPROVAL' || item.trackingStatus === 'PENDING').length,
+      openBacklog: items.filter(item => {
+        const openedDate = dateKey(item.firstSeen || item.receivedAt || item.createdAt);
+        return item.trackingStatus === 'OPEN' && openedDate && openedDate <= selectedDate;
+      }).length,
+      incidents: dailyItems.slice(0, 25)
+    },
+    dailySeries: buildDailySeries(items, selectedDate, 14),
+    needsAttention,
     generatedAt: new Date().toISOString()
   };
+}
+
+function buildDailySeries(items, endDate, days) {
+  const end = bangkokDateToUtc(endDate);
+  const series = [];
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const point = new Date(end.getTime() - offset * 86400000);
+    const date = bangkokDateKey(point);
+    series.push({
+      date,
+      opened: items.filter(item => incidentDateKey(item) === date).length,
+      resolved: items.filter(item => dateKey(item.resolvedAt) === date).length,
+      failed: items.filter(item => incidentDateKey(item) === date && item.trackingStatus === 'FAILED').length
+    });
+  }
+  return series;
+}
+
+function incidentDateKey(item) {
+  return dateKey(item.firstSeen || item.receivedAt || item.createdAt || item.lastSeen);
+}
+
+function incidentTimestamp(item) {
+  return Date.parse(item.firstSeen || item.receivedAt || item.createdAt || item.lastSeen || '') || 0;
+}
+
+function dateKey(value) {
+  const parsed = Date.parse(value || '');
+  return Number.isFinite(parsed) ? bangkokDateKey(new Date(parsed)) : '';
+}
+
+function bangkokDateKey(date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(date);
+  const get = type => parts.find(part => part.type === type)?.value;
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
+function bangkokDateToUtc(value) {
+  return new Date(`${value}T00:00:00+07:00`);
+}
+
+function validBangkokDate(value) {
+  const text = String(value || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return '';
+  const parsed = bangkokDateToUtc(text);
+  return !Number.isNaN(parsed.getTime()) && bangkokDateKey(parsed) === text ? text : '';
 }
 
 function buildTimeline(incident) {

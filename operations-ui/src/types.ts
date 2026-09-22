@@ -68,6 +68,18 @@ export interface DashboardData {
   cancelledItems: number;
   failedItems: number;
   recentIncidents: Incident[];
+  selectedDate: string;
+  daily: {
+    newIncidents: number;
+    resolvedIncidents: number;
+    adoCreated: number;
+    failedIncidents: number;
+    pendingApproval: number;
+    openBacklog: number;
+    incidents: Incident[];
+  };
+  dailySeries: Array<{ date: string; opened: number; resolved: number; failed: number }>;
+  needsAttention: Incident[];
   generatedAt?: string;
 }
 
