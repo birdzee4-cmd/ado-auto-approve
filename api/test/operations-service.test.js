@@ -22,9 +22,21 @@ const incident = {
   displayId: 'INC-2026-000031',
   incidentId: 'INC-031',
   alertName: 'Checkout failure',
+  severity: 'CRITICAL',
+  priority: 'P1',
   service: 'Checkout API',
   resource: 'prd-checkout',
   environment: 'Production',
+  subscription: 'Buzzebees Thailand',
+  resourceGroup: 'default-prd-th-apiservices-all-group',
+  appServicePlan: 'prd-th-appserviceplan-apiservices17',
+  defaultHost: 'prd-checkout.azurewebsites.net',
+  metric: 'Http5xxRate',
+  currentValue: '12.25',
+  thresholdDetail: 'HTTP 5xx Rate > 5% AND 5xx Count >= 10',
+  alertSummary: 'Azure App Service high 5xx rate critical',
+  firstSeen: '2026-09-24T13:24:00.000Z',
+  status: 'FIRING',
   workItemId: 9101,
   workItems: [{ workItemId: 9101, role: 'PRIMARY', supportTeam: 'TIER1', state: 'Active' }],
   workItemSummary: { total: 1, closed: 0, open: 1 },
@@ -62,10 +74,24 @@ test('mapping resolution is deterministic and mapping-only', () => {
 
 test('work-item patch uses mapped fields and a Related relation', () => {
   const patches = service.buildCreatePatches(incident, mapping, { detail: '<unsafe>' }, 9101, 'Buzzebees');
+  const description = patches.find(item => item.path === '/fields/System.Description').value;
   assert.ok(patches.some(item => item.path === '/fields/System.AreaPath' && item.value === mapping.areaPath));
   assert.ok(patches.some(item => item.path === '/fields/System.AssignedTo' && item.value === mapping.assignedTeam));
   assert.ok(patches.some(item => item.path === '/relations/-' && item.value.rel === 'System.LinkTypes.Related'));
-  assert.ok(patches.find(item => item.path === '/fields/System.Description').value.includes('&lt;unsafe&gt;'));
+  assert.ok(description.includes('CRITICAL / P1'));
+  assert.ok(description.includes('Buzzebees Thailand'));
+  assert.ok(description.includes('default-prd-th-apiservices-all-group'));
+  assert.ok(description.includes('HTTP 5xx Rate &gt; 5% AND 5xx Count &gt;= 10'));
+  assert.ok(description.includes('prd-checkout.azurewebsites.net'));
+  assert.ok(description.includes('24/09/2026 20:24 น.'));
+  assert.ok(description.includes('&lt;unsafe&gt;'));
+  assert.ok(!description.includes('Resolved At'), 'FIRING alert has no resolution timestamp');
+  const resolved = service.buildCreatePatches({ ...incident, status: 'RESOLVED', resolvedAt: '2026-09-24T13:44:00.000Z' }, mapping, {}, 9101, 'Buzzebees');
+  const resolvedDescription = resolved.find(item => item.path === '/fields/System.Description').value;
+  assert.ok(resolvedDescription.includes('Current Alert State:</strong> RESOLVED'));
+  assert.equal((resolvedDescription.match(/First Seen:/g) || []).length, 1);
+  assert.equal((resolvedDescription.match(/Resolved At:/g) || []).length, 1);
+  assert.ok(resolvedDescription.includes('24/09/2026 20:44 น.'));
 });
 
 test('create related work item uses delegated identity, persists mapping output, and audits both identities', async () => {

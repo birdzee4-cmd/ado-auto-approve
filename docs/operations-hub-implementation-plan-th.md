@@ -10,6 +10,8 @@
 - ไม่ลบหรือย้ายข้อมูล Production เดิม
 - `AdoWorkItemId` ที่ Workflow เดิมสร้างคือ `PRIMARY/TIER1`
 - งานของ App Support และ Tier 2 คือ `RELATED`
+- ระยะเริ่มต้นใช้ Production Workflow เดิมสร้าง PRIMARY/TIER1 ตามปกติ; Operations Hub แสดงและติดตามใบงานนี้ ไม่สร้าง PRIMARY ซ้ำ
+- ยืนยันค่า PRIMARY/TIER1 จากตัวอย่าง Work Item: Project `Buzzebees`, Type `IT Support Case`, Area `Buzzebees\Other\IT Support Team`, Iteration `Buzzebees`, Assigned To `kiattisak.yo@buzzebees.com`
 - Azure DevOps ใช้ relation แบบ `Related` ไม่ใช้ Parent/Child
 - RCA อยู่นอกขอบเขตระบบ
 
@@ -18,13 +20,13 @@
 | Phase | สถานะ |
 |---|---|
 | Phase 0 — Baseline | ยังไม่เริ่ม |
-| Phase 1 — Data Model และ Compatibility Layer | Repository implementation เสร็จ; รอ provision Lists ใน environment |
-| Phase 2 — Azure DevOps Connection และสิทธิ์ | Repository implementation เสร็จ; รอ smoke test กับ ADO จริง |
-| Phase 3 — Write API | Repository implementation เสร็จ; feature flags ปิด |
-| Phase 4 — Operations Hub UI ใหม่ | Repository implementation เสร็จ |
+| Phase 1 — Data Model และ Compatibility Layer | Read path ผ่าน; Tier 1 PRIMARY ใช้ Flow เดิมได้; Mapping จำเป็นเฉพาะก่อนเปิด Related creation |
+| Phase 2 — Azure DevOps Connection และสิทธิ์ | Production แสดง ADO Connected เป็น `kiattisak.yo@buzzebees.com`; ยังรอทดสอบ reconnect/disconnect และยืนยัน role ของ Tier 1 |
+| Phase 3 — Write API | Repository implementation เสร็จ; flag defaults ปิด; เพิ่ม capabilities read endpoint ให้ UI ตรวจสถานะ |
+| Phase 4 — Operations Hub UI ใหม่ | Repository implementation เสร็จ; ปุ่ม write ถูกปิดตาม capabilities จาก API |
 | Phase 5 — Automation เพิ่มเติม | Endpoint/runbook เสร็จ; รอสร้าง Scheduled Flow ใน tenant |
-| Phase 6 — Tests และ UAT | Automated tests เสร็จ; รอ environment UAT |
-| Phase 7 — Rollout | Runbook/feature flags เสร็จ; ยังไม่ deploy production |
+| Phase 6 — Tests และ UAT | Automated tests 61/61 ผ่าน และ UI build ผ่าน; รอ UAT/production regression |
+| Phase 7 — Rollout | Runbook พร้อม; rollout ที่มี write actions ยังรอ mapping, automation และ UAT |
 
 ## Phase 0 — Baseline และสำรองระบบเดิม
 
@@ -47,11 +49,17 @@
 - [x] เพิ่มการค้นหาจาก Work Item ID, role, team, state และ assignee
 - [x] ทำให้ supporting list เป็น opt-in ผ่าน `OPERATIONS_WORK_ITEMS_LIST_NAME`
 - [x] เพิ่ม regression tests สำหรับ single/multiple/no-work-item cases
-- [ ] Provision Lists ทั้งสามใน environment เป้าหมาย
-- [ ] ตั้ง `OPERATIONS_WORK_ITEMS_LIST_NAME=Operations Hub Work Items` หลัง provision สำเร็จ
-- [ ] Smoke test กับข้อมูล SharePoint จริง
+- [x] Provision supporting Lists ทั้งสามใน environment เป้าหมาย
+- [x] ตรวจชนิดคอลัมน์และ Indexes ของ supporting Lists
+- [x] ตรวจหน้า SharePoint `OperationsHubServiceMapping` โดยตรง: headers ตาม schema ครบ; รายการยังว่าง ณ 2026-09-24
+- [x] ตั้งค่า backend app settings ใน Production environment ให้ตรงกับชื่อ Lists จริง:
+  - `OPERATIONS_WORK_ITEMS_LIST_NAME=OperationsHubWorkItems`
+  - `OPERATIONS_MAPPINGS_LIST_NAME=OperationsHubServiceMapping`
+  - `OPERATIONS_AUDIT_LIST_NAME=OperationsHubAudit`
+- [x] Smoke test read-only กับ Operations Hub/Dashboard และ Service Mapping ผ่าน
+- [ ] เพิ่ม Service Mapping ที่ยืนยัน routing แล้วและตั้ง Enabled = Yes ก่อนทดสอบสร้าง Related Work Item (ปัจจุบัน list ว่าง)
 
-Checkpoint: ก่อนเริ่ม Phase 2 ต้อง provision Lists, เปิดการอ่าน Work Items List และยืนยันว่า API ประกอบ PRIMARY กับ RELATED ได้โดยไม่เปลี่ยน Existing Incident List
+Checkpoint: Read path และ Tier 1 PRIMARY เดิมพร้อมใช้งาน; ก่อนทดสอบ Create Related สำหรับ App Support/Tier 2 ต้องเพิ่ม mapping ของทีมปลายทางที่ยืนยันแล้ว และห้ามเปิด write feature flags ก่อน UAT
 
 ## Phase 2 — Azure DevOps Connection และสิทธิ์
 
@@ -65,15 +73,17 @@ Checkpoint: ก่อนเริ่ม Phase 2 ต้อง provision Lists, �
 - [x] ไม่ใช้ service account fallback ใน connection validation
 - [x] ผู้ไม่มี connection ยังอ่าน Incident ได้ตาม role เดิม
 - [x] เพิ่ม unit tests สำหรับ identity validation, fail-closed, role gate และ hash return URL
-- [ ] Smoke test Connect/Reconnect/Disconnect กับ Azure DevOps จริง
+- [x] ยืนยันสถานะ ADO `Connected` ในหน้า Production; backend status เชื่อมต่อผ่าน delegated identity verification
+- [ ] ทดสอบ Reconnect/Disconnect กับ Azure DevOps จริง
 - [ ] ยืนยัน role assignments ของ Tier 1 ใน Static Web Apps production
 
-Checkpoint: ก่อนเริ่ม Phase 3 ต้องยืนยันว่า header แสดง verified ADO identity, reconnect/disconnect ทำงาน และบัญชีที่ไม่มี role ตาม `OPERATIONS_WRITE_ROLES` ไม่ผ่าน write-role gate
+Checkpoint: การเชื่อมต่อของบัญชีปัจจุบัน verified แล้ว; ก่อนเปิด write actions ต้องทดสอบ reconnect/disconnect และยืนยัน role assignments ของ Tier 1
 
 ## Phase 3 — Operations Hub Write API
 
 - [x] Resolve Service Mapping และ block mapping ที่ไม่ครบ
 - [x] Create Related Work Item ด้วย delegated token และ relation แบบ Related
+- [x] ประกอบ Description ของ Related Work Item จาก Alert fields ที่ Production Workflow parse จากอีเมล FIRING/RESOLVED
 - [x] Link Existing Work Item
 - [x] Synchronize PRIMARY และ RELATED
 - [x] Confirm Recovery
@@ -86,6 +96,7 @@ Checkpoint: ก่อนเริ่ม Phase 3 ต้องยืนยัน�
 
 - [x] คง Dashboard/URL เดิมและปรับ Incident experience สำหรับ workflow ใหม่
 - [x] แสดง Primary และ Related Work Items พร้อมจำนวนปิด/ทั้งหมด
+- [x] แสดง Grafana Alert Details ที่ parse จาก Incident: Resource, Subscription, Resource Group, Plan, Host, Metric, Current Value, Threshold และ Summary
 - [x] แสดง ADO connection และ mapping preview แบบ read-only
 - [x] เพิ่ม Create/Link/Sync/Confirm Recovery/Close controls
 - [x] แสดง closure blockers และ Timeline/Audit
@@ -109,7 +120,7 @@ Checkpoint: ก่อนเริ่ม Phase 3 ต้องยืนยัน�
 - [x] Automated test closure blockers
 - [x] Automated test role, token, mapping, idempotency และ automation key
 - [ ] ทดสอบ Alert ซ้ำและ Alert ที่กลับมาหลัง Incident ปิด
-- [x] API regression suite ผ่าน
+- [x] API test suite ผ่าน: 50/50 tests (`node test/<file>.test.js`; `node --test` ถูกจำกัดโดย environment ด้วย `spawn EPERM`)
 - [x] TypeScript/Vite production build ผ่าน
 - [ ] ยืนยัน Production Workflow ไม่มี regression ใน environment
 - [ ] Tier 1 ลงนาม UAT
@@ -121,7 +132,9 @@ Checkpoint: ก่อนเริ่ม Phase 3 ต้องยืนยัน�
 - [x] จัดทำ monitoring checklist
 - [x] จัดทำ rollback sequence โดยไม่พึ่งการแก้ Production Workflow
 - [x] กำหนดห้ามลบ Work Items/Audit ที่สร้างสำเร็จแล้ว
-- [ ] Deploy และเปิดใช้งานตามลำดับใน environment จริง
+- [x] ตรวจพบ Production entries ของ `OPERATIONS_CREATE_ENABLED`, `OPERATIONS_LINK_ENABLED`, `OPERATIONS_SYNC_ENABLED`, `OPERATIONS_CLOSE_ENABLED`, `OPERATIONS_RECONCILIATION_ENABLED` และ `OPERATIONS_NOTIFICATION_ENABLED`; ผู้ดูแลยืนยันว่าตั้งทุกค่าเป็น `false` แต่ยังอ่านค่าจาก Portal ซ้ำอย่างปลอดภัยไม่ได้ จึงยังไม่เปิด write actions
+- [ ] เพิ่มและยืนยัน Service Mapping สำหรับทีมปลายทางก่อนเปิด Related creation
+- [x] ทดสอบ Production read-only: dashboard/incident list โหลดได้, ADO แสดง Connected และ Incident `INC-2026-000214` แสดง PRIMARY `#882323`; ยังไม่ถือว่า UAT หรือ write actions ผ่าน
 
 ## Completion Policy
 

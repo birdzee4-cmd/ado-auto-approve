@@ -3,23 +3,32 @@
 ## ก่อน Deploy
 
 - [ ] สำรอง Production Workflow package และ connection references
-- [ ] Provision `Operations Hub Work Items`, `Operations Hub Service Mapping`, `Operations Hub Audit`
+- [x] Provision `OperationsHubWorkItems`, `OperationsHubServiceMapping`, `OperationsHubAudit`
 - [ ] เพิ่ม optional Operations columns ใน Existing Incident List
-- [ ] ใส่ Service Mapping จริงอย่างน้อยหนึ่ง service สำหรับ pilot
+- [ ] เพิ่ม Service Mapping สำหรับ App Support/Tier 2 ในระยะถัดไปหลัง Tier 1 pilot; ไม่บล็อกการแสดง PRIMARY จาก Production Workflow เดิม
 - [ ] ยืนยัน Tier 1 role และ Azure DevOps permissions
 - [ ] ตั้ง supporting-list settings โดยยังปิด feature flags ทั้งหมด
 
 ## Deployment sequence
 
-1. Deploy API/UI โดย feature flags ทั้งหมดเป็น `false`
-2. Smoke test dashboard, incident history และ PRIMARY compatibility
-3. Smoke test Connect/Reconnect/Disconnect
-4. เปิด `OPERATIONS_SYNC_ENABLED=true` และทดสอบ Incident pilot
-5. เปิด `OPERATIONS_LINK_ENABLED=true`
-6. เปิด `OPERATIONS_CREATE_ENABLED=true` เฉพาะเมื่อ mapping pilot ถูกต้อง
-7. เปิด `OPERATIONS_CLOSE_ENABLED=true` หลัง closure UAT
-8. สร้าง Flow ใหม่ แล้วเปิด `OPERATIONS_RECONCILIATION_ENABLED=true`
-9. เปิด `OPERATIONS_NOTIFICATION_ENABLED=true` เป็นขั้นตอนสุดท้าย
+1. Production Workflow เดิมสร้าง PRIMARY/TIER1 ต่อไปตามปกติ; ห้ามสร้าง PRIMARY ซ้ำจาก Operations Hub
+2. Deploy API/UI โดย feature flags ของ Operations Hub write actions ทั้งหมดเป็น `false`
+3. Smoke test dashboard, incident history และการแสดง PRIMARY ที่ Production Workflow สร้าง
+4. Smoke test Connect/Reconnect/Disconnect
+5. เปิด Sync/Link/Confirm Recovery/Close ทีละ feature หลังผ่าน UAT และยืนยัน feature flags
+6. คง `OPERATIONS_CREATE_ENABLED=false` จนกว่าจะมี Service Mapping ของ App Support/Tier 2 ที่ได้รับการยืนยัน
+7. สร้าง Flow ใหม่แยกจาก Production Flow แล้วทดสอบก่อนเปิด schedule
+8. เปิด notification เป็นขั้นตอนสุดท้าย
+
+## Production smoke checkpoint — 2026-09-24
+
+- [x] Operations Hub production page opens and ADO displays Connected as `kiattisak.yo@buzzebees.com`.
+- [x] Incident list loads. `INC-2026-000214` displays existing PRIMARY `#882323` (`TIER1`, Processing); no duplicate PRIMARY was created.
+- [x] All six Operations feature-flag entries are present in the Production environment. The administrator reports all are `false`; values were not independently read back, so keep the server-side fail-closed behavior and do not run write actions.
+- [ ] Service Mapping list currently reports no enabled mappings. Related Work Item creation must remain unavailable until mappings are populated and validated.
+- [ ] Production browser UI still renders Synchronize and Confirm Recovery controls while flags are intended off. Do not use them. Local code now reads write capabilities from the authorized API and disables controls accordingly; deploy and verify this UI/API update before enabling any write workflow.
+- [ ] Review repeated recent alert entries before declaring duplicate suppression/UAT passed; do not infer distinct incidents or merge records from alert name alone.
+- [ ] Confirm current production page includes the latest local Monitoring Alert Details UI build; the read-only smoke page did not show that details section.
 
 ## Smoke/UAT scenarios
 

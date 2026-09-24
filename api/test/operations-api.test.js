@@ -22,6 +22,34 @@ test('Operations API rejects unauthenticated and unauthorized requests', async (
   assert.equal(forbidden.res.status, 403);
 });
 
+test('Operations capabilities expose only fail-closed feature booleans to authorized operators', async () => {
+  const keys = ['OPERATIONS_CREATE_ENABLED', 'OPERATIONS_LINK_ENABLED', 'OPERATIONS_SYNC_ENABLED', 'OPERATIONS_CLOSE_ENABLED'];
+  const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+  try {
+    for (const key of keys) delete process.env[key];
+    process.env.OPERATIONS_SYNC_ENABLED = 'true';
+    const context = { log: { warn() {}, error() {} } };
+    await operations(context, {
+      method: 'GET',
+      headers: { 'x-ms-client-principal': principal(['it_support_approve']) },
+      params: { path: 'capabilities' },
+      query: {}
+    });
+    assert.equal(context.res.status, 200);
+    assert.deepEqual(JSON.parse(context.res.body).data, {
+      createRelated: false,
+      linkExisting: false,
+      synchronize: true,
+      closeIncident: false
+    });
+  } finally {
+    for (const key of keys) {
+      if (previous[key] === undefined) delete process.env[key];
+      else process.env[key] = previous[key];
+    }
+  }
+});
+
 test('SharePoint incident mapping derives safe dashboard fields', () => {
   const incident = sharePoint.mapSharePointIncident({
     id: '12',

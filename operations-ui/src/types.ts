@@ -28,6 +28,13 @@ export interface AdoConnectionStatus {
   operationsIdentity?: { id: string; email: string };
 }
 
+export interface OperationsCapabilities {
+  createRelated: boolean;
+  linkExisting: boolean;
+  synchronize: boolean;
+  closeIncident: boolean;
+}
+
 export type WorkItemRole = 'PRIMARY' | 'RELATED';
 export type SupportTeam = 'TIER1' | 'APP_SUPPORT' | 'TIER2';
 

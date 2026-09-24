@@ -220,6 +220,9 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-detail-grid dt { color: var(--ops-muted); font-size: .8rem; }
 .ops-detail-grid dd { overflow-wrap: anywhere; font-weight: 600; }
 .ops-detail-grid a { color: #875900; }
+.ops-alert-details { margin: 20px 0; padding: 15px; border: 1px solid var(--ops-line); border-radius: 8px; background: #faf8f2; }
+.ops-alert-details h3 { margin: 0; font-size: .95rem; }
+.ops-alert-details .ops-detail-grid { grid-template-columns: 115px 1fr; margin: 8px 0 0; }
 .ops-technical-id { display: inline-block; max-width: 100%; padding: 3px 6px; border-radius: 4px; background: #f0ede5; color: #5c574e; font-size: .78rem; font-weight: 500; user-select: all; }
 .ops-timeline h3 { margin: 24px 0 13px; }
 .ops-timeline > div { display: grid; grid-template-columns: 10px 1fr; gap: 12px; min-height: 57px; }

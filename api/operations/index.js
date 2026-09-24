@@ -17,6 +17,18 @@ module.exports = async function (context, req) {
       return jsonResponse(context, 200, { ok: true, data: dashboardSummary(incidents, req.query || {}) });
     }
 
+    if (path === 'capabilities') {
+      return jsonResponse(context, 200, {
+        ok: true,
+        data: {
+          createRelated: operationsService.featureEnabled('OPERATIONS_CREATE_ENABLED'),
+          linkExisting: operationsService.featureEnabled('OPERATIONS_LINK_ENABLED'),
+          synchronize: operationsService.featureEnabled('OPERATIONS_SYNC_ENABLED'),
+          closeIncident: operationsService.featureEnabled('OPERATIONS_CLOSE_ENABLED')
+        }
+      });
+    }
+
     if (path === 'incidents') {
       const incidents = filterIncidents(await sharePoint.listIncidents(1000), req.query || {});
       return jsonResponse(context, 200, { ok: true, data: { items: incidents, count: incidents.length } });

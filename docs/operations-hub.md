@@ -125,14 +125,22 @@ Set these Operations-specific values only when different from the existing Share
 - `OPERATIONS_SHAREPOINT_HOSTNAME` — falls back to `SHAREPOINT_HOSTNAME`
 - `OPERATIONS_SHAREPOINT_SITE_PATH` — falls back to `SHAREPOINT_SITE_PATH`
 - `OPERATIONS_SHAREPOINT_LIST_NAME` — defaults to `Operations Hub Incidents`
-- `OPERATIONS_WORK_ITEMS_LIST_NAME` — optional during rollout; set to `Operations Hub Work Items` after the supporting list is provisioned. When omitted, the API remains compatible with the existing incident list and exposes its `AdoWorkItemId` as the sole `PRIMARY/TIER1` work item.
+- `OPERATIONS_WORK_ITEMS_LIST_NAME` — optional during rollout; set to `OperationsHubWorkItems` after the supporting list is provisioned. When omitted, the API remains compatible with the existing incident list and exposes its `AdoWorkItemId` as the sole `PRIMARY/TIER1` work item.
+- `OPERATIONS_MAPPINGS_LIST_NAME` — set to `OperationsHubServiceMapping` to enable Service Mapping reads and resolution.
+- `OPERATIONS_AUDIT_LIST_NAME` — set to `OperationsHubAudit` to enable audit writes.
 - `OPERATIONS_WRITE_ROLES` — comma-separated roles allowed to perform future Operations Hub write actions; defaults to `it_support_approve,admin`. This does not grant Azure DevOps access by itself; a verified delegated connection is also required.
 
 The Operations Hub header uses the existing `/api/ado-auth-*` endpoints. Connection status is considered valid only after the backend calls Azure DevOps `connectionData` with the delegated access token and receives an authenticated identity. The API returns Operations Hub and Azure DevOps identities as separate objects so later audit records cannot conflate them.
 
 ## Supporting lists
 
-The compatibility layer does not modify or migrate `Operations Hub Incidents`. Provision these lists separately before enabling later write phases:
+The compatibility layer does not modify or migrate `Operations Hub Incidents`. The supporting SharePoint lists are provisioned under these actual list names; keep the conceptual headings below for their schema documentation:
+
+- Work Items: `OperationsHubWorkItems`
+- Service Mapping: `OperationsHubServiceMapping`
+- Audit: `OperationsHubAudit`
+
+Incident Detail displays the parsed Monitoring/Grafana context available on the Incident (resource, subscription, resource group, plan, host, metric, current value, threshold and summary). Related Work Item descriptions use the structured Alert fields already stored on the incident (current alert state, severity/priority, service/resource, environment, subscription, resource group, plan, host, metric, current value, threshold, summary, and first-seen/resolved times when present). Timestamps are formatted in Thailand time. Expected input is one FIRING email and one RESOLVED email for the same incident; the original Production Workflow remains responsible for correlating these two messages. Operations Hub does not create a new incident from the RESOLVED email.
 
 ### Operations Hub Work Items
 

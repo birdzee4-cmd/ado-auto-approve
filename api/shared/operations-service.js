@@ -35,11 +35,28 @@ function resolveMapping(mappings, incident, supportTeam) {
 
 function buildCreatePatches(incident, mapping, input, primaryWorkItemId, organization) {
   const title = String(input.title || `[${incident.displayId || incident.incidentId}] ${incident.alertName || incident.service}`).trim().slice(0, 255);
+  const alertDetails = [
+    ['Current Alert State', incident.status],
+    ['Alert', incident.alertName],
+    ['Severity / Priority', [incident.severity, incident.priority].filter(Boolean).join(' / ')],
+    ['Service', incident.service || incident.resource],
+    ['Resource', incident.resource],
+    ['Environment', incident.environment],
+    ['Subscription', incident.subscription],
+    ['Resource Group', incident.resourceGroup],
+    ['Plan', incident.appServicePlan],
+    ['Default Host', incident.defaultHost],
+    ['Metric', incident.metric],
+    ['Current Value', incident.currentValue],
+    ['Threshold', incident.thresholdDetail],
+    ['Summary', incident.alertSummary],
+    ['First Seen', formatBangkokTime(incident.firstSeen)],
+    ['Resolved At', formatBangkokTime(incident.resolvedAt)]
+  ].filter(([, value]) => value != null && String(value).trim() !== '');
   const description = [
     `<p><strong>Operations Hub Incident:</strong> ${escapeHtml(incident.displayId || incident.incidentId)}</p>`,
-    `<p><strong>Service:</strong> ${escapeHtml(incident.service || incident.resource || '-')}</p>`,
-    `<p><strong>Alert:</strong> ${escapeHtml(incident.alertName || '-')}</p>`,
-    input.detail ? `<p><strong>Tier 1 detail:</strong><br>${escapeHtml(input.detail).replace(/\n/g, '<br>')}</p>` : ''
+    ...alertDetails.map(([label, value]) => `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</p>`),
+    input.detail ? `<p><strong>Tier 1 detail:</strong><br>${escapeHtml(input.detail).replace(/\r?\n/g, '<br>')}</p>` : ''
   ].filter(Boolean).join('');
   const tags = ['OperationsHub', incident.displayId || incident.incidentId, mapping.defaultTags]
     .filter(Boolean).join('; ');
@@ -299,7 +316,22 @@ function positiveInteger(value, name) {
 
 function patch(path, value) { return { op: 'add', path, value }; }
 function normalize(value) { return String(value || '').trim().toLowerCase(); }
-function escapeHtml(value) { return String(value || '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]); }
+function escapeHtml(value) { return String(value == null ? '' : value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]); }
+function formatBangkokTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return String(value);
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Bangkok',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(date).map(part => [part.type, part.value]));
+  return `${parts.day}/${parts.month}/${parts.year} ${parts.hour}:${parts.minute} น.`;
+}
 function operationalError(status, code, message) { const error = new Error(message); error.status = status; error.code = code; return error; }
 
 module.exports = {

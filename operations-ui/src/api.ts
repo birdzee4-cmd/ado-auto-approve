@@ -1,4 +1,4 @@
-import type { AdoConnectionStatus, AuditEvent, CurrentUser, DashboardData, Incident, ServiceMapping, SupportTeam } from './types';
+import type { AdoConnectionStatus, AuditEvent, CurrentUser, DashboardData, Incident, OperationsCapabilities, ServiceMapping, SupportTeam } from './types';
 
 interface ApiEnvelope<T> {
   ok: boolean;
@@ -78,6 +78,7 @@ export async function disconnectAdo(): Promise<void> {
 }
 
 export const operationsApi = {
+  capabilities: () => request<OperationsCapabilities>('/api/operations/capabilities'),
   dashboard: (date = '') => request<DashboardData>(`/api/operations/dashboard${date ? `?date=${encodeURIComponent(date)}` : ''}`),
   incidents: (status = '', search = '') => {
     const query = new URLSearchParams();
