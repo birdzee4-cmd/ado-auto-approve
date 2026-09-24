@@ -1,10 +1,10 @@
-# Operations Hub V1
+# Operations Hub
 
-Operations Hub is a read-only incident tracking module in the existing repository and Azure Static Web App. Its canonical production entry point is:
+Operations Hub is the incident tracking and Tier 1 coordination module in the existing repository and Azure Static Web App. Its canonical production entry point is:
 
 `https://mango-wave-09cff3700.7.azurestaticapps.net/operations.html`
 
-Power Automate remains the automation engine for Outlook alerts, Teams messages, approvals, and Azure DevOps work-item creation. A dedicated SharePoint List is the V1 incident store. The existing Static Web Apps Managed API reads that list for the authenticated dashboard.
+The existing Production Power Automate workflow remains responsible for Outlook alerts, Teams messages, approvals, the primary Azure DevOps Work Item, and the existing SharePoint incident record. Operations Hub adds Related Work Items through its API only when the corresponding feature flags are enabled.
 
 ```text
 Alert email
@@ -17,28 +17,39 @@ Power Automate
     +-- Create/update SharePoint incident
                          |
                          v
-applications.html -> operations.html -> /api/operations/* -> SharePoint List
+applications.html -> operations.html -> /api/operations/* -> SharePoint Lists / Azure DevOps
 ```
 
 ## Components
 
-- `operations-ui/` — React, TypeScript, and Vite read-only dashboard.
+- `operations-ui/` — React, TypeScript, and Vite Operations Hub.
 - `public/operations.html` — thin entry point using hash routing.
 - `api/operations/` — role-protected HTTP API for dashboard, incident list, and incident details.
-- `api/shared/operations-sharepoint-client.js` — read-only Microsoft Graph client for the Operations Hub list.
-- Power Automate — owns alert parsing, approval, ADO creation, and status synchronization. Flow changes are intentionally handled separately from this code deployment.
+- `api/shared/operations-sharepoint-client.js` — Microsoft Graph client for the existing incident list and opt-in supporting lists.
+- Power Automate — the existing workflow continues to own alert parsing, approval, and primary ADO creation. Any reconciliation automation is created as a separate workflow.
 
-V1 does not deploy a dedicated Operations Function App, Storage Account, Graph webhook, Queue worker, Timer trigger, or Operations Hub-specific OAuth flow.
+Operations Hub reuses the existing Azure DevOps delegated OAuth flow and does not introduce a duplicate authentication implementation.
 
 ## Authentication and authorization
 
 `/operations.html`, `/operations-assets/*`, and `/api/operations/*` require `it_support_approve` or `admin`. The API repeats the role check using the Static Web Apps client principal. The browser never receives Microsoft Graph credentials.
 
-The API is read-only:
+Read operations:
 
 - `GET /api/operations/dashboard`
 - `GET /api/operations/incidents?status=&search=`
 - `GET /api/operations/incidents/{incidentId}`
+- `GET /api/operations/mappings`
+- `GET /api/operations/mappings/resolve`
+
+Feature-flagged Tier 1 write operations:
+
+- `POST /api/operations/incidents/{incidentId}/work-items/related`
+- `POST /api/operations/incidents/{incidentId}/work-items/link`
+- `POST /api/operations/incidents/{incidentId}/synchronize`
+- `POST /api/operations/incidents/{incidentId}/confirm-recovery`
+- `POST /api/operations/incidents/{incidentId}/close`
+- `POST /api/operations-reconcile` for the separate scheduled automation
 
 ## SharePoint configuration
 
@@ -114,6 +125,93 @@ Set these Operations-specific values only when different from the existing Share
 - `OPERATIONS_SHAREPOINT_HOSTNAME` — falls back to `SHAREPOINT_HOSTNAME`
 - `OPERATIONS_SHAREPOINT_SITE_PATH` — falls back to `SHAREPOINT_SITE_PATH`
 - `OPERATIONS_SHAREPOINT_LIST_NAME` — defaults to `Operations Hub Incidents`
+- `OPERATIONS_WORK_ITEMS_LIST_NAME` — optional during rollout; set to `Operations Hub Work Items` after the supporting list is provisioned. When omitted, the API remains compatible with the existing incident list and exposes its `AdoWorkItemId` as the sole `PRIMARY/TIER1` work item.
+- `OPERATIONS_WRITE_ROLES` — comma-separated roles allowed to perform future Operations Hub write actions; defaults to `it_support_approve,admin`. This does not grant Azure DevOps access by itself; a verified delegated connection is also required.
+
+The Operations Hub header uses the existing `/api/ado-auth-*` endpoints. Connection status is considered valid only after the backend calls Azure DevOps `connectionData` with the delegated access token and receives an authenticated identity. The API returns Operations Hub and Azure DevOps identities as separate objects so later audit records cannot conflate them.
+
+## Supporting lists
+
+The compatibility layer does not modify or migrate `Operations Hub Incidents`. Provision these lists separately before enabling later write phases:
+
+### Operations Hub Work Items
+
+| Internal name | Suggested type | Purpose |
+|---|---|---|
+| `Title` | Single line text | Human-readable work-item label |
+| `IncidentId` | Single line text, indexed | Existing Operations Hub incident correlation ID |
+| `WorkItemId` | Number, indexed | Azure DevOps work-item ID |
+| `Role` | Choice | `PRIMARY` or `RELATED`; supporting records normally use `RELATED` |
+| `SupportTeam` | Choice | `TIER1`, `APP_SUPPORT`, or `TIER2` |
+| `State` | Single line text | Latest Azure DevOps state |
+| `WorkItemUrl` | Hyperlink or single line text | Trusted Azure DevOps HTTPS URL |
+| `AssignedTo` | Single line text | Latest assignee display value |
+| `CreatedAt` | Date and time | Work-item creation time |
+| `ClosedAt` | Date and time | Work-item closure time |
+| `LastSyncedAt` | Date and time | Latest reconciliation time |
+| `IdempotencyKey` | Single line text, indexed | SHA-256 request key used to prevent duplicate creation |
+
+Create a unique-data or application-level uniqueness rule for `WorkItemId`. The API always preserves the existing incident `AdoWorkItemId` as `PRIMARY/TIER1` if a duplicate supporting record exists.
+
+### Operations Hub Service Mapping
+
+| Internal name | Suggested type |
+|---|---|
+| `Title` | Single line text |
+| `MappingId` | Single line text, indexed |
+| `Service` | Single line text, indexed |
+| `AlertNamePattern` | Single line text |
+| `ResourcePattern` | Single line text |
+| `Environment` | Choice |
+| `SupportTeam` | Choice |
+| `AdoProject` | Single line text |
+| `WorkItemType` | Single line text |
+| `AreaPath` | Single line text |
+| `IterationPath` | Single line text |
+| `AssignedTeam` | Single line text |
+| `DefaultTags` | Single line text |
+| `Enabled` | Yes/No |
+| `Priority` | Number |
+
+### Operations Hub Audit
+
+| Internal name | Suggested type |
+|---|---|
+| `Title` | Single line text |
+| `EventId` | Single line text, indexed |
+| `EventKey` | Single line text, indexed |
+| `CorrelationId` | Single line text, indexed |
+| `IncidentId` | Single line text, indexed |
+| `WorkItemId` | Number, indexed |
+| `Action` | Single line text |
+| `Result` | Single line text |
+| `OperationsUserId` | Single line text |
+| `OperationsUserName` | Single line text |
+| `OperationsUserEmail` | Single line text |
+| `AdoIdentityId` | Single line text |
+| `AdoIdentityName` | Single line text |
+| `AdoIdentityEmail` | Single line text |
+| `Detail` | Multiple lines text |
+| `OccurredAt` | Date and time |
+
+The existing `Operations Hub Incidents` list needs these optional Operations Hub columns before close actions are enabled: `RecoveryConfirmed` (Yes/No), `RecoveryConfirmedBy` (text), `RecoveryConfirmedAt` (date/time), `OperationsStatus` (text/choice), `OperationsClosedBy` (text), and `OperationsClosedAt` (date/time). Existing production workflow columns and behavior remain unchanged.
+
+### Operations feature flags
+
+All write and automation capabilities are disabled unless explicitly enabled:
+
+| Setting | Purpose |
+|---|---|
+| `OPERATIONS_CREATE_ENABLED` | Create mapped Related Work Items |
+| `OPERATIONS_LINK_ENABLED` | Link an existing ADO Work Item as Related |
+| `OPERATIONS_SYNC_ENABLED` | Synchronize Work Item states |
+| `OPERATIONS_CLOSE_ENABLED` | Confirm recovery and close Operations Hub incidents |
+| `OPERATIONS_RECONCILIATION_ENABLED` | Enable the separate reconciliation endpoint |
+| `OPERATIONS_NOTIFICATION_ENABLED` | Send deduplicated reconciliation notifications |
+| `OPERATIONS_AUTOMATION_KEY` | Secret header value required by `/api/operations-reconcile` |
+| `OPERATIONS_HUB_URL` | Canonical URL inserted into notifications |
+| `OPERATIONS_MAPPINGS_LIST_NAME` | Supporting mapping list name |
+| `OPERATIONS_AUDIT_LIST_NAME` | Supporting audit list name |
 
 The Entra application used by the existing API must be permitted to read the target SharePoint site/list. No Graph or ADO App Registration dedicated to Operations Hub is used in V1.
 

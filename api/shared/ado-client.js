@@ -64,6 +64,7 @@ function makeSingleAdoHostRequest(hostname, method, path, body, options) {
     ? 'Bearer ' + options.accessToken
     : 'Basic ' + Buffer.from(':' + pat).toString('base64');
   const data = body ? JSON.stringify(body) : null;
+  const contentType = options && options.contentType || 'application/json';
 
   return new Promise((resolve, reject) => {
     const options = {
@@ -78,7 +79,7 @@ function makeSingleAdoHostRequest(hostname, method, path, body, options) {
       timeout: 15000
     };
     if (data) {
-      options.headers['Content-Type'] = 'application/json';
+      options.headers['Content-Type'] = contentType;
       options.headers['Content-Length'] = Buffer.byteLength(data);
     }
 
@@ -438,6 +439,38 @@ async function getConnectionData(options) {
   return adoRequest('GET', path, null, options);
 }
 
+async function getWorkItem(workItemId, options) {
+  const { org } = getConfig();
+  const path = `/${encodeURIComponent(org)}/_apis/wit/workitems/${encodeURIComponent(String(workItemId))}?$expand=relations&api-version=7.1`;
+  return adoRequest('GET', path, null, options);
+}
+
+async function createWorkItem(project, workItemType, patches, options) {
+  const { org } = getConfig();
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/workitems/$${encodeURIComponent(workItemType)}?api-version=7.1`;
+  return adoRequest('POST', path, patches, {
+    ...(options || {}),
+    contentType: 'application/json-patch+json'
+  });
+}
+
+async function addRelatedWorkItemLink(workItemId, relatedWorkItemId, comment, options) {
+  const { org } = getConfig();
+  const path = `/${encodeURIComponent(org)}/_apis/wit/workitems/${encodeURIComponent(String(workItemId))}?api-version=7.1`;
+  return adoRequest('PATCH', path, [{
+    op: 'add',
+    path: '/relations/-',
+    value: {
+      rel: 'System.LinkTypes.Related',
+      url: `https://dev.azure.com/${encodeURIComponent(org)}/_apis/wit/workItems/${encodeURIComponent(String(relatedWorkItemId))}`,
+      attributes: { comment: comment || 'Related through Operations Hub' }
+    }
+  }], {
+    ...(options || {}),
+    contentType: 'application/json-patch+json'
+  });
+}
+
 /**
  * ดึง Branch Policy Configurations สำหรับ branch ที่ระบุ
  *
@@ -773,6 +806,9 @@ module.exports = {
   listActivePRs,
   listPullRequestsByStatus,
   getConnectionData,
+  getWorkItem,
+  createWorkItem,
+  addRelatedWorkItemLink,
   approvePR,
   rejectPR,
   setAutoComplete,

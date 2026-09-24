@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const operations = require('../operations');
 const sharePoint = require('../shared/operations-sharepoint-client');
+const workItems = require('../shared/operations-work-items');
 
 function principal(roles) {
   return Buffer.from(JSON.stringify({ userId: 'operator', userRoles: roles })).toString('base64');
@@ -46,6 +47,104 @@ test('SharePoint incident mapping derives safe dashboard fields', () => {
   assert.equal(incident.workItemId, 12345);
   assert.equal(incident.trackingStatus, 'OPEN');
   assert.match(incident.workItemUrl, /^https:\/\/dev\.azure\.com\//);
+});
+
+test('Existing incident work item is exposed as the Tier 1 primary work item', () => {
+  const incident = sharePoint.mapSharePointIncident({
+    id: '21',
+    fields: {
+      IncidentId: 'INC-PRIMARY',
+      WorkflowStatus: 'CREATED',
+      AdoWorkItemId: '5001',
+      AdoWorkItemUrl: 'https://dev.azure.com/Buzzebees/Project/_workitems/edit/5001',
+      AdoState: 'Active',
+      AssignedTo: 'Tier One'
+    }
+  });
+
+  const [composed] = workItems.attachWorkItems([incident], []);
+  assert.equal(composed.workItems.length, 1);
+  assert.deepEqual(composed.workItems[0], {
+    workItemId: 5001,
+    incidentId: 'INC-PRIMARY',
+    role: 'PRIMARY',
+    supportTeam: 'TIER1',
+    state: 'Active',
+    assignedTo: 'Tier One',
+    url: 'https://dev.azure.com/Buzzebees/Project/_workitems/edit/5001',
+    createdAt: '',
+    closedAt: '',
+    lastSyncedAt: '',
+    source: 'EXISTING_INCIDENT'
+  });
+  assert.deepEqual(composed.workItemSummary, { total: 1, closed: 0, open: 1 });
+});
+
+test('Related SharePoint work items are composed without changing the primary fields', () => {
+  const incident = sharePoint.mapSharePointIncident({
+    id: '22',
+    fields: {
+      IncidentId: 'INC-MULTI',
+      WorkflowStatus: 'CREATED',
+      AdoWorkItemId: '6001',
+      AdoState: 'Closed'
+    }
+  });
+  const related = workItems.mapSharePointWorkItem({
+    id: '8',
+    createdDateTime: '2026-09-24T01:00:00Z',
+    lastModifiedDateTime: '2026-09-24T02:00:00Z',
+    fields: {
+      IncidentId: 'INC-MULTI',
+      WorkItemId: '6002',
+      Role: 'RELATED',
+      SupportTeam: 'App Support',
+      State: 'Active',
+      WorkItemUrl: 'https://dev.azure.com/Buzzebees/Project/_workitems/edit/6002'
+    }
+  }, { safeAdoUrl: sharePoint.safeAdoUrl });
+
+  const [composed] = workItems.attachWorkItems([incident], [related]);
+  assert.equal(composed.workItemId, 6001);
+  assert.equal(composed.workItems.length, 2);
+  assert.equal(composed.workItems[0].role, 'PRIMARY');
+  assert.equal(composed.workItems[1].role, 'RELATED');
+  assert.equal(composed.workItems[1].supportTeam, 'APP_SUPPORT');
+  assert.deepEqual(composed.workItemSummary, { total: 2, closed: 1, open: 1 });
+  assert.equal(composed.trackingStatus, 'OPEN');
+});
+
+test('Duplicate supporting records cannot replace the existing primary ownership', () => {
+  const incidents = [{
+    incidentId: 'INC-DUPE',
+    workItemId: 7001,
+    adoState: 'Closed',
+    trackingStatus: 'CLOSED'
+  }];
+  const stored = [{
+    incidentId: 'inc-dupe',
+    workItemId: 7001,
+    role: 'RELATED',
+    supportTeam: 'APP_SUPPORT',
+    state: 'Closed',
+    source: 'OPERATIONS_HUB_WORK_ITEMS'
+  }];
+
+  const [composed] = workItems.attachWorkItems(incidents, stored);
+  assert.equal(composed.workItems.length, 1);
+  assert.equal(composed.workItems[0].role, 'PRIMARY');
+  assert.equal(composed.workItems[0].supportTeam, 'TIER1');
+  assert.equal(composed.workItems[0].source, 'EXISTING_INCIDENT');
+});
+
+test('Incidents without a work item remain compatible', () => {
+  const [composed] = workItems.attachWorkItems([{
+    incidentId: 'INC-NONE',
+    trackingStatus: 'PENDING'
+  }], []);
+  assert.deepEqual(composed.workItems, []);
+  assert.deepEqual(composed.workItemSummary, { total: 0, closed: 0, open: 0 });
+  assert.equal(composed.trackingStatus, 'PENDING');
 });
 
 test('Rejected ADO work items are treated as closed', () => {
@@ -111,6 +210,16 @@ test('Operations dashboard summarizes ADO tracking states', () => {
   assert.equal(summary.awaitingApproval, 1);
   assert.equal(summary.cancelledItems, 1);
   assert.equal(summary.failedItems, 1);
+});
+
+test('Operations dashboard counts every primary and related work item', () => {
+  const summary = operations.dashboardSummary([
+    { workItemId: 1, trackingStatus: 'OPEN', workflowStatus: 'CREATED', workItemSummary: { total: 3, open: 2, closed: 1 } },
+    { workItemId: 4, trackingStatus: 'CLOSED', workflowStatus: 'CREATED', workItemSummary: { total: 1, open: 0, closed: 1 } }
+  ]);
+  assert.equal(summary.adoWorkItems, 4);
+  assert.equal(summary.openWorkItems, 2);
+  assert.equal(summary.closedWorkItems, 2);
 });
 
 test('Operations dashboard provides a Bangkok daily brief and 14-day series', () => {
@@ -182,6 +291,24 @@ test('Operations filters support tracking status and search', () => {
   assert.deepEqual(operations.filterIncidents(items, { search: 'INC-20260921132400-CHECKOUT-API' }), [items[0]]);
   assert.deepEqual(operations.filterIncidents(items, { status: 'closed' }), [items[1]]);
   assert.equal(operations.normalizePath('../health'), '');
+});
+
+test('Operations search includes related work-item identity and team', () => {
+  const item = {
+    displayId: 'INC-2026-000029',
+    incidentId: 'inc-related',
+    trackingStatus: 'OPEN',
+    workItems: [{
+      workItemId: 88002,
+      role: 'RELATED',
+      supportTeam: 'APP_SUPPORT',
+      state: 'Active',
+      assignedTo: 'Application Team'
+    }]
+  };
+  assert.deepEqual(operations.filterIncidents([item], { search: '88002' }), [item]);
+  assert.deepEqual(operations.filterIncidents([item], { search: 'app_support' }), [item]);
+  assert.deepEqual(operations.filterIncidents([item], { search: 'application team' }), [item]);
 });
 
 test('Operations only exposes trusted Azure DevOps work-item URLs', () => {

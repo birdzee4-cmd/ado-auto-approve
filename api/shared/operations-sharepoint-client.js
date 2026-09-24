@@ -1,9 +1,10 @@
 const https = require('https');
+const workItems = require('./operations-work-items');
 
 let cachedToken = null;
 let tokenExpiresAt = 0;
 let cachedSiteId = null;
-let cachedListId = null;
+const cachedListIds = new Map();
 const incidentYearFormatter = new Intl.DateTimeFormat('en-US', {
   timeZone: 'Asia/Bangkok',
   year: 'numeric'
@@ -16,11 +17,13 @@ function getConfig() {
     clientSecret: process.env.AAD_CLIENT_SECRET,
     hostname: process.env.OPERATIONS_SHAREPOINT_HOSTNAME || process.env.SHAREPOINT_HOSTNAME,
     sitePath: process.env.OPERATIONS_SHAREPOINT_SITE_PATH || process.env.SHAREPOINT_SITE_PATH,
-    listName: process.env.OPERATIONS_SHAREPOINT_LIST_NAME || 'Operations Hub Incidents'
+    listName: process.env.OPERATIONS_SHAREPOINT_LIST_NAME || 'Operations Hub Incidents',
+    workItemsListName: process.env.OPERATIONS_WORK_ITEMS_LIST_NAME || '',
+    mappingsListName: process.env.OPERATIONS_MAPPINGS_LIST_NAME || '',
+    auditListName: process.env.OPERATIONS_AUDIT_LIST_NAME || ''
   };
-  const missing = Object.entries(config)
-    .filter(([key, value]) => key !== 'listName' && !value)
-    .map(([key]) => key);
+  const missing = ['tenant', 'clientId', 'clientSecret', 'hostname', 'sitePath']
+    .filter(key => !config[key]);
   if (missing.length) throw new Error('Missing Operations SharePoint settings: ' + missing.join(', '));
   return config;
 }
@@ -93,8 +96,8 @@ async function getSiteId() {
   return cachedSiteId;
 }
 
-async function getListId() {
-  if (cachedListId) return cachedListId;
+async function getListId(listName) {
+  if (cachedListIds.has(listName)) return cachedListIds.get(listName);
   const config = getConfig();
   const siteId = await getSiteId();
   const token = await getAccessToken();
@@ -105,17 +108,17 @@ async function getListId() {
   );
   if (!result.ok) throw new Error('Unable to list SharePoint lists for Operations Hub');
   const list = (result.body && result.body.value || []).find(item =>
-    item.displayName === config.listName || item.name === config.listName
+    item.displayName === listName || item.name === listName
   );
-  if (!list) throw new Error('Operations SharePoint List was not found');
-  cachedListId = list.id;
-  return cachedListId;
+  if (!list) throw new Error('Operations SharePoint List was not found: ' + listName);
+  cachedListIds.set(listName, list.id);
+  return list.id;
 }
 
-async function listItems(maxItems) {
+async function listItems(maxItems, listName) {
   const maximum = Math.max(1, Math.min(Number(maxItems) || 500, 1000));
   const siteId = await getSiteId();
-  const listId = await getListId();
+  const listId = await getListId(listName);
   const token = await getAccessToken();
   const headers = {
     Authorization: 'Bearer ' + token,
@@ -136,7 +139,125 @@ async function listItems(maxItems) {
 }
 
 async function listIncidents(maxItems) {
-  return (await listItems(maxItems)).map(mapSharePointIncident).sort(compareNewest);
+  const config = getConfig();
+  const incidents = (await listItems(maxItems, config.listName)).map(mapSharePointIncident).sort(compareNewest);
+  const related = config.workItemsListName ? await listWorkItems(1000, config.workItemsListName) : [];
+  return workItems.attachWorkItems(incidents, related);
+}
+
+async function listWorkItems(maxItems, listName) {
+  const items = await listItems(maxItems, listName);
+  return items.map(item => workItems.mapSharePointWorkItem(item, {
+    textField,
+    dateField,
+    safeAdoUrl
+  })).filter(Boolean);
+}
+
+async function listConfiguredWorkItems(maxItems) {
+  const config = getConfig();
+  if (!config.workItemsListName) return [];
+  return listWorkItems(maxItems || 1000, config.workItemsListName);
+}
+
+async function graphListRequest(method, listName, suffix, body) {
+  if (!listName) throw new Error('Operations supporting SharePoint List is not configured');
+  const siteId = await getSiteId();
+  const listId = await getListId(listName);
+  const token = await getAccessToken();
+  const result = await httpRequest(
+    method,
+    `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}${suffix || ''}`,
+    {
+      Authorization: 'Bearer ' + token,
+      ...(body == null ? {} : { 'Content-Type': 'application/json' })
+    },
+    body
+  );
+  if (!result.ok) throw new Error(`Operations SharePoint write failed: HTTP ${result.status}`);
+  return result.body;
+}
+
+async function createSupportingItem(listName, fields) {
+  const cleanFields = Object.fromEntries(Object.entries(fields || {}).filter(([, value]) => value !== undefined && value !== null));
+  return graphListRequest('POST', listName, '/items', { fields: cleanFields });
+}
+
+async function updateSupportingItem(listName, itemId, fields) {
+  return graphListRequest('PATCH', listName, `/items/${encodeURIComponent(String(itemId))}/fields`, fields);
+}
+
+async function listMappings() {
+  const config = getConfig();
+  if (!config.mappingsListName) return [];
+  return (await listItems(1000, config.mappingsListName)).map(mapServiceMapping).filter(item => item.enabled);
+}
+
+function mapServiceMapping(item) {
+  const fields = item && item.fields || {};
+  return {
+    sharePointId: sharePointItemId(item),
+    mappingId: textField(fields, ['MappingId']) || String(item && item.id || ''),
+    service: textField(fields, ['Service']),
+    alertNamePattern: textField(fields, ['AlertNamePattern']),
+    resourcePattern: textField(fields, ['ResourcePattern']),
+    environment: textField(fields, ['Environment']),
+    supportTeam: textField(fields, ['SupportTeam']).toUpperCase().replace(/[\s-]+/g, '_'),
+    adoProject: textField(fields, ['AdoProject']),
+    workItemType: textField(fields, ['WorkItemType']),
+    areaPath: textField(fields, ['AreaPath']),
+    iterationPath: textField(fields, ['IterationPath']),
+    assignedTeam: textField(fields, ['AssignedTeam']),
+    defaultTags: textField(fields, ['DefaultTags']),
+    enabled: booleanField(fields, ['Enabled'], true),
+    priority: numberField(fields, ['Priority']) || 0
+  };
+}
+
+async function createWorkItemRecord(fields) {
+  const config = getConfig();
+  return createSupportingItem(config.workItemsListName, fields);
+}
+
+async function updateWorkItemRecord(itemId, fields) {
+  const config = getConfig();
+  return updateSupportingItem(config.workItemsListName, itemId, fields);
+}
+
+async function updateIncidentRecord(itemId, fields) {
+  const config = getConfig();
+  return updateSupportingItem(config.listName, itemId, fields);
+}
+
+async function appendAudit(fields) {
+  const config = getConfig();
+  return createSupportingItem(config.auditListName, fields);
+}
+
+async function listAudit(incidentId) {
+  const config = getConfig();
+  if (!config.auditListName) return [];
+  const target = String(incidentId || '').toLowerCase();
+  return (await listItems(1000, config.auditListName))
+    .map(mapAuditEvent)
+    .filter(item => item.incidentId.toLowerCase() === target)
+    .sort((left, right) => Date.parse(right.timestamp || '') - Date.parse(left.timestamp || ''));
+}
+
+function mapAuditEvent(item) {
+  const fields = item && item.fields || {};
+  return {
+    eventId: textField(fields, ['EventId', 'EventKey']) || String(item && item.id || ''),
+    eventKey: textField(fields, ['EventKey']),
+    timestamp: dateField(fields, ['OccurredAt']) || isoDate(item && item.createdDateTime),
+    eventType: textField(fields, ['Action']) || 'OPERATIONS_EVENT',
+    incidentId: textField(fields, ['IncidentId']),
+    workItemId: numberField(fields, ['WorkItemId']),
+    result: textField(fields, ['Result']) || 'RECORDED',
+    detail: textField(fields, ['Detail']),
+    operationsUserEmail: textField(fields, ['OperationsUserEmail']),
+    adoIdentityEmail: textField(fields, ['AdoIdentityEmail'])
+  };
 }
 
 async function getIncident(incidentId) {
@@ -211,6 +332,12 @@ function mapSharePointIncident(item) {
     currentValue: textField(fields, ['CurrentValue']),
     thresholdDetail: textField(fields, ['ThresholdDetail']),
     alertSummary: textField(fields, ['AlertSummary']),
+    recoveryConfirmed: booleanField(fields, ['RecoveryConfirmed'], false),
+    recoveryConfirmedBy: textField(fields, ['RecoveryConfirmedBy']),
+    recoveryConfirmedAt: dateField(fields, ['RecoveryConfirmedAt']),
+    operationsStatus: textField(fields, ['OperationsStatus']),
+    operationsClosedBy: textField(fields, ['OperationsClosedBy']),
+    operationsClosedAt: dateField(fields, ['OperationsClosedAt']),
     source: 'Power Automate / SharePoint'
   };
 }
@@ -268,6 +395,16 @@ function numberField(fields, names) {
   if (value === '') return undefined;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function booleanField(fields, names, fallback) {
+  for (const name of names) {
+    const value = fields && fields[name];
+    if (typeof value === 'boolean') return value;
+    if (String(value || '').toLowerCase() === 'true') return true;
+    if (String(value || '').toLowerCase() === 'false') return false;
+  }
+  return fallback;
 }
 
 function durationMinutes(firstSeenAt, resolvedAt) {
@@ -332,6 +469,15 @@ module.exports = {
   formatIncidentDisplayId,
   getIncident,
   listIncidents,
+  listWorkItems,
+  listConfiguredWorkItems,
+  listMappings,
+  mapServiceMapping,
+  createWorkItemRecord,
+  updateWorkItemRecord,
+  updateIncidentRecord,
+  appendAudit,
+  listAudit,
   mapSharePointIncident,
   trackingStatus,
   safeAdoUrl,

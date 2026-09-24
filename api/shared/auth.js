@@ -122,6 +122,17 @@ function getUserEmail(principal) {
   return (principal && principal.userDetails) || 'Unknown User';
 }
 
+function getOperationsWriterRoles() {
+  return String(process.env.OPERATIONS_WRITE_ROLES || 'it_support_approve,admin')
+    .split(',')
+    .map(role => role.trim())
+    .filter(Boolean);
+}
+
+function requireOperationsWriter(context, req) {
+  return requireAnyRole(context, req, getOperationsWriterRoles());
+}
+
 module.exports = {
   parseClientPrincipal,
   getUserRoles,
@@ -130,5 +141,7 @@ module.exports = {
   hasAnyRole,
   requireRole,
   requireAnyRole,
+  getOperationsWriterRoles,
+  requireOperationsWriter,
   getUserEmail
 };

@@ -1,5 +1,6 @@
 const auth = require('../shared/auth');
 const sharePoint = require('../shared/operations-sharepoint-client');
+const operationsService = require('../shared/operations-service');
 
 module.exports = async function (context, req) {
   const roleCheck = auth.requireAnyRole(context, req, ['it_support_approve', 'admin']);
@@ -7,6 +8,10 @@ module.exports = async function (context, req) {
 
   const path = normalizePath(req.params && req.params.path);
   try {
+    if (String(req.method || 'GET').toUpperCase() === 'POST') {
+      return handleWrite(context, req, path, roleCheck.principal);
+    }
+
     if (path === 'dashboard') {
       const incidents = await sharePoint.listIncidents(1000);
       return jsonResponse(context, 200, { ok: true, data: dashboardSummary(incidents, req.query || {}) });
@@ -17,26 +22,99 @@ module.exports = async function (context, req) {
       return jsonResponse(context, 200, { ok: true, data: { items: incidents, count: incidents.length } });
     }
 
+    if (path === 'mappings') {
+      const admin = auth.requireAnyRole(context, req, ['admin']);
+      if (!admin.ok) return jsonResponse(context, admin.status, admin.body);
+      const mappings = await sharePoint.listMappings();
+      return jsonResponse(context, 200, { ok: true, data: { items: mappings, count: mappings.length } });
+    }
+
     const detailMatch = /^incidents\/([A-Za-z0-9._:-]+)$/.exec(path);
     if (detailMatch) {
       const incident = await sharePoint.getIncident(detailMatch[1]);
       if (!incident) return jsonResponse(context, 404, { ok: false, error: 'Incident not found' });
+      const audit = await sharePoint.listAudit(incident.incidentId);
       return jsonResponse(context, 200, {
         ok: true,
-        data: { incident, timeline: buildTimeline(incident) }
+        data: {
+          incident: { ...incident, closeEligibility: operationsService.closeEligibility(incident) },
+          timeline: [...audit, ...buildTimeline(incident)]
+            .sort((a, b) => (Date.parse(b.timestamp) || 0) - (Date.parse(a.timestamp) || 0))
+        }
       });
+    }
+
+    if (path === 'mappings/resolve') {
+      const incident = await sharePoint.getIncident(req.query && req.query.incidentId);
+      if (!incident) return jsonResponse(context, 404, { ok: false, error: 'Incident not found' });
+      const mapping = operationsService.resolveMapping(await sharePoint.listMappings(), incident, req.query && req.query.supportTeam);
+      return jsonResponse(context, 200, { ok: true, data: { mapping } });
     }
 
     return jsonResponse(context, 404, { ok: false, error: 'Operations API route not found' });
   } catch (err) {
     context.log.error('Operations SharePoint API failed:', sanitizeError(err));
-    return jsonResponse(context, 503, {
+    return jsonResponse(context, Number(err.status) || 503, {
       ok: false,
-      error: 'Operations incident store is unavailable',
-      detail: 'Check the Operations Hub SharePoint List and API settings.'
+      error: err.code || 'OPERATIONS_REQUEST_FAILED',
+      detail: err.message || 'Check the Operations Hub SharePoint List and API settings.',
+      data: err.data
     });
   }
 };
+
+async function handleWrite(context, req, path, principal) {
+  const writer = auth.requireOperationsWriter(context, req);
+  if (!writer.ok) return jsonResponse(context, writer.status, writer.body);
+  const delegated = require('../shared/ado-user-token');
+  const token = await delegated.getValidAccessToken(req, principal);
+  if (!token.ok) {
+    return jsonResponse(context, token.status || 428, {
+      ok: false,
+      error: token.error || 'Azure DevOps connection required',
+      connectUrl: '/api/ado-auth-start?returnTo=/operations.html'
+    });
+  }
+  const verified = await require('../shared/ado-identity').verifyAdoIdentity(token.accessToken);
+  if (!verified.ok) {
+    return jsonResponse(context, 428, {
+      ok: false,
+      error: verified.error,
+      connectUrl: '/api/ado-auth-start?returnTo=/operations.html'
+    }, token.setCookie);
+  }
+  const match = /^incidents\/([A-Za-z0-9._:-]+)\/(.+)$/.exec(path);
+  if (!match) return jsonResponse(context, 404, { ok: false, error: 'Operations write route not found' }, token.setCookie);
+  const incidentId = match[1];
+  const action = match[2];
+  const body = parseBody(req.body);
+  const actionContext = {
+    accessToken: token.accessToken,
+    correlationId: String(req.headers && (req.headers['x-correlation-id'] || req.headers['x-ms-request-id']) || require('crypto').randomUUID()),
+    operationsIdentity: {
+      id: principal.userId || '',
+      name: principal.userDetails || '',
+      email: principal.userDetails || ''
+    },
+    adoIdentity: verified.identity
+  };
+  let data;
+  if (action === 'work-items/related') data = await operationsService.createRelated({ ...body, incidentId }, actionContext);
+  else if (action === 'work-items/link') data = await operationsService.linkExisting({ ...body, incidentId }, actionContext);
+  else if (action === 'synchronize') data = await operationsService.synchronize({ ...body, incidentId }, actionContext);
+  else if (action === 'confirm-recovery') data = await operationsService.confirmRecovery({ ...body, incidentId }, actionContext);
+  else if (action === 'close') data = await operationsService.closeIncident({ ...body, incidentId }, actionContext);
+  else return jsonResponse(context, 404, { ok: false, error: 'Operations write route not found' }, token.setCookie);
+  return jsonResponse(context, 200, { ok: true, data }, token.setCookie);
+}
+
+function parseBody(body) {
+  if (!body) return {};
+  if (typeof body === 'object') return body;
+  try { return JSON.parse(body); } catch (err) {
+    throw Object.assign(new Error('Request body must be valid JSON'), { status: 400, code: 'INVALID_JSON' });
+  }
+}
 
 function normalizePath(path) {
   const value = String(path || '').replace(/^\/+|\/+$/g, '');
@@ -50,7 +128,14 @@ function filterIncidents(items, query) {
   return (items || []).filter(item => {
     const statusMatch = !status || [item.status, item.trackingStatus, item.workflowStatus, item.adoState]
       .some(value => String(value || '').toUpperCase() === status);
-    const haystack = [item.displayId, item.sharePointId, item.incidentId, item.alertName, item.resource, item.service, item.environment, item.workItemId, item.assignedTo]
+    const workItemSearch = (item.workItems || []).flatMap(workItem => [
+      workItem.workItemId,
+      workItem.role,
+      workItem.supportTeam,
+      workItem.state,
+      workItem.assignedTo
+    ]);
+    const haystack = [item.displayId, item.sharePointId, item.incidentId, item.alertName, item.resource, item.service, item.environment, item.workItemId, item.assignedTo, ...workItemSearch]
       .join(' ').toLowerCase();
     return statusMatch && (!search || haystack.includes(search));
   });
@@ -71,9 +156,9 @@ function dashboardSummary(incidents, query = {}, now = new Date()) {
 
   return {
     totalIncidents: items.length,
-    adoWorkItems: items.filter(item => Boolean(item.workItemId)).length,
-    openWorkItems: items.filter(item => item.trackingStatus === 'OPEN').length,
-    closedWorkItems: items.filter(item => item.trackingStatus === 'CLOSED').length,
+    adoWorkItems: items.reduce((sum, item) => sum + workItemCount(item, 'total'), 0),
+    openWorkItems: items.reduce((sum, item) => sum + workItemCount(item, 'open'), 0),
+    closedWorkItems: items.reduce((sum, item) => sum + workItemCount(item, 'closed'), 0),
     awaitingApproval: items.filter(item => item.workflowStatus === 'AWAITING_APPROVAL' || item.trackingStatus === 'PENDING').length,
     cancelledItems: items.filter(item => item.trackingStatus === 'CANCELLED').length,
     failedItems: items.filter(item => item.trackingStatus === 'FAILED').length,
@@ -95,6 +180,17 @@ function dashboardSummary(incidents, query = {}, now = new Date()) {
     needsAttention,
     generatedAt: new Date().toISOString()
   };
+}
+
+function workItemCount(item, kind) {
+  if (item.workItemSummary && Number.isFinite(Number(item.workItemSummary[kind]))) {
+    return Number(item.workItemSummary[kind]);
+  }
+  if (!item.workItemId) return 0;
+  if (kind === 'total') return 1;
+  if (kind === 'open') return item.trackingStatus === 'OPEN' ? 1 : 0;
+  if (kind === 'closed') return item.trackingStatus === 'CLOSED' ? 1 : 0;
+  return 0;
 }
 
 function buildDailySeries(items, endDate, days) {
@@ -163,10 +259,12 @@ function addTimeline(events, timestamp, eventType, result, detail) {
   events.push({ eventId: `${eventType}:${timestamp}`, timestamp, eventType, result, detail });
 }
 
-function jsonResponse(context, status, payload) {
+function jsonResponse(context, status, payload, setCookie) {
+  const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store, no-cache, must-revalidate' };
+  if (setCookie) headers['Set-Cookie'] = setCookie;
   context.res = {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+    headers,
     body: JSON.stringify(payload)
   };
 }

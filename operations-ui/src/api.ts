@@ -1,4 +1,4 @@
-import type { AuditEvent, CurrentUser, DashboardData, Incident } from './types';
+import type { AdoConnectionStatus, AuditEvent, CurrentUser, DashboardData, Incident, ServiceMapping, SupportTeam } from './types';
 
 interface ApiEnvelope<T> {
   ok: boolean;
@@ -25,7 +25,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   const body = await response.json().catch(() => null) as ApiEnvelope<T> | null;
   if (!response.ok || !body?.ok) {
-    throw new Error(body?.detail || body?.error || `Request failed (HTTP ${response.status})`);
+    const error = new Error(body?.detail || body?.error || `Request failed (HTTP ${response.status})`) as Error & { status?: number; code?: string; data?: unknown; connectUrl?: string };
+    error.status = response.status;
+    error.code = body?.error;
+    error.data = body?.data;
+    error.connectUrl = (body as ApiEnvelope<T> & { connectUrl?: string })?.connectUrl;
+    throw error;
   }
   return body.data as T;
 }
@@ -43,6 +48,35 @@ export async function loadCurrentUser(): Promise<CurrentUser> {
   };
 }
 
+export async function loadAdoConnection(recover = false): Promise<AdoConnectionStatus> {
+  const response = await fetch(`/api/ado-auth-status${recover ? '?recover=1' : ''}`, {
+    headers: { Accept: 'application/json' },
+    redirect: 'manual'
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok || !body?.ok) {
+    throw new Error(body?.detail || body?.error || 'Unable to check Azure DevOps connection');
+  }
+  return {
+    connected: body.connected === true,
+    user: body.user || '',
+    reason: body.reason || '',
+    connectedAt: body.connectedAt || '',
+    expiresAt: body.expiresAt || '',
+    adoIdentity: body.adoIdentity,
+    operationsIdentity: body.operationsIdentity
+  };
+}
+
+export async function disconnectAdo(): Promise<void> {
+  const response = await fetch('/api/ado-auth-disconnect', {
+    method: 'POST',
+    headers: { Accept: 'application/json' }
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok || !body?.ok) throw new Error(body?.error || 'Unable to disconnect Azure DevOps');
+}
+
 export const operationsApi = {
   dashboard: (date = '') => request<DashboardData>(`/api/operations/dashboard${date ? `?date=${encodeURIComponent(date)}` : ''}`),
   incidents: (status = '', search = '') => {
@@ -51,5 +85,12 @@ export const operationsApi = {
     if (search) query.set('search', search);
     return request<{ items: Incident[]; count: number }>(`/api/operations/incidents?${query.toString()}`);
   },
-  incident: (id: string) => request<{ incident: Incident; timeline: AuditEvent[] }>(`/api/operations/incidents/${encodeURIComponent(id)}`)
+  incident: (id: string) => request<{ incident: Incident; timeline: AuditEvent[] }>(`/api/operations/incidents/${encodeURIComponent(id)}`),
+  mappings: () => request<{ items: ServiceMapping[]; count: number }>('/api/operations/mappings'),
+  resolveMapping: (incidentId: string, supportTeam: SupportTeam) => request<{ mapping: ServiceMapping }>(`/api/operations/mappings/resolve?incidentId=${encodeURIComponent(incidentId)}&supportTeam=${encodeURIComponent(supportTeam)}`),
+  createRelated: (incidentId: string, input: { supportTeam: SupportTeam; title?: string; detail?: string; idempotencyKey: string }) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/work-items/related`, { method: 'POST', body: JSON.stringify(input) }),
+  linkExisting: (incidentId: string, input: { supportTeam: SupportTeam; workItemId: number }) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/work-items/link`, { method: 'POST', body: JSON.stringify(input) }),
+  synchronize: (incidentId: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/synchronize`, { method: 'POST', body: '{}' }),
+  confirmRecovery: (incidentId: string, comment = '') => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/confirm-recovery`, { method: 'POST', body: JSON.stringify({ comment }) }),
+  close: (incidentId: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/close`, { method: 'POST', body: '{}' })
 };

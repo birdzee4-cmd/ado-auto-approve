@@ -16,9 +16,11 @@ module.exports = async function (context, req) {
     const state = req.query && req.query.state;
     const error = req.query && req.query.error;
     if (error) {
+      const errorState = state ? delegated.readState(req, state) : null;
+      const errorReturnTo = errorState && errorState.returnTo || '/dashboard.html';
       context.res = {
         status: 302,
-        headers: { Location: '/dashboard.html?adoConnected=0&adoError=' + encodeURIComponent(error) }
+        headers: { Location: appendQuery(errorReturnTo, 'adoConnected=0&adoError=' + encodeURIComponent(error)) }
       };
       return;
     }
@@ -63,7 +65,19 @@ module.exports = async function (context, req) {
       return;
     }
 
+    const verified = await require('../shared/ado-identity').verifyAdoIdentity(tokenResult.body.access_token);
+    if (!verified.ok) {
+      context.res = {
+        status: 302,
+        headers: {
+          Location: appendQuery(statePayload.returnTo || '/dashboard.html', 'adoConnected=0&adoError=' + encodeURIComponent(verified.error))
+        }
+      };
+      return;
+    }
+
     const record = delegated.buildTokenRecord(tokenResult.body, principal);
+    record.adoIdentity = verified.identity;
     const tokenCookie = await delegated.createTokenCookie(record, principal);
     const returnLocation = appendQuery(statePayload.returnTo || '/dashboard.html', 'adoConnected=1');
     context.res = {
@@ -88,5 +102,11 @@ module.exports = async function (context, req) {
 };
 
 function appendQuery(url, query) {
-  return String(url || '/dashboard.html') + (String(url || '').includes('?') ? '&' : '?') + query;
+  const value = String(url || '/dashboard.html');
+  const hashIndex = value.indexOf('#');
+  const base = hashIndex >= 0 ? value.slice(0, hashIndex) : value;
+  const hash = hashIndex >= 0 ? value.slice(hashIndex) : '';
+  return base + (base.includes('?') ? '&' : '?') + query + hash;
 }
+
+module.exports.appendQuery = appendQuery;

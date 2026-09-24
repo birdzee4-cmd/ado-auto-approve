@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { loadCurrentUser } from './api';
+import { AdoConnection } from './AdoConnection';
 import { Dashboard } from './modules/Dashboard';
 import { Incidents } from './modules/Incidents';
+import { Mappings } from './modules/Mappings';
 import type { CurrentUser, RouteId } from './types';
 
-const routes: Array<{ id: RouteId; label: string; short: string }> = [
+const routes: Array<{ id: RouteId; label: string; short: string; adminOnly?: boolean }> = [
   { id: 'dashboard', label: 'Dashboard', short: 'DB' },
-  { id: 'incidents', label: 'Incidents', short: 'IN' }
+  { id: 'incidents', label: 'Incidents', short: 'IN' },
+  { id: 'mappings', label: 'Service Mapping', short: 'MP', adminOnly: true }
 ];
 
 function routeFromHash(): RouteId {
@@ -28,17 +31,18 @@ export function App() {
     return () => window.removeEventListener('hashchange', changeRoute);
   }, []);
 
-  const content = route === 'incidents' ? <Incidents /> : <Dashboard />;
+  const visibleRoutes = routes.filter(item => !item.adminOnly || user.isAdmin);
+  const content = route === 'incidents' ? <Incidents /> : route === 'mappings' && user.isAdmin ? <Mappings /> : <Dashboard />;
 
   return <div className="ops-app">
     <header className="ops-topbar">
       <div className="ops-brand"><button className="ops-mobile-menu" onClick={() => setMenuOpen(value => !value)} aria-label="Open navigation">☰</button><img src="/assets/buzzebees-icon.png" alt="Buzzebees" /><div><strong>Operations Hub</strong><span>Buzzebees Internal Applications</span></div></div>
-      <nav><a href="/applications.html">All applications</a><span className="ops-user">{user.email || user.name}</span><a className="ops-logout" href="/.auth/logout?post_logout_redirect_uri=/">Logout</a><img src="/assets/buzzebees-powered.png" alt="Powered by Buzzebees" /></nav>
+      <nav><AdoConnection /><a href="/applications.html">All applications</a><span className="ops-user">{user.email || user.name}</span><a className="ops-logout" href="/.auth/logout?post_logout_redirect_uri=/">Logout</a><img src="/assets/buzzebees-powered.png" alt="Powered by Buzzebees" /></nav>
     </header>
     <div className="ops-workspace">
       <aside className={`ops-sidebar ${menuOpen ? 'is-open' : ''}`}>
         <div className="ops-sidebar-context"><span>POWER AUTOMATE</span><strong>Incident tracking</strong></div>
-        <nav>{routes.map(item => <a key={item.id} href={`#/${item.id}`} className={route === item.id ? 'is-active' : ''}><span>{item.short}</span>{item.label}</a>)}</nav>
+        <nav>{visibleRoutes.map(item => <a key={item.id} href={`#/${item.id}`} className={route === item.id ? 'is-active' : ''}><span>{item.short}</span>{item.label}</a>)}</nav>
         <div className="ops-sidebar-foot"><span className="ops-live-dot" /> SharePoint incident store<strong>{user.name}</strong></div>
       </aside>
       {menuOpen && <button className="ops-menu-backdrop" onClick={() => setMenuOpen(false)} aria-label="Close navigation" />}

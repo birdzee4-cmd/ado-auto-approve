@@ -1,4 +1,4 @@
-export type RouteId = 'dashboard' | 'incidents';
+export type RouteId = 'dashboard' | 'incidents' | 'mappings';
 
 export type IncidentStatus = 'FIRING' | 'RESOLVED';
 export type TrackingStatus = 'OPEN' | 'CLOSED' | 'PENDING' | 'FAILED' | 'CANCELLED' | 'NOT_CREATED';
@@ -8,6 +8,42 @@ export interface CurrentUser {
   email: string;
   userRoles: string[];
   isAdmin: boolean;
+}
+
+export interface VerifiedAdoIdentity {
+  id: string;
+  descriptor: string;
+  displayName: string;
+  email: string;
+  verified: true;
+}
+
+export interface AdoConnectionStatus {
+  connected: boolean;
+  user?: string;
+  reason?: string;
+  connectedAt?: string;
+  expiresAt?: string;
+  adoIdentity?: VerifiedAdoIdentity;
+  operationsIdentity?: { id: string; email: string };
+}
+
+export type WorkItemRole = 'PRIMARY' | 'RELATED';
+export type SupportTeam = 'TIER1' | 'APP_SUPPORT' | 'TIER2';
+
+export interface IncidentWorkItem {
+  sharePointId?: number;
+  workItemId: number;
+  incidentId: string;
+  role: WorkItemRole;
+  supportTeam?: SupportTeam;
+  state: string;
+  assignedTo?: string;
+  url?: string;
+  createdAt?: string;
+  closedAt?: string;
+  lastSyncedAt?: string;
+  source: 'EXISTING_INCIDENT' | 'OPERATIONS_HUB_WORK_ITEMS';
 }
 
 export interface Incident {
@@ -57,6 +93,41 @@ export interface Incident {
   alertSummary?: string;
   errorDetail?: string;
   source?: string;
+  workItems: IncidentWorkItem[];
+  workItemSummary: {
+    total: number;
+    closed: number;
+    open: number;
+  };
+  recoveryConfirmed?: boolean;
+  recoveryConfirmedBy?: string;
+  recoveryConfirmedAt?: string;
+  operationsStatus?: string;
+  operationsClosedBy?: string;
+  operationsClosedAt?: string;
+  closeEligibility?: {
+    allowed: boolean;
+    blockingWorkItems: number[];
+    reasons: string[];
+  };
+}
+
+export interface ServiceMapping {
+  sharePointId?: number;
+  mappingId: string;
+  service: string;
+  alertNamePattern?: string;
+  resourcePattern?: string;
+  environment?: string;
+  supportTeam: SupportTeam;
+  adoProject: string;
+  workItemType: string;
+  areaPath: string;
+  iterationPath?: string;
+  assignedTeam: string;
+  defaultTags?: string;
+  enabled: boolean;
+  priority: number;
 }
 
 export interface DashboardData {

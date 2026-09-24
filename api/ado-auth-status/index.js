@@ -28,10 +28,26 @@ module.exports = async function (context, req) {
       return;
     }
 
+    const verified = await require('../shared/ado-identity').verifyAdoIdentity(token.accessToken);
+    if (!verified.ok) {
+      jsonResponse(200, {
+        ok: true,
+        connected: false,
+        reason: verified.error,
+        adoStatus: verified.status
+      }, token.setCookie);
+      return;
+    }
+
     jsonResponse(200, {
       ok: true,
       connected: true,
-      user: token.record.userDetails || principal.userDetails || '',
+      user: verified.identity.email || verified.identity.displayName,
+      operationsIdentity: {
+        id: principal.userId || '',
+        email: principal.userDetails || ''
+      },
+      adoIdentity: verified.identity,
       connectedAt: token.record.connectedAt || '',
       expiresAt: token.record.expiresAt ? new Date(token.record.expiresAt).toISOString() : '',
       tokenSource: token.tokenSource || 'unknown'
