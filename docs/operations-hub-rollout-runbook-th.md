@@ -26,9 +26,10 @@
 - [x] Incident list loads. `INC-2026-000214` displays existing PRIMARY `#882323` (`TIER1`, Processing); no duplicate PRIMARY was created.
 - [x] All six Operations feature-flag entries are present in the Production environment. The administrator reports all are `false`; values were not independently read back, so keep the server-side fail-closed behavior and do not run write actions.
 - [ ] Service Mapping list currently reports no enabled mappings. Related Work Item creation must remain unavailable until mappings are populated and validated.
-- [ ] Production browser UI still renders Synchronize and Confirm Recovery controls while flags are intended off. Do not use them. Local code now reads write capabilities from the authorized API and disables controls accordingly; deploy and verify this UI/API update before enabling any write workflow.
+- [x] After deployment, the Production browser UI reads write capabilities from the authorized API; Create, Link, Synchronize, Confirm Recovery, and Close controls are disabled while flags are false.
 - [ ] Review repeated recent alert entries before declaring duplicate suppression/UAT passed; do not infer distinct incidents or merge records from alert name alone.
-- [ ] Confirm current production page includes the latest local Monitoring Alert Details UI build; the read-only smoke page did not show that details section.
+- [x] Confirmed the deployed Production page includes Monitoring Alert Details for Incident `INC-2026-000214` (resource, subscription, resource group, plan, host, metric, value, threshold, summary).
+- [x] Deployment commit `c1c6f46` completed successfully in GitHub Actions run `36026482037`.
 
 ## Smoke/UAT scenarios
 

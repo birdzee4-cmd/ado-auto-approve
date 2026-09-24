@@ -134,7 +134,7 @@ Checkpoint: การเชื่อมต่อของบัญชีปั�
 - [x] กำหนดห้ามลบ Work Items/Audit ที่สร้างสำเร็จแล้ว
 - [x] ตรวจพบ Production entries ของ `OPERATIONS_CREATE_ENABLED`, `OPERATIONS_LINK_ENABLED`, `OPERATIONS_SYNC_ENABLED`, `OPERATIONS_CLOSE_ENABLED`, `OPERATIONS_RECONCILIATION_ENABLED` และ `OPERATIONS_NOTIFICATION_ENABLED`; ผู้ดูแลยืนยันว่าตั้งทุกค่าเป็น `false` แต่ยังอ่านค่าจาก Portal ซ้ำอย่างปลอดภัยไม่ได้ จึงยังไม่เปิด write actions
 - [ ] เพิ่มและยืนยัน Service Mapping สำหรับทีมปลายทางก่อนเปิด Related creation
-- [x] ทดสอบ Production read-only: dashboard/incident list โหลดได้, ADO แสดง Connected และ Incident `INC-2026-000214` แสดง PRIMARY `#882323`; ยังไม่ถือว่า UAT หรือ write actions ผ่าน
+- [x] ทดสอบ Production read-only หลัง deploy: dashboard/incident list โหลดได้, ADO แสดง Connected และ Incident `INC-2026-000214` แสดง PRIMARY `#882323`; Monitoring Alert Details แสดงครบ และ write controls ปิดตาม flags=false; ยังไม่ถือว่า UAT หรือเปิด write actions ผ่าน
 
 ## Completion Policy
 
