@@ -209,8 +209,8 @@ test('synchronize updates primary and related stores independently', async () =>
   });
 });
 
-test('close succeeds when every work item is closed without recovery confirmation', async () => {
-  await withFlags({ OPERATIONS_SYNC_ENABLED: 'true', OPERATIONS_CLOSE_ENABLED: 'true' }, async () => {
+test('close synchronizes current ADO state and succeeds without the standalone sync flag', async () => {
+  await withFlags({ OPERATIONS_SYNC_ENABLED: 'false', OPERATIONS_CLOSE_ENABLED: 'true' }, async () => {
     const updates = [];
     const readyToClose = {
       ...incident,
@@ -230,6 +230,21 @@ test('close succeeds when every work item is closed without recovery confirmatio
     assert.ok(updates.some(item => item.fields.OperationsStatus === 'CLOSED'));
     assert.equal(updates.some(item => Object.hasOwn(item.fields, 'RecoveryConfirmed')), false);
     assert.equal(updates.some(item => Object.hasOwn(item.fields, 'WorkflowStatus')), false);
+  });
+});
+
+test('close is blocked if any Work Item latest state cannot be verified', async () => {
+  await withFlags({ OPERATIONS_SYNC_ENABLED: 'false', OPERATIONS_CLOSE_ENABLED: 'true' }, async () => {
+    const sharePoint = {
+      async getIncident() { return { ...incident, workItems: [{ workItemId: 9101, role: 'PRIMARY', state: 'Closed' }] }; },
+      async updateIncidentRecord() { assert.fail('Incident must not be closed with an unverified state'); },
+      async appendAudit() {}
+    };
+    const ado = { async getWorkItem() { return { ok: false, status: 503 }; } };
+    await assert.rejects(
+      service.closeIncident({ incidentId: incident.incidentId }, actionContext, { sharePoint, ado }),
+      error => error.code === 'WORK_ITEM_SYNC_FAILED' && error.status === 502
+    );
   });
 });
 

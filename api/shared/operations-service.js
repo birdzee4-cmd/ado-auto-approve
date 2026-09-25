@@ -172,6 +172,10 @@ async function linkExisting(input, context, dependencies = {}) {
 
 async function synchronize(input, context, dependencies = {}) {
   requireFeature('OPERATIONS_SYNC_ENABLED');
+  return synchronizeWorkItems(input, context, dependencies);
+}
+
+async function synchronizeWorkItems(input, context, dependencies = {}) {
   const sp = dependencies.sharePoint || defaultSharePoint;
   const ado = dependencies.ado || defaultAdo;
   const incident = await requireIncident(sp, input.incidentId);
@@ -208,7 +212,13 @@ async function synchronize(input, context, dependencies = {}) {
 async function closeIncident(input, context, dependencies = {}) {
   requireFeature('OPERATIONS_CLOSE_ENABLED');
   const sp = dependencies.sharePoint || defaultSharePoint;
-  await synchronize(input, context, dependencies);
+  const synchronization = await synchronizeWorkItems(input, context, dependencies);
+  const failedItems = synchronization.items.filter(item => !item.ok);
+  if (failedItems.length > 0) {
+    const detail = `Could not verify the latest state of Work Items: ${failedItems.map(item => `#${item.workItemId}`).join(', ')}`;
+    await audit(sp, context, { incidentId: input.incidentId, action: 'INCIDENT_CLOSE_BLOCKED', result: 'BLOCKED', detail });
+    throw operationalError(502, 'WORK_ITEM_SYNC_FAILED', detail);
+  }
   const incident = await requireIncident(sp, input.incidentId);
   const eligibility = closeEligibility(incident);
   if (!eligibility.allowed) {
