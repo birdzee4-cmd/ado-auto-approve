@@ -95,6 +95,58 @@ test('work-item patch uses mapped fields and a Related relation', () => {
   assert.ok(resolvedDescription.includes('24/09/2026 20:44 น.'));
 });
 
+test('App Support profile matches the required Production Service Form fields', () => {
+  const appMapping = {
+    ...mapping,
+    workItemType: 'Service Form',
+    areaPath: 'Buzzebees\\Other\\IT Support Team',
+    assignedTeam: '',
+    defaultTags: 'appsupport_pool; ITSupport_Pool'
+  };
+  const patches = service.buildCreatePatches(incident, appMapping, {}, 9101, 'Buzzebees', {
+    fields: { 'System.Description': '<p>Exact primary description</p>' }
+  });
+  const field = name => patches.find(item => item.path === `/fields/${name}`)?.value;
+  assert.equal(field('System.Description'), '<p>Exact primary description</p>');
+  assert.equal(field('Custom.RequestType'), 'Incident/Issue');
+  assert.equal(field('Custom.SeverityIncidentIssue'), 'Severity-2');
+  assert.equal(field('Custom.Deadline'), '2026-09-26T17:00:00.000Z');
+  assert.equal(field('Custom.ServicePriority'), '2-High');
+  assert.equal(field('Custom.Country'), 'Thai');
+  assert.equal(field('Custom.GroupsofSubject'), 'อื่น ๆ (Other)');
+  assert.equal(field('Custom.MonitoringSourceTracker'), 'Not Applicable (N/A)');
+  assert.equal(field('Custom.ActualIncidentTime'), incident.firstSeen);
+  assert.equal(field('System.AssignedTo'), undefined);
+});
+
+test('Tier 2 profile clones the verified IT Support Case fields from Tier 1', () => {
+  const tier2Mapping = {
+    ...mapping,
+    supportTeam: 'TIER2',
+    workItemType: 'IT Support Case',
+    areaPath: 'Buzzebees\\Other\\IT Support Team',
+    assignedTeam: 'ITSupport Admin'
+  };
+  const primaryFields = {
+    'System.Description': '<p>Exact Tier 1 description</p>',
+    'Custom.Environment': 'Production',
+    'Custom.ApprovalStatus': 'Approve',
+    'Custom.Permission': 'None',
+    'Custom.Owner': 'Poon',
+    'Custom.ImpactCase': 'Incident',
+    'Custom.PriorityCase': '1-Critical',
+    'Custom.TYPE_ALL': 'Problem Server',
+    'Custom.SUBTYPE': 'Problem Server',
+    'Custom.41f3ce19-9c22-4dda-95b0-f8d89964dfda': 'Support Request',
+    'Custom.TypeVSTS': 'Standard'
+  };
+  const patches = service.buildCreatePatches(incident, tier2Mapping, {}, 9101, 'Buzzebees', { fields: primaryFields });
+  for (const [name, value] of Object.entries(primaryFields)) {
+    assert.equal(patches.find(item => item.path === `/fields/${name}`)?.value, value);
+  }
+  assert.equal(patches.find(item => item.path === '/fields/System.AssignedTo')?.value, 'ITSupport Admin');
+});
+
 test('create related work item uses delegated identity, persists mapping output, and audits both identities', async () => {
   await withFlags({ OPERATIONS_CREATE_ENABLED: 'true' }, async () => {
     const writes = { records: [], audits: [] };

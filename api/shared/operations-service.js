@@ -183,9 +183,17 @@ async function createRelatedBatch(input, context, dependencies = {}) {
 function profileFields(supportTeam, incident, primaryWorkItem) {
   const team = normalizeTeam(supportTeam);
   if (team === 'APP_SUPPORT') {
-    // Service Form field reference names are intentionally added only after
-    // metadata discovery. Description parity and routing remain safe meanwhile.
-    return {};
+    return {
+      // Verified against Production Service Form #881049 on 2026-09-25.
+      'Custom.RequestType': 'Incident/Issue',
+      'Custom.SeverityIncidentIssue': serviceFormSeverity(incident),
+      'Custom.Deadline': serviceFormDeadline(incident.firstSeen),
+      'Custom.ServicePriority': serviceFormPriority(incident),
+      'Custom.Country': 'Thai',
+      'Custom.GroupsofSubject': 'อื่น ๆ (Other)',
+      'Custom.MonitoringSourceTracker': 'Not Applicable (N/A)',
+      'Custom.ActualIncidentTime': incident.firstSeen || null
+    };
   }
   const primary = primaryWorkItem?.fields || {};
   const fields = {};
@@ -198,11 +206,36 @@ function profileFields(supportTeam, incident, primaryWorkItem) {
     'Custom.PriorityCase',
     'Custom.TYPE_ALL',
     'Custom.SUBTYPE',
-    'Custom.SystemProgram'
+    // Production's SystemProgram field uses this generated reference name.
+    'Custom.41f3ce19-9c22-4dda-95b0-f8d89964dfda',
+    'Custom.TypeVSTS'
   ];
   for (const field of cloneFields) if (primary[field] != null) fields[field] = primary[field];
   if (!fields['Custom.Environment'] && incident.environment) fields['Custom.Environment'] = incident.environment;
   return fields;
+}
+
+function serviceFormSeverity(incident) {
+  const severity = `${incident?.severity || ''} ${incident?.priority || ''}`.toUpperCase();
+  if (severity.includes('CRITICAL') || severity.includes('P1')) return 'Severity-2';
+  return 'Severity-2';
+}
+
+function serviceFormPriority(incident) {
+  const severity = `${incident?.severity || ''} ${incident?.priority || ''}`.toUpperCase();
+  if (severity.includes('CRITICAL') || severity.includes('P1')) return '2-High';
+  return '2-High';
+}
+
+function serviceFormDeadline(firstSeen) {
+  const source = new Date(firstSeen || Date.now());
+  const valid = Number.isFinite(source.getTime()) ? source : new Date();
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(valid).map(part => [part.type, part.value]));
+  const midnightBangkok = new Date(`${parts.year}-${parts.month}-${parts.day}T00:00:00+07:00`);
+  midnightBangkok.setUTCDate(midnightBangkok.getUTCDate() + 3);
+  return midnightBangkok.toISOString();
 }
 
 async function linkExisting(input, context, dependencies = {}) {

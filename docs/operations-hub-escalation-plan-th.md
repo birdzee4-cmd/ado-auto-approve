@@ -25,38 +25,38 @@
 
 ### Phase 1 — Ticket profiles และ Description parity
 
-- [ ] อ่าน ADO field metadata ของ `Service Form` และ `IT Support Case`
-- [ ] ใช้ Description ล่าสุดจาก Primary Work Item เป็น source of truth
-- [ ] เพิ่ม profile `APP_SUPPORT_SERVICE_FORM_V1`
-- [ ] เพิ่ม profile `IT_TIER2_SUPPORT_CASE_V1`
+- [x] อ่าน ADO field metadata ของ `Service Form` และ `IT Support Case`
+- [x] ใช้ Description ล่าสุดจาก Primary Work Item เป็น source of truth
+- [x] เพิ่ม profile `APP_SUPPORT_SERVICE_FORM_V1`
+- [x] เพิ่ม profile `IT_TIER2_SUPPORT_CASE_V1`
 - [ ] ปรับ Draft Mapping ให้ตรง Work Item Type/Area/assignment จริง โดยยัง `Enabled = No`
 
 ### Phase 2 — Hybrid escalation
 
-- [ ] เลือก App Support, Tier 2 หรือทั้งสองทีม
+- [x] เลือก App Support, Tier 2 หรือทั้งสองทีม
 - [ ] Preview mapping/profile ก่อนสร้าง
-- [ ] Batch create แบบผลลัพธ์รายทีม
-- [ ] Retry เฉพาะทีมที่ล้มเหลวโดยไม่สร้างรายการซ้ำ
-- [ ] เชื่อม Related link กับ Primary และบันทึก Audit
+- [x] Batch create แบบผลลัพธ์รายทีม
+- [x] Retry เฉพาะทีมที่ล้มเหลวโดยไม่สร้างรายการซ้ำ
+- [x] เชื่อม Related link กับ Primary และบันทึก Audit
 
 ### Phase 3 — Aggregate reconciliation
 
-- [ ] Sync Primary และ Related Work Items ทุกใบ
+- [x] Sync Primary และ Related Work Items ทุกใบ
 - [ ] แยก read-only synchronization ออกจาก approval repair
-- [ ] คำนวณ `WAITING_FOR_APP_SUPPORT`, `WAITING_FOR_TIER2`, `READY_TO_CLOSE`
-- [ ] ห้าม scheduled reconciliation ปิด Incident อัตโนมัติ
+- [x] คำนวณ `WAITING_FOR_APP_SUPPORT`, `WAITING_FOR_TIER2`, `READY_TO_CLOSE`
+- [x] ห้าม scheduled reconciliation ปิด Incident อัตโนมัติ
 
 ### Phase 4 — UX/UI
 
-- [ ] Escalation workspace พร้อม target selector
-- [ ] Ticket cards แยก Tier 1/App Support/Tier 2
+- [x] Escalation workspace พร้อม target selector
+- [x] Ticket cards แยก Tier 1/App Support/Tier 2
 - [ ] Preview Description และ routing
-- [ ] Partial success/error พร้อม retry
-- [ ] Closure checklist แสดง blocker ราย Ticket และ Alert
+- [x] Partial success/error พร้อม retry
+- [x] Closure checklist แสดง blocker ราย Ticket และ Alert
 
 ### Phase 5 — UAT และ rollout
 
-- [ ] Automated API/UI tests
+- [x] Automated API/UI tests
 - [ ] Import UAT flow เป็น Create as new และคงสถานะ Off
 - [ ] Read-only/dry-run verification
 - [ ] เปิด create flag ชั่วคราวเพื่อ Production test ที่ได้รับอนุญาต
