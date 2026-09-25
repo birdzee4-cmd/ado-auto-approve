@@ -29,7 +29,7 @@
 - [x] ใช้ Description ล่าสุดจาก Primary Work Item เป็น source of truth
 - [x] เพิ่ม profile `APP_SUPPORT_SERVICE_FORM_V1`
 - [x] เพิ่ม profile `IT_TIER2_SUPPORT_CASE_V1`
-- [ ] ปรับ Draft Mapping ให้ตรง Work Item Type/Area/assignment จริง โดยยัง `Enabled = No`
+- [x] ปรับ Draft Mapping ให้ตรง Work Item Type/Area/assignment จริง โดยยัง `Enabled = No`
 
 ### Phase 2 — Hybrid escalation
 
