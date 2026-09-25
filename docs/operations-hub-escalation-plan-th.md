@@ -59,7 +59,7 @@
 - [x] Automated API/UI tests
 - [ ] Import UAT flow เป็น Create as new และคงสถานะ Off
 - [ ] Read-only/dry-run verification
-- [ ] เปิด create flag ชั่วคราวเพื่อ Production test ที่ได้รับอนุญาต
+- [x] เปิด create flag ชั่วคราวเพื่อ Production test ที่ได้รับอนุญาต
 - [ ] รายงานเลข Work Item ที่สร้างทุกใบ
 - [ ] ปิด flag หลังทดสอบและตรวจ duplicate/audit/relation
 
