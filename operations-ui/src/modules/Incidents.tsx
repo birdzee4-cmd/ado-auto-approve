@@ -5,6 +5,7 @@ import type { AdoConnectionStatus, AuditEvent, Incident, OperationsCapabilities,
 
 export function Incidents() {
   const [items, setItems] = useState<Incident[] | null>(null);
+  const [overviewItems, setOverviewItems] = useState<Incident[]>([]);
   const [selected, setSelected] = useState<{ incident: Incident; timeline: AuditEvent[] } | null>(null);
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
@@ -30,10 +31,23 @@ export function Incidents() {
     { label: 'Threshold', value: selected.incident.thresholdDetail },
     { label: 'Summary', value: selected.incident.alertSummary }
   ].filter((item): item is { label: string; value: string } => Boolean(item.value && item.value.trim())) : [];
+  const overview = {
+    total: overviewItems.length,
+    active: overviewItems.filter(item => item.status === 'FIRING' || item.trackingStatus === 'OPEN').length,
+    attention: overviewItems.filter(item => ['PENDING', 'FAILED', 'NOT_CREATED'].includes(item.trackingStatus)).length,
+    closed: overviewItems.filter(item => item.trackingStatus === 'CLOSED').length
+  };
 
   const load = () => {
     setError('');
-    operationsApi.incidents(status, search).then(result => setItems(result.items)).catch(err => setError(err.message));
+    const allRequest = operationsApi.incidents('', search);
+    const visibleRequest = status && status !== 'ATTENTION' ? operationsApi.incidents(status, search) : allRequest;
+    Promise.all([visibleRequest, allRequest])
+      .then(([visible, all]) => {
+        setItems(status === 'ATTENTION' ? visible.items.filter(item => ['PENDING', 'FAILED', 'NOT_CREATED'].includes(item.trackingStatus)) : visible.items);
+        setOverviewItems(all.items);
+      })
+      .catch(err => setError(err.message));
   };
   useEffect(load, [status]);
   useEffect(() => { loadAdoConnection().then(setConnection).catch(() => setConnection({ connected: false })); }, []);
@@ -72,18 +86,33 @@ export function Incidents() {
     catch (err) { setMapping(null); setActionError((err as Error).message); }
   };
 
-  return <section>
-    <PageHeading eyebrow="SharePoint incident store" title="Incidents" />
-    <div className="ops-toolbar">
-      <form onSubmit={e => { e.preventDefault(); load(); }}><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search incident ID, alert or resource" aria-label="Search incidents" /><button className="ops-button" type="submit">Search</button></form>
-      <select value={status} onChange={e => setStatus(e.target.value)} aria-label="Filter by tracking status"><option value="">All statuses</option><option value="OPEN">Open work items</option><option value="CLOSED">Closed work items</option><option value="PENDING">Awaiting action</option><option value="CANCELLED">Cancelled</option><option value="FAILED">Flow failures</option><option value="NOT_CREATED">No work item</option></select>
+  return <section className="ops-incidents-page">
+    <PageHeading eyebrow="Incident command center" title="Incidents" actions={<span className="ops-live-label"><i /> Live from SharePoint</span>} />
+    <div className="ops-incident-overview" aria-label="Incident overview">
+      <button className={status === '' ? 'is-active' : ''} onClick={() => setStatus('')}><span>All incidents</span><strong>{overview.total}</strong><small>Current result set</small></button>
+      <button className={status === 'OPEN' ? 'is-active' : ''} onClick={() => setStatus('OPEN')}><span>Open</span><strong>{overview.active}</strong><small>Work in progress</small></button>
+      <button className={status === 'ATTENTION' ? 'is-active is-warning' : 'is-warning'} onClick={() => setStatus('ATTENTION')}><span>Needs attention</span><strong>{overview.attention}</strong><small>Review or take action</small></button>
+      <button className={status === 'CLOSED' ? 'is-active' : ''} onClick={() => setStatus('CLOSED')}><span>Closed</span><strong>{overview.closed}</strong><small>Completed incidents</small></button>
+    </div>
+    <div className="ops-incident-controls">
+      <form className="ops-incident-search" onSubmit={e => { e.preventDefault(); load(); }}><span aria-hidden="true">⌕</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search ID, alert, service or resource…" aria-label="Search incidents" /><button className="ops-button" type="submit">Search</button></form>
+      <label className="ops-filter-control"><span>STATUS</span><select value={status} onChange={e => setStatus(e.target.value)} aria-label="Filter by tracking status"><option value="">All statuses</option><option value="ATTENTION">Needs attention</option><option value="OPEN">Open work items</option><option value="CLOSED">Closed work items</option><option value="PENDING">Awaiting action</option><option value="CANCELLED">Cancelled</option><option value="FAILED">Flow failures</option><option value="NOT_CREATED">No work item</option></select></label>
     </div>
     {error && <ErrorState message={error} onRetry={load} />}
     {!items && !error && <LoadingState />}
     {items && items.length === 0 && <EmptyState title="No matching incidents" detail="Change the filter or wait for Power Automate to write an incident to SharePoint." />}
-    {items && items.length > 0 && <div className="ops-card-list">{items.map(item => <button className="ops-incident-card" key={item.incidentId} onClick={() => openIncident(item.incidentId)} aria-label={`Open incident ${item.displayId || item.incidentId}`}>
-      <span className="ops-incident-main"><strong className="ops-incident-display-id">{item.displayId || item.incidentId}</strong><span className="ops-incident-alert">{item.alertName}</span><small>{item.service || item.resource}</small></span><AdoStateBadge value={item.adoState} /><StatusBadge value={item.trackingStatus} /><span className="ops-incident-time">{formatDate(item.lastSyncedAt || item.lastSeen)}</span>
-    </button>)}</div>}
+    {items && items.length > 0 && <div className="ops-incident-results">
+      <div className="ops-results-head"><div><strong>{items.length} incidents</strong><span>{status ? `Filtered by ${status.replace('_', ' ').toLowerCase()}` : 'Showing all tracking states'}</span></div><small>Updated from SharePoint</small></div>
+      <div className="ops-incident-columns" aria-hidden="true"><span>Incident</span><span>Service / resource</span><span>Work item</span><span>Tracking</span><span>Last update</span><span /></div>
+      <div className="ops-card-list">{items.map(item => <button className={`ops-incident-card is-${item.trackingStatus.toLowerCase().replace('_', '-')}`} key={item.incidentId} onClick={() => openIncident(item.incidentId)} aria-label={`Open incident ${item.displayId || item.incidentId}`}>
+        <span className="ops-incident-main"><span className="ops-incident-id-row"><strong className="ops-incident-display-id">{item.displayId || item.incidentId}</strong><StatusBadge value={item.status} /></span><span className="ops-incident-alert">{humanizeAlert(item.alertName)}</span></span>
+        <span className="ops-incident-service"><strong>{item.service || item.resource || 'Unknown service'}</strong><small>{item.environment || item.metric || 'No environment data'}</small></span>
+        <span className="ops-cell-stack"><AdoStateBadge value={item.adoState} /><small>{item.workItemId ? `#${item.workItemId}` : 'No work item'}</small></span>
+        <StatusBadge value={item.trackingStatus} />
+        <span className="ops-cell-stack ops-incident-time"><strong>{formatRelativeDate(item.lastSyncedAt || item.lastSeen)}</strong><small>{formatDate(item.lastSyncedAt || item.lastSeen)}</small></span>
+        <span className="ops-row-arrow" aria-hidden="true">→</span>
+      </button>)}</div>
+    </div>}
     {selected && <div className="ops-drawer-backdrop" onMouseDown={e => { if (e.currentTarget === e.target) setSelected(null); }}><aside className="ops-detail-drawer" aria-label="Incident details">
       <div className="ops-drawer-head"><div><small>Incident ID</small><h2 className="ops-incident-display-id">{selected.incident.displayId || selected.incident.incidentId}</h2><p>{selected.incident.alertName}</p></div><button className="ops-icon-button" onClick={() => setSelected(null)} aria-label="Close details">×</button></div>
       <dl className="ops-detail-grid"><dt>Alert status</dt><dd><StatusBadge value={selected.incident.status} /></dd><dt>Tracking</dt><dd><StatusBadge value={selected.incident.trackingStatus} /></dd><dt>Workflow</dt><dd>{selected.incident.workflowStatus || '-'}</dd><dt>ADO state</dt><dd><AdoStateBadge value={selected.incident.adoState} /></dd><dt>Service</dt><dd>{selected.incident.service || selected.incident.resource}</dd><dt>Environment</dt><dd>{selected.incident.environment || '-'}</dd><dt>Priority</dt><dd>{selected.incident.priority || '-'}</dd><dt>First seen</dt><dd>{formatDate(selected.incident.firstSeen)}</dd><dt>Resolved at</dt><dd>{formatDate(selected.incident.resolvedAt)}</dd><dt>Duration</dt><dd>{formatDuration(selected.incident.durationMinutes)}</dd><dt>Email received</dt><dd>{formatDate(selected.incident.receivedAt)}</dd><dt>Occurrences</dt><dd>{selected.incident.occurrenceCount ?? '-'}</dd><dt>Assigned to</dt><dd>{selected.incident.assignedTo || '-'}</dd><dt>Work item</dt><dd>{selected.incident.workItemUrl ? <a href={selected.incident.workItemUrl} target="_blank" rel="noreferrer">#{selected.incident.workItemId}</a> : 'Not created'}</dd><dt>SharePoint ID</dt><dd>{selected.incident.sharePointId ?? '-'}</dd><dt>Technical ID</dt><dd><code className="ops-technical-id" title="Technical IncidentId; select to copy">{selected.incident.incidentId || '-'}</code></dd><dt>Last synced</dt><dd>{formatDate(selected.incident.lastSyncedAt)}</dd></dl>
@@ -112,6 +141,19 @@ function formatDate(value?: string) {
   return value && Number.isFinite(Date.parse(value))
     ? new Date(value).toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })
     : '-';
+}
+
+function formatRelativeDate(value?: string) {
+  if (!value || !Number.isFinite(Date.parse(value))) return 'Unknown';
+  const minutes = Math.round((Date.now() - Date.parse(value)) / 60000);
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 1440) return `${Math.round(minutes / 60)}h ago`;
+  return `${Math.round(minutes / 1440)}d ago`;
+}
+
+function humanizeAlert(value: string) {
+  return value.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z])([A-Z][a-z])/g, '$1 $2');
 }
 
 function formatDuration(value?: number) {

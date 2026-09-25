@@ -184,17 +184,48 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-error { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 16px; padding: 15px 17px; border: 1px solid #e5b0b0; border-left: 4px solid var(--ops-red); border-radius: 8px; background: #fff6f6; }
 .ops-error p { margin: 4px 0 0; color: #7e4c4c; font-size: .86rem; }
 
-.ops-toolbar { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-.ops-toolbar form { flex: 1; display: flex; gap: 8px; }
-.ops-toolbar input, .ops-toolbar select, .ops-toolbar > select { min-height: 42px; padding: 9px 12px; border: 1px solid #c8c0af; border-radius: 7px; background: var(--ops-paper); color: #25231f; }
-.ops-toolbar input { width: min(100%, 480px); }
-.ops-card-list { display: grid; gap: 9px; }
-.ops-incident-card { width: 100%; display: grid; grid-template-columns: minmax(230px, 1.5fr) 70px 130px 190px; align-items: center; gap: 16px; padding: 16px 18px; border: 1px solid var(--ops-line); border-left: 4px solid var(--ops-yellow); border-radius: 9px; background: var(--ops-paper); color: #292723; text-align: left; cursor: pointer; box-shadow: 0 7px 18px rgba(42, 37, 27, .045); }
-.ops-incident-card:hover { border-color: #cdb16f; box-shadow: 0 10px 24px rgba(42, 37, 27, .09); }
-.ops-incident-main { display: grid; gap: 4px; }
+.ops-live-label { display: inline-flex; align-items: center; gap: 8px; color: var(--ops-muted); font-size: .78rem; font-weight: 700; }
+.ops-live-label i { width: 8px; height: 8px; border-radius: 50%; background: var(--ops-green); box-shadow: 0 0 0 4px rgba(19,138,98,.12); }
+.ops-incident-overview { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 11px; margin-bottom: 14px; }
+.ops-incident-overview button { position: relative; min-height: 112px; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 17px 18px; overflow: hidden; border: 1px solid var(--ops-line); border-radius: 10px; background: var(--ops-paper); color: #292723; text-align: left; cursor: pointer; box-shadow: 0 8px 22px rgba(42,37,27,.055); }
+.ops-incident-overview button::after { content: ''; position: absolute; right: -30px; bottom: -48px; width: 92px; height: 92px; border: 18px solid rgba(245,164,0,.08); border-radius: 50%; }
+.ops-incident-overview button:hover, .ops-incident-overview button.is-active { border-color: var(--ops-yellow); box-shadow: 0 9px 24px rgba(214,140,0,.13); }
+.ops-incident-overview button.is-active { box-shadow: inset 0 3px 0 var(--ops-yellow), 0 9px 24px rgba(214,140,0,.1); }
+.ops-incident-overview button.is-warning strong { color: #a42828; }
+.ops-incident-overview span { align-self: center; color: var(--ops-muted); font-size: .76rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.ops-incident-overview strong { grid-row: span 2; font-size: 2rem; line-height: 1; }
+.ops-incident-overview small { color: #918c82; }
+.ops-incident-controls { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 14px; padding: 13px; border: 1px solid var(--ops-line); border-radius: 10px; background: rgba(255,254,250,.75); }
+.ops-incident-search { flex: 1; display: flex; align-items: center; gap: 8px; }
+.ops-incident-search > span { margin-left: 4px; color: #888176; font-size: 1.3rem; }
+.ops-incident-search input, .ops-filter-control select { min-height: 42px; padding: 9px 12px; border: 1px solid #c8c0af; border-radius: 7px; background: white; color: #25231f; }
+.ops-incident-search input { width: min(100%, 600px); }
+.ops-filter-control { display: grid; gap: 3px; }
+.ops-filter-control > span { color: var(--ops-muted); font-size: .62rem; font-weight: 800; letter-spacing: .1em; }
+.ops-filter-control select { min-width: 180px; }
+.ops-incident-results { overflow: hidden; border: 1px solid var(--ops-line); border-radius: 11px; background: rgba(255,254,250,.88); box-shadow: 0 12px 30px rgba(42,37,27,.065); }
+.ops-results-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--ops-line); }
+.ops-results-head > div { display: flex; align-items: baseline; gap: 10px; }
+.ops-results-head span, .ops-results-head small { color: var(--ops-muted); font-size: .76rem; }
+.ops-incident-columns, .ops-incident-card { display: grid; grid-template-columns: minmax(250px,1.45fr) minmax(170px,.9fr) 110px 105px 150px 28px; align-items: center; gap: 14px; }
+.ops-incident-columns { padding: 10px 18px; color: #817b70; background: #f0ede5; font-size: .64rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.ops-card-list { display: grid; }
+.ops-incident-card { width: 100%; min-height: 86px; padding: 14px 18px; border: 0; border-top: 1px solid #e7e2d8; border-left: 4px solid transparent; background: var(--ops-paper); color: #292723; text-align: left; cursor: pointer; }
+.ops-incident-card:first-child { border-top: 0; }
+.ops-incident-card:hover { z-index: 1; border-left-color: var(--ops-yellow); background: #fffaf0; box-shadow: 0 7px 20px rgba(42,37,27,.09); }
+.ops-incident-card.is-failed, .ops-incident-card.is-pending { border-left-color: var(--ops-red); }
+.ops-incident-card.is-open { border-left-color: var(--ops-yellow); }
+.ops-incident-main, .ops-incident-service, .ops-cell-stack { min-width: 0; display: grid; gap: 4px; }
+.ops-incident-id-row { display: flex; align-items: center; gap: 8px; }
+.ops-incident-id-row .ops-status { min-height: 20px; padding: 2px 6px; font-size: .57rem; }
 .ops-incident-display-id { color: #25231f; font-size: 1rem; letter-spacing: .025em; }
-.ops-incident-alert { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; font-weight: 600; }
-.ops-incident-main small, .ops-incident-time { color: var(--ops-muted); font-size: .78rem; }
+.ops-incident-alert, .ops-incident-service strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ops-incident-alert { color: var(--ops-muted); font-size: .78rem; }
+.ops-incident-service strong { font-size: .84rem; }
+.ops-incident-service small, .ops-cell-stack small, .ops-incident-time { color: var(--ops-muted); font-size: .7rem; }
+.ops-incident-time strong { color: #34312c; font-size: .78rem; }
+.ops-row-arrow { color: #a7a095; font-size: 1.15rem; transition: transform .16s ease, color .16s ease; }
+.ops-incident-card:hover .ops-row-arrow { color: var(--ops-yellow-deep); transform: translateX(3px); }
 .ops-status { display: inline-flex; width: max-content; min-height: 25px; align-items: center; padding: 4px 8px; border: 1px solid #c8c2b5; border-radius: 999px; background: #f4f1e9; color: #57534c; font-size: .68rem; font-weight: 800; letter-spacing: .035em; }
 .ops-status-firing, .ops-status-failed, .ops-status-action-required, .ops-status-needs-review, .ops-status-degraded, .ops-status-open { color: #9d2929; background: #fff0f0; border-color: #e9abab; }
 .ops-status-resolved, .ops-status-succeeded, .ops-status-connected, .ops-status-enabled, .ops-status-closed { color: #096847; background: #ecfaf4; border-color: #9cd8c3; }
@@ -209,7 +240,7 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-ado-state-neutral { color: #57534c; background: #f4f1e9; border-color: #c8c2b5; }
 
 .ops-drawer-backdrop { position: fixed; inset: 0; z-index: 80; display: flex; justify-content: flex-end; background: rgba(15, 15, 15, .48); }
-.ops-detail-drawer { width: min(520px, 100%); height: 100%; padding: 25px; overflow-y: auto; background: var(--ops-paper); box-shadow: -24px 0 60px rgba(0, 0, 0, .25); }
+.ops-detail-drawer { width: min(680px, 100%); height: 100%; padding: 28px 30px; overflow-y: auto; background: var(--ops-paper); box-shadow: -24px 0 60px rgba(0, 0, 0, .25); }
 .ops-drawer-head { display: flex; justify-content: space-between; gap: 18px; padding-bottom: 18px; border-bottom: 3px solid var(--ops-yellow); }
 .ops-drawer-head small { color: var(--ops-muted); }
 .ops-drawer-head h2 { margin: 5px 0 0; font-size: 1.45rem; }
@@ -298,8 +329,9 @@ td small { margin-top: 3px; color: var(--ops-muted); }
   .ops-dashboard-grid { grid-template-columns: 1fr; }
   .ops-topbar nav > img { display: none; }
   .ops-ado-connection > div:first-child { display: none; }
-  .ops-incident-card { grid-template-columns: minmax(200px, 1fr) 60px 125px; }
-  .ops-incident-time { display: none; }
+  .ops-incident-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ops-incident-columns, .ops-incident-card { grid-template-columns: minmax(230px,1.3fr) minmax(160px,.8fr) 100px 100px 28px; }
+  .ops-incident-columns > :nth-child(5), .ops-incident-card > :nth-child(5) { display: none; }
 }
 
 @media (max-width: 760px) {
@@ -319,12 +351,22 @@ td small { margin-top: 3px; color: var(--ops-muted); }
   .ops-day-banner { align-items: flex-start; flex-direction: column; }
   .ops-kpi-grid, .ops-integration-grid { grid-template-columns: 1fr; }
   .ops-kpi { min-height: 125px; }
-  .ops-toolbar { flex-direction: column; }
-  .ops-toolbar form { width: 100%; }
-  .ops-toolbar input { min-width: 0; flex: 1; }
-  .ops-toolbar > select { width: 100%; }
-  .ops-incident-card { grid-template-columns: minmax(0, 1fr) auto; }
-  .ops-incident-card > :nth-child(2) { display: none; }
+  .ops-live-label { display: none; }
+  .ops-incident-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ops-incident-overview button { min-height: 96px; padding: 14px; }
+  .ops-incident-overview strong { font-size: 1.65rem; }
+  .ops-incident-controls { align-items: stretch; flex-direction: column; }
+  .ops-incident-search { width: 100%; }
+  .ops-incident-search input { min-width: 0; flex: 1; }
+  .ops-filter-control select { width: 100%; }
+  .ops-results-head { align-items: flex-start; }
+  .ops-results-head > div { display: grid; gap: 2px; }
+  .ops-incident-columns { display: none; }
+  .ops-incident-card { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 15px; }
+  .ops-incident-card > :nth-child(2) { grid-column: 1; }
+  .ops-incident-card > :nth-child(3), .ops-incident-card > :nth-child(5) { display: none; }
+  .ops-incident-card > :nth-child(4) { grid-column: 2; grid-row: 1; }
+  .ops-row-arrow { grid-column: 2; grid-row: 2; justify-self: end; }
   .ops-detail-drawer { padding: 20px 16px; }
   .ops-detail-grid { grid-template-columns: 105px 1fr; }
 }
