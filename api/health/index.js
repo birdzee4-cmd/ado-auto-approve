@@ -50,6 +50,7 @@ module.exports = async function (context, req) {
   checks.push(checkLineMonthlySummaryConfig());
   checks.push(checkHourlySyncConfig());
   checks.push(checkAutoCompleteReconcileConfig());
+  checks.push(checkOperationsReconcileConfig());
   checks.push(await checkApprovalLockStore(context));
 
   const lastNotification = sharePointResult.recentLogs
@@ -308,6 +309,29 @@ function checkAutoCompleteReconcileConfig() {
     manualMergeCodeRepoScope: process.env.MERGECODE_SCAN_REPOS || 'all readable repositories',
     manualMergeCodeNotifications: process.env.TEAMS_MANUAL_MERGECODE_NOTIFICATIONS === 'false' ? 'disabled' : 'enabled'
   });
+}
+
+function checkOperationsReconcileConfig() {
+  const startedAt = Date.now();
+  const hasKey = Boolean(String(process.env.OPERATIONS_AUTOMATION_KEY || '').trim());
+  const reconciliationEnabled = String(process.env.OPERATIONS_RECONCILIATION_ENABLED || '').trim().toLowerCase() === 'true';
+  const syncEnabled = String(process.env.OPERATIONS_SYNC_ENABLED || '').trim().toLowerCase() === 'true';
+  const ready = hasKey && reconciliationEnabled && syncEnabled;
+  return buildCheck(
+    'operations-reconcile',
+    'Operations Hub Reconciliation',
+    ready ? 'ok' : 'warning',
+    ready ? 'Scheduled reconciliation API is enabled' : 'Scheduled reconciliation remains fail-closed',
+    startedAt,
+    {
+      scheduler: 'Azure Logic Apps Consumption',
+      schedule: 'Every 10 minutes',
+      automationKeyConfigured: hasKey,
+      reconciliationEnabled,
+      syncEnabled,
+      requiredFlags: ['OPERATIONS_RECONCILIATION_ENABLED', 'OPERATIONS_SYNC_ENABLED']
+    }
+  );
 }
 
 async function checkApprovalLockStore(context) {
