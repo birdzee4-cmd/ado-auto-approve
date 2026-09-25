@@ -28,12 +28,14 @@ function resolveMapping(mappings, incident, supportTeam) {
   }).sort((left, right) => Number(right.priority || 0) - Number(left.priority || 0));
   const mapping = candidates[0];
   if (!mapping) throw operationalError(422, 'MAPPING_NOT_FOUND', `No enabled mapping was found for ${team}`);
-  const missing = ['adoProject', 'workItemType', 'areaPath', 'assignedTeam'].filter(field => !mapping[field]);
+  const required = ['adoProject', 'workItemType', 'areaPath'];
+  if (team !== 'APP_SUPPORT') required.push('assignedTeam');
+  const missing = required.filter(field => !mapping[field]);
   if (missing.length) throw operationalError(422, 'MAPPING_INCOMPLETE', 'Mapping is missing: ' + missing.join(', '));
   return mapping;
 }
 
-function buildCreatePatches(incident, mapping, input, primaryWorkItemId, organization) {
+function buildCreatePatches(incident, mapping, input, primaryWorkItemId, organization, primaryWorkItem) {
   const title = String(input.title || `[${incident.displayId || incident.incidentId}] ${incident.alertName || incident.service}`).trim().slice(0, 255);
   const alertDetails = [
     ['Current Alert State', incident.status],
@@ -53,21 +55,25 @@ function buildCreatePatches(incident, mapping, input, primaryWorkItemId, organiz
     ['First Seen', formatBangkokTime(incident.firstSeen)],
     ['Resolved At', formatBangkokTime(incident.resolvedAt)]
   ].filter(([, value]) => value != null && String(value).trim() !== '');
-  const description = [
+  const generatedDescription = [
     `<p><strong>Operations Hub Incident:</strong> ${escapeHtml(incident.displayId || incident.incidentId)}</p>`,
     ...alertDetails.map(([label, value]) => `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</p>`),
     input.detail ? `<p><strong>Tier 1 detail:</strong><br>${escapeHtml(input.detail).replace(/\r?\n/g, '<br>')}</p>` : ''
   ].filter(Boolean).join('');
+  const description = String(primaryWorkItem?.fields?.['System.Description'] || generatedDescription);
   const tags = ['OperationsHub', incident.displayId || incident.incidentId, mapping.defaultTags]
     .filter(Boolean).join('; ');
   const patches = [
     patch('/fields/System.Title', title),
     patch('/fields/System.Description', description),
     patch('/fields/System.AreaPath', mapping.areaPath),
-    patch('/fields/System.AssignedTo', mapping.assignedTeam),
     patch('/fields/System.Tags', tags)
   ];
+  if (mapping.assignedTeam) patches.push(patch('/fields/System.AssignedTo', mapping.assignedTeam));
   if (mapping.iterationPath) patches.push(patch('/fields/System.IterationPath', mapping.iterationPath));
+  for (const [field, value] of Object.entries(profileFields(mapping.supportTeam, incident, primaryWorkItem))) {
+    if (value != null && String(value).trim() !== '') patches.push(patch(`/fields/${field}`, value));
+  }
   if (primaryWorkItemId) {
     patches.push({
       op: 'add',
@@ -106,7 +112,11 @@ async function createRelated(input, context, dependencies = {}) {
   }
 
   const adoConfig = ado.getConfig();
-  const patches = buildCreatePatches(incident, mapping, input, incident.workItemId, adoConfig.org);
+  const primaryResponse = await ado.getWorkItem(incident.workItemId, { accessToken: context.accessToken });
+  if (!primaryResponse.ok || !primaryResponse.body) {
+    throw operationalError(primaryResponse.status || 502, 'PRIMARY_READ_FAILED', 'Primary Work Item could not be read before creating a related ticket');
+  }
+  const patches = buildCreatePatches(incident, mapping, input, incident.workItemId, adoConfig.org, primaryResponse.body);
   const created = await ado.createWorkItem(mapping.adoProject, mapping.workItemType, patches, { accessToken: context.accessToken });
   if (!created.ok || !created.body || !created.body.id) {
     throw operationalError(created.status || 502, 'ADO_CREATE_FAILED', `Azure DevOps create failed (HTTP ${created.status || 502})`);
@@ -134,6 +144,65 @@ async function createRelated(input, context, dependencies = {}) {
     eventKey: `create:${idempotencyKey}`
   });
   return { incident, workItem: { ...normalized, role: 'RELATED', supportTeam: normalizeTeam(mapping.supportTeam) }, mapping, duplicate: false };
+}
+
+async function createRelatedBatch(input, context, dependencies = {}) {
+  requireFeature('OPERATIONS_CREATE_ENABLED');
+  const teams = [...new Set((input.supportTeams || []).map(normalizeTeam))];
+  if (!teams.length) throw operationalError(400, 'SUPPORT_TEAMS_REQUIRED', 'Select at least one support team');
+  const requestKey = String(input.idempotencyKey || '').trim();
+  if (!requestKey) throw operationalError(400, 'IDEMPOTENCY_KEY_REQUIRED', 'idempotencyKey is required');
+  const results = [];
+  for (const supportTeam of teams) {
+    try {
+      const result = await createRelated({
+        incidentId: input.incidentId,
+        supportTeam,
+        title: input.title,
+        detail: input.detail,
+        idempotencyKey: requestKey
+      }, context, dependencies);
+      results.push({ supportTeam, ok: true, duplicate: result.duplicate, workItem: result.workItem, mapping: result.mapping });
+    } catch (error) {
+      results.push({
+        supportTeam,
+        ok: false,
+        error: error.code || 'CREATE_RELATED_FAILED',
+        detail: error.message || 'Related Work Item creation failed'
+      });
+    }
+  }
+  return {
+    incidentId: input.incidentId,
+    succeeded: results.filter(item => item.ok).length,
+    failed: results.filter(item => !item.ok).length,
+    results
+  };
+}
+
+function profileFields(supportTeam, incident, primaryWorkItem) {
+  const team = normalizeTeam(supportTeam);
+  if (team === 'APP_SUPPORT') {
+    // Service Form field reference names are intentionally added only after
+    // metadata discovery. Description parity and routing remain safe meanwhile.
+    return {};
+  }
+  const primary = primaryWorkItem?.fields || {};
+  const fields = {};
+  const cloneFields = [
+    'Custom.Environment',
+    'Custom.ApprovalStatus',
+    'Custom.Permission',
+    'Custom.Owner',
+    'Custom.ImpactCase',
+    'Custom.PriorityCase',
+    'Custom.TYPE_ALL',
+    'Custom.SUBTYPE',
+    'Custom.SystemProgram'
+  ];
+  for (const field of cloneFields) if (primary[field] != null) fields[field] = primary[field];
+  if (!fields['Custom.Environment'] && incident.environment) fields['Custom.Environment'] = incident.environment;
+  return fields;
 }
 
 async function linkExisting(input, context, dependencies = {}) {
@@ -242,9 +311,28 @@ function closeEligibility(incident) {
   const reasons = [];
   const primary = items.find(item => item.role === 'PRIMARY');
   if (!primary) reasons.push('Primary work item is missing');
-  const blockingWorkItems = items.filter(item => !defaultWorkItems.isClosedState(item.state)).map(item => item.workItemId);
-  if (blockingWorkItems.length) reasons.push('All work items must be closed');
-  return { allowed: reasons.length === 0, blockingWorkItems, reasons };
+  const blockingItems = items.filter(item => !defaultWorkItems.isClosedState(item.state));
+  const blockingWorkItems = blockingItems.map(item => item.workItemId);
+  for (const item of blockingItems) reasons.push(`${item.supportTeam || item.role || 'Work item'} #${item.workItemId} is ${item.state || 'not closed'}`);
+  if (String(incident?.status || '').toUpperCase() !== 'RESOLVED') reasons.push('Monitoring alert is not RESOLVED');
+  return {
+    allowed: reasons.length === 0,
+    readinessStatus: reasons.length === 0 ? 'READY_TO_CLOSE' : readinessStatus(items),
+    blockingWorkItems,
+    reasons
+  };
+}
+
+function readinessStatus(items) {
+  const openTeams = (items || []).filter(item => !defaultWorkItems.isClosedState(item.state)).map(item => normalizeReadinessTeam(item.supportTeam || item.role));
+  if (openTeams.includes('APP_SUPPORT')) return 'WAITING_FOR_APP_SUPPORT';
+  if (openTeams.includes('TIER2')) return 'WAITING_FOR_TIER2';
+  if (openTeams.includes('TIER1') || openTeams.includes('PRIMARY')) return 'TIER1_INVESTIGATING';
+  return 'WAITING_FOR_ALERT_RESOLUTION';
+}
+
+function normalizeReadinessTeam(value) {
+  return String(value || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
 }
 
 async function requireIncident(sp, incidentId) {
@@ -334,6 +422,7 @@ module.exports = {
   closeEligibility,
   closeIncident,
   createRelated,
+  createRelatedBatch,
   featureEnabled,
   linkExisting,
   makeIdempotencyKey,

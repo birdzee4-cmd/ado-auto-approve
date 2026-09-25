@@ -17,9 +17,8 @@ export function Incidents() {
   const [connection, setConnection] = useState<AdoConnectionStatus | null>(null);
   const [capabilities, setCapabilities] = useState<OperationsCapabilities>({ createRelated: false, linkExisting: false, synchronize: false, closeIncident: false });
   const [supportTeam, setSupportTeam] = useState<SupportTeam>('APP_SUPPORT');
-  const [mapping, setMapping] = useState<ServiceMapping | null>(null);
-  const [title, setTitle] = useState('');
-  const [detail, setDetail] = useState('');
+  const [escalationTargets, setEscalationTargets] = useState<Array<'APP_SUPPORT' | 'TIER2'>>(['APP_SUPPORT', 'TIER2']);
+  const [mappingPreviews, setMappingPreviews] = useState<Partial<Record<'APP_SUPPORT' | 'TIER2', ServiceMapping>>>({});
   const [existingWorkItemId, setExistingWorkItemId] = useState('');
   const alertDetails: Array<{ label: string; value: string }> = selected ? [
     { label: 'Resource', value: selected.incident.resource },
@@ -61,7 +60,7 @@ export function Incidents() {
         setActionError('');
         setActionMessage('');
       }
-      setMapping(null);
+      setMappingPreviews({});
     } catch (err) { setError((err as Error).message); }
   };
   useEffect(() => {
@@ -84,11 +83,19 @@ export function Incidents() {
     } finally { setBusy(false); }
   };
 
-  const previewMapping = async () => {
+  const previewMappings = async () => {
     if (!selected) return;
     setActionError('');
-    try { setMapping((await operationsApi.resolveMapping(selected.incident.incidentId, supportTeam)).mapping); }
-    catch (err) { setMapping(null); setActionError((err as Error).message); }
+    try {
+      const resolved = await Promise.all(escalationTargets.map(async team => [team, (await operationsApi.resolveMapping(selected.incident.incidentId, team)).mapping] as const));
+      setMappingPreviews(Object.fromEntries(resolved));
+    }
+    catch (err) { setMappingPreviews({}); setActionError((err as Error).message); }
+  };
+
+  const toggleEscalationTarget = (team: 'APP_SUPPORT' | 'TIER2') => {
+    setEscalationTargets(current => current.includes(team) ? current.filter(item => item !== team) : [...current, team]);
+    setMappingPreviews({});
   };
 
   return <section className="ops-incidents-page">
@@ -131,12 +138,14 @@ export function Incidents() {
         {actionError && <div className="ops-inline-error">{actionError}</div>}{actionMessage && <div className="ops-inline-success">{actionMessage}</div>}
         {!connection?.connected && <button className="ops-button ops-button-wide" onClick={() => window.location.assign('/api/ado-auth-start?returnTo=' + encodeURIComponent('/operations.html#/incidents'))}>Connect Azure DevOps</button>}
         {!capabilities.createRelated && !capabilities.linkExisting && !capabilities.synchronize && !capabilities.closeIncident && <p className="ops-muted">Operations Hub write actions are disabled by the administrator.</p>}
-        <div className="ops-action-group"><h4>Create Related Work Item</h4><label>Support team<select value={supportTeam} onChange={event => { setSupportTeam(event.target.value as SupportTeam); setMapping(null); }}><option value="APP_SUPPORT">App Support</option><option value="TIER2">Tier 2 / Cloud Ops</option></select></label><button className="ops-button ops-button-secondary" onClick={previewMapping} disabled={busy || !capabilities.createRelated}>Preview mapping</button>
-          {mapping && <dl className="ops-mapping-preview"><dt>Project / Type</dt><dd>{mapping.adoProject} · {mapping.workItemType}</dd><dt>Area Path</dt><dd>{mapping.areaPath}</dd><dt>Assigned Team</dt><dd>{mapping.assignedTeam}</dd></dl>}
-          <label>Title (optional)<input value={title} onChange={event => setTitle(event.target.value)} maxLength={255} /></label><label>Tier 1 detail<textarea value={detail} onChange={event => setDetail(event.target.value)} rows={3} /></label><button className="ops-button" disabled={busy || !connection?.connected || !capabilities.createRelated || !mapping} onClick={() => runAction(() => operationsApi.createRelated(selected.incident.incidentId, { supportTeam, title, detail, idempotencyKey: globalThis.crypto?.randomUUID?.() || `${Date.now()}` }), 'Related Work Item created')}>Create Related Work Item</button>
+        <div className="ops-action-group"><h4>Escalation workspace</h4><p className="ops-muted">Select one team or create both tickets together. Description is copied from the current Tier 1 Primary Ticket.</p>
+          <div className="ops-target-selector"><label><input type="checkbox" checked={escalationTargets.includes('APP_SUPPORT')} onChange={() => toggleEscalationTarget('APP_SUPPORT')} /> App Support <small>Service Form</small></label><label><input type="checkbox" checked={escalationTargets.includes('TIER2')} onChange={() => toggleEscalationTarget('TIER2')} /> IT Tier 2 / Infra <small>IT Support Case</small></label></div>
+          <button className="ops-button ops-button-secondary" onClick={previewMappings} disabled={busy || escalationTargets.length === 0}>Preview selected tickets</button>
+          {escalationTargets.map(team => { const preview = mappingPreviews[team]; return preview ? <dl className="ops-mapping-preview" key={team}><dt>Target</dt><dd>{team === 'APP_SUPPORT' ? 'App Support' : 'IT Tier 2 / Infra'}</dd><dt>Project / Type</dt><dd>{preview.adoProject} · {preview.workItemType}</dd><dt>Area Path</dt><dd>{preview.areaPath}</dd><dt>Assigned To</dt><dd>{preview.assignedTeam || 'Unassigned'}</dd></dl> : null; })}
+          <button className="ops-button" disabled={busy || !connection?.connected || !capabilities.createRelated || escalationTargets.length === 0 || escalationTargets.some(team => !mappingPreviews[team])} onClick={() => runAction(async () => { const result = await operationsApi.createRelatedBatch(selected.incident.incidentId, { supportTeams: escalationTargets, idempotencyKey: globalThis.crypto?.randomUUID?.() || `${Date.now()}` }); if (result.failed) throw new Error(result.results.filter(item => !item.ok).map(item => `${item.supportTeam}: ${item.detail}`).join('; ')); return result; }, `Created ${escalationTargets.length} related Work Item${escalationTargets.length > 1 ? 's' : ''}`)}>Create selected tickets</button>
         </div>
-        <div className="ops-action-group"><h4>Link Existing Work Item</h4><label>Work Item ID<input inputMode="numeric" value={existingWorkItemId} onChange={event => setExistingWorkItemId(event.target.value.replace(/\D/g, ''))} /></label><button className="ops-button ops-button-secondary" disabled={busy || !connection?.connected || !capabilities.linkExisting || !existingWorkItemId} onClick={() => runAction(() => operationsApi.linkExisting(selected.incident.incidentId, { supportTeam, workItemId: Number(existingWorkItemId) }), 'Existing Work Item linked')}>Link as Related</button></div>
-        <div className="ops-closure"><h4>Closure checklist</h4><ul><li className={selected.incident.workItemSummary.total > 0 ? 'is-done' : ''}>Primary Work Item exists</li><li className={selected.incident.workItemSummary.open === 0 && selected.incident.workItemSummary.total > 0 ? 'is-done' : ''}>All Work Items are closed</li></ul>{selected.incident.closeEligibility?.reasons.map(reason => <small key={reason}>{reason}</small>)}<div className="ops-card-actions"><button className="ops-button ops-button-secondary" disabled={busy || !connection?.connected || !capabilities.synchronize} onClick={() => runAction(() => operationsApi.synchronize(selected.incident.incidentId), 'Work Item states synchronized')}>Synchronize</button><button className="ops-button" disabled={busy || !connection?.connected || !capabilities.closeIncident || !selected.incident.closeEligibility?.allowed} onClick={() => runAction(() => operationsApi.close(selected.incident.incidentId), 'Incident closed')}>Close Incident</button></div></div>
+        <div className="ops-action-group"><h4>Link Existing Work Item</h4><label>Support team<select value={supportTeam} onChange={event => setSupportTeam(event.target.value as SupportTeam)}><option value="APP_SUPPORT">App Support</option><option value="TIER2">IT Tier 2 / Infra</option></select></label><label>Work Item ID<input inputMode="numeric" value={existingWorkItemId} onChange={event => setExistingWorkItemId(event.target.value.replace(/\D/g, ''))} /></label><button className="ops-button ops-button-secondary" disabled={busy || !connection?.connected || !capabilities.linkExisting || !existingWorkItemId} onClick={() => runAction(() => operationsApi.linkExisting(selected.incident.incidentId, { supportTeam, workItemId: Number(existingWorkItemId) }), 'Existing Work Item linked')}>Link as Related</button></div>
+        <div className="ops-closure"><h4>Closure checklist</h4><p className="ops-muted">Readiness: {selected.incident.closeEligibility?.readinessStatus || 'CHECKING'}</p><ul><li className={selected.incident.workItemSummary.total > 0 ? 'is-done' : ''}>Primary Work Item exists</li><li className={selected.incident.workItemSummary.open === 0 && selected.incident.workItemSummary.total > 0 ? 'is-done' : ''}>All Work Items are closed</li><li className={selected.incident.status === 'RESOLVED' ? 'is-done' : ''}>Monitoring alert is RESOLVED</li></ul>{selected.incident.closeEligibility?.reasons.map(reason => <small key={reason}>{reason}</small>)}<div className="ops-card-actions"><button className="ops-button ops-button-secondary" disabled={busy || !connection?.connected || !capabilities.synchronize} onClick={() => runAction(() => operationsApi.synchronize(selected.incident.incidentId), 'Work Item states synchronized')}>Synchronize</button><button className="ops-button" disabled={busy || !connection?.connected || !capabilities.closeIncident || !selected.incident.closeEligibility?.allowed} onClick={() => runAction(() => operationsApi.close(selected.incident.incidentId), 'Incident closed')}>Close Incident</button></div></div>
       </section>
       <div className="ops-timeline"><h3>Timeline</h3>{selected.timeline.map(event => <div key={event.eventId}><span /><p><strong>{event.eventType}</strong><small>{event.detail || event.result} · {formatDate(event.timestamp)}</small></p></div>)}</div>
     </aside></div>}

@@ -69,7 +69,8 @@ test('mapping resolution is deterministic and mapping-only', () => {
   const lowerPriority = { ...mapping, mappingId: 'lower', priority: 1 };
   assert.equal(service.resolveMapping([lowerPriority, mapping], incident, 'APP_SUPPORT').mappingId, 'checkout-app');
   assert.throws(() => service.resolveMapping([mapping], incident, 'TIER2'), error => error.code === 'MAPPING_NOT_FOUND');
-  assert.throws(() => service.resolveMapping([{ ...mapping, assignedTeam: '' }], incident, 'APP_SUPPORT'), error => error.code === 'MAPPING_INCOMPLETE');
+  assert.doesNotThrow(() => service.resolveMapping([{ ...mapping, assignedTeam: '' }], incident, 'APP_SUPPORT'));
+  assert.throws(() => service.resolveMapping([{ ...mapping, supportTeam: 'TIER2', assignedTeam: '' }], incident, 'TIER2'), error => error.code === 'MAPPING_INCOMPLETE');
 });
 
 test('work-item patch uses mapped fields and a Related relation', () => {
@@ -106,11 +107,17 @@ test('create related work item uses delegated identity, persists mapping output,
     };
     const ado = {
       getConfig() { return { org: 'Buzzebees' }; },
+      async getWorkItem(id, options) {
+        assert.equal(id, 9101);
+        assert.equal(options.accessToken, 'delegated-token');
+        return { ok: true, body: { id, fields: { 'System.Description': '<p>Primary description</p>' } } };
+      },
       async createWorkItem(project, type, patches, options) {
         assert.equal(project, mapping.adoProject);
         assert.equal(type, mapping.workItemType);
         assert.equal(options.accessToken, 'delegated-token');
         assert.ok(patches.some(item => item.path === '/relations/-'));
+        assert.ok(patches.some(item => item.path === '/fields/System.Description' && item.value === '<p>Primary description</p>'));
         return { ok: true, status: 200, body: { id: 9102, fields: { 'System.Title': 'App task', 'System.State': 'New' }, _links: { html: { href: 'https://dev.azure.com/Buzzebees/_workitems/edit/9102' } } } };
       }
     };
@@ -140,16 +147,19 @@ test('idempotent create returns the stored work item without calling Azure DevOp
 });
 
 test('closure policy requires a primary and all work items closed, without recovery confirmation', () => {
-  assert.deepEqual(service.closeEligibility(incident), {
-    allowed: false,
-    blockingWorkItems: [9101],
-    reasons: ['All work items must be closed']
-  });
+  const blocked = service.closeEligibility(incident);
+  assert.equal(blocked.allowed, false);
+  assert.deepEqual(blocked.blockingWorkItems, [9101]);
+  assert.equal(blocked.readinessStatus, 'TIER1_INVESTIGATING');
+  assert.ok(blocked.reasons.includes('TIER1 #9101 is Active'));
+  assert.ok(blocked.reasons.includes('Monitoring alert is not RESOLVED'));
   const eligible = service.closeEligibility({
     ...incident,
+    status: 'RESOLVED',
     workItems: [{ workItemId: 9101, role: 'PRIMARY', state: 'Closed' }]
   });
   assert.equal(eligible.allowed, true);
+  assert.equal(eligible.readinessStatus, 'READY_TO_CLOSE');
 });
 
 test('link existing validates ADO, adds Related relation, persists, and audits', async () => {
@@ -215,6 +225,7 @@ test('close synchronizes current ADO state and succeeds without the standalone s
     const updates = [];
     const readyToClose = {
       ...incident,
+      status: 'RESOLVED',
       workItems: [{ workItemId: 9101, role: 'PRIMARY', state: 'Closed' }],
       workItemSummary: { total: 1, closed: 1, open: 0 }
     };

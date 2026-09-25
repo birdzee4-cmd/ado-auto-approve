@@ -112,6 +112,7 @@ async function handleWrite(context, req, path, principal) {
   };
   let data;
   if (action === 'work-items/related') data = await operationsService.createRelated({ ...body, incidentId }, actionContext);
+  else if (action === 'work-items/related/batch') data = await operationsService.createRelatedBatch({ ...body, incidentId }, actionContext);
   else if (action === 'work-items/link') data = await operationsService.linkExisting({ ...body, incidentId }, actionContext);
   else if (action === 'synchronize') data = await operationsService.synchronize({ ...body, incidentId }, actionContext);
   else if (action === 'close') data = await operationsService.closeIncident({ ...body, incidentId }, actionContext);

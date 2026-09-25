@@ -113,6 +113,7 @@ export interface Incident {
   operationsClosedAt?: string;
   closeEligibility?: {
     allowed: boolean;
+    readinessStatus?: string;
     blockingWorkItems: number[];
     reasons: string[];
   };
