@@ -5,13 +5,23 @@ const service = require('../shared/operations-service');
 module.exports = async function (context, req) {
   try {
     if (!authorized(req)) return respond(context, 401, { ok: false, error: 'Unauthorized' });
-    if (!service.featureEnabled('OPERATIONS_RECONCILIATION_ENABLED')) {
+    const dryRun = Boolean(req.body && req.body.dryRun === true);
+    if (!dryRun && !service.featureEnabled('OPERATIONS_RECONCILIATION_ENABLED')) {
       return respond(context, 503, { ok: false, error: 'FEATURE_DISABLED' });
     }
     const maximum = Math.max(1, Math.min(Number(req.body && req.body.maxItems) || 100, 250));
     const incidents = (await sharePoint.listIncidents(1000))
       .filter(item => item.operationsStatus !== 'CLOSED' && item.workItemSummary && item.workItemSummary.total > 0)
       .slice(0, maximum);
+    if (dryRun) {
+      return respond(context, 200, {
+        ok: true,
+        dryRun: true,
+        processed: incidents.length,
+        writeOperations: 0,
+        candidates: incidents.map(dryRunCandidate)
+      });
+    }
     const results = [];
     for (const incident of incidents) {
       try {
@@ -38,6 +48,18 @@ module.exports = async function (context, req) {
     return respond(context, 500, { ok: false, error: 'RECONCILIATION_FAILED', detail: err.message });
   }
 };
+
+function dryRunCandidate(incident) {
+  const summary = incident.workItemSummary || {};
+  return {
+    incidentId: incident.incidentId,
+    displayId: incident.displayId,
+    operationsStatus: incident.operationsStatus || '',
+    workItems: Number(summary.total || 0),
+    openWorkItems: Number(summary.open || 0),
+    lastSyncedAt: incident.lastSyncedAt || ''
+  };
+}
 
 async function notifyIfNeeded(incident, failedCount, actionContext) {
   if (!incident || !service.featureEnabled('OPERATIONS_NOTIFICATION_ENABLED')) return { sent: false, reason: 'disabled' };
@@ -107,3 +129,4 @@ function respond(context, status, payload) {
 
 module.exports.authorized = authorized;
 module.exports.notificationCandidate = notificationCandidate;
+module.exports.dryRunCandidate = dryRunCandidate;

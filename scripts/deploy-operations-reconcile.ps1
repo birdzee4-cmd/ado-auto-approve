@@ -8,7 +8,8 @@ param(
   [int]$IntervalMinutes = 10,
   [ValidateRange(1, 250)]
   [int]$MaxItems = 100,
-  [switch]$EnableWorkflow
+  [switch]$EnableWorkflow,
+  [switch]$LiveReconciliation
 )
 
 $ErrorActionPreference = 'Stop'
@@ -22,6 +23,11 @@ try {
   $tokenGenerator.Dispose()
 }
 $automationKey = [Convert]::ToBase64String($tokenBytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+$dryRun = if ($LiveReconciliation) { 'false' } else { 'true' }
+
+if ($LiveReconciliation -and -not $EnableWorkflow) {
+  throw 'LiveReconciliation requires EnableWorkflow. Deploy dry-run first and complete UAT before enabling writes.'
+}
 
 # The workflow is always deployed disabled first. Enabling requires an explicit
 # switch and still does not turn on OPERATIONS_RECONCILIATION_ENABLED.
@@ -30,7 +36,7 @@ $deploymentArgs = @(
   'deployment', 'group', 'create',
   '--resource-group', $ResourceGroup,
   '--template-file', $templatePath,
-  '--parameters', "workflowName=$WorkflowName", "endpointUri=$EndpointUri", "automationKey=$automationKey", "intervalMinutes=$IntervalMinutes", "maxItems=$MaxItems", 'workflowState=Disabled',
+  '--parameters', "workflowName=$WorkflowName", "endpointUri=$EndpointUri", "automationKey=$automationKey", "intervalMinutes=$IntervalMinutes", "maxItems=$MaxItems", "dryRun=$dryRun", 'workflowState=Disabled',
   '--only-show-errors',
   '--output', 'none'
 )
@@ -48,7 +54,11 @@ $settingsArgs = @(
 az @settingsArgs
 
 if ($EnableWorkflow) {
-  Write-Warning 'Enabling only the scheduler. The API remains fail-closed unless OPERATIONS_RECONCILIATION_ENABLED and OPERATIONS_SYNC_ENABLED are both true.'
+  if ($LiveReconciliation) {
+    Write-Warning 'Enabling live reconciliation. The API remains fail-closed unless OPERATIONS_RECONCILIATION_ENABLED and OPERATIONS_SYNC_ENABLED are both true.'
+  } else {
+    Write-Host 'Enabling the scheduler in read-only dry-run mode...'
+  }
   $enableArgs = @(
     'resource', 'update',
     '--resource-group', $ResourceGroup,

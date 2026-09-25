@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const service = require('../shared/operations-service');
 const reconcile = require('../operations-reconcile');
+const operationsSharePoint = require('../shared/operations-sharepoint-client');
 
 function withFlags(flags, fn) {
   const previous = {};
@@ -258,6 +259,61 @@ test('automation key comparison fails closed', () => {
   } finally {
     if (previous == null) delete process.env.OPERATIONS_AUTOMATION_KEY;
     else process.env.OPERATIONS_AUTOMATION_KEY = previous;
+  }
+});
+
+test('reconciliation dry-run candidate contains only operational summary fields', () => {
+  assert.deepEqual(reconcile.dryRunCandidate({
+    incidentId: 'INC-031',
+    displayId: 'INC-2026-000031',
+    operationsStatus: 'OPEN',
+    lastSyncedAt: '2026-09-25T10:00:00.000Z',
+    workItemSummary: { total: 3, open: 1, closed: 2 },
+    workItems: [{ workItemId: 9101 }],
+    alertSummary: 'must not be returned'
+  }), {
+    incidentId: 'INC-031',
+    displayId: 'INC-2026-000031',
+    operationsStatus: 'OPEN',
+    workItems: 3,
+    openWorkItems: 1,
+    lastSyncedAt: '2026-09-25T10:00:00.000Z'
+  });
+});
+
+test('reconciliation dry-run works with write flags disabled and performs no synchronization', async () => {
+  const previousKey = process.env.OPERATIONS_AUTOMATION_KEY;
+  const previousFlag = process.env.OPERATIONS_RECONCILIATION_ENABLED;
+  const originalListIncidents = operationsSharePoint.listIncidents;
+  const originalSynchronize = service.synchronize;
+  process.env.OPERATIONS_AUTOMATION_KEY = 'dry-run-key';
+  process.env.OPERATIONS_RECONCILIATION_ENABLED = 'false';
+  operationsSharePoint.listIncidents = async () => [{
+    incidentId: 'INC-031',
+    displayId: 'INC-2026-000031',
+    operationsStatus: 'OPEN',
+    workItemSummary: { total: 1, open: 1 },
+    lastSyncedAt: ''
+  }];
+  service.synchronize = async () => assert.fail('dry-run must not synchronize');
+  try {
+    const context = { log: { warn() {}, error() {} } };
+    await reconcile(context, {
+      headers: { 'x-operations-automation-key': 'dry-run-key' },
+      body: { dryRun: true, maxItems: 10 }
+    });
+    const body = JSON.parse(context.res.body);
+    assert.equal(context.res.status, 200);
+    assert.equal(body.dryRun, true);
+    assert.equal(body.processed, 1);
+    assert.equal(body.writeOperations, 0);
+  } finally {
+    operationsSharePoint.listIncidents = originalListIncidents;
+    service.synchronize = originalSynchronize;
+    if (previousKey == null) delete process.env.OPERATIONS_AUTOMATION_KEY;
+    else process.env.OPERATIONS_AUTOMATION_KEY = previousKey;
+    if (previousFlag == null) delete process.env.OPERATIONS_RECONCILIATION_ENABLED;
+    else process.env.OPERATIONS_RECONCILIATION_ENABLED = previousFlag;
   }
 });
 

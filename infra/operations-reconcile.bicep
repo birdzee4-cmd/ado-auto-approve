@@ -22,6 +22,9 @@ param intervalMinutes int = 10
 @maxValue(250)
 param maxItems int = 100
 
+@description('When true, authenticate and enumerate candidates without synchronizing or writing audit records.')
+param dryRun bool = true
+
 param location string = resourceGroup().location
 
 resource operationsReconcile 'Microsoft.Logic/workflows@2019-05-01' = {
@@ -67,6 +70,7 @@ resource operationsReconcile 'Microsoft.Logic/workflows@2019-05-01' = {
             }
             body: {
               maxItems: maxItems
+              dryRun: dryRun
             }
           }
         }
