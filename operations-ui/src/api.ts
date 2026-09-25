@@ -92,6 +92,5 @@ export const operationsApi = {
   createRelated: (incidentId: string, input: { supportTeam: SupportTeam; title?: string; detail?: string; idempotencyKey: string }) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/work-items/related`, { method: 'POST', body: JSON.stringify(input) }),
   linkExisting: (incidentId: string, input: { supportTeam: SupportTeam; workItemId: number }) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/work-items/link`, { method: 'POST', body: JSON.stringify(input) }),
   synchronize: (incidentId: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/synchronize`, { method: 'POST', body: '{}' }),
-  confirmRecovery: (incidentId: string, comment = '') => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/confirm-recovery`, { method: 'POST', body: JSON.stringify({ comment }) }),
   close: (incidentId: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/close`, { method: 'POST', body: '{}' })
 };

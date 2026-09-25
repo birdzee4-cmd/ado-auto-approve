@@ -29,7 +29,7 @@ export function Dashboard() {
         <div className="ops-day-banner"><div><span>OPERATING DATE · ASIA/BANGKOK</span><strong>{formatDay(data.selectedDate)}</strong><small>{data.daily.newIncidents === 0 ? 'No new incidents recorded for this day' : `${data.daily.newIncidents} new incident${data.daily.newIncidents === 1 ? '' : 's'} require review`}</small></div><a href="#/incidents">Open incident explorer →</a></div>
         <div className="ops-kpi-grid ops-kpi-grid-daily">
           <Kpi label="New incidents" value={data.daily.newIncidents} tone="dark" detail="First seen on selected day" />
-          <Kpi label="Resolved" value={data.daily.resolvedIncidents} tone="success" detail="Recovery recorded" />
+          <Kpi label="Resolved" value={data.daily.resolvedIncidents} tone="success" detail="Alert resolved" />
           <Kpi label="Awaiting approval" value={data.daily.pendingApproval} tone="yellow" detail="Action required today" />
           <Kpi label="Flow failures" value={data.daily.failedIncidents} tone="danger" detail="Needs investigation" />
         </div>

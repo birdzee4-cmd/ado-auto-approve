@@ -106,9 +106,6 @@ export interface Incident {
     closed: number;
     open: number;
   };
-  recoveryConfirmed?: boolean;
-  recoveryConfirmedBy?: string;
-  recoveryConfirmedAt?: string;
   operationsStatus?: string;
   operationsClosedBy?: string;
   operationsClosedAt?: string;

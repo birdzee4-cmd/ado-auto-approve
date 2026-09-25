@@ -205,21 +205,6 @@ async function synchronize(input, context, dependencies = {}) {
   return { incidentId: incident.incidentId, items: results };
 }
 
-async function confirmRecovery(input, context, dependencies = {}) {
-  requireFeature('OPERATIONS_CLOSE_ENABLED');
-  const sp = dependencies.sharePoint || defaultSharePoint;
-  const incident = await requireIncident(sp, input.incidentId);
-  const now = new Date().toISOString();
-  await sp.updateIncidentRecord(incident.sharePointId, {
-    RecoveryConfirmed: true,
-    RecoveryConfirmedBy: context.operationsIdentity.email || context.operationsIdentity.id,
-    RecoveryConfirmedAt: now,
-    OperationsStatus: 'RECOVERED'
-  });
-  await audit(sp, context, { incidentId: incident.incidentId, action: 'RECOVERY_CONFIRMED', result: 'SUCCEEDED', detail: String(input.comment || '').slice(0, 2000) });
-  return { incidentId: incident.incidentId, recoveryConfirmed: true, recoveryConfirmedAt: now };
-}
-
 async function closeIncident(input, context, dependencies = {}) {
   requireFeature('OPERATIONS_CLOSE_ENABLED');
   const sp = dependencies.sharePoint || defaultSharePoint;
@@ -249,7 +234,6 @@ function closeEligibility(incident) {
   if (!primary) reasons.push('Primary work item is missing');
   const blockingWorkItems = items.filter(item => !defaultWorkItems.isClosedState(item.state)).map(item => item.workItemId);
   if (blockingWorkItems.length) reasons.push('All work items must be closed');
-  if (!incident || !incident.recoveryConfirmed) reasons.push('Tier 1 recovery confirmation is required');
   return { allowed: reasons.length === 0, blockingWorkItems, reasons };
 }
 
@@ -339,7 +323,6 @@ module.exports = {
   buildCreatePatches,
   closeEligibility,
   closeIncident,
-  confirmRecovery,
   createRelated,
   featureEnabled,
   linkExisting,

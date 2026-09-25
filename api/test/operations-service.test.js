@@ -40,7 +40,6 @@ const incident = {
   workItemId: 9101,
   workItems: [{ workItemId: 9101, role: 'PRIMARY', supportTeam: 'TIER1', state: 'Active' }],
   workItemSummary: { total: 1, closed: 0, open: 1 },
-  recoveryConfirmed: false
 };
 
 const mapping = {
@@ -139,15 +138,14 @@ test('idempotent create returns the stored work item without calling Azure DevOp
   });
 });
 
-test('closure policy blocks open work and requires recovery confirmation', () => {
+test('closure policy requires a primary and all work items closed, without recovery confirmation', () => {
   assert.deepEqual(service.closeEligibility(incident), {
     allowed: false,
     blockingWorkItems: [9101],
-    reasons: ['All work items must be closed', 'Tier 1 recovery confirmation is required']
+    reasons: ['All work items must be closed']
   });
   const eligible = service.closeEligibility({
     ...incident,
-    recoveryConfirmed: true,
     workItems: [{ workItemId: 9101, role: 'PRIMARY', state: 'Closed' }]
   });
   assert.equal(eligible.allowed, true);
@@ -211,30 +209,26 @@ test('synchronize updates primary and related stores independently', async () =>
   });
 });
 
-test('confirm recovery and close update only Operations Hub lifecycle fields', async () => {
+test('close succeeds when every work item is closed without recovery confirmation', async () => {
   await withFlags({ OPERATIONS_SYNC_ENABLED: 'true', OPERATIONS_CLOSE_ENABLED: 'true' }, async () => {
     const updates = [];
-    const recovered = {
+    const readyToClose = {
       ...incident,
-      recoveryConfirmed: true,
       workItems: [{ workItemId: 9101, role: 'PRIMARY', state: 'Closed' }],
       workItemSummary: { total: 1, closed: 1, open: 0 }
     };
-    let recoveredState = false;
     const sharePoint = {
-      async getIncident() { return recoveredState ? recovered : { ...recovered, recoveryConfirmed: false }; },
+      async getIncident() { return readyToClose; },
       async updateIncidentRecord(id, fields) {
         updates.push({ id, fields });
-        if (fields.RecoveryConfirmed) recoveredState = true;
       },
       async appendAudit() {}
     };
     const ado = { async getWorkItem(id) { return { ok: true, body: { id, fields: { 'System.State': 'Closed' } } }; } };
-    await service.confirmRecovery({ incidentId: incident.incidentId, comment: 'Healthy' }, actionContext, { sharePoint, ado });
     const result = await service.closeIncident({ incidentId: incident.incidentId }, actionContext, { sharePoint, ado });
     assert.equal(result.closed, true);
-    assert.ok(updates.some(item => item.fields.RecoveryConfirmed === true));
     assert.ok(updates.some(item => item.fields.OperationsStatus === 'CLOSED'));
+    assert.equal(updates.some(item => Object.hasOwn(item.fields, 'RecoveryConfirmed')), false);
     assert.equal(updates.some(item => Object.hasOwn(item.fields, 'WorkflowStatus')), false);
   });
 });
@@ -266,11 +260,10 @@ test('reconciliation notifications have stable duplicate keys', () => {
   assert.equal(first.type, 'RELATED_WORK_REMAINS');
   assert.equal(first.eventKey, second.eventKey);
 
-  const recovery = reconcile.notificationCandidate({
+  const allClosed = reconcile.notificationCandidate({
     ...relatedOpen,
     workItems: relatedOpen.workItems.map(item => ({ ...item, state: 'Closed' })),
     workItemSummary: { total: 2, closed: 2, open: 0 },
-    recoveryConfirmed: false
   }, 0);
-  assert.equal(recovery.type, 'RECOVERY_CONFIRMATION_REQUIRED');
+  assert.equal(allClosed, null);
 });

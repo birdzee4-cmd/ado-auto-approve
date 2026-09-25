@@ -70,13 +70,6 @@ function notificationCandidate(incident, failedCount) {
   }
   const items = incident.workItems || [];
   const openRelated = items.filter(item => item.role === 'RELATED' && !require('../shared/operations-work-items').isClosedState(item.state));
-  if (items.length > 0 && incident.workItemSummary.open === 0 && !incident.recoveryConfirmed) {
-    return {
-      type: 'RECOVERY_CONFIRMATION_REQUIRED',
-      eventKey: `operations-notification:${incident.incidentId}:recovery-confirmation-required`,
-      message: `**Incident is ready for recovery confirmation**\n\nIncident: ${displayId}\nAll Work Items are closed. Tier 1 confirmation is required.\n${hubUrl}#/incidents`
-    };
-  }
   if (openRelated.length > 0) {
     const signature = openRelated.map(item => `${item.workItemId}:${item.state}`).sort().join(',');
     return {

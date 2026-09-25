@@ -47,7 +47,6 @@ Feature-flagged Tier 1 write operations:
 - `POST /api/operations/incidents/{incidentId}/work-items/related`
 - `POST /api/operations/incidents/{incidentId}/work-items/link`
 - `POST /api/operations/incidents/{incidentId}/synchronize`
-- `POST /api/operations/incidents/{incidentId}/confirm-recovery`
 - `POST /api/operations/incidents/{incidentId}/close`
 - `POST /api/operations-reconcile` for the separate scheduled automation
 
@@ -202,7 +201,7 @@ Create a unique-data or application-level uniqueness rule for `WorkItemId`. The 
 | `Detail` | Multiple lines text |
 | `OccurredAt` | Date and time |
 
-The existing `Operations Hub Incidents` list needs these optional Operations Hub columns before close actions are enabled: `RecoveryConfirmed` (Yes/No), `RecoveryConfirmedBy` (text), `RecoveryConfirmedAt` (date/time), `OperationsStatus` (text/choice), `OperationsClosedBy` (text), and `OperationsClosedAt` (date/time). Existing production workflow columns and behavior remain unchanged.
+The existing `Operations Hub Incidents` list uses `OperationsStatus` (text/choice), `OperationsClosedBy` (text), and `OperationsClosedAt` (date/time) for Operations Hub closure tracking. Older `RecoveryConfirmed*` columns may remain unused for backward compatibility; do not delete them as part of this change. An Incident is eligible to close when it has a Primary Work Item and every linked Work Item is closed. Monitoring's `RESOLVED` alert status remains informational and is not a closure prerequisite.
 
 ### Operations feature flags
 
@@ -213,7 +212,7 @@ All write and automation capabilities are disabled unless explicitly enabled:
 | `OPERATIONS_CREATE_ENABLED` | Create mapped Related Work Items |
 | `OPERATIONS_LINK_ENABLED` | Link an existing ADO Work Item as Related |
 | `OPERATIONS_SYNC_ENABLED` | Synchronize Work Item states |
-| `OPERATIONS_CLOSE_ENABLED` | Confirm recovery and close Operations Hub incidents |
+| `OPERATIONS_CLOSE_ENABLED` | Close Operations Hub incidents after every linked Work Item is closed |
 | `OPERATIONS_RECONCILIATION_ENABLED` | Enable the separate reconciliation endpoint |
 | `OPERATIONS_NOTIFICATION_ENABLED` | Send deduplicated reconciliation notifications |
 | `OPERATIONS_AUTOMATION_KEY` | Secret header value required by `/api/operations-reconcile` |

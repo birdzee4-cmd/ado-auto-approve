@@ -114,7 +114,6 @@ async function handleWrite(context, req, path, principal) {
   if (action === 'work-items/related') data = await operationsService.createRelated({ ...body, incidentId }, actionContext);
   else if (action === 'work-items/link') data = await operationsService.linkExisting({ ...body, incidentId }, actionContext);
   else if (action === 'synchronize') data = await operationsService.synchronize({ ...body, incidentId }, actionContext);
-  else if (action === 'confirm-recovery') data = await operationsService.confirmRecovery({ ...body, incidentId }, actionContext);
   else if (action === 'close') data = await operationsService.closeIncident({ ...body, incidentId }, actionContext);
   else return jsonResponse(context, 404, { ok: false, error: 'Operations write route not found' }, token.setCookie);
   return jsonResponse(context, 200, { ok: true, data }, token.setCookie);
@@ -260,7 +259,7 @@ function buildTimeline(incident) {
   addTimeline(events, incident.approvalRequestedAt, 'APPROVAL_REQUESTED', 'AWAITING_APPROVAL', 'Approval was requested.');
   addTimeline(events, incident.approvalCompletedAt, 'APPROVAL_COMPLETED', incident.approvalOutcome || 'COMPLETED', incident.approvalComment || 'Approval completed.');
   addTimeline(events, incident.adoCreatedAt, 'ADO_WORK_ITEM_CREATED', incident.adoState || 'CREATED', incident.workItemId ? `Work item #${incident.workItemId}` : '');
-  addTimeline(events, incident.resolvedAt, 'ALERT_RESOLVED', 'RESOLVED', incident.durationMinutes == null ? 'Monitoring reported recovery.' : `Recovered after ${incident.durationMinutes} minutes.`);
+  addTimeline(events, incident.resolvedAt, 'ALERT_RESOLVED', 'RESOLVED', incident.durationMinutes == null ? 'Monitoring reported that the alert was resolved.' : `Alert resolved after ${incident.durationMinutes} minutes.`);
   addTimeline(events, incident.adoClosedAt, 'ADO_WORK_ITEM_CLOSED', incident.adoState || 'CLOSED', 'Azure DevOps work item closed.');
   addTimeline(events, incident.lastSyncedAt, 'LAST_SYNCED', incident.workflowStatus || 'SYNCED', incident.errorDetail || 'Latest status synchronized from Power Automate.');
   return events.sort((a, b) => (Date.parse(b.timestamp) || 0) - (Date.parse(a.timestamp) || 0));

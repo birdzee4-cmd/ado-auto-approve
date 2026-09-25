@@ -25,7 +25,7 @@
 | Phase 3 — Write API | Repository implementation เสร็จ; flag defaults ปิด; เพิ่ม capabilities read endpoint ให้ UI ตรวจสถานะ |
 | Phase 4 — Operations Hub UI ใหม่ | Repository implementation เสร็จ; ปุ่ม write ถูกปิดตาม capabilities จาก API |
 | Phase 5 — Automation เพิ่มเติม | Endpoint/runbook เสร็จ; รอสร้าง Scheduled Flow ใน tenant |
-| Phase 6 — Tests และ UAT | Automated tests 61/61 ผ่าน และ UI build ผ่าน; รอ UAT/production regression |
+| Phase 6 — Tests และ UAT | Automated tests 61/61 ผ่าน และ UI build ผ่าน; เคส `INC-2026-000219`/Primary `#882513` เข้าระบบแล้ว แต่ Approval ยัง `Requested` และ Incident ยัง `FIRING`; รอผลอนุมัติและ RESOLVED เพื่อยืนยัน lifecycle end-to-end; ZIP ที่แนบชื่อ v3.8.0 มี manifest/definition ภายในเป็น v3.7.9 CT2 จึงห้ามใช้แทน release artifact จนกว่าจะตรวจ/สร้างใหม่ |
 | Phase 7 — Rollout | Runbook พร้อม; rollout ที่มี write actions ยังรอ mapping, automation และ UAT |
 
 ## Phase 0 — Baseline และสำรองระบบเดิม
@@ -86,7 +86,7 @@ Checkpoint: การเชื่อมต่อของบัญชีปั�
 - [x] ประกอบ Description ของ Related Work Item จาก Alert fields ที่ Production Workflow parse จากอีเมล FIRING/RESOLVED
 - [x] Link Existing Work Item
 - [x] Synchronize PRIMARY และ RELATED
-- [x] Confirm Recovery
+- [x] ปิด Incident โดยตรวจ Primary และสถานะ Work Item ทุกใบ; ไม่บังคับ Recovery confirmation
 - [x] ดึงสถานะ ADO ล่าสุดก่อน Validate/Close Incident
 - [x] เพิ่ม idempotency และแยก Operations/ADO identity ใน Audit
 - [x] เพิ่ม feature flags ที่ปิดเป็นค่าเริ่มต้น
@@ -98,7 +98,7 @@ Checkpoint: การเชื่อมต่อของบัญชีปั�
 - [x] แสดง Primary และ Related Work Items พร้อมจำนวนปิด/ทั้งหมด
 - [x] แสดง Grafana Alert Details ที่ parse จาก Incident: Resource, Subscription, Resource Group, Plan, Host, Metric, Current Value, Threshold และ Summary
 - [x] แสดง ADO connection และ mapping preview แบบ read-only
-- [x] เพิ่ม Create/Link/Sync/Confirm Recovery/Close controls
+- [x] เพิ่ม Create/Link/Sync/Close controls; ถอด Confirm Recovery ออกจาก UI
 - [x] แสดง closure blockers และ Timeline/Audit
 - [x] เพิ่มหน้า Service Mapping แบบ read-only สำหรับ Admin
 - [ ] Visual/UAT review ใน environment จริง
@@ -138,4 +138,4 @@ Checkpoint: การเชื่อมต่อของบัญชีปั�
 
 ## Completion Policy
 
-Incident ปิดได้เมื่อ PRIMARY และ RELATED ทุกใบอยู่ใน closed state และ Tier 1 ยืนยัน Recovery แล้วเท่านั้น โดย RCA ไม่มีผลต่อ lifecycle นี้
+Incident ปิดได้เมื่อมี PRIMARY และ PRIMARY/RELATED ทุกใบอยู่ใน closed state เท่านั้น ไม่ต้องยืนยัน Recovery และไม่ใช้สถานะ Alert `RESOLVED` เป็นเงื่อนไขปิดงาน; สถานะ Alert ยังคงแสดงเพื่ออ้างอิง ส่วน RCA อยู่นอกระบบนี้
