@@ -24,7 +24,7 @@
 | Phase 2 — Azure DevOps Connection และสิทธิ์ | Production แสดง ADO Connected เป็น `kiattisak.yo@buzzebees.com`; ยังรอทดสอบ reconnect/disconnect และยืนยัน role ของ Tier 1 |
 | Phase 3 — Write API | Repository implementation เสร็จ; flag defaults ปิด; เพิ่ม capabilities read endpoint ให้ UI ตรวจสถานะ |
 | Phase 4 — Operations Hub UI ใหม่ | Repository implementation เสร็จ; ปุ่ม write ถูกปิดตาม capabilities จาก API |
-| Phase 5 — Automation เพิ่มเติม | สร้าง Logic App reconciliation ใน tenant แล้วในสถานะ Disabled; รอเปิด Sync/Reconciliation หลัง UAT |
+| Phase 5 — Automation เพิ่มเติม | Logic App reconciliation ทำงานทุก 10 นาทีใน dry-run; live Sync/Reconciliation ยังปิดรอ UAT |
 | Phase 6 — Tests และ UAT | Automated tests 61/61 ผ่าน และ UI build ผ่าน; เคส `INC-2026-000219`/Primary `#882513` เข้าระบบแล้ว แต่ Approval ยัง `Requested` และ Incident ยัง `FIRING`; รอผลอนุมัติและ RESOLVED เพื่อยืนยัน lifecycle end-to-end; ZIP ที่แนบชื่อ v3.8.0 มี manifest/definition ภายในเป็น v3.7.9 CT2 จึงห้ามใช้แทน release artifact จนกว่าจะตรวจ/สร้างใหม่ |
 | Phase 7 — Rollout | Runbook พร้อม; rollout ที่มี write actions ยังรอ mapping, automation และ UAT |
 
@@ -110,9 +110,10 @@ Checkpoint: การเชื่อมต่อของบัญชีปั�
 - [x] เพิ่ม notification candidates และ Audit EventKey deduplication
 - [x] จัดทำขั้นตอนสร้าง `OperationsHub-WorkItem-Reconciliation`
 - [x] ไม่แก้ Production Workflow
-- [x] สร้าง Scheduled Flow `operations-hub-reconcile` ใน tenant เป็นรอบทุก 10 นาที โดยเริ่มต้นสถานะ Disabled
+- [x] สร้าง Scheduled Flow `operations-hub-reconcile` ใน tenant เป็นรอบทุก 10 นาที และเปิดใช้งานเฉพาะ `dryRun=true`
 - [x] ตั้ง `OPERATIONS_AUTOMATION_KEY` โดยไม่เปิดเผยค่า และตรวจยืนยันว่า `OPERATIONS_RECONCILIATION_ENABLED=false`, `OPERATIONS_SYNC_ENABLED=false`
-- [ ] เปิด Scheduled Flow หลัง Sync/Reconciliation UAT ผ่าน
+- [x] Trigger dry-run smoke test สำเร็จ 2 runs เมื่อ 2026-09-25; definition ป้องกันข้อมูลด้วย secure inputs/outputs และรายงาน `writeOperations=0`
+- [ ] เปลี่ยน scheduler เป็น live reconciliation หลัง Sync/Reconciliation UAT ผ่าน
 - [ ] Duplicate Alert จาก monitoring ยังใช้กติกาของ Production Workflow เดิมจนกว่าจะมีโครงการแยก
 
 ## Phase 6 — Tests และ UAT
@@ -135,7 +136,7 @@ Checkpoint: การเชื่อมต่อของบัญชีปั�
 - [x] จัดทำ rollback sequence โดยไม่พึ่งการแก้ Production Workflow
 - [x] กำหนดห้ามลบ Work Items/Audit ที่สร้างสำเร็จแล้ว
 - [x] ตรวจค่า Production ผ่าน Azure CLI เมื่อ 2026-09-25: `OPERATIONS_CREATE_ENABLED=false`, `OPERATIONS_LINK_ENABLED=false`, `OPERATIONS_SYNC_ENABLED=false`, `OPERATIONS_CLOSE_ENABLED=false`, `OPERATIONS_RECONCILIATION_ENABLED=false`; automation key ถูกตั้งแล้วโดยตรวจเฉพาะการมีอยู่ ไม่อ่านหรือพิมพ์ค่าความลับ
-- [x] Deploy `operations-hub-reconcile` ทุก 10 นาทีในสถานะ Disabled; API และ scheduler จึงยังไม่เกิด write จนกว่าจะผ่าน UAT และเปิด flags ตามลำดับ
+- [x] Enable `operations-hub-reconcile` ทุก 10 นาทีด้วย `dryRun=true`; API enumerate เฉพาะ candidate summary และไม่เรียก ADO sync/SharePoint write/Audit ขณะที่ live flags ยังเป็น `false`
 - [ ] เพิ่มและยืนยัน Service Mapping สำหรับทีมปลายทางก่อนเปิด Related creation
 - [x] ทดสอบ Production read-only หลัง deploy: dashboard/incident list โหลดได้, ADO แสดง Connected และ Incident `INC-2026-000214` แสดง PRIMARY `#882323`; Monitoring Alert Details แสดงครบ และ write controls ปิดตาม flags=false; ยังไม่ถือว่า UAT หรือเปิด write actions ผ่าน
 
