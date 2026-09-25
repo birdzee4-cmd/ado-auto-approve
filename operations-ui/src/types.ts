@@ -66,6 +66,8 @@ export interface Incident {
   status: IncidentStatus;
   workflowStatus: string;
   trackingStatus: TrackingStatus;
+  lifecycleIssues?: string[];
+  hasLifecycleConflict?: boolean;
   approvalOutcome?: string;
   service?: string;
   firstSeen: string;
@@ -142,6 +144,7 @@ export interface DashboardData {
   awaitingApproval: number;
   cancelledItems: number;
   failedItems: number;
+  lifecycleConflicts?: number;
   recentIncidents: Incident[];
   selectedDate: string;
   daily: {
@@ -151,6 +154,7 @@ export interface DashboardData {
     failedIncidents: number;
     pendingApproval: number;
     openBacklog: number;
+    lifecycleConflicts?: number;
     incidents: Incident[];
   };
   dailySeries: Array<{ date: string; opened: number; resolved: number; failed: number }>;

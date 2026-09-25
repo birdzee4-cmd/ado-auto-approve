@@ -190,7 +190,18 @@ test('Rejected ADO work items are treated as closed', () => {
 
     assert.equal(incident.trackingStatus, 'CLOSED');
     assert.equal(incident.status, 'FIRING');
+    assert.equal(incident.hasLifecycleConflict, true);
+    assert.deepEqual(incident.lifecycleIssues, ['ALERT_FIRING_WORK_ITEM_CLOSED']);
   }
+});
+
+test('Lifecycle quality detects incomplete resolved state', () => {
+  assert.deepEqual(sharePoint.incidentLifecycleIssues({
+    alertStatus: 'RESOLVED', workflowStatus: 'PROCESSING', adoState: 'Active', workItemId: 91, resolvedAt: ''
+  }), ['RESOLVED_TIMESTAMP_MISSING', 'RESOLVED_WORKFLOW_STILL_ACTIVE']);
+  assert.deepEqual(sharePoint.incidentLifecycleIssues({
+    alertStatus: 'RESOLVED', workflowStatus: 'CLOSED', adoState: 'Closed', workItemId: 91, resolvedAt: '2026-09-25T02:00:00Z'
+  }), []);
 });
 
 test('Incident display IDs use SharePoint ID with six-digit padding', () => {
@@ -238,6 +249,15 @@ test('Operations dashboard summarizes ADO tracking states', () => {
   assert.equal(summary.awaitingApproval, 1);
   assert.equal(summary.cancelledItems, 1);
   assert.equal(summary.failedItems, 1);
+});
+
+test('Operations dashboard surfaces lifecycle conflicts as attention backlog', () => {
+  const conflict = { incidentId: 'conflict', firstSeen: '2026-09-25T01:00:00Z', trackingStatus: 'CLOSED', workflowStatus: 'REJECTED', hasLifecycleConflict: true };
+  const summary = operations.dashboardSummary([conflict], { date: '2026-09-25' }, new Date('2026-09-25T05:00:00Z'));
+  assert.equal(summary.lifecycleConflicts, 1);
+  assert.equal(summary.daily.lifecycleConflicts, 1);
+  assert.equal(summary.daily.openBacklog, 1);
+  assert.deepEqual(summary.needsAttention, [conflict]);
 });
 
 test('Operations dashboard counts every primary and related work item', () => {

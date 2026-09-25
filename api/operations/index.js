@@ -161,7 +161,7 @@ function dashboardSummary(incidents, query = {}, now = new Date()) {
   const resolvedToday = items.filter(item => dateKey(item.resolvedAt) === selectedDate);
   const adoCreatedToday = items.filter(item => dateKey(item.adoCreatedAt) === selectedDate);
   const needsAttention = items
-    .filter(item => ['OPEN', 'PENDING', 'FAILED'].includes(item.trackingStatus))
+    .filter(item => ['OPEN', 'PENDING', 'FAILED'].includes(item.trackingStatus) || item.hasLifecycleConflict)
     .sort((a, b) => incidentTimestamp(b) - incidentTimestamp(a))
     .slice(0, 8);
 
@@ -173,6 +173,7 @@ function dashboardSummary(incidents, query = {}, now = new Date()) {
     awaitingApproval: items.filter(item => item.workflowStatus === 'AWAITING_APPROVAL' || item.trackingStatus === 'PENDING').length,
     cancelledItems: items.filter(item => item.trackingStatus === 'CANCELLED').length,
     failedItems: items.filter(item => item.trackingStatus === 'FAILED').length,
+    lifecycleConflicts: items.filter(item => item.hasLifecycleConflict).length,
     recentIncidents: items.slice(0, 10),
     selectedDate,
     daily: {
@@ -183,8 +184,9 @@ function dashboardSummary(incidents, query = {}, now = new Date()) {
       pendingApproval: dailyItems.filter(item => item.workflowStatus === 'AWAITING_APPROVAL' || item.trackingStatus === 'PENDING').length,
       openBacklog: items.filter(item => {
         const openedDate = dateKey(item.firstSeen || item.receivedAt || item.createdAt);
-        return item.trackingStatus === 'OPEN' && openedDate && openedDate <= selectedDate;
+        return (['OPEN', 'PENDING', 'FAILED'].includes(item.trackingStatus) || item.hasLifecycleConflict) && openedDate && openedDate <= selectedDate;
       }).length,
+      lifecycleConflicts: items.filter(item => item.hasLifecycleConflict).length,
       incidents: dailyItems.slice(0, 25)
     },
     dailySeries: buildDailySeries(items, selectedDate, 14),

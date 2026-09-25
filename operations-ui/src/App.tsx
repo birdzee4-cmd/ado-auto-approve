@@ -13,7 +13,7 @@ const routes: Array<{ id: RouteId; label: string; short: string; adminOnly?: boo
 ];
 
 function routeFromHash(): RouteId {
-  const value = window.location.hash.replace(/^#\/?/, '').split('/')[0] as RouteId;
+  const value = window.location.hash.replace(/^#\/?/, '').split(/[/?]/)[0] as RouteId;
   return routes.some(route => route.id === value) ? value : 'dashboard';
 }
 

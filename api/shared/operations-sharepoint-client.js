@@ -284,6 +284,7 @@ function mapSharePointIncident(item) {
   const lastAlertAt = dateField(fields, ['LastAlertAt']);
   const lastSyncedAt = dateField(fields, ['LastSyncedAt', 'LastSeen']) || item.lastModifiedDateTime || receivedAt;
   const lastSeen = latestDate([resolvedAt, lastAlertAt, lastSyncedAt, firstSeenAt, receivedAt]);
+  const lifecycleIssues = incidentLifecycleIssues({ alertStatus, workflowStatus, adoState, workItemId, resolvedAt });
 
   return {
     sharePointId,
@@ -299,6 +300,8 @@ function mapSharePointIncident(item) {
     status: alertStatus,
     workflowStatus,
     trackingStatus: trackingStatus(alertStatus, workflowStatus, adoState, workItemId),
+    lifecycleIssues,
+    hasLifecycleConflict: lifecycleIssues.length > 0,
     approvalOutcome: textField(fields, ['ApprovalOutcome']),
     approvalAttempt: numberField(fields, ['ApprovalAttempt']),
     approvalId: textField(fields, ['ApprovalId']),
@@ -446,6 +449,15 @@ function isClosedAdoState(state) {
   return ['CLOSED', 'DONE', 'REMOVED', 'RESOLVED', 'REJECT', 'REJECTED'].includes(String(state || '').trim().toUpperCase());
 }
 
+function incidentLifecycleIssues({ alertStatus, workflowStatus, adoState, workItemId, resolvedAt }) {
+  const issues = [];
+  const workflow = String(workflowStatus || '').trim().toUpperCase();
+  if (alertStatus === 'FIRING' && workItemId && isClosedAdoState(adoState)) issues.push('ALERT_FIRING_WORK_ITEM_CLOSED');
+  if (alertStatus === 'RESOLVED' && !resolvedAt) issues.push('RESOLVED_TIMESTAMP_MISSING');
+  if (alertStatus === 'RESOLVED' && ['RECEIVED', 'AWAITING_APPROVAL', 'PROCESSING'].includes(workflow)) issues.push('RESOLVED_WORKFLOW_STILL_ACTIVE');
+  return issues;
+}
+
 function safeAdoUrl(value) {
   if (!value) return '';
   try {
@@ -479,5 +491,6 @@ module.exports = {
   trackingStatus,
   safeAdoUrl,
   durationMinutes,
-  inferEnvironment
+  inferEnvironment,
+  incidentLifecycleIssues
 };

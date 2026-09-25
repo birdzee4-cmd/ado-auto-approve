@@ -4,11 +4,12 @@ import { AdoStateBadge, EmptyState, ErrorState, LoadingState, PageHeading, Statu
 import type { AdoConnectionStatus, AuditEvent, Incident, OperationsCapabilities, ServiceMapping, SupportTeam } from '../types';
 
 export function Incidents() {
+  const routeParams = incidentRouteParams();
   const [items, setItems] = useState<Incident[] | null>(null);
   const [overviewItems, setOverviewItems] = useState<Incident[]>([]);
   const [selected, setSelected] = useState<{ incident: Incident; timeline: AuditEvent[] } | null>(null);
-  const [status, setStatus] = useState('');
-  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState(routeParams.get('status') || '');
+  const [search, setSearch] = useState(routeParams.get('search') || '');
   const [error, setError] = useState('');
   const [actionError, setActionError] = useState('');
   const [actionMessage, setActionMessage] = useState('');
@@ -34,7 +35,7 @@ export function Incidents() {
   const overview = {
     total: overviewItems.length,
     active: overviewItems.filter(item => item.trackingStatus === 'OPEN').length,
-    attention: overviewItems.filter(item => ['PENDING', 'FAILED', 'NOT_CREATED'].includes(item.trackingStatus)).length,
+    attention: overviewItems.filter(item => ['PENDING', 'FAILED', 'NOT_CREATED'].includes(item.trackingStatus) || item.hasLifecycleConflict).length,
     closed: overviewItems.filter(item => item.trackingStatus === 'CLOSED').length
   };
 
@@ -44,7 +45,7 @@ export function Incidents() {
     const visibleRequest = status && status !== 'ATTENTION' ? operationsApi.incidents(status, search) : allRequest;
     Promise.all([visibleRequest, allRequest])
       .then(([visible, all]) => {
-        setItems(status === 'ATTENTION' ? visible.items.filter(item => ['PENDING', 'FAILED', 'NOT_CREATED'].includes(item.trackingStatus)) : visible.items);
+        setItems(status === 'ATTENTION' ? visible.items.filter(item => ['PENDING', 'FAILED', 'NOT_CREATED'].includes(item.trackingStatus) || item.hasLifecycleConflict) : visible.items);
         setOverviewItems(all.items);
       })
       .catch(err => setError(err.message));
@@ -63,6 +64,10 @@ export function Incidents() {
       setMapping(null);
     } catch (err) { setError((err as Error).message); }
   };
+  useEffect(() => {
+    const incidentId = routeParams.get('id');
+    if (incidentId) void openIncident(incidentId);
+  }, []);
 
   const runAction = async (action: () => Promise<unknown>, success: string) => {
     if (!selected) return;
@@ -104,8 +109,8 @@ export function Incidents() {
     {items && items.length > 0 && <div className="ops-incident-results">
       <div className="ops-results-head"><div><strong>{items.length} incidents</strong><span>{status ? `Filtered by ${status.replace('_', ' ').toLowerCase()}` : 'Showing all tracking states'}</span></div><small>Updated from SharePoint</small></div>
       <div className="ops-incident-columns" aria-hidden="true"><span>Incident</span><span>Service / resource</span><span>Work item</span><span>Tracking</span><span>Last update</span><span /></div>
-      <div className="ops-card-list">{items.map(item => <button className={`ops-incident-card is-${item.trackingStatus.toLowerCase().replace('_', '-')}`} key={item.incidentId} onClick={() => openIncident(item.incidentId)} aria-label={`Open incident ${item.displayId || item.incidentId}`}>
-        <span className="ops-incident-main"><span className="ops-incident-id-row"><strong className="ops-incident-display-id">{item.displayId || item.incidentId}</strong><StatusBadge value={item.status} /></span><span className="ops-incident-alert">{humanizeAlert(item.alertName)}</span></span>
+      <div className="ops-card-list">{items.map(item => <button className={`ops-incident-card is-${item.trackingStatus.toLowerCase().replace('_', '-')}${item.hasLifecycleConflict ? ' has-lifecycle-conflict' : ''}`} key={item.incidentId} onClick={() => openIncident(item.incidentId)} aria-label={`Open incident ${item.displayId || item.incidentId}`}>
+        <span className="ops-incident-main"><span className="ops-incident-id-row"><strong className="ops-incident-display-id">{item.displayId || item.incidentId}</strong><StatusBadge value={item.hasLifecycleConflict ? 'NEEDS_REVIEW' : item.status} /></span><span className="ops-incident-alert">{humanizeAlert(item.alertName)}</span></span>
         <span className="ops-incident-service"><strong>{item.service || item.resource || 'Unknown service'}</strong><small>{item.environment || item.metric || 'No environment data'}</small></span>
         <span className="ops-cell-stack"><AdoStateBadge value={item.adoState} /><small>{item.workItemId ? `#${item.workItemId}` : 'No work item'}</small></span>
         <StatusBadge value={item.trackingStatus} />
@@ -115,6 +120,7 @@ export function Incidents() {
     </div>}
     {selected && <div className="ops-drawer-backdrop" onMouseDown={e => { if (e.currentTarget === e.target) setSelected(null); }}><aside className="ops-detail-drawer" aria-label="Incident details">
       <div className="ops-drawer-head"><div><small>Incident ID</small><h2 className="ops-incident-display-id">{selected.incident.displayId || selected.incident.incidentId}</h2><p>{selected.incident.alertName}</p></div><button className="ops-icon-button" onClick={() => setSelected(null)} aria-label="Close details">×</button></div>
+      {selected.incident.hasLifecycleConflict && <div className="ops-data-warning ops-data-warning-compact" role="alert"><div><strong>Lifecycle state requires review</strong><span>{lifecycleIssueMessage(selected.incident.lifecycleIssues || [])}</span></div></div>}
       <dl className="ops-detail-grid"><dt>Alert status</dt><dd><StatusBadge value={selected.incident.status} /></dd><dt>Tracking</dt><dd><StatusBadge value={selected.incident.trackingStatus} /></dd><dt>Workflow</dt><dd>{selected.incident.workflowStatus || '-'}</dd><dt>ADO state</dt><dd><AdoStateBadge value={selected.incident.adoState} /></dd><dt>Service</dt><dd>{selected.incident.service || selected.incident.resource}</dd><dt>Environment</dt><dd>{selected.incident.environment || '-'}</dd><dt>Priority</dt><dd>{selected.incident.priority || '-'}</dd><dt>First seen</dt><dd>{formatDate(selected.incident.firstSeen)}</dd><dt>Resolved at</dt><dd>{formatDate(selected.incident.resolvedAt)}</dd><dt>Duration</dt><dd>{formatDuration(selected.incident.durationMinutes)}</dd><dt>Email received</dt><dd>{formatDate(selected.incident.receivedAt)}</dd><dt>Occurrences</dt><dd>{selected.incident.occurrenceCount ?? '-'}</dd><dt>Assigned to</dt><dd>{selected.incident.assignedTo || '-'}</dd><dt>Work item</dt><dd>{selected.incident.workItemUrl ? <a href={selected.incident.workItemUrl} target="_blank" rel="noreferrer">#{selected.incident.workItemId}</a> : 'Not created'}</dd><dt>SharePoint ID</dt><dd>{selected.incident.sharePointId ?? '-'}</dd><dt>Technical ID</dt><dd><code className="ops-technical-id" title="Technical IncidentId; select to copy">{selected.incident.incidentId || '-'}</code></dd><dt>Last synced</dt><dd>{formatDate(selected.incident.lastSyncedAt)}</dd></dl>
       {alertDetails.length > 0 && <section className="ops-alert-details"><h3>Monitoring Alert Details</h3><dl className="ops-detail-grid">{alertDetails.map(({ label, value }) => <Fragment key={label}><dt>{label}</dt><dd>{value}</dd></Fragment>)}</dl></section>}
       {selected.incident.errorDetail && <div className="ops-error"><strong>Power Automate error</strong><span>{selected.incident.errorDetail}</span></div>}
@@ -154,6 +160,18 @@ function formatRelativeDate(value?: string) {
 
 function humanizeAlert(value: string) {
   return value.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z])([A-Z][a-z])/g, '$1 $2');
+}
+
+function incidentRouteParams() {
+  const query = window.location.hash.split('?')[1] || '';
+  return new URLSearchParams(query);
+}
+
+function lifecycleIssueMessage(issues: string[]) {
+  if (issues.includes('ALERT_FIRING_WORK_ITEM_CLOSED')) return 'Monitoring still reports FIRING although the tracked Azure DevOps work item is closed.';
+  if (issues.includes('RESOLVED_TIMESTAMP_MISSING')) return 'The alert is resolved but Resolved At is missing.';
+  if (issues.includes('RESOLVED_WORKFLOW_STILL_ACTIVE')) return 'The alert is resolved while the workflow is still active.';
+  return 'Monitoring, workflow, and work-item states are not aligned.';
 }
 
 function formatDuration(value?: number) {

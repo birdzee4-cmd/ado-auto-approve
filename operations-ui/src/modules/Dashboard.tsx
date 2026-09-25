@@ -3,7 +3,7 @@ import { operationsApi } from '../api';
 import { AdoStateBadge, EmptyState, ErrorState, LoadingState, PageHeading, StatusBadge } from '../components';
 import type { DashboardData } from '../types';
 
-const emptyDashboard: DashboardData = { totalIncidents: 0, adoWorkItems: 0, openWorkItems: 0, closedWorkItems: 0, awaitingApproval: 0, cancelledItems: 0, failedItems: 0, recentIncidents: [], selectedDate: '', daily: { newIncidents: 0, resolvedIncidents: 0, adoCreated: 0, failedIncidents: 0, pendingApproval: 0, openBacklog: 0, incidents: [] }, dailySeries: [], needsAttention: [] };
+const emptyDashboard: DashboardData = { totalIncidents: 0, adoWorkItems: 0, openWorkItems: 0, closedWorkItems: 0, awaitingApproval: 0, cancelledItems: 0, failedItems: 0, lifecycleConflicts: 0, recentIncidents: [], selectedDate: '', daily: { newIncidents: 0, resolvedIncidents: 0, adoCreated: 0, failedIncidents: 0, pendingApproval: 0, openBacklog: 0, lifecycleConflicts: 0, incidents: [] }, dailySeries: [], needsAttention: [] };
 
 export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -26,6 +26,7 @@ export function Dashboard() {
       {!data && !error && <LoadingState />}
       {error && <ErrorState message={error} onRetry={load} />}
       {data && <>
+        {(data.lifecycleConflicts || 0) > 0 && <div className="ops-data-warning" role="alert"><div><strong>{data.lifecycleConflicts} lifecycle conflict{data.lifecycleConflicts === 1 ? '' : 's'} detected</strong><span>Monitoring still reports FIRING while the tracked work item is closed, or resolved data is incomplete.</span></div><a href="#/incidents?status=ATTENTION">Review conflicts →</a></div>}
         <div className="ops-day-banner"><div><span>OPERATING DATE · ASIA/BANGKOK</span><strong>{formatDay(data.selectedDate)}</strong><small>{data.daily.newIncidents === 0 ? 'No new incidents recorded for this day' : `${data.daily.newIncidents} new incident${data.daily.newIncidents === 1 ? '' : 's'} require review`}</small></div><a href="#/incidents">Open incident explorer →</a></div>
         <div className="ops-kpi-grid ops-kpi-grid-daily">
           <Kpi label="New incidents" value={data.daily.newIncidents} tone="dark" detail="First seen on selected day" />
@@ -35,7 +36,7 @@ export function Dashboard() {
         </div>
         <div className="ops-dashboard-grid">
           <TrendChart series={data.dailySeries} />
-          <article className="ops-panel ops-attention-panel"><div className="ops-panel-heading"><div><span>CURRENT BACKLOG</span><h2>Needs attention</h2></div><strong>{data.daily.openBacklog}</strong></div>{data.needsAttention.length === 0 ? <EmptyState title="Queue is clear" detail="No open, pending, or failed incidents." /> : <div className="ops-attention-list">{data.needsAttention.map(item => <a href="#/incidents" key={item.incidentId}><div><strong>{item.displayId}</strong><small>{item.service || item.resource || item.alertName}</small></div><StatusBadge value={item.trackingStatus} /></a>)}</div>}</article>
+          <article className="ops-panel ops-attention-panel"><div className="ops-panel-heading"><div><span>CURRENT BACKLOG</span><h2>Needs attention</h2></div><strong>{data.daily.openBacklog}</strong></div>{data.needsAttention.length === 0 ? <EmptyState title="Queue is clear" detail="No open, pending, failed, or lifecycle-conflict incidents." /> : <div className="ops-attention-list">{data.needsAttention.map(item => <a href={`#/incidents?id=${encodeURIComponent(item.incidentId)}`} key={item.incidentId}><div><strong>{item.displayId}</strong><small>{item.service || item.resource || item.alertName}</small></div><StatusBadge value={item.hasLifecycleConflict ? 'NEEDS_REVIEW' : item.trackingStatus} /></a>)}</div>}</article>
         </div>
         <article className="ops-panel ops-daily-table">
           <div className="ops-panel-heading"><div><span>DAILY INCIDENT LOG</span><h2>Incidents first seen on {formatDay(data.selectedDate)}</h2></div><small>{data.generatedAt ? `Updated ${formatTime(data.generatedAt)}` : 'Current status'}</small></div>
