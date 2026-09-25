@@ -31,6 +31,8 @@
 - [ ] New test case in progress (user screenshot, 2026-09-25): `INC-2026-000219` has Primary Work Item `#882513` and an Approval request linked to that Work Item; Approval UI shows `Requested`, while Operations Hub shows `FIRING` / `OPEN` / `PROCESSING`. Wait for the authorized approver's decision, then verify the approval outcome and (when the matching email arrives) that RESOLVED updates this same Incident without creating another Work Item.
 - [x] All six Operations feature-flag entries are present in the Production environment. The administrator reports all are `false`; values were not independently read back, so keep the server-side fail-closed behavior and do not run write actions.
 - [ ] Service Mapping list currently reports no enabled mappings. Related Work Item creation must remain unavailable until mappings are populated and validated.
+- [x] `operations-hub-reconcile` exists in Azure Logic Apps with a 10-minute recurrence and is `Disabled`; matching automation key is configured while Sync/Reconciliation flags remain `false`.
+- [x] Service Mapping admin page now exposes disabled drafts for review, while mapping resolution continues to ignore disabled entries.
 - [x] After deployment, the Production browser UI reads write capabilities from the authorized API; Create, Link, Synchronize, and Close controls are disabled while flags are false.
 - [ ] Review repeated recent alert entries before declaring duplicate suppression/UAT passed; do not infer distinct incidents or merge records from alert name alone.
 - [x] Confirmed the deployed Production page includes Monitoring Alert Details for Incident `INC-2026-000214` (resource, subscription, resource group, plan, host, metric, value, threshold, summary).
