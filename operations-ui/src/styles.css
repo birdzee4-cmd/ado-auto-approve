@@ -168,6 +168,14 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .ops-panel-heading h2 { margin: 3px 0 0; font-size: 1.22rem; }
 .ops-panel-heading small { color: var(--ops-muted); }
 .ops-table-wrap { overflow-x: auto; }
+.mapping-summary { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 14px; color: var(--muted); }
+.mapping-summary span { padding: 8px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); }
+.mapping-summary-enabled strong { color: #2f7d32; }
+.mapping-summary-draft strong { color: #a46200; }
+.mapping-status { display: inline-flex; padding: 4px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.mapping-status.is-enabled { color: #276b2a; background: #e7f5e8; }
+.mapping-status.is-draft { color: #865300; background: #fff1ce; }
+.mapping-row-draft { opacity: .78; }
 table { width: 100%; border-collapse: collapse; }
 th { padding: 12px 16px; background: #f0ede5; color: #716d64; text-align: left; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
 td { padding: 14px 16px; border-top: 1px solid #e8e3d8; font-size: .87rem; vertical-align: top; }

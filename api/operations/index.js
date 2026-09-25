@@ -37,7 +37,7 @@ module.exports = async function (context, req) {
     if (path === 'mappings') {
       const admin = auth.requireAnyRole(context, req, ['admin']);
       if (!admin.ok) return jsonResponse(context, admin.status, admin.body);
-      const mappings = await sharePoint.listMappings();
+      const mappings = await sharePoint.listMappings({ includeDisabled: true });
       return jsonResponse(context, 200, { ok: true, data: { items: mappings, count: mappings.length } });
     }
 

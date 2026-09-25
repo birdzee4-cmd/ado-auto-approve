@@ -187,10 +187,11 @@ async function updateSupportingItem(listName, itemId, fields) {
   return graphListRequest('PATCH', listName, `/items/${encodeURIComponent(String(itemId))}/fields`, fields);
 }
 
-async function listMappings() {
+async function listMappings(options = {}) {
   const config = getConfig();
   if (!config.mappingsListName) return [];
-  return (await listItems(1000, config.mappingsListName)).map(mapServiceMapping).filter(item => item.enabled);
+  const mappings = (await listItems(1000, config.mappingsListName)).map(mapServiceMapping);
+  return options.includeDisabled ? mappings : mappings.filter(item => item.enabled);
 }
 
 function mapServiceMapping(item) {

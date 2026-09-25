@@ -22,6 +22,29 @@ test('Operations API rejects unauthenticated and unauthorized requests', async (
   assert.equal(forbidden.res.status, 403);
 });
 
+test('admin mapping inventory includes disabled drafts while resolution remains enabled-only', async () => {
+  const originalListMappings = sharePoint.listMappings;
+  const calls = [];
+  sharePoint.listMappings = async options => {
+    calls.push(options);
+    return [{ mappingId: 'draft-app-support', enabled: false }];
+  };
+  try {
+    const context = { log: { warn() {}, error() {} } };
+    await operations(context, {
+      method: 'GET',
+      params: { path: 'mappings' },
+      headers: { 'x-ms-client-principal': principal(['admin']) },
+      query: {}
+    });
+    assert.equal(context.res.status, 200);
+    assert.deepEqual(calls, [{ includeDisabled: true }]);
+    assert.equal(JSON.parse(context.res.body).data.items[0].enabled, false);
+  } finally {
+    sharePoint.listMappings = originalListMappings;
+  }
+});
+
 test('Operations capabilities expose only fail-closed feature booleans to authorized operators', async () => {
   const keys = ['OPERATIONS_CREATE_ENABLED', 'OPERATIONS_LINK_ENABLED', 'OPERATIONS_SYNC_ENABLED', 'OPERATIONS_CLOSE_ENABLED'];
   const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
