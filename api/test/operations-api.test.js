@@ -45,6 +45,35 @@ test('admin mapping inventory includes disabled drafts while resolution remains 
   }
 });
 
+test('SharePoint mapping supports generated internal field names and defaults disabled', () => {
+  const mapped = sharePoint.mapServiceMapping({
+    id: '7',
+    fields: {
+      field_1: 'draft-app-support-prod-appservice',
+      field_3: 'Azure App Service',
+      field_5: 'Production',
+      field_6: 'APP SUPPORT',
+      field_7: 'Buzzebees',
+      field_8: 'IT Support Case',
+      field_9: 'Buzzebees\\Other\\Support Center',
+      field_10: 'Buzzebees',
+      field_11: 'Support Center',
+      field_12: 'OperationsHub; AppSupport; DRAFT',
+      field_13: false,
+      field_14: 10
+    }
+  });
+
+  assert.equal(mapped.mappingId, 'draft-app-support-prod-appservice');
+  assert.equal(mapped.supportTeam, 'APP_SUPPORT');
+  assert.equal(mapped.enabled, false);
+  assert.equal(mapped.priority, 10);
+  assert.equal(mapped.areaPath, 'Buzzebees\\Other\\Support Center');
+  assert.equal(mapped.assignedTeam, 'Support Center');
+
+  assert.equal(sharePoint.mapServiceMapping({ id: '8', fields: {} }).enabled, false);
+});
+
 test('Operations capabilities expose only fail-closed feature booleans to authorized operators', async () => {
   const keys = ['OPERATIONS_CREATE_ENABLED', 'OPERATIONS_LINK_ENABLED', 'OPERATIONS_SYNC_ENABLED', 'OPERATIONS_CLOSE_ENABLED'];
   const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));

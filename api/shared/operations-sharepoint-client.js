@@ -198,20 +198,23 @@ function mapServiceMapping(item) {
   const fields = item && item.fields || {};
   return {
     sharePointId: sharePointItemId(item),
-    mappingId: textField(fields, ['MappingId']) || String(item && item.id || ''),
-    service: textField(fields, ['Service']),
-    alertNamePattern: textField(fields, ['AlertNamePattern']),
-    resourcePattern: textField(fields, ['ResourcePattern']),
-    environment: textField(fields, ['Environment']),
-    supportTeam: textField(fields, ['SupportTeam']).toUpperCase().replace(/[\s-]+/g, '_'),
-    adoProject: textField(fields, ['AdoProject']),
-    workItemType: textField(fields, ['WorkItemType']),
-    areaPath: textField(fields, ['AreaPath']),
-    iterationPath: textField(fields, ['IterationPath']),
-    assignedTeam: textField(fields, ['AssignedTeam']),
-    defaultTags: textField(fields, ['DefaultTags']),
-    enabled: booleanField(fields, ['Enabled'], true),
-    priority: numberField(fields, ['Priority']) || 0
+    // Lists created through the modern SharePoint UI expose generated Graph
+    // internal names (field_1, field_2, ...). Keep the semantic names first
+    // so provisioned lists continue to work, then accept the observed aliases.
+    mappingId: textField(fields, ['MappingId', 'field_1']) || String(item && item.id || ''),
+    service: textField(fields, ['Service', 'field_2']),
+    alertNamePattern: textField(fields, ['AlertNamePattern', 'field_3']),
+    resourcePattern: textField(fields, ['ResourcePattern', 'field_4']),
+    environment: textField(fields, ['Environment', 'field_5']),
+    supportTeam: textField(fields, ['SupportTeam', 'field_6']).toUpperCase().replace(/[\s-]+/g, '_'),
+    adoProject: textField(fields, ['AdoProject', 'field_7']),
+    workItemType: textField(fields, ['WorkItemType', 'field_8']),
+    areaPath: textField(fields, ['AreaPath', 'field_9']),
+    iterationPath: textField(fields, ['IterationPath', 'field_10']),
+    assignedTeam: textField(fields, ['AssignedTeam', 'field_11']),
+    defaultTags: textField(fields, ['DefaultTags', 'field_12']),
+    enabled: booleanField(fields, ['Enabled', 'field_13'], false),
+    priority: numberField(fields, ['Priority', 'field_14']) || 0
   };
 }
 
