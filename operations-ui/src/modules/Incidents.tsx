@@ -33,7 +33,7 @@ export function Incidents() {
   ].filter((item): item is { label: string; value: string } => Boolean(item.value && item.value.trim())) : [];
   const overview = {
     total: overviewItems.length,
-    active: overviewItems.filter(item => item.status === 'FIRING' || item.trackingStatus === 'OPEN').length,
+    active: overviewItems.filter(item => item.trackingStatus === 'OPEN').length,
     attention: overviewItems.filter(item => ['PENDING', 'FAILED', 'NOT_CREATED'].includes(item.trackingStatus)).length,
     closed: overviewItems.filter(item => item.trackingStatus === 'CLOSED').length
   };
