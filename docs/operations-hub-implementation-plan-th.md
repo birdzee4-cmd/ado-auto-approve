@@ -139,6 +139,7 @@ Checkpoint: การเชื่อมต่อของบัญชีปั�
 - [x] Enable `operations-hub-reconcile` ทุก 10 นาทีด้วย `dryRun=true`; API enumerate เฉพาะ candidate summary และไม่เรียก ADO sync/SharePoint write/Audit ขณะที่ live flags ยังเป็น `false`
 - [x] เพิ่มและยืนยัน Service Mapping สำหรับ App Support/Tier 2 และผ่าน targeted Production UAT; ปิด `OPERATIONS_CREATE_ENABLED` กลับหลังทดสอบ
 - [x] ผ่าน Link Existing targeted Production UAT ด้วย `INC-2026-000235` / Related `#882976` ไป Primary `#882975`; รองรับ retry หลัง partial ADO success, บันทึก SharePoint/Audit สำเร็จ และปิด `OPERATIONS_LINK_ENABLED` กลับหลังทดสอบ
+- [x] แสดง Operations identity และ verified Azure DevOps identity แยกกันใน Incident Timeline; ยืนยัน Production จาก `LINK_EXISTING_WORK_ITEM` ของ `INC-2026-000235` แล้ว
 - [x] ทดสอบ Production read-only หลัง deploy: dashboard/incident list โหลดได้, ADO แสดง Connected และ Incident `INC-2026-000214` แสดง PRIMARY `#882323`; Monitoring Alert Details แสดงครบ และ write controls ปิดตาม flags=false; ยังไม่ถือว่า UAT หรือเปิด write actions ผ่าน
 
 ## Completion Policy

@@ -53,8 +53,8 @@
 - [x] ปิดได้เมื่อมี Primary, Work Item ทุกใบปิด และ Alert RESOLVED — Production UAT `INC-2026-000224` สำเร็จเมื่อ 2026-09-27 01:15 (Asia/Bangkok); Tracking เปลี่ยนเป็น `CLOSED` และ Timeline มี `INCIDENT_CLOSED`
 - [x] Close UAT ของ `INC-2026-000224`: รอบแรกได้ HTTP 500; structured error เปิดเผย HTTP 403 จากการสร้าง closure columns จึงเปลี่ยนมาใช้ append-only Audit เป็น source of truth และทดสอบซ้ำสำเร็จโดยไม่เพิ่ม SharePoint schema permission
 - [x] แก้ POST error boundary ให้ await write handler ภายใน try/catch เพื่อคืน sanitized error code/detail แทน Azure 500 แบบ body ว่าง
-- [ ] Audit แยก Operations identity กับ ADO identity
-- [ ] ผู้ไม่มี write role และผู้ไม่ Connect ถูกปฏิเสธ
+- [x] Audit แยก Operations identity กับ ADO identity — Production `INC-2026-000235` event `LINK_EXISTING_WORK_ITEM` แสดงสอง field แยกกันใน Timeline: `Operations: kiattisak.yo@buzzebees.com` และ `Azure DevOps: kiattisak.yo@buzzebees.com`
+- [ ] ผู้ไม่มี write role และผู้ไม่ Connect ถูกปฏิเสธ — automated authorization/identity tests ผ่าน (รวม POST viewer = 403 และ invalid/missing delegated identity แบบ fail-closed); ยังรอ Production UAT ด้วยบัญชี viewer จริง โดยห้ามลดหรือเปลี่ยน role ของบัญชี Production ปัจจุบันเพื่อทดสอบ
 - [x] Production Workflow ยังรับ Alert และสร้าง PRIMARY เหมือนเดิม — ตรวจ Primary ล่าสุด `#882975` เมื่อ 2026-09-27 โดย Operations Hub ไม่สร้าง Primary ซ้ำ
 - [x] หลัง Link Existing UAT ปิด feature flags ทั้งหกกลับเป็น `false`: create, link, sync, close, reconciliation และ notification
 
