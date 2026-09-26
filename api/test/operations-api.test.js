@@ -87,6 +87,30 @@ test('SharePoint audit writes use generated internal field names', () => {
   assert.equal(mapped.EventId, undefined);
 });
 
+test('Incident closure fields use the actual SharePoint internal names', () => {
+  const fieldMap = sharePoint.resolveIncidentClosureFields([
+    { name: 'field_21', displayName: 'OperationsStatus' },
+    { name: 'OperationsClosedBy', displayName: 'OperationsClosedBy' },
+    { name: 'field_23', displayName: 'OperationsClosedAt' }
+  ]);
+  assert.deepEqual(fieldMap, {
+    OperationsStatus: 'field_21',
+    OperationsClosedBy: 'OperationsClosedBy',
+    OperationsClosedAt: 'field_23'
+  });
+  assert.deepEqual(sharePoint.mapIncidentWriteFields({
+    OperationsStatus: 'CLOSED',
+    OperationsClosedBy: 'operator@example.com',
+    OperationsClosedAt: '2026-09-27T00:00:00.000Z',
+    LastSyncedAt: '2026-09-27T00:00:00.000Z'
+  }, fieldMap), {
+    field_21: 'CLOSED',
+    OperationsClosedBy: 'operator@example.com',
+    field_23: '2026-09-27T00:00:00.000Z',
+    LastSyncedAt: '2026-09-27T00:00:00.000Z'
+  });
+});
+
 test('Operations capabilities expose only fail-closed feature booleans to authorized operators', async () => {
   const keys = ['OPERATIONS_CREATE_ENABLED', 'OPERATIONS_LINK_ENABLED', 'OPERATIONS_SYNC_ENABLED', 'OPERATIONS_CLOSE_ENABLED'];
   const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));

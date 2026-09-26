@@ -5,6 +5,7 @@ let cachedToken = null;
 let tokenExpiresAt = 0;
 let cachedSiteId = null;
 const cachedListIds = new Map();
+const cachedIncidentClosureFields = new Map();
 const incidentYearFormatter = new Intl.DateTimeFormat('en-US', {
   timeZone: 'Asia/Bangkok',
   year: 'numeric'
@@ -253,7 +254,55 @@ function mapWorkItemWriteFields(fields) {
 
 async function updateIncidentRecord(itemId, fields) {
   const config = getConfig();
-  return updateSupportingItem(config.listName, itemId, fields);
+  const needsClosureFields = Object.keys(fields || {}).some(key => INCIDENT_CLOSURE_COLUMNS[key]);
+  const fieldMap = needsClosureFields ? await ensureIncidentClosureColumns(config.listName) : {};
+  return updateSupportingItem(config.listName, itemId, mapIncidentWriteFields(fields, fieldMap));
+}
+
+const INCIDENT_CLOSURE_COLUMNS = {
+  OperationsStatus: { displayName: 'OperationsStatus', text: { allowMultipleLines: false } },
+  OperationsClosedBy: { displayName: 'OperationsClosedBy', text: { allowMultipleLines: false } },
+  OperationsClosedAt: { displayName: 'OperationsClosedAt', dateTime: { displayAs: 'default', format: 'dateTime' } }
+};
+
+async function ensureIncidentClosureColumns(listName) {
+  if (cachedIncidentClosureFields.has(listName)) return cachedIncidentClosureFields.get(listName);
+  const response = await graphListRequest('GET', listName, '/columns?$select=name,displayName');
+  const resolved = resolveIncidentClosureFields(response && response.value);
+
+  for (const logicalName of Object.keys(INCIDENT_CLOSURE_COLUMNS)) {
+    if (resolved[logicalName]) continue;
+    await graphListRequest('POST', listName, '/columns', {
+      name: logicalName,
+      ...INCIDENT_CLOSURE_COLUMNS[logicalName]
+    });
+  }
+
+  if (Object.keys(resolved).length !== Object.keys(INCIDENT_CLOSURE_COLUMNS).length) {
+    const refreshed = await graphListRequest('GET', listName, '/columns?$select=name,displayName');
+    Object.assign(resolved, resolveIncidentClosureFields(refreshed && refreshed.value));
+  }
+  const missing = Object.keys(INCIDENT_CLOSURE_COLUMNS).filter(name => !resolved[name]);
+  if (missing.length) throw new Error(`Operations incident closure columns are unavailable: ${missing.join(', ')}`);
+  cachedIncidentClosureFields.set(listName, resolved);
+  return resolved;
+}
+
+function resolveIncidentClosureFields(columns) {
+  const definitions = Array.isArray(columns) ? columns : [];
+  const result = {};
+  for (const logicalName of Object.keys(INCIDENT_CLOSURE_COLUMNS)) {
+    const match = definitions.find(column =>
+      String(column && column.name || '').toLowerCase() === logicalName.toLowerCase() ||
+      String(column && column.displayName || '').toLowerCase() === logicalName.toLowerCase()
+    );
+    if (match && match.name) result[logicalName] = match.name;
+  }
+  return result;
+}
+
+function mapIncidentWriteFields(fields, fieldMap = {}) {
+  return Object.fromEntries(Object.entries(fields || {}).map(([key, value]) => [fieldMap[key] || key, value]));
 }
 
 async function appendAudit(fields) {
@@ -520,6 +569,8 @@ module.exports = {
   listMappings,
   mapServiceMapping,
   mapAuditWriteFields,
+  mapIncidentWriteFields,
+  resolveIncidentClosureFields,
   createWorkItemRecord,
   updateWorkItemRecord,
   updateIncidentRecord,

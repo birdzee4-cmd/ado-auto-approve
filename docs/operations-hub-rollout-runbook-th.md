@@ -4,7 +4,7 @@
 
 - [ ] สำรอง Production Workflow package และ connection references
 - [x] Provision `OperationsHubWorkItems`, `OperationsHubServiceMapping`, `OperationsHubAudit`
-- [ ] เพิ่ม optional Operations columns ใน Existing Incident List
+- [x] เพิ่ม schema-on-close compatibility สำหรับ `OperationsStatus`, `OperationsClosedBy`, `OperationsClosedAt`; รองรับ SharePoint generated internal names และสร้างเฉพาะคอลัมน์ที่ขาดเมื่อเปิด Close feature
 - [ ] เพิ่ม Service Mapping สำหรับ App Support/Tier 2 ในระยะถัดไปหลัง Tier 1 pilot; ไม่บล็อกการแสดง PRIMARY จาก Production Workflow เดิม
 - [ ] ยืนยัน Tier 1 role และ Azure DevOps permissions
 - [ ] ตั้ง supporting-list settings โดยยังปิด feature flags ทั้งหมด
@@ -50,6 +50,7 @@
 - [x] ปิด Incident ไม่ได้เมื่อ Alert ยัง FIRING — UAT รายการเดียวกันแสดง blocker `Monitoring alert is not RESOLVED` และไม่มีคำสั่งปิดถูกส่ง
 - [x] ตรวจเงื่อนไขพร้อมปิด — `INC-2026-000224` แสดง `RESOLVED`, Work Items `3/3 closed` และ `READY_TO_CLOSE`; พบว่า tracking เคยขึ้น `CLOSED` ก่อนมี `INCIDENT_CLOSED` จึงเพิ่ม regression guard ให้ Incident ที่มี RELATED คง `OPEN` จนกด Close สำเร็จ
 - [ ] ปิดได้เมื่อมี Primary และ Work Item ทุกใบปิด โดยไม่ต้องยืนยัน Recovery
+- [ ] Close UAT รอบแรกของ `INC-2026-000224` ได้ HTTP 500 โดยไม่มีการเปลี่ยน Incident; ปิด flag กลับแล้วและเพิ่ม schema compatibility ก่อนทดสอบซ้ำ
 - [ ] Audit แยก Operations identity กับ ADO identity
 - [ ] ผู้ไม่มี write role และผู้ไม่ Connect ถูกปฏิเสธ
 - [ ] Production Workflow ยังรับ Alert และสร้าง PRIMARY เหมือนเดิม
