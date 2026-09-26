@@ -309,8 +309,20 @@ async function linkExisting(input, context, dependencies = {}) {
   const workItemId = positiveInteger(input.workItemId, 'workItemId');
   if (workItemId === incident.workItemId) throw operationalError(409, 'PRIMARY_DUPLICATE', 'The primary work item is already linked');
   const existingRecords = await sp.listConfiguredWorkItems(1000);
-  const duplicate = existingRecords.find(item => item.incidentId.toLowerCase() === incident.incidentId.toLowerCase() && item.workItemId === workItemId);
+  const trackedWorkItem = existingRecords.find(item => item.workItemId === workItemId);
+  const duplicate = trackedWorkItem && normalize(trackedWorkItem.incidentId) === normalize(incident.incidentId) ? trackedWorkItem : undefined;
   if (duplicate) return { incident, workItem: duplicate, duplicate: true };
+  if (trackedWorkItem) {
+    throw operationalError(409, 'WORK_ITEM_ALREADY_TRACKED', `Work Item #${workItemId} is already tracked by another Incident`);
+  }
+  const supportTeam = normalizeTeam(input.supportTeam);
+  const existingForTeam = existingRecords.find(item =>
+    normalize(item.incidentId) === normalize(incident.incidentId) &&
+    normalizeOptionalTeam(item.supportTeam) === supportTeam
+  );
+  if (existingForTeam) {
+    throw operationalError(409, 'TEAM_WORK_ITEM_EXISTS', `${supportTeam} already has related Work Item #${existingForTeam.workItemId}`);
+  }
   const result = await ado.getWorkItem(workItemId, { accessToken: context.accessToken });
   if (!result.ok || !result.body || !result.body.id) throw operationalError(result.status || 404, 'WORK_ITEM_NOT_FOUND', 'Azure DevOps work item could not be read');
   const normalized = normalizeAdoWorkItem(result.body);
@@ -321,17 +333,17 @@ async function linkExisting(input, context, dependencies = {}) {
     IncidentId: incident.incidentId,
     WorkItemId: workItemId,
     Role: 'RELATED',
-    SupportTeam: normalizeTeam(input.supportTeam),
+    SupportTeam: supportTeam,
     State: normalized.state,
     WorkItemUrl: normalized.url,
     AssignedTo: normalized.assignedTo,
     CreatedAt: normalized.createdAt,
     ClosedAt: normalized.closedAt,
     LastSyncedAt: new Date().toISOString(),
-    IdempotencyKey: makeIdempotencyKey(incident.incidentId, input.supportTeam, `link-${workItemId}`)
+    IdempotencyKey: makeIdempotencyKey(incident.incidentId, supportTeam, `link-${workItemId}`)
   });
   await audit(sp, context, { incidentId: incident.incidentId, workItemId, action: 'LINK_EXISTING_WORK_ITEM', result: 'SUCCEEDED' });
-  return { incident, workItem: { ...normalized, role: 'RELATED', supportTeam: normalizeTeam(input.supportTeam) }, duplicate: false };
+  return { incident, workItem: { ...normalized, role: 'RELATED', supportTeam }, duplicate: false };
 }
 
 async function synchronize(input, context, dependencies = {}) {

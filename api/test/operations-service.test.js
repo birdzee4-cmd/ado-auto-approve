@@ -318,6 +318,34 @@ test('link existing validates ADO, adds Related relation, persists, and audits',
   });
 });
 
+test('link existing rejects a work item already tracked by another incident', async () => {
+  await withFlags({ OPERATIONS_LINK_ENABLED: 'true' }, async () => {
+    const sharePoint = {
+      async getIncident() { return incident; },
+      async listConfiguredWorkItems() { return [{ incidentId: 'INC-OTHER', workItemId: 9201, supportTeam: 'TIER2' }]; }
+    };
+    const ado = { async getWorkItem() { throw new Error('ADO must not be called'); } };
+    await assert.rejects(
+      service.linkExisting({ incidentId: incident.incidentId, supportTeam: 'TIER2', workItemId: 9201 }, actionContext, { sharePoint, ado }),
+      error => error.code === 'WORK_ITEM_ALREADY_TRACKED'
+    );
+  });
+});
+
+test('link existing enforces one related work item per incident team', async () => {
+  await withFlags({ OPERATIONS_LINK_ENABLED: 'true' }, async () => {
+    const sharePoint = {
+      async getIncident() { return incident; },
+      async listConfiguredWorkItems() { return [{ incidentId: incident.incidentId, workItemId: 9200, supportTeam: 'TIER2' }]; }
+    };
+    const ado = { async getWorkItem() { throw new Error('ADO must not be called'); } };
+    await assert.rejects(
+      service.linkExisting({ incidentId: incident.incidentId, supportTeam: 'TIER2', workItemId: 9201 }, actionContext, { sharePoint, ado }),
+      error => error.code === 'TEAM_WORK_ITEM_EXISTS'
+    );
+  });
+});
+
 test('synchronize updates primary and related stores independently', async () => {
   await withFlags({ OPERATIONS_SYNC_ENABLED: 'true' }, async () => {
     const incidentUpdates = [];
