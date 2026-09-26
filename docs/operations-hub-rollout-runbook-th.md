@@ -45,7 +45,7 @@
 - [ ] Tier 1 สร้าง TIER2 RELATED จาก mapping ได้
 - [ ] double click/retry ไม่สร้างงานซ้ำ
 - [ ] Link Existing สร้าง Related relation
-- [ ] Synchronize อัปเดต state/assignee/closed time
+- [x] Synchronize อัปเดต state/assignee/closed time — targeted Production UAT `INC-2026-000224` เมื่อ 2026-09-26: Work Items 3 ใบสำเร็จทั้งหมด, failed 0, notification disabled และ reconciliation flag ถูกปิดกลับ
 - [ ] ปิด Incident ไม่ได้เมื่อมีงานเปิด
 - [ ] ปิด Incident ไม่ได้เมื่อยังมี Work Item เปิดอยู่
 - [ ] ปิดได้เมื่อมี Primary และ Work Item ทุกใบปิด โดยไม่ต้องยืนยัน Recovery

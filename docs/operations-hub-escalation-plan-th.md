@@ -59,10 +59,10 @@
 - [x] Automated API/UI tests
 - [x] รองรับ targeted reconciliation ด้วย Incident ID สำหรับ Controlled UAT โดยไม่กระทบ Incident อื่น
 - [ ] Import UAT flow เป็น Create as new และคงสถานะ Off
-- [ ] Read-only/dry-run verification
+- [x] Read-only/dry-run verification และ targeted live reconciliation UAT ผ่านกับ `INC-2026-000224`: synchronized 3, failed 0; ปิด flag กลับหลังทดสอบ
 - [x] เปิด create flag ชั่วคราวเพื่อ Production test ที่ได้รับอนุญาต
 - [ ] รายงานเลข Work Item ที่สร้างทุกใบ
-- [ ] ปิด flag หลังทดสอบและตรวจ duplicate/audit/relation
+- [x] ปิด `OPERATIONS_RECONCILIATION_ENABLED=false` หลัง targeted UAT และยืนยัน Audit compatibility
 
 ## Deferred
 
