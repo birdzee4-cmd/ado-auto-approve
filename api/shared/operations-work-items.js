@@ -22,23 +22,23 @@ function mapSharePointWorkItem(item, helpers = {}) {
   const text = helpers.textField || textField;
   const date = helpers.dateField || dateField;
   const safeUrl = helpers.safeAdoUrl || (() => '');
-  const idValue = text(fields, ['WorkItemId', 'AdoWorkItemId', 'ADOWorkItemId']);
+  const idValue = text(fields, ['WorkItemId', 'AdoWorkItemId', 'ADOWorkItemId', 'field_2']);
   const workItemId = /^\d+$/.test(idValue) ? Number(idValue) : undefined;
   if (!workItemId) return null;
 
   return {
     sharePointId: numericId(item && item.id),
     workItemId,
-    incidentId: text(fields, ['IncidentId', 'CorrelationId']),
-    role: normalizeRole(text(fields, ['Role', 'WorkItemRole'])),
-    supportTeam: normalizeSupportTeam(text(fields, ['SupportTeam', 'Team'])),
-    state: text(fields, ['State', 'AdoState', 'WorkItemState']),
-    assignedTo: text(fields, ['AssignedTo']),
-    url: safeUrl(text(fields, ['URL', 'Url', 'WorkItemUrl', 'AdoWorkItemUrl'])),
-    createdAt: date(fields, ['CreatedAt', 'AdoCreatedAt']) || isoDate(item && item.createdDateTime),
-    closedAt: date(fields, ['ClosedAt', 'AdoClosedAt']),
-    lastSyncedAt: date(fields, ['LastSyncedAt']) || isoDate(item && item.lastModifiedDateTime),
-    idempotencyKey: text(fields, ['IdempotencyKey']),
+    incidentId: text(fields, ['IncidentId', 'CorrelationId', 'field_1']),
+    role: normalizeRole(text(fields, ['Role', 'WorkItemRole', 'field_3'])),
+    supportTeam: normalizeSupportTeam(text(fields, ['SupportTeam', 'Team', 'field_4'])),
+    state: text(fields, ['State', 'AdoState', 'WorkItemState', 'field_5']),
+    assignedTo: text(fields, ['AssignedTo', 'field_7']),
+    url: safeUrl(text(fields, ['URL', 'Url', 'WorkItemUrl', 'AdoWorkItemUrl', 'field_6'])),
+    createdAt: date(fields, ['CreatedAt', 'AdoCreatedAt', 'field_8']) || isoDate(item && item.createdDateTime),
+    closedAt: date(fields, ['ClosedAt', 'AdoClosedAt', 'field_9']),
+    lastSyncedAt: date(fields, ['LastSyncedAt', 'field_10']) || isoDate(item && item.lastModifiedDateTime),
+    idempotencyKey: text(fields, ['IdempotencyKey', 'field_11']),
     source: 'OPERATIONS_HUB_WORK_ITEMS'
   };
 }

@@ -220,12 +220,29 @@ function mapServiceMapping(item) {
 
 async function createWorkItemRecord(fields) {
   const config = getConfig();
-  return createSupportingItem(config.workItemsListName, fields);
+  return createSupportingItem(config.workItemsListName, mapWorkItemWriteFields(fields));
 }
 
 async function updateWorkItemRecord(itemId, fields) {
   const config = getConfig();
-  return updateSupportingItem(config.workItemsListName, itemId, fields);
+  return updateSupportingItem(config.workItemsListName, itemId, mapWorkItemWriteFields(fields));
+}
+
+function mapWorkItemWriteFields(fields) {
+  const aliases = {
+    IncidentId: 'field_1',
+    WorkItemId: 'field_2',
+    Role: 'field_3',
+    SupportTeam: 'field_4',
+    State: 'field_5',
+    WorkItemUrl: 'field_6',
+    AssignedTo: 'field_7',
+    CreatedAt: 'field_8',
+    ClosedAt: 'field_9',
+    LastSyncedAt: 'field_10',
+    IdempotencyKey: 'field_11'
+  };
+  return Object.fromEntries(Object.entries(fields || {}).map(([key, value]) => [aliases[key] || key, value]));
 }
 
 async function updateIncidentRecord(itemId, fields) {
