@@ -174,7 +174,13 @@ async function graphListRequest(method, listName, suffix, body) {
     },
     body
   );
-  if (!result.ok) throw new Error(`Operations SharePoint write failed: HTTP ${result.status}`);
+  if (!result.ok) {
+    const graphError = result.body && result.body.error || {};
+    const code = String(graphError.code || '').trim();
+    const message = String(graphError.message || '').trim().replace(/[\r\n]+/g, ' ').slice(0, 500);
+    const detail = [code, message].filter(Boolean).join(': ');
+    throw new Error(`Operations SharePoint write failed: HTTP ${result.status}${detail ? ` (${detail})` : ''}`);
+  }
   return result.body;
 }
 
