@@ -62,7 +62,7 @@ function attachWorkItems(incidents, storedWorkItems) {
       ...incident,
       workItems,
       workItemSummary: summary,
-      trackingStatus: aggregateTrackingStatus(incident.trackingStatus, workItems)
+      trackingStatus: aggregateTrackingStatus(incident.trackingStatus, workItems, incident.operationsStatus)
     };
   });
 }
@@ -91,10 +91,19 @@ function summarizeWorkItems(items) {
   return { total, closed, open: total - closed };
 }
 
-function aggregateTrackingStatus(existingStatus, items) {
+function aggregateTrackingStatus(existingStatus, items, operationsStatus) {
   if (['FAILED', 'CANCELLED', 'PENDING'].includes(existingStatus)) return existingStatus;
   if (!items.length) return existingStatus;
   if (items.some(item => !isClosedState(item.state))) return 'OPEN';
+
+  // Incidents managed by Operations Hub (identified by at least one RELATED
+  // record) are not closed merely because every ADO ticket is closed. They
+  // remain ready for an explicit Tier 1 close action, which writes
+  // OperationsStatus=CLOSED and an INCIDENT_CLOSED audit event. Preserve the
+  // legacy behaviour for historical PRIMARY-only incidents that predate the
+  // Operations Hub closure fields.
+  const hasRelatedWorkItem = items.some(item => item.role === 'RELATED');
+  if (hasRelatedWorkItem && String(operationsStatus || '').trim().toUpperCase() !== 'CLOSED') return 'OPEN';
   return 'CLOSED';
 }
 

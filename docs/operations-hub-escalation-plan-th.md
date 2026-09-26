@@ -61,8 +61,9 @@
 - [ ] Import UAT flow เป็น Create as new และคงสถานะ Off
 - [x] Read-only/dry-run verification และ targeted live reconciliation UAT ผ่านกับ `INC-2026-000224`: synchronized 3, failed 0; ปิด flag กลับหลังทดสอบ
 - [x] เปิด create flag ชั่วคราวเพื่อ Production test ที่ได้รับอนุญาต
-- [ ] รายงานเลข Work Item ที่สร้างทุกใบ
+- [x] รายงานเลข Work Item ที่สร้างทุกใบ: Primary `#882895`, Tier 2 `#882924`, App Support `#882927`
 - [x] ปิด `OPERATIONS_RECONCILIATION_ENABLED=false` หลัง targeted UAT และยืนยัน Audit compatibility
+- [x] พบและแก้ regression จาก UAT: Related ทั้งหมดปิดต้องเป็น `READY_TO_CLOSE` แต่ Incident ต้องยัง `OPEN` จนกว่า Tier 1 กด Close และระบบบันทึก `OperationsStatus=CLOSED`/`INCIDENT_CLOSED`
 
 ## Deferred
 

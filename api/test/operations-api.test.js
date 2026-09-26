@@ -230,6 +230,49 @@ test('Duplicate supporting records cannot replace the existing primary ownership
   assert.equal(composed.workItems[0].source, 'EXISTING_INCIDENT');
 });
 
+test('Related tickets being closed makes an incident ready, not automatically closed', () => {
+  const [composed] = workItems.attachWorkItems([{
+    incidentId: 'INC-MANUAL-CLOSE',
+    workItemId: 8101,
+    adoState: 'Closed',
+    trackingStatus: 'CLOSED',
+    operationsStatus: ''
+  }], [{
+    incidentId: 'INC-MANUAL-CLOSE',
+    workItemId: 8102,
+    role: 'RELATED',
+    supportTeam: 'TIER2',
+    state: 'Closed'
+  }, {
+    incidentId: 'INC-MANUAL-CLOSE',
+    workItemId: 8103,
+    role: 'RELATED',
+    supportTeam: 'APP_SUPPORT',
+    state: 'Reject'
+  }]);
+
+  assert.deepEqual(composed.workItemSummary, { total: 3, closed: 3, open: 0 });
+  assert.equal(composed.trackingStatus, 'OPEN');
+});
+
+test('Explicit Operations Hub closure closes an incident with related tickets', () => {
+  const [composed] = workItems.attachWorkItems([{
+    incidentId: 'INC-EXPLICIT-CLOSE',
+    workItemId: 8201,
+    adoState: 'Closed',
+    trackingStatus: 'CLOSED',
+    operationsStatus: 'CLOSED'
+  }], [{
+    incidentId: 'INC-EXPLICIT-CLOSE',
+    workItemId: 8202,
+    role: 'RELATED',
+    supportTeam: 'TIER2',
+    state: 'Closed'
+  }]);
+
+  assert.equal(composed.trackingStatus, 'CLOSED');
+});
+
 test('Incidents without a work item remain compatible', () => {
   const [composed] = workItems.attachWorkItems([{
     incidentId: 'INC-NONE',
