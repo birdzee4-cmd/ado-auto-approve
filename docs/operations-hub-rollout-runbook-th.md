@@ -62,6 +62,13 @@
 
 ติดตาม API 4xx/5xx, `ADO_CREATE_FAILED`, `MAPPING_NOT_FOUND`, `INCIDENT_CLOSE_BLOCKED`, reconciliation HTTP 207, notification failure, duplicate WorkItemId และ `LastSyncedAt` ที่เก่าเกินรอบ schedule
 
+## Core features go-live — 2026-09-27
+
+- [x] เปิด Production `OPERATIONS_CREATE_ENABLED`, `OPERATIONS_LINK_ENABLED`, `OPERATIONS_SYNC_ENABLED`, `OPERATIONS_CLOSE_ENABLED` เป็น `true`
+- [x] คง `OPERATIONS_RECONCILIATION_ENABLED` และ `OPERATIONS_NOTIFICATION_ENABLED` เป็น `false` จนกว่าจะผ่าน UAT แยก
+- [x] Smoke test แบบไม่เขียนข้อมูลกับ `INC-2026-000234`: Preview App Support และ Tier 2 พร้อมกันสำเร็จ, mapping/form/assignee/tags ถูกต้อง และปุ่ม Create พร้อมใช้งาน
+- [x] ยืนยัน closure guard หลัง go-live: `INC-2026-000234` ยังมี Primary Processing และ Alert FIRING จึงเปิด Synchronize ได้ แต่ Close Incident ยังคง disabled
+
 ## Rollback
 
 1. ปิด `OPERATIONS_NOTIFICATION_ENABLED`
