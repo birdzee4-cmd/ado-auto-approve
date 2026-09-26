@@ -377,6 +377,36 @@ test('synchronize updates primary and related stores independently', async () =>
   });
 });
 
+test('scheduled reconciliation can synchronize related work items without rewriting primary', async () => {
+  const incidentUpdates = [];
+  const relatedUpdates = [];
+  const requestedIds = [];
+  const multi = {
+    ...incident,
+    workItems: [
+      { workItemId: 9101, role: 'PRIMARY', state: 'Active' },
+      { sharePointId: 44, workItemId: 9102, role: 'RELATED', supportTeam: 'TIER2', state: 'Active' }
+    ]
+  };
+  const sharePoint = {
+    async getIncident() { return multi; },
+    async updateIncidentRecord(id, fields) { incidentUpdates.push({ id, fields }); },
+    async updateWorkItemRecord(id, fields) { relatedUpdates.push({ id, fields }); },
+    async appendAudit() {}
+  };
+  const ado = {
+    async getWorkItem(id) {
+      requestedIds.push(id);
+      return { ok: true, body: { id, fields: { 'System.State': 'Closed' } } };
+    }
+  };
+  const result = await service.synchronizeWorkItems({ incidentId: incident.incidentId, roles: ['RELATED'] }, actionContext, { sharePoint, ado });
+  assert.deepEqual(requestedIds, [9102]);
+  assert.equal(result.items.length, 1);
+  assert.equal(incidentUpdates.length, 0);
+  assert.equal(relatedUpdates[0].id, 44);
+});
+
 test('close synchronizes current ADO state and succeeds without the standalone sync flag', async () => {
   await withFlags({ OPERATIONS_SYNC_ENABLED: 'false', OPERATIONS_CLOSE_ENABLED: 'true' }, async () => {
     const updates = [];
@@ -547,15 +577,16 @@ test('live reconciliation uses its own gate and does not require the manual sync
   }];
   operationsSharePoint.getIncident = async () => ({ incidentId: 'INC-031', workItems: [] });
   let calls = 0;
-  service.synchronizeWorkItems = async () => {
+  service.synchronizeWorkItems = async input => {
     calls += 1;
+    assert.deepEqual(input.roles, ['RELATED']);
     return { incidentId: 'INC-031', items: [{ workItemId: 9101, ok: true }] };
   };
   try {
     const context = { log: { warn() {}, error() {} } };
     await reconcile(context, {
       headers: { 'x-operations-automation-key': 'live-key' },
-      body: { dryRun: false, maxItems: 10 }
+      body: { dryRun: false, maxItems: 10, scope: 'RELATED' }
     });
     const body = JSON.parse(context.res.body);
     assert.equal(context.res.status, 200);

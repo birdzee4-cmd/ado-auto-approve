@@ -71,6 +71,7 @@ resource operationsReconcile 'Microsoft.Logic/workflows@2019-05-01' = {
             body: {
               maxItems: maxItems
               dryRun: dryRun
+              scope: 'RELATED'
             }
           }
         }

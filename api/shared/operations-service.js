@@ -356,8 +356,13 @@ async function synchronizeWorkItems(input, context, dependencies = {}) {
   const sp = dependencies.sharePoint || defaultSharePoint;
   const ado = dependencies.ado || defaultAdo;
   const incident = await requireIncident(sp, input.incidentId);
+  const requestedRoles = Array.isArray(input.roles)
+    ? new Set(input.roles.map(role => String(role || '').trim().toUpperCase()).filter(role => role === 'PRIMARY' || role === 'RELATED'))
+    : null;
+  const workItemsToSynchronize = (incident.workItems || [])
+    .filter(item => !requestedRoles || requestedRoles.has(String(item.role || '').toUpperCase()));
   const results = [];
-  for (const item of incident.workItems || []) {
+  for (const item of workItemsToSynchronize) {
     const response = await ado.getWorkItem(item.workItemId, { accessToken: context.accessToken });
     if (!response.ok || !response.body) {
       results.push({ workItemId: item.workItemId, ok: false, status: response.status });

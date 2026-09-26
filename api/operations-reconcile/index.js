@@ -11,6 +11,8 @@ module.exports = async function (context, req) {
     }
     const maximum = Math.max(1, Math.min(Number(req.body && req.body.maxItems) || 100, 250));
     const targetIncidentId = String(req.body && req.body.incidentId || '').trim();
+    const reconciliationScope = String(req.body && req.body.scope || '').trim().toUpperCase();
+    const roles = reconciliationScope === 'RELATED' ? ['RELATED'] : undefined;
     const incidents = (await sharePoint.listIncidents(1000))
       .filter(item => !targetIncidentId || item.incidentId === targetIncidentId || item.displayId === targetIncidentId)
       .filter(item => item.operationsStatus !== 'CLOSED' && item.workItemSummary && item.workItemSummary.total > 0)
@@ -33,7 +35,7 @@ module.exports = async function (context, req) {
         const actionContext = automationContext(req);
         // Scheduled reconciliation has its own feature gate. It reads Azure DevOps
         // state and mirrors it to SharePoint; it must not depend on the manual Sync flag.
-        const result = await service.synchronizeWorkItems({ incidentId: incident.incidentId }, actionContext);
+        const result = await service.synchronizeWorkItems({ incidentId: incident.incidentId, roles }, actionContext);
         const failed = result.items.filter(item => !item.ok).length;
         const refreshed = await sharePoint.getIncident(incident.incidentId);
         const notification = await notifyIfNeeded(refreshed, failed, actionContext);
