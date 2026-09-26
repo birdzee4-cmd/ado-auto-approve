@@ -46,8 +46,8 @@
 - [ ] double click/retry ไม่สร้างงานซ้ำ
 - [ ] Link Existing สร้าง Related relation
 - [x] Synchronize อัปเดต state/assignee/closed time — targeted Production UAT `INC-2026-000224` เมื่อ 2026-09-26: Work Items 3 ใบสำเร็จทั้งหมด, failed 0, notification disabled และ reconciliation flag ถูกปิดกลับ
-- [ ] ปิด Incident ไม่ได้เมื่อมีงานเปิด
-- [ ] ปิด Incident ไม่ได้เมื่อยังมี Work Item เปิดอยู่
+- [x] ปิด Incident ไม่ได้เมื่อมีงานเปิด — Production UI UAT `INC-2026-000224` เมื่อ 2026-09-26: 2/3 closed, Primary `#882895` ยัง Processing; ปุ่ม Close ถูก disable
+- [x] ปิด Incident ไม่ได้เมื่อ Alert ยัง FIRING — UAT รายการเดียวกันแสดง blocker `Monitoring alert is not RESOLVED` และไม่มีคำสั่งปิดถูกส่ง
 - [ ] ปิดได้เมื่อมี Primary และ Work Item ทุกใบปิด โดยไม่ต้องยืนยัน Recovery
 - [ ] Audit แยก Operations identity กับ ADO identity
 - [ ] ผู้ไม่มี write role และผู้ไม่ Connect ถูกปฏิเสธ
