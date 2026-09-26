@@ -78,6 +78,9 @@ test('work-item patch uses mapped fields and a Related relation', () => {
   const description = patches.find(item => item.path === '/fields/System.Description').value;
   assert.ok(patches.some(item => item.path === '/fields/System.AreaPath' && item.value === mapping.areaPath));
   assert.ok(patches.some(item => item.path === '/fields/System.AssignedTo' && item.value === mapping.assignedTeam));
+  assert.equal(patches.find(item => item.path === '/fields/System.Tags').value, 'P1');
+  assert.ok(!patches.find(item => item.path === '/fields/System.Tags').value.includes('OperationsHub'));
+  assert.ok(!patches.find(item => item.path === '/fields/System.Tags').value.includes(incident.displayId));
   assert.ok(patches.some(item => item.path === '/relations/-' && item.value.rel === 'System.LinkTypes.Related'));
   assert.ok(description.includes('CRITICAL / P1'));
   assert.ok(description.includes('Buzzebees Thailand'));
@@ -117,6 +120,7 @@ test('App Support profile matches the required Production Service Form fields', 
   assert.equal(field('Custom.MonitoringSourceTracker'), 'Not Applicable (N/A)');
   assert.equal(field('Custom.ActualIncidentTime'), incident.firstSeen);
   assert.equal(field('System.AssignedTo'), undefined);
+  assert.equal(field('System.Tags'), 'appsupport_pool; ITSupport_Pool');
 });
 
 test('Tier 2 profile clones the verified IT Support Case fields from Tier 1', () => {

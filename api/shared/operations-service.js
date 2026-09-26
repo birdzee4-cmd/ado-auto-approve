@@ -61,14 +61,13 @@ function buildCreatePatches(incident, mapping, input, primaryWorkItemId, organiz
     input.detail ? `<p><strong>Tier 1 detail:</strong><br>${escapeHtml(input.detail).replace(/\r?\n/g, '<br>')}</p>` : ''
   ].filter(Boolean).join('');
   const description = String(primaryWorkItem?.fields?.['System.Description'] || generatedDescription);
-  const tags = ['OperationsHub', incident.displayId || incident.incidentId, mapping.defaultTags]
-    .filter(Boolean).join('; ');
+  const tags = String(mapping.defaultTags || '').trim().replace(/;\s*$/, '');
   const patches = [
     patch('/fields/System.Title', title),
     patch('/fields/System.Description', description),
-    patch('/fields/System.AreaPath', mapping.areaPath),
-    patch('/fields/System.Tags', tags)
+    patch('/fields/System.AreaPath', mapping.areaPath)
   ];
+  if (tags) patches.push(patch('/fields/System.Tags', tags));
   if (mapping.assignedTeam) patches.push(patch('/fields/System.AssignedTo', mapping.assignedTeam));
   if (mapping.iterationPath) patches.push(patch('/fields/System.IterationPath', mapping.iterationPath));
   for (const [field, value] of Object.entries(profileFields(mapping.supportTeam, incident, primaryWorkItem))) {
