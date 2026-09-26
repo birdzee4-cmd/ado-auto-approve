@@ -222,7 +222,6 @@ function profileFields(supportTeam, incident, primaryWorkItem) {
       'Custom.Deadline': serviceFormDeadline(incident.firstSeen),
       'Custom.ServicePriority': serviceFormPriority(incident),
       'Custom.Country': 'Thai',
-      'Custom.GroupsofSubject': 'อื่น ๆ (Other)',
       'Custom.MonitoringSourceTracker': 'Not Applicable (N/A)',
       'Custom.ActualIncidentTime': incident.firstSeen || null
     };
