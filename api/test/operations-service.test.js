@@ -174,14 +174,38 @@ test('create related work item uses delegated identity, persists mapping output,
         assert.equal(options.accessToken, 'delegated-token');
         assert.ok(patches.some(item => item.path === '/relations/-'));
         assert.ok(patches.some(item => item.path === '/fields/System.Description' && item.value === '<p>Primary description</p>'));
-        return { ok: true, status: 200, body: { id: 9102, fields: { 'System.Title': 'App task', 'System.State': 'New' }, _links: { html: { href: 'https://dev.azure.com/Buzzebees/_workitems/edit/9102' } } } };
+        return { ok: true, status: 200, body: { id: 9102, fields: { 'System.Title': 'App task', 'System.State': 'New', 'System.AssignedTo': { displayName: 'App Support Agent' } }, _links: { html: { href: 'https://dev.azure.com/Buzzebees/_workitems/edit/9102' } } } };
       }
     };
     const result = await service.createRelated({ incidentId: incident.incidentId, supportTeam: 'APP_SUPPORT', idempotencyKey: 'request-1' }, actionContext, { sharePoint, ado });
     assert.equal(result.workItem.role, 'RELATED');
     assert.equal(writes.records[0].SupportTeam, 'APP_SUPPORT');
+    assert.equal(writes.records[0].AssignedTo, 'App Support Agent');
     assert.equal(writes.audits[0].OperationsUserEmail, 'tier1@example.com');
     assert.equal(writes.audits[0].AdoIdentityEmail, 'tier1.ado@example.com');
+  });
+});
+
+test('create persists the mapped assignee when the ADO create response omits identity fields', async () => {
+  await withFlags({ OPERATIONS_CREATE_ENABLED: 'true' }, async () => {
+    const records = [];
+    const tier2Mapping = { ...mapping, supportTeam: 'TIER2', assignedTeam: 'ITSupport Admin' };
+    const sharePoint = {
+      async getIncident() { return incident; },
+      async listMappings() { return [tier2Mapping]; },
+      async listConfiguredWorkItems() { return []; },
+      async createWorkItemRecord(fields) { records.push(fields); },
+      async appendAudit() {}
+    };
+    const ado = {
+      getConfig() { return { org: 'Buzzebees' }; },
+      async getWorkItem() { return { ok: true, status: 200, body: { id: 9101, fields: {} } }; },
+      async createWorkItem() { return { ok: true, status: 200, body: { id: 9103, fields: { 'System.Title': 'Tier 2 task', 'System.State': 'New' } } }; }
+    };
+
+    await service.createRelated({ incidentId: incident.incidentId, supportTeam: 'TIER2', idempotencyKey: 'tier2-request' }, actionContext, { sharePoint, ado });
+
+    assert.equal(records[0].AssignedTo, 'ITSupport Admin');
   });
 });
 
