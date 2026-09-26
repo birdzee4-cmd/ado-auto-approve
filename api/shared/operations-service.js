@@ -533,5 +533,6 @@ module.exports = {
   normalizeAdoWorkItem,
   previewRelatedBatch,
   resolveMapping,
-  synchronize
+  synchronize,
+  synchronizeWorkItems
 };

@@ -26,7 +26,9 @@ module.exports = async function (context, req) {
     for (const incident of incidents) {
       try {
         const actionContext = automationContext(req);
-        const result = await service.synchronize({ incidentId: incident.incidentId }, actionContext);
+        // Scheduled reconciliation has its own feature gate. It reads Azure DevOps
+        // state and mirrors it to SharePoint; it must not depend on the manual Sync flag.
+        const result = await service.synchronizeWorkItems({ incidentId: incident.incidentId }, actionContext);
         const failed = result.items.filter(item => !item.ok).length;
         const refreshed = await sharePoint.getIncident(incident.incidentId);
         const notification = await notifyIfNeeded(refreshed, failed, actionContext);
@@ -128,5 +130,5 @@ function respond(context, status, payload) {
 }
 
 module.exports.authorized = authorized;
-module.exports.notificationCandidate = notificationCandidate;
 module.exports.dryRunCandidate = dryRunCandidate;
+module.exports.notificationCandidate = notificationCandidate;

@@ -403,6 +403,53 @@ test('reconciliation dry-run works with write flags disabled and performs no syn
   }
 });
 
+test('live reconciliation uses its own gate and does not require the manual sync flag', async () => {
+  const previousKey = process.env.OPERATIONS_AUTOMATION_KEY;
+  const previousReconcile = process.env.OPERATIONS_RECONCILIATION_ENABLED;
+  const previousSync = process.env.OPERATIONS_SYNC_ENABLED;
+  const previousNotify = process.env.OPERATIONS_NOTIFICATION_ENABLED;
+  const originalListIncidents = operationsSharePoint.listIncidents;
+  const originalGetIncident = operationsSharePoint.getIncident;
+  const originalSynchronizeWorkItems = service.synchronizeWorkItems;
+  process.env.OPERATIONS_AUTOMATION_KEY = 'live-key';
+  process.env.OPERATIONS_RECONCILIATION_ENABLED = 'true';
+  process.env.OPERATIONS_SYNC_ENABLED = 'false';
+  process.env.OPERATIONS_NOTIFICATION_ENABLED = 'false';
+  operationsSharePoint.listIncidents = async () => [{
+    incidentId: 'INC-031', operationsStatus: 'OPEN', workItemSummary: { total: 1, open: 1 }
+  }];
+  operationsSharePoint.getIncident = async () => ({ incidentId: 'INC-031', workItems: [] });
+  let calls = 0;
+  service.synchronizeWorkItems = async () => {
+    calls += 1;
+    return { incidentId: 'INC-031', items: [{ workItemId: 9101, ok: true }] };
+  };
+  try {
+    const context = { log: { warn() {}, error() {} } };
+    await reconcile(context, {
+      headers: { 'x-operations-automation-key': 'live-key' },
+      body: { dryRun: false, maxItems: 10 }
+    });
+    const body = JSON.parse(context.res.body);
+    assert.equal(context.res.status, 200);
+    assert.equal(body.succeeded, 1);
+    assert.equal(calls, 1);
+  } finally {
+    operationsSharePoint.listIncidents = originalListIncidents;
+    operationsSharePoint.getIncident = originalGetIncident;
+    service.synchronizeWorkItems = originalSynchronizeWorkItems;
+    for (const [key, value] of Object.entries({
+      OPERATIONS_AUTOMATION_KEY: previousKey,
+      OPERATIONS_RECONCILIATION_ENABLED: previousReconcile,
+      OPERATIONS_SYNC_ENABLED: previousSync,
+      OPERATIONS_NOTIFICATION_ENABLED: previousNotify
+    })) {
+      if (value == null) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
 test('reconciliation notifications have stable duplicate keys', () => {
   const relatedOpen = {
     ...incident,

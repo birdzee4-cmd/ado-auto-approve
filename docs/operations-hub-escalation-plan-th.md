@@ -42,7 +42,7 @@
 ### Phase 3 — Aggregate reconciliation
 
 - [x] Sync Primary และ Related Work Items ทุกใบ
-- [ ] แยก read-only synchronization ออกจาก approval repair
+- [x] แยก scheduled state synchronization ออกจาก Manual Sync/approval repair; reconciliation อ่าน ADO และ mirror สถานะลง SharePoint โดยไม่แก้ Approval หรือปิด Incident
 - [x] คำนวณ `WAITING_FOR_APP_SUPPORT`, `WAITING_FOR_TIER2`, `READY_TO_CLOSE`
 - [x] ห้าม scheduled reconciliation ปิด Incident อัตโนมัติ
 
