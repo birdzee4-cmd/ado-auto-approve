@@ -161,10 +161,6 @@ async function createRelated(input, context, dependencies = {}) {
     Role: 'RELATED',
     SupportTeam: normalizeTeam(mapping.supportTeam),
     State: normalized.state,
-    WorkItemUrl: normalized.url,
-    AssignedTo: normalized.assignedTo,
-    CreatedAt: normalized.createdAt || new Date().toISOString(),
-    LastSyncedAt: new Date().toISOString(),
     IdempotencyKey: idempotencyKey
   });
   await audit(sp, context, {
