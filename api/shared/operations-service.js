@@ -98,6 +98,21 @@ async function createRelated(input, context, dependencies = {}) {
   const mapping = resolveMapping(mappings, incident, input.supportTeam);
   const idempotencyKey = makeIdempotencyKey(input.incidentId, mapping.supportTeam, input.idempotencyKey);
   const stored = await sp.listConfiguredWorkItems(1000);
+  const existingForTeam = stored.find(item =>
+    normalize(item.incidentId) === normalize(input.incidentId) &&
+    normalizeOptionalTeam(item.supportTeam) === normalizeTeam(mapping.supportTeam)
+  );
+  if (existingForTeam) {
+    await audit(sp, context, {
+      incidentId: incident.incidentId,
+      workItemId: existingForTeam.workItemId,
+      action: 'CREATE_RELATED_WORK_ITEM',
+      result: 'EXISTING_TEAM_WORK_ITEM',
+      detail: `${normalizeTeam(mapping.supportTeam)} already has a related Work Item`,
+      eventKey: `create-existing-team:${incident.incidentId}:${normalizeTeam(mapping.supportTeam)}:${existingForTeam.workItemId}`
+    });
+    return { incident, workItem: existingForTeam, mapping, duplicate: true };
+  }
   const duplicate = stored.find(item => item.idempotencyKey === idempotencyKey);
   if (duplicate) {
     await audit(sp, context, {
@@ -132,7 +147,11 @@ async function createRelated(input, context, dependencies = {}) {
     credentialMode = 'PAT_FALLBACK';
   }
   if (!created.ok || !created.body || !created.body.id) {
-    throw operationalError(created.status || 502, 'ADO_CREATE_FAILED', `Azure DevOps create failed (HTTP ${created.status || 502})`);
+    const adoMessage = created.body && typeof created.body === 'object'
+      ? String(created.body.message || created.body.error_description || '').trim()
+      : '';
+    const diagnostic = [`HTTP ${created.status || 502}`, adoMessage].filter(Boolean).join(': ');
+    throw operationalError(created.status || 502, 'ADO_CREATE_FAILED', `Azure DevOps create failed (${diagnostic})`);
   }
   const normalized = normalizeAdoWorkItem(created.body);
   await sp.createWorkItemRecord({
@@ -434,6 +453,11 @@ function normalizeTeam(value) {
   const normalized = String(value || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
   if (!['APP_SUPPORT', 'TIER2'].includes(normalized)) throw operationalError(400, 'INVALID_SUPPORT_TEAM', 'supportTeam must be APP_SUPPORT or TIER2');
   return normalized;
+}
+
+function normalizeOptionalTeam(value) {
+  const team = String(value || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+  return team === 'APP_SUPPORT' || team === 'TIER2' ? team : '';
 }
 
 function positiveInteger(value, name) {
