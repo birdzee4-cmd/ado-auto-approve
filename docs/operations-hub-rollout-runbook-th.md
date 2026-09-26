@@ -68,6 +68,8 @@
 - [x] คง `OPERATIONS_RECONCILIATION_ENABLED` และ `OPERATIONS_NOTIFICATION_ENABLED` เป็น `false` จนกว่าจะผ่าน UAT แยก
 - [x] Smoke test แบบไม่เขียนข้อมูลกับ `INC-2026-000234`: Preview App Support และ Tier 2 พร้อมกันสำเร็จ, mapping/form/assignee/tags ถูกต้อง และปุ่ม Create พร้อมใช้งาน
 - [x] ยืนยัน closure guard หลัง go-live: `INC-2026-000234` ยังมี Primary Processing และ Alert FIRING จึงเปิด Synchronize ได้ แต่ Close Incident ยังคง disabled
+- [x] เปิด live reconciliation ทุก 10 นาทีแบบ `RELATED`-only; Primary ยังเป็นความรับผิดชอบของ Reconciliation v1.3.0 เดิม และ Manual Sync/Close ยังคงตรวจทุก Work Item
+- [x] Targeted live verification `INC-2026-000235`: synchronized 1, failed 0, notification disabled; Timeline บันทึก `SYNCHRONIZE_WORK_ITEMS 1/1` และ Primary `#882975` ไม่ถูกเขียนซ้ำจากเส้นทางใหม่
 
 ## Rollback
 

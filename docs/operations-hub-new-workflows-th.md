@@ -35,9 +35,9 @@ Audit `EventKey` ใช้ป้องกันข้อความสถาน
 
 ## Environment checkpoint
 
-- [ ] สร้าง Flow ใหม่โดยไม่ clone/แก้ Production Workflow
-- [ ] เก็บ automation key ใน secure configuration
-- [ ] ทดสอบด้วย `maxItems: 1`
+- [x] สร้าง Flow ใหม่โดยไม่ clone/แก้ Production Workflow
+- [x] เก็บ automation key ใน secure configuration
+- [x] ทดสอบด้วย `maxItems: 1`
 - [ ] ตรวจ Audit และ Teams notification
-- [ ] เปิด schedule หลัง UAT เท่านั้น
+- [x] เปิด schedule หลัง UAT เท่านั้น — live ทุก 10 นาทีแบบ `scope=RELATED`; notification ยังปิด
 - [ ] ยืนยันว่าปิด Flow ใหม่นี้แล้ว Production Workflow ยังทำงานต่อ

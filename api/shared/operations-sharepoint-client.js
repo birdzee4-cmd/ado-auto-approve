@@ -323,10 +323,23 @@ function mapAuditEvent(item) {
     incidentId: textField(fields, ['IncidentId', 'field_4']),
     workItemId: numberField(fields, ['WorkItemId', 'field_5']),
     result: textField(fields, ['Result', 'field_7']) || 'RECORDED',
-    detail: textField(fields, ['Detail', 'field_14']),
+    detail: plainText(textField(fields, ['Detail', 'field_14'])),
     operationsUserEmail: textField(fields, ['OperationsUserEmail', 'field_10']),
     adoIdentityEmail: textField(fields, ['AdoIdentityEmail', 'field_13'])
   };
+}
+
+function plainText(value) {
+  return String(value || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .trim();
 }
 
 async function getIncident(incidentId) {
@@ -559,6 +572,7 @@ module.exports = {
   updateIncidentRecord,
   appendAudit,
   listAudit,
+  mapAuditEvent,
   mapSharePointIncident,
   trackingStatus,
   safeAdoUrl,

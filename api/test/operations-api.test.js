@@ -96,6 +96,20 @@ test('SharePoint audit writes use generated internal field names', () => {
   assert.equal(mapped.EventId, undefined);
 });
 
+test('SharePoint audit details are normalized from rich text for the timeline', () => {
+  const event = sharePoint.mapAuditEvent({
+    id: '91',
+    fields: {
+      field_4: 'INC-1',
+      field_6: 'SYNCHRONIZE_WORK_ITEMS',
+      field_7: 'SUCCEEDED',
+      field_14: '<div class="ExternalClass">1/1 synchronized &amp; verified</div>',
+      field_15: '2026-09-27T06:11:00+07:00'
+    }
+  });
+  assert.equal(event.detail, '1/1 synchronized & verified');
+});
+
 test('Successful close audit is the explicit incident closure source of truth', () => {
   const [closed, open] = sharePoint.attachIncidentClosureEvents([
     { incidentId: 'INC-1', operationsStatus: '' },
