@@ -5,7 +5,7 @@
 - [ ] สำรอง Production Workflow package และ connection references
 - [x] Provision `OperationsHubWorkItems`, `OperationsHubServiceMapping`, `OperationsHubAudit`
 - [x] ใช้ `OperationsHubAudit` event `INCIDENT_CLOSED/SUCCEEDED` เป็น closure source of truth เพื่อให้ใช้สิทธิ์เขียน item เดิมและไม่ต้องขอสิทธิ์จัดการ SharePoint schema
-- [ ] เพิ่ม Service Mapping สำหรับ App Support/Tier 2 ในระยะถัดไปหลัง Tier 1 pilot; ไม่บล็อกการแสดง PRIMARY จาก Production Workflow เดิม
+- [x] เพิ่มและยืนยัน Service Mapping สำหรับ App Support/Tier 2 แล้ว; ไม่กระทบการแสดง PRIMARY จาก Production Workflow เดิม
 - [ ] ยืนยัน Tier 1 role และ Azure DevOps permissions
 - [ ] ตั้ง supporting-list settings โดยยังปิด feature flags ทั้งหมด
 
@@ -16,7 +16,7 @@
 3. Smoke test dashboard, incident history และการแสดง PRIMARY ที่ Production Workflow สร้าง
 4. Smoke test Connect/Reconnect/Disconnect
 5. เปิด Sync/Link/Close ทีละ feature หลังผ่าน UAT และยืนยัน feature flags
-6. คง `OPERATIONS_CREATE_ENABLED=false` จนกว่าจะมี Service Mapping ของ App Support/Tier 2 ที่ได้รับการยืนยัน
+6. เปิด `OPERATIONS_CREATE_ENABLED` เฉพาะช่วง UAT ที่ได้รับอนุมัติ แล้วปิดกลับทันทีหลังทดสอบ; mappings ของ App Support/Tier 2 ยืนยันแล้ว
 7. สร้าง Flow ใหม่แยกจาก Production Flow แล้วทดสอบก่อนเปิด schedule
 8. เปิด notification เป็นขั้นตอนสุดท้าย
 
@@ -30,7 +30,7 @@
 - [ ] Superseding test evidence (2026-09-25): user screenshot shows `Operations Hub - Incident Automation v3.8.0` is `On` with recent successful runs; await a fresh P1 FIRING/RESOLVED incident before marking recovery correlation passed. The attached `OperationsHub-IncidentAutomation-v3.8.0.zip` is internally mismatched: its package manifest and flow definition identify `Operations Hub - Incident Automation v3.7.9 CT2` / `3.7.9.2` and describe a controlled-test routing behavior. Do not import or treat this ZIP as the v3.8.0 release until replaced/verified.
 - [ ] New test case in progress (user screenshot, 2026-09-25): `INC-2026-000219` has Primary Work Item `#882513` and an Approval request linked to that Work Item; Approval UI shows `Requested`, while Operations Hub shows `FIRING` / `OPEN` / `PROCESSING`. Wait for the authorized approver's decision, then verify the approval outcome and (when the matching email arrives) that RESOLVED updates this same Incident without creating another Work Item.
 - [x] All six Operations feature-flag entries are present in the Production environment. The administrator reports all are `false`; values were not independently read back, so keep the server-side fail-closed behavior and do not run write actions.
-- [ ] Service Mapping list currently reports no enabled mappings. Related Work Item creation must remain unavailable until mappings are populated and validated.
+- [x] Service Mapping มี 2 enabled mappings ที่ยืนยันแล้ว: App Support ใช้ `Service Form`/ไม่ assign และ Tier 2 ใช้ `IT Support Case`/assign `ITSupport Admin`
 - [x] `operations-hub-reconcile` runs every 10 minutes with `dryRun=true`; two manual/recurrence smoke runs succeeded on 2026-09-25, inputs/outputs are secured, and Sync/Reconciliation flags remain `false`.
 - [x] Service Mapping admin page now exposes disabled drafts for review, while mapping resolution continues to ignore disabled entries.
 - [x] After deployment, the Production browser UI reads write capabilities from the authorized API; Create, Link, Synchronize, and Close controls are disabled while flags are false.
@@ -41,9 +41,9 @@
 ## Smoke/UAT scenarios
 
 - [ ] Incident เดิมแสดง PRIMARY/TIER1 ถูกต้อง
-- [ ] Tier 1 สร้าง APP_SUPPORT RELATED จาก mapping ได้
-- [ ] Tier 1 สร้าง TIER2 RELATED จาก mapping ได้
-- [ ] double click/retry ไม่สร้างงานซ้ำ
+- [x] Tier 1 สร้าง APP_SUPPORT RELATED จาก mapping ได้ — Production `INC-2026-000233` สร้าง `#882972` เป็น `Service Form`, New, ไม่ assign, tags `appsupport_pool; ITSupport_Pool`
+- [x] Tier 1 สร้าง TIER2 RELATED จาก mapping ได้ — Production `INC-2026-000233` สร้าง `#882973` เป็น `IT Support Case`, New, assign `ITSupport Admin`, tag `ITSupport_Pool`
+- [x] double click/retry ไม่สร้างงานซ้ำ — API บังคับหนึ่ง RELATED ต่อ Incident/ทีมแม้ request key เปลี่ยน และ UI ปิดทีมที่มีใบงานอยู่แล้ว; Production `INC-2026-000233` มี App Support `#882972` และ Tier 2 `#882973` เพียงทีมละหนึ่งใบ
 - [ ] Link Existing สร้าง Related relation
 - [x] Synchronize อัปเดต state/assignee/closed time — targeted Production UAT `INC-2026-000224` เมื่อ 2026-09-26: Work Items 3 ใบสำเร็จทั้งหมด, failed 0, notification disabled และ reconciliation flag ถูกปิดกลับ
 - [x] ปิด Incident ไม่ได้เมื่อมีงานเปิด — Production UI UAT `INC-2026-000224` เมื่อ 2026-09-26: 2/3 closed, Primary `#882895` ยัง Processing; ปุ่ม Close ถูก disable

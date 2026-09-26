@@ -26,7 +26,7 @@
 | Phase 4 — Operations Hub UI ใหม่ | Repository implementation เสร็จ; ปุ่ม write ถูกปิดตาม capabilities จาก API |
 | Phase 5 — Automation เพิ่มเติม | Logic App reconciliation ทำงานทุก 10 นาทีใน dry-run; live Sync/Reconciliation ยังปิดรอ UAT |
 | Phase 6 — Tests และ UAT | Automated tests 61/61 ผ่าน และ UI build ผ่าน; เคส `INC-2026-000219`/Primary `#882513` เข้าระบบแล้ว แต่ Approval ยัง `Requested` และ Incident ยัง `FIRING`; รอผลอนุมัติและ RESOLVED เพื่อยืนยัน lifecycle end-to-end; ZIP ที่แนบชื่อ v3.8.0 มี manifest/definition ภายในเป็น v3.7.9 CT2 จึงห้ามใช้แทน release artifact จนกว่าจะตรวจ/สร้างใหม่ |
-| Phase 7 — Rollout | Runbook พร้อม; rollout ที่มี write actions ยังรอ mapping, automation และ UAT |
+| Phase 7 — Rollout | Runbook พร้อม; mappings ผ่าน Production UAT แล้ว และ write flags ถูกปิดกลับหลังทดสอบ |
 
 ## Phase 0 — Baseline และสำรองระบบเดิม
 
@@ -57,7 +57,7 @@
   - `OPERATIONS_MAPPINGS_LIST_NAME=OperationsHubServiceMapping`
   - `OPERATIONS_AUDIT_LIST_NAME=OperationsHubAudit`
 - [x] Smoke test read-only กับ Operations Hub/Dashboard และ Service Mapping ผ่าน
-- [ ] เพิ่ม Service Mapping ที่ยืนยัน routing แล้วและตั้ง Enabled = Yes ก่อนทดสอบสร้าง Related Work Item (ปัจจุบัน list ว่าง)
+- [x] เพิ่ม Service Mapping ที่ยืนยัน routing แล้วและตั้ง Enabled = Yes; Production UAT สร้าง App Support `#882972` และ Tier 2 `#882973` สำเร็จ
 
 Checkpoint: Read path และ Tier 1 PRIMARY เดิมพร้อมใช้งาน; ก่อนทดสอบ Create Related สำหรับ App Support/Tier 2 ต้องเพิ่ม mapping ของทีมปลายทางที่ยืนยันแล้ว และห้ามเปิด write feature flags ก่อน UAT
 
@@ -90,7 +90,7 @@ Checkpoint: การเชื่อมต่อของบัญชีปั�
 - [x] ดึงสถานะ ADO ล่าสุดก่อน Validate/Close Incident
 - [x] เพิ่ม idempotency และแยก Operations/ADO identity ใน Audit
 - [x] เพิ่ม feature flags ที่ปิดเป็นค่าเริ่มต้น
-- [ ] ทดสอบกับ SharePoint และ Azure DevOps environment จริง
+- [x] ทดสอบ Create Related กับ SharePoint และ Azure DevOps Production จริงสำหรับ `INC-2026-000233`; สร้าง App Support `#882972` และ Tier 2 `#882973` สำเร็จ แล้วปิด create flag กลับ
 
 ## Phase 4 — Operations Hub UI ใหม่
 
@@ -137,7 +137,7 @@ Checkpoint: การเชื่อมต่อของบัญชีปั�
 - [x] กำหนดห้ามลบ Work Items/Audit ที่สร้างสำเร็จแล้ว
 - [x] ตรวจค่า Production ผ่าน Azure CLI เมื่อ 2026-09-25: `OPERATIONS_CREATE_ENABLED=false`, `OPERATIONS_LINK_ENABLED=false`, `OPERATIONS_SYNC_ENABLED=false`, `OPERATIONS_CLOSE_ENABLED=false`, `OPERATIONS_RECONCILIATION_ENABLED=false`; automation key ถูกตั้งแล้วโดยตรวจเฉพาะการมีอยู่ ไม่อ่านหรือพิมพ์ค่าความลับ
 - [x] Enable `operations-hub-reconcile` ทุก 10 นาทีด้วย `dryRun=true`; API enumerate เฉพาะ candidate summary และไม่เรียก ADO sync/SharePoint write/Audit ขณะที่ live flags ยังเป็น `false`
-- [ ] เพิ่มและยืนยัน Service Mapping สำหรับทีมปลายทางก่อนเปิด Related creation
+- [x] เพิ่มและยืนยัน Service Mapping สำหรับ App Support/Tier 2 และผ่าน targeted Production UAT; ปิด `OPERATIONS_CREATE_ENABLED` กลับหลังทดสอบ
 - [x] ทดสอบ Production read-only หลัง deploy: dashboard/incident list โหลดได้, ADO แสดง Connected และ Incident `INC-2026-000214` แสดง PRIMARY `#882323`; Monitoring Alert Details แสดงครบ และ write controls ปิดตาม flags=false; ยังไม่ถือว่า UAT หรือเปิด write actions ผ่าน
 
 ## Completion Policy

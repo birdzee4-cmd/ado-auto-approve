@@ -221,6 +221,34 @@ test('idempotent create returns the stored work item without calling Azure DevOp
   });
 });
 
+test('one related work item per team is enforced across different request keys', async () => {
+  await withFlags({ OPERATIONS_CREATE_ENABLED: 'true' }, async () => {
+    const stored = {
+      incidentId: incident.incidentId,
+      workItemId: 9102,
+      supportTeam: 'APP_SUPPORT',
+      idempotencyKey: service.makeIdempotencyKey(incident.incidentId, 'APP_SUPPORT', 'first-request')
+    };
+    const audits = [];
+    const sharePoint = {
+      async getIncident() { return incident; },
+      async listMappings() { return [mapping]; },
+      async listConfiguredWorkItems() { return [stored]; },
+      async appendAudit(fields) { audits.push(fields); }
+    };
+    const ado = { getConfig() { throw new Error('ADO must not be called for an existing team ticket'); } };
+    const result = await service.createRelated({
+      incidentId: incident.incidentId,
+      supportTeam: 'APP_SUPPORT',
+      idempotencyKey: 'different-request'
+    }, actionContext, { sharePoint, ado });
+
+    assert.equal(result.duplicate, true);
+    assert.equal(result.workItem.workItemId, 9102);
+    assert.equal(audits[0].Result, 'EXISTING_TEAM_WORK_ITEM');
+  });
+});
+
 test('closure policy requires a primary and all work items closed, without recovery confirmation', () => {
   const blocked = service.closeEligibility(incident);
   assert.equal(blocked.allowed, false);
