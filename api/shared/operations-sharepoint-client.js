@@ -258,7 +258,17 @@ async function updateIncidentRecord(itemId, fields) {
 
 async function appendAudit(fields) {
   const config = getConfig();
-  return createSupportingItem(config.auditListName, fields);
+  return createSupportingItem(config.auditListName, mapAuditWriteFields(fields));
+}
+
+function mapAuditWriteFields(fields) {
+  const aliases = {
+    EventId: 'field_1', EventKey: 'field_2', CorrelationId: 'field_3', IncidentId: 'field_4',
+    WorkItemId: 'field_5', Action: 'field_6', Result: 'field_7', OperationsUserId: 'field_8',
+    OperationsUserName: 'field_9', OperationsUserEmail: 'field_10', AdoIdentityId: 'field_11',
+    AdoIdentityName: 'field_12', AdoIdentityEmail: 'field_13', Detail: 'field_14', OccurredAt: 'field_15'
+  };
+  return Object.fromEntries(Object.entries(fields || {}).map(([key, value]) => [aliases[key] || key, value]));
 }
 
 async function listAudit(incidentId) {
@@ -274,16 +284,16 @@ async function listAudit(incidentId) {
 function mapAuditEvent(item) {
   const fields = item && item.fields || {};
   return {
-    eventId: textField(fields, ['EventId', 'EventKey']) || String(item && item.id || ''),
-    eventKey: textField(fields, ['EventKey']),
-    timestamp: dateField(fields, ['OccurredAt']) || isoDate(item && item.createdDateTime),
-    eventType: textField(fields, ['Action']) || 'OPERATIONS_EVENT',
-    incidentId: textField(fields, ['IncidentId']),
-    workItemId: numberField(fields, ['WorkItemId']),
-    result: textField(fields, ['Result']) || 'RECORDED',
-    detail: textField(fields, ['Detail']),
-    operationsUserEmail: textField(fields, ['OperationsUserEmail']),
-    adoIdentityEmail: textField(fields, ['AdoIdentityEmail'])
+    eventId: textField(fields, ['EventId', 'field_1', 'EventKey', 'field_2']) || String(item && item.id || ''),
+    eventKey: textField(fields, ['EventKey', 'field_2']),
+    timestamp: dateField(fields, ['OccurredAt', 'field_15']) || isoDate(item && item.createdDateTime),
+    eventType: textField(fields, ['Action', 'field_6']) || 'OPERATIONS_EVENT',
+    incidentId: textField(fields, ['IncidentId', 'field_4']),
+    workItemId: numberField(fields, ['WorkItemId', 'field_5']),
+    result: textField(fields, ['Result', 'field_7']) || 'RECORDED',
+    detail: textField(fields, ['Detail', 'field_14']),
+    operationsUserEmail: textField(fields, ['OperationsUserEmail', 'field_10']),
+    adoIdentityEmail: textField(fields, ['AdoIdentityEmail', 'field_13'])
   };
 }
 
@@ -509,6 +519,7 @@ module.exports = {
   listConfiguredWorkItems,
   listMappings,
   mapServiceMapping,
+  mapAuditWriteFields,
   createWorkItemRecord,
   updateWorkItemRecord,
   updateIncidentRecord,

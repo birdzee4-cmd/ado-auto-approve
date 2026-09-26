@@ -74,6 +74,19 @@ test('SharePoint mapping supports generated internal field names and defaults di
   assert.equal(sharePoint.mapServiceMapping({ id: '8', fields: {} }).enabled, false);
 });
 
+test('SharePoint audit writes use generated internal field names', () => {
+  const mapped = sharePoint.mapAuditWriteFields({
+    EventId: 'evt-1', IncidentId: 'INC-1', Action: 'SYNC', Result: 'SUCCEEDED', Detail: '1/1', OccurredAt: '2026-09-26T10:00:00Z'
+  });
+  assert.equal(mapped.field_1, 'evt-1');
+  assert.equal(mapped.field_4, 'INC-1');
+  assert.equal(mapped.field_6, 'SYNC');
+  assert.equal(mapped.field_7, 'SUCCEEDED');
+  assert.equal(mapped.field_14, '1/1');
+  assert.equal(mapped.field_15, '2026-09-26T10:00:00Z');
+  assert.equal(mapped.EventId, undefined);
+});
+
 test('Operations capabilities expose only fail-closed feature booleans to authorized operators', async () => {
   const keys = ['OPERATIONS_CREATE_ENABLED', 'OPERATIONS_LINK_ENABLED', 'OPERATIONS_SYNC_ENABLED', 'OPERATIONS_CLOSE_ENABLED'];
   const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
