@@ -112,7 +112,12 @@ async function createRelated(input, context, dependencies = {}) {
   }
 
   const adoConfig = ado.getConfig();
-  const primaryResponse = await ado.getWorkItem(incident.workItemId, { accessToken: context.accessToken });
+  let credentialMode = 'DELEGATED';
+  let primaryResponse = await ado.getWorkItem(incident.workItemId, { accessToken: context.accessToken });
+  if (primaryResponse.status === 401 && featureEnabled('OPERATIONS_ADO_PAT_FALLBACK_ENABLED')) {
+    primaryResponse = await ado.getWorkItem(incident.workItemId);
+    credentialMode = 'PAT_FALLBACK';
+  }
   if (!primaryResponse.ok || !primaryResponse.body) {
     const adoMessage = primaryResponse.body && typeof primaryResponse.body === 'object'
       ? String(primaryResponse.body.message || primaryResponse.body.error_description || '').trim()
@@ -121,7 +126,11 @@ async function createRelated(input, context, dependencies = {}) {
     throw operationalError(primaryResponse.status || 502, 'PRIMARY_READ_FAILED', `Primary Work Item could not be read before creating a related ticket (${diagnostic})`);
   }
   const patches = buildCreatePatches(incident, mapping, input, incident.workItemId, adoConfig.org, primaryResponse.body);
-  const created = await ado.createWorkItem(mapping.adoProject, mapping.workItemType, patches, { accessToken: context.accessToken });
+  let created = await ado.createWorkItem(mapping.adoProject, mapping.workItemType, patches, credentialMode === 'DELEGATED' ? { accessToken: context.accessToken } : undefined);
+  if (created.status === 401 && credentialMode === 'DELEGATED' && featureEnabled('OPERATIONS_ADO_PAT_FALLBACK_ENABLED')) {
+    created = await ado.createWorkItem(mapping.adoProject, mapping.workItemType, patches);
+    credentialMode = 'PAT_FALLBACK';
+  }
   if (!created.ok || !created.body || !created.body.id) {
     throw operationalError(created.status || 502, 'ADO_CREATE_FAILED', `Azure DevOps create failed (HTTP ${created.status || 502})`);
   }
@@ -144,10 +153,10 @@ async function createRelated(input, context, dependencies = {}) {
     workItemId: normalized.workItemId,
     action: 'CREATE_RELATED_WORK_ITEM',
     result: 'SUCCEEDED',
-    detail: `${normalizeTeam(mapping.supportTeam)} via mapping ${mapping.mappingId}`,
+    detail: `${normalizeTeam(mapping.supportTeam)} via mapping ${mapping.mappingId}; credential ${credentialMode}`,
     eventKey: `create:${idempotencyKey}`
   });
-  return { incident, workItem: { ...normalized, role: 'RELATED', supportTeam: normalizeTeam(mapping.supportTeam) }, mapping, duplicate: false };
+  return { incident, workItem: { ...normalized, role: 'RELATED', supportTeam: normalizeTeam(mapping.supportTeam) }, mapping, duplicate: false, credentialMode };
 }
 
 async function createRelatedBatch(input, context, dependencies = {}) {
