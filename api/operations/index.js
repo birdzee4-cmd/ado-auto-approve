@@ -9,7 +9,9 @@ module.exports = async function (context, req) {
   const path = normalizePath(req.params && req.params.path);
   try {
     if (String(req.method || 'GET').toUpperCase() === 'POST') {
-      return handleWrite(context, req, path, roleCheck.principal);
+      // Await inside this try/catch so rejected write operations are converted
+      // into the same sanitized JSON error contract as read operations.
+      return await handleWrite(context, req, path, roleCheck.principal);
     }
 
     if (path === 'dashboard') {

@@ -51,6 +51,7 @@
 - [x] ตรวจเงื่อนไขพร้อมปิด — `INC-2026-000224` แสดง `RESOLVED`, Work Items `3/3 closed` และ `READY_TO_CLOSE`; พบว่า tracking เคยขึ้น `CLOSED` ก่อนมี `INCIDENT_CLOSED` จึงเพิ่ม regression guard ให้ Incident ที่มี RELATED คง `OPEN` จนกด Close สำเร็จ
 - [ ] ปิดได้เมื่อมี Primary และ Work Item ทุกใบปิด โดยไม่ต้องยืนยัน Recovery
 - [ ] Close UAT รอบแรกของ `INC-2026-000224` ได้ HTTP 500 โดยไม่มีการเปลี่ยน Incident; ปิด flag กลับแล้วและเพิ่ม schema compatibility ก่อนทดสอบซ้ำ
+- [x] แก้ POST error boundary ให้ await write handler ภายใน try/catch เพื่อคืน sanitized error code/detail แทน Azure 500 แบบ body ว่าง
 - [ ] Audit แยก Operations identity กับ ADO identity
 - [ ] ผู้ไม่มี write role และผู้ไม่ Connect ถูกปฏิเสธ
 - [ ] Production Workflow ยังรับ Alert และสร้าง PRIMARY เหมือนเดิม
