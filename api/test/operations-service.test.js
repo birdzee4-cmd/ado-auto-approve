@@ -298,6 +298,7 @@ test('synchronize updates primary and related stores independently', async () =>
 test('close synchronizes current ADO state and succeeds without the standalone sync flag', async () => {
   await withFlags({ OPERATIONS_SYNC_ENABLED: 'false', OPERATIONS_CLOSE_ENABLED: 'true' }, async () => {
     const updates = [];
+    const audits = [];
     const readyToClose = {
       ...incident,
       status: 'RESOLVED',
@@ -309,14 +310,13 @@ test('close synchronizes current ADO state and succeeds without the standalone s
       async updateIncidentRecord(id, fields) {
         updates.push({ id, fields });
       },
-      async appendAudit() {}
+      async appendAudit(fields) { audits.push(fields); }
     };
     const ado = { async getWorkItem(id) { return { ok: true, body: { id, fields: { 'System.State': 'Closed' } } }; } };
     const result = await service.closeIncident({ incidentId: incident.incidentId }, actionContext, { sharePoint, ado });
     assert.equal(result.closed, true);
-    assert.ok(updates.some(item => item.fields.OperationsStatus === 'CLOSED'));
-    assert.equal(updates.some(item => Object.hasOwn(item.fields, 'RecoveryConfirmed')), false);
-    assert.equal(updates.some(item => Object.hasOwn(item.fields, 'WorkflowStatus')), false);
+    assert.equal(updates.some(item => Object.hasOwn(item.fields, 'OperationsStatus')), false);
+    assert.ok(audits.some(item => item.Action === 'INCIDENT_CLOSED' && item.Result === 'SUCCEEDED'));
   });
 });
 

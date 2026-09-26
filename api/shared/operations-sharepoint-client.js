@@ -5,7 +5,6 @@ let cachedToken = null;
 let tokenExpiresAt = 0;
 let cachedSiteId = null;
 const cachedListIds = new Map();
-const cachedIncidentClosureFields = new Map();
 const incidentYearFormatter = new Intl.DateTimeFormat('en-US', {
   timeZone: 'Asia/Bangkok',
   year: 'numeric'
@@ -141,9 +140,37 @@ async function listItems(maxItems, listName) {
 
 async function listIncidents(maxItems) {
   const config = getConfig();
-  const incidents = (await listItems(maxItems, config.listName)).map(mapSharePointIncident).sort(compareNewest);
+  let incidents = (await listItems(maxItems, config.listName)).map(mapSharePointIncident).sort(compareNewest);
+  if (config.auditListName) {
+    const closureEvents = (await listItems(1000, config.auditListName))
+      .map(mapAuditEvent)
+      .filter(item => item.eventType === 'INCIDENT_CLOSED' && item.result === 'SUCCEEDED');
+    incidents = attachIncidentClosureEvents(incidents, closureEvents);
+  }
   const related = config.workItemsListName ? await listWorkItems(1000, config.workItemsListName) : [];
   return workItems.attachWorkItems(incidents, related);
+}
+
+function attachIncidentClosureEvents(incidents, events) {
+  const latestByIncident = new Map();
+  for (const event of events || []) {
+    const key = String(event.incidentId || '').trim().toLowerCase();
+    if (!key) continue;
+    const existing = latestByIncident.get(key);
+    if (!existing || Date.parse(event.timestamp || '') > Date.parse(existing.timestamp || '')) {
+      latestByIncident.set(key, event);
+    }
+  }
+  return (incidents || []).map(incident => {
+    const event = latestByIncident.get(String(incident.incidentId || '').trim().toLowerCase());
+    if (!event) return incident;
+    return {
+      ...incident,
+      operationsStatus: 'CLOSED',
+      operationsClosedBy: event.operationsUserEmail || '',
+      operationsClosedAt: event.timestamp || ''
+    };
+  });
 }
 
 async function listWorkItems(maxItems, listName) {
@@ -254,51 +281,7 @@ function mapWorkItemWriteFields(fields) {
 
 async function updateIncidentRecord(itemId, fields) {
   const config = getConfig();
-  const needsClosureFields = Object.keys(fields || {}).some(key => INCIDENT_CLOSURE_COLUMNS[key]);
-  const fieldMap = needsClosureFields ? await ensureIncidentClosureColumns(config.listName) : {};
-  return updateSupportingItem(config.listName, itemId, mapIncidentWriteFields(fields, fieldMap));
-}
-
-const INCIDENT_CLOSURE_COLUMNS = {
-  OperationsStatus: { displayName: 'OperationsStatus', text: { allowMultipleLines: false } },
-  OperationsClosedBy: { displayName: 'OperationsClosedBy', text: { allowMultipleLines: false } },
-  OperationsClosedAt: { displayName: 'OperationsClosedAt', dateTime: { displayAs: 'default', format: 'dateTime' } }
-};
-
-async function ensureIncidentClosureColumns(listName) {
-  if (cachedIncidentClosureFields.has(listName)) return cachedIncidentClosureFields.get(listName);
-  const response = await graphListRequest('GET', listName, '/columns?$select=name,displayName');
-  const resolved = resolveIncidentClosureFields(response && response.value);
-
-  for (const logicalName of Object.keys(INCIDENT_CLOSURE_COLUMNS)) {
-    if (resolved[logicalName]) continue;
-    await graphListRequest('POST', listName, '/columns', {
-      name: logicalName,
-      ...INCIDENT_CLOSURE_COLUMNS[logicalName]
-    });
-  }
-
-  if (Object.keys(resolved).length !== Object.keys(INCIDENT_CLOSURE_COLUMNS).length) {
-    const refreshed = await graphListRequest('GET', listName, '/columns?$select=name,displayName');
-    Object.assign(resolved, resolveIncidentClosureFields(refreshed && refreshed.value));
-  }
-  const missing = Object.keys(INCIDENT_CLOSURE_COLUMNS).filter(name => !resolved[name]);
-  if (missing.length) throw new Error(`Operations incident closure columns are unavailable: ${missing.join(', ')}`);
-  cachedIncidentClosureFields.set(listName, resolved);
-  return resolved;
-}
-
-function resolveIncidentClosureFields(columns) {
-  const definitions = Array.isArray(columns) ? columns : [];
-  const result = {};
-  for (const logicalName of Object.keys(INCIDENT_CLOSURE_COLUMNS)) {
-    const match = definitions.find(column =>
-      String(column && column.name || '').toLowerCase() === logicalName.toLowerCase() ||
-      String(column && column.displayName || '').toLowerCase() === logicalName.toLowerCase()
-    );
-    if (match && match.name) result[logicalName] = match.name;
-  }
-  return result;
+  return updateSupportingItem(config.listName, itemId, mapIncidentWriteFields(fields));
 }
 
 function mapIncidentWriteFields(fields, fieldMap = {}) {
@@ -568,9 +551,9 @@ module.exports = {
   listConfiguredWorkItems,
   listMappings,
   mapServiceMapping,
+  attachIncidentClosureEvents,
   mapAuditWriteFields,
   mapIncidentWriteFields,
-  resolveIncidentClosureFields,
   createWorkItemRecord,
   updateWorkItemRecord,
   updateIncidentRecord,

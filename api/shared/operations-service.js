@@ -391,12 +391,15 @@ async function closeIncident(input, context, dependencies = {}) {
     throw error;
   }
   const now = new Date().toISOString();
-  await sp.updateIncidentRecord(incident.sharePointId, {
-    OperationsStatus: 'CLOSED',
-    OperationsClosedBy: context.operationsIdentity.email || context.operationsIdentity.id,
-    OperationsClosedAt: now
+  // The append-only audit list is the closure source of truth. This keeps the
+  // operation within the existing item-write permission and avoids requiring
+  // SharePoint schema-management permission in Production.
+  await audit(sp, context, {
+    incidentId: incident.incidentId,
+    action: 'INCIDENT_CLOSED',
+    result: 'SUCCEEDED',
+    detail: `Closed at ${now}`
   });
-  await audit(sp, context, { incidentId: incident.incidentId, action: 'INCIDENT_CLOSED', result: 'SUCCEEDED' });
   return { incidentId: incident.incidentId, closed: true, closedAt: now };
 }
 

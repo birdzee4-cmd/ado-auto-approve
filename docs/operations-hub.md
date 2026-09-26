@@ -201,7 +201,7 @@ Create a unique-data or application-level uniqueness rule for `WorkItemId`. The 
 | `Detail` | Multiple lines text |
 | `OccurredAt` | Date and time |
 
-The existing `Operations Hub Incidents` list uses `OperationsStatus` (text/choice), `OperationsClosedBy` (text), and `OperationsClosedAt` (date/time) for Operations Hub closure tracking. Older `RecoveryConfirmed*` columns may remain unused for backward compatibility; do not delete them as part of this change. An Incident is eligible to close when it has a Primary Work Item and every linked Work Item is closed. Monitoring's `RESOLVED` alert status remains informational and is not a closure prerequisite.
+Operations Hub records an explicit close as an append-only `INCIDENT_CLOSED` / `SUCCEEDED` event in `OperationsHubAudit`. The API derives `OperationsStatus`, `OperationsClosedBy`, and `OperationsClosedAt` from that event, so Production needs only the existing list-item read/write permission and no SharePoint schema-management permission. Older closure or `RecoveryConfirmed*` columns may remain unused for backward compatibility; do not delete them as part of this change. An Incident is eligible to close when it has a Primary Work Item, every linked Work Item is closed, and the monitoring alert is `RESOLVED`.
 
 ### Operations feature flags
 

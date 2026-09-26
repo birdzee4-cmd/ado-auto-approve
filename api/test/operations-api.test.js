@@ -87,28 +87,22 @@ test('SharePoint audit writes use generated internal field names', () => {
   assert.equal(mapped.EventId, undefined);
 });
 
-test('Incident closure fields use the actual SharePoint internal names', () => {
-  const fieldMap = sharePoint.resolveIncidentClosureFields([
-    { name: 'field_21', displayName: 'OperationsStatus' },
-    { name: 'OperationsClosedBy', displayName: 'OperationsClosedBy' },
-    { name: 'field_23', displayName: 'OperationsClosedAt' }
-  ]);
-  assert.deepEqual(fieldMap, {
-    OperationsStatus: 'field_21',
-    OperationsClosedBy: 'OperationsClosedBy',
-    OperationsClosedAt: 'field_23'
-  });
-  assert.deepEqual(sharePoint.mapIncidentWriteFields({
-    OperationsStatus: 'CLOSED',
-    OperationsClosedBy: 'operator@example.com',
-    OperationsClosedAt: '2026-09-27T00:00:00.000Z',
-    LastSyncedAt: '2026-09-27T00:00:00.000Z'
-  }, fieldMap), {
-    field_21: 'CLOSED',
-    OperationsClosedBy: 'operator@example.com',
-    field_23: '2026-09-27T00:00:00.000Z',
-    LastSyncedAt: '2026-09-27T00:00:00.000Z'
-  });
+test('Successful close audit is the explicit incident closure source of truth', () => {
+  const [closed, open] = sharePoint.attachIncidentClosureEvents([
+    { incidentId: 'INC-1', operationsStatus: '' },
+    { incidentId: 'INC-2', operationsStatus: '' }
+  ], [{
+    incidentId: 'inc-1',
+    eventType: 'INCIDENT_CLOSED',
+    result: 'SUCCEEDED',
+    timestamp: '2026-09-27T00:00:00.000Z',
+    operationsUserEmail: 'operator@example.com'
+  }]);
+
+  assert.equal(closed.operationsStatus, 'CLOSED');
+  assert.equal(closed.operationsClosedBy, 'operator@example.com');
+  assert.equal(closed.operationsClosedAt, '2026-09-27T00:00:00.000Z');
+  assert.equal(open.operationsStatus, '');
 });
 
 test('Operations capabilities expose only fail-closed feature booleans to authorized operators', async () => {
