@@ -114,7 +114,11 @@ async function createRelated(input, context, dependencies = {}) {
   const adoConfig = ado.getConfig();
   const primaryResponse = await ado.getWorkItem(incident.workItemId, { accessToken: context.accessToken });
   if (!primaryResponse.ok || !primaryResponse.body) {
-    throw operationalError(primaryResponse.status || 502, 'PRIMARY_READ_FAILED', 'Primary Work Item could not be read before creating a related ticket');
+    const adoMessage = primaryResponse.body && typeof primaryResponse.body === 'object'
+      ? String(primaryResponse.body.message || primaryResponse.body.error_description || '').trim()
+      : '';
+    const diagnostic = [`HTTP ${primaryResponse.status || 502}`, adoMessage].filter(Boolean).join(': ');
+    throw operationalError(primaryResponse.status || 502, 'PRIMARY_READ_FAILED', `Primary Work Item could not be read before creating a related ticket (${diagnostic})`);
   }
   const patches = buildCreatePatches(incident, mapping, input, incident.workItemId, adoConfig.org, primaryResponse.body);
   const created = await ado.createWorkItem(mapping.adoProject, mapping.workItemType, patches, { accessToken: context.accessToken });
