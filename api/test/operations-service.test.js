@@ -314,6 +314,8 @@ test('link existing validates ADO, adds Related relation, persists, and audits',
     const result = await service.linkExisting({ incidentId: incident.incidentId, supportTeam: 'TIER2', workItemId: 9201 }, actionContext, { sharePoint, ado });
     assert.equal(result.workItem.role, 'RELATED');
     assert.equal(records[0].SupportTeam, 'TIER2');
+    assert.equal(Object.hasOwn(records[0], 'ClosedAt'), false);
+    assert.equal(Object.values(records[0]).some(value => value == null), false);
     assert.equal(audits[0].Action, 'LINK_EXISTING_WORK_ITEM');
   });
 });

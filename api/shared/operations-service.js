@@ -328,20 +328,21 @@ async function linkExisting(input, context, dependencies = {}) {
   const normalized = normalizeAdoWorkItem(result.body);
   const link = await ado.addRelatedWorkItemLink(workItemId, incident.workItemId, `Related to ${incident.displayId || incident.incidentId} through Operations Hub`, { accessToken: context.accessToken });
   if (!link.ok && link.status !== 409) throw operationalError(link.status || 502, 'ADO_LINK_FAILED', 'Azure DevOps related link could not be created');
-  await sp.createWorkItemRecord({
+  const record = {
     Title: normalized.title || `Work item #${workItemId}`,
     IncidentId: incident.incidentId,
     WorkItemId: workItemId,
     Role: 'RELATED',
     SupportTeam: supportTeam,
     State: normalized.state,
-    WorkItemUrl: normalized.url,
-    AssignedTo: normalized.assignedTo,
-    CreatedAt: normalized.createdAt,
-    ClosedAt: normalized.closedAt,
     LastSyncedAt: new Date().toISOString(),
     IdempotencyKey: makeIdempotencyKey(incident.incidentId, supportTeam, `link-${workItemId}`)
-  });
+  };
+  if (normalized.url) record.WorkItemUrl = normalized.url;
+  if (normalized.assignedTo) record.AssignedTo = normalized.assignedTo;
+  if (normalized.createdAt) record.CreatedAt = normalized.createdAt;
+  if (normalized.closedAt) record.ClosedAt = normalized.closedAt;
+  await sp.createWorkItemRecord(record);
   await audit(sp, context, { incidentId: incident.incidentId, workItemId, action: 'LINK_EXISTING_WORK_ITEM', result: 'SUCCEEDED' });
   return { incident, workItem: { ...normalized, role: 'RELATED', supportTeam }, duplicate: false };
 }
