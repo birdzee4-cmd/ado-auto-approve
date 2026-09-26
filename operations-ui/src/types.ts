@@ -137,6 +137,16 @@ export interface ServiceMapping {
   priority: number;
 }
 
+export interface RelatedTicketPreview {
+  supportTeam: 'APP_SUPPORT' | 'TIER2';
+  mapping: ServiceMapping;
+  title: string;
+  description: string;
+  descriptionText: string;
+  tags: string;
+  primaryWorkItemId: number;
+}
+
 export interface DashboardData {
   totalIncidents: number;
   adoWorkItems: number;

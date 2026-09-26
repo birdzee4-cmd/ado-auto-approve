@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import { loadAdoConnection, operationsApi } from '../api';
 import { AdoStateBadge, EmptyState, ErrorState, LoadingState, PageHeading, StatusBadge } from '../components';
-import type { AdoConnectionStatus, AuditEvent, Incident, OperationsCapabilities, ServiceMapping, SupportTeam } from '../types';
+import type { AdoConnectionStatus, AuditEvent, Incident, OperationsCapabilities, RelatedTicketPreview, SupportTeam } from '../types';
 
 export function Incidents() {
   const routeParams = incidentRouteParams();
@@ -18,7 +18,7 @@ export function Incidents() {
   const [capabilities, setCapabilities] = useState<OperationsCapabilities>({ createRelated: false, linkExisting: false, synchronize: false, closeIncident: false });
   const [supportTeam, setSupportTeam] = useState<SupportTeam>('APP_SUPPORT');
   const [escalationTargets, setEscalationTargets] = useState<Array<'APP_SUPPORT' | 'TIER2'>>(['APP_SUPPORT', 'TIER2']);
-  const [mappingPreviews, setMappingPreviews] = useState<Partial<Record<'APP_SUPPORT' | 'TIER2', ServiceMapping>>>({});
+  const [mappingPreviews, setMappingPreviews] = useState<Partial<Record<'APP_SUPPORT' | 'TIER2', RelatedTicketPreview>>>({});
   const [existingWorkItemId, setExistingWorkItemId] = useState('');
   const alertDetails: Array<{ label: string; value: string }> = selected ? [
     { label: 'Resource', value: selected.incident.resource },
@@ -87,8 +87,8 @@ export function Incidents() {
     if (!selected) return;
     setActionError('');
     try {
-      const resolved = await Promise.all(escalationTargets.map(async team => [team, (await operationsApi.resolveMapping(selected.incident.incidentId, team)).mapping] as const));
-      setMappingPreviews(Object.fromEntries(resolved));
+      const preview = await operationsApi.previewRelatedBatch(selected.incident.incidentId, escalationTargets);
+      setMappingPreviews(Object.fromEntries(preview.results.map(item => [item.supportTeam, item])));
     }
     catch (err) { setMappingPreviews({}); setActionError((err as Error).message); }
   };
@@ -141,7 +141,7 @@ export function Incidents() {
         <div className="ops-action-group"><h4>Escalation workspace</h4><p className="ops-muted">Select one team or create both tickets together. Description is copied from the current Tier 1 Primary Ticket.</p>
           <div className="ops-target-selector"><label><input type="checkbox" checked={escalationTargets.includes('APP_SUPPORT')} onChange={() => toggleEscalationTarget('APP_SUPPORT')} /> App Support <small>Service Form</small></label><label><input type="checkbox" checked={escalationTargets.includes('TIER2')} onChange={() => toggleEscalationTarget('TIER2')} /> IT Tier 2 / Infra <small>IT Support Case</small></label></div>
           <button className="ops-button ops-button-secondary" onClick={previewMappings} disabled={busy || escalationTargets.length === 0}>Preview selected tickets</button>
-          {escalationTargets.map(team => { const preview = mappingPreviews[team]; return preview ? <dl className="ops-mapping-preview" key={team}><dt>Target</dt><dd>{team === 'APP_SUPPORT' ? 'App Support' : 'IT Tier 2 / Infra'}</dd><dt>Project / Type</dt><dd>{preview.adoProject} · {preview.workItemType}</dd><dt>Area Path</dt><dd>{preview.areaPath}</dd><dt>Assigned To</dt><dd>{preview.assignedTeam || 'Unassigned'}</dd></dl> : null; })}
+          {escalationTargets.map(team => { const preview = mappingPreviews[team]; return preview ? <article className="ops-ticket-preview" key={team}><dl className="ops-mapping-preview"><dt>Target</dt><dd>{team === 'APP_SUPPORT' ? 'App Support' : 'IT Tier 2 / Infra'}</dd><dt>Project / Type</dt><dd>{preview.mapping.adoProject} · {preview.mapping.workItemType}</dd><dt>Area Path</dt><dd>{preview.mapping.areaPath}</dd><dt>Assigned To</dt><dd>{preview.mapping.assignedTeam || 'Unassigned'}</dd><dt>Tags</dt><dd>{preview.tags || 'No tags'}</dd><dt>Source</dt><dd>Primary #{preview.primaryWorkItemId}</dd></dl><div className="ops-preview-field"><strong>Title</strong><span>{preview.title}</span></div><details><summary>Description copied from Tier 1</summary><pre>{preview.descriptionText || 'No description'}</pre></details></article> : null; })}
           <button className="ops-button" disabled={busy || !connection?.connected || !capabilities.createRelated || escalationTargets.length === 0 || escalationTargets.some(team => !mappingPreviews[team])} onClick={() => runAction(async () => { const result = await operationsApi.createRelatedBatch(selected.incident.incidentId, { supportTeams: escalationTargets, idempotencyKey: globalThis.crypto?.randomUUID?.() || `${Date.now()}` }); if (result.failed) throw new Error(result.results.filter(item => !item.ok).map(item => `${item.supportTeam}: ${item.detail}`).join('; ')); return result; }, `Created ${escalationTargets.length} related Work Item${escalationTargets.length > 1 ? 's' : ''}`)}>Create selected tickets</button>
         </div>
         <div className="ops-action-group"><h4>Link Existing Work Item</h4><label>Support team<select value={supportTeam} onChange={event => setSupportTeam(event.target.value as SupportTeam)}><option value="APP_SUPPORT">App Support</option><option value="TIER2">IT Tier 2 / Infra</option></select></label><label>Work Item ID<input inputMode="numeric" value={existingWorkItemId} onChange={event => setExistingWorkItemId(event.target.value.replace(/\D/g, ''))} /></label><button className="ops-button ops-button-secondary" disabled={busy || !connection?.connected || !capabilities.linkExisting || !existingWorkItemId} onClick={() => runAction(() => operationsApi.linkExisting(selected.incident.incidentId, { supportTeam, workItemId: Number(existingWorkItemId) }), 'Existing Work Item linked')}>Link as Related</button></div>

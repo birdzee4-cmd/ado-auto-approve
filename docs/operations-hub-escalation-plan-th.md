@@ -34,7 +34,7 @@
 ### Phase 2 — Hybrid escalation
 
 - [x] เลือก App Support, Tier 2 หรือทั้งสองทีม
-- [ ] Preview mapping/profile ก่อนสร้าง
+- [x] Preview mapping/profile, Tags, Title และ Description จริงจาก Primary Ticket ก่อนสร้าง
 - [x] Batch create แบบผลลัพธ์รายทีม
 - [x] Retry เฉพาะทีมที่ล้มเหลวโดยไม่สร้างรายการซ้ำ
 - [x] เชื่อม Related link กับ Primary และบันทึก Audit
@@ -50,7 +50,7 @@
 
 - [x] Escalation workspace พร้อม target selector
 - [x] Ticket cards แยก Tier 1/App Support/Tier 2
-- [ ] Preview Description และ routing
+- [x] Preview Description จาก Primary Ticket และ routing ก่อนสร้าง
 - [x] Partial success/error พร้อม retry
 - [x] Closure checklist แสดง blocker ราย Ticket และ Alert
 

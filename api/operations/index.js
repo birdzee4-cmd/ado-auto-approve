@@ -111,7 +111,8 @@ async function handleWrite(context, req, path, principal) {
     adoIdentity: verified.identity
   };
   let data;
-  if (action === 'work-items/related') data = await operationsService.createRelated({ ...body, incidentId }, actionContext);
+  if (action === 'work-items/related/preview') data = await operationsService.previewRelatedBatch({ ...body, incidentId }, actionContext);
+  else if (action === 'work-items/related') data = await operationsService.createRelated({ ...body, incidentId }, actionContext);
   else if (action === 'work-items/related/batch') data = await operationsService.createRelatedBatch({ ...body, incidentId }, actionContext);
   else if (action === 'work-items/link') data = await operationsService.linkExisting({ ...body, incidentId }, actionContext);
   else if (action === 'synchronize') data = await operationsService.synchronize({ ...body, incidentId }, actionContext);

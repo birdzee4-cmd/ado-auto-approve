@@ -1,4 +1,4 @@
-import type { AdoConnectionStatus, AuditEvent, CurrentUser, DashboardData, Incident, OperationsCapabilities, ServiceMapping, SupportTeam } from './types';
+import type { AdoConnectionStatus, AuditEvent, CurrentUser, DashboardData, Incident, OperationsCapabilities, RelatedTicketPreview, ServiceMapping, SupportTeam } from './types';
 
 interface ApiEnvelope<T> {
   ok: boolean;
@@ -89,6 +89,7 @@ export const operationsApi = {
   incident: (id: string) => request<{ incident: Incident; timeline: AuditEvent[] }>(`/api/operations/incidents/${encodeURIComponent(id)}`),
   mappings: () => request<{ items: ServiceMapping[]; count: number }>('/api/operations/mappings'),
   resolveMapping: (incidentId: string, supportTeam: SupportTeam) => request<{ mapping: ServiceMapping }>(`/api/operations/mappings/resolve?incidentId=${encodeURIComponent(incidentId)}&supportTeam=${encodeURIComponent(supportTeam)}`),
+  previewRelatedBatch: (incidentId: string, supportTeams: Array<Exclude<SupportTeam, 'TIER1'>>) => request<{ incidentId: string; results: RelatedTicketPreview[] }>(`/api/operations/incidents/${encodeURIComponent(incidentId)}/work-items/related/preview`, { method: 'POST', body: JSON.stringify({ supportTeams }) }),
   createRelated: (incidentId: string, input: { supportTeam: SupportTeam; title?: string; detail?: string; idempotencyKey: string }) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/work-items/related`, { method: 'POST', body: JSON.stringify(input) }),
   createRelatedBatch: (incidentId: string, input: { supportTeams: Array<Exclude<SupportTeam, 'TIER1'>>; idempotencyKey: string }) => request<{ succeeded: number; failed: number; results: Array<{ supportTeam: string; ok: boolean; workItem?: { workItemId: number }; detail?: string }> }>(`/api/operations/incidents/${encodeURIComponent(incidentId)}/work-items/related/batch`, { method: 'POST', body: JSON.stringify(input) }),
   linkExisting: (incidentId: string, input: { supportTeam: SupportTeam; workItemId: number }) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/work-items/link`, { method: 'POST', body: JSON.stringify(input) }),

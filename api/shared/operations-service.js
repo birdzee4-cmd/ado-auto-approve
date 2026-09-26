@@ -207,6 +207,40 @@ async function createRelatedBatch(input, context, dependencies = {}) {
   };
 }
 
+async function previewRelatedBatch(input, context, dependencies = {}) {
+  const sp = dependencies.sharePoint || defaultSharePoint;
+  const ado = dependencies.ado || defaultAdo;
+  const incident = await requireIncident(sp, input.incidentId);
+  if (!incident.workItemId) throw operationalError(409, 'PRIMARY_REQUIRED', 'The incident does not have a primary work item');
+  const teams = [...new Set((input.supportTeams || []).map(normalizeTeam))];
+  if (!teams.length) throw operationalError(400, 'SUPPORT_TEAMS_REQUIRED', 'Select at least one support team');
+
+  let primaryResponse = await ado.getWorkItem(incident.workItemId, { accessToken: context.accessToken });
+  if (primaryResponse.status === 401 && featureEnabled('OPERATIONS_ADO_PAT_FALLBACK_ENABLED')) primaryResponse = await ado.getWorkItem(incident.workItemId);
+  if (!primaryResponse.ok || !primaryResponse.body) {
+    throw operationalError(primaryResponse.status || 502, 'PRIMARY_READ_FAILED', 'Primary Work Item could not be read for ticket preview');
+  }
+
+  const mappings = await sp.listMappings();
+  const adoConfig = ado.getConfig();
+  const results = teams.map(supportTeam => {
+    const mapping = resolveMapping(mappings, incident, supportTeam);
+    const patches = buildCreatePatches(incident, mapping, input, incident.workItemId, adoConfig.org, primaryResponse.body);
+    const field = name => patches.find(item => item.path === `/fields/${name}`)?.value;
+    const description = String(field('System.Description') || '');
+    return {
+      supportTeam,
+      mapping,
+      title: String(field('System.Title') || ''),
+      description,
+      descriptionText: htmlToPlainText(description),
+      tags: String(field('System.Tags') || ''),
+      primaryWorkItemId: incident.workItemId
+    };
+  });
+  return { incidentId: incident.incidentId, results };
+}
+
 function profileFields(supportTeam, incident, primaryWorkItem) {
   const team = normalizeTeam(supportTeam);
   if (team === 'APP_SUPPORT') {
@@ -464,6 +498,11 @@ function positiveInteger(value, name) {
 function patch(path, value) { return { op: 'add', path, value }; }
 function normalize(value) { return String(value || '').trim().toLowerCase(); }
 function escapeHtml(value) { return String(value == null ? '' : value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]); }
+function htmlToPlainText(value) {
+  return String(value || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/p\s*>/gi, '\n').replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"').replace(/&#39;/gi, "'").replace(/\n{3,}/g, '\n\n').trim();
+}
 function formatBangkokTime(value) {
   if (!value) return '';
   const date = new Date(value);
@@ -492,6 +531,7 @@ module.exports = {
   linkExisting,
   makeIdempotencyKey,
   normalizeAdoWorkItem,
+  previewRelatedBatch,
   resolveMapping,
   synchronize
 };

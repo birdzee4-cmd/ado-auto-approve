@@ -185,6 +185,25 @@ test('create related work item uses delegated identity, persists mapping output,
   });
 });
 
+test('related ticket preview reads the primary description without creating or writing records', async () => {
+  const sharePoint = { async getIncident() { return incident; }, async listMappings() { return [mapping]; } };
+  const ado = {
+    getConfig() { return { org: 'Buzzebees' }; },
+    async getWorkItem(id, options) {
+      assert.equal(id, incident.workItemId);
+      assert.equal(options.accessToken, actionContext.accessToken);
+      return { ok: true, status: 200, body: { id, fields: { 'System.Description': '<p><strong>Alert:</strong> Checkout failure</p>' } } };
+    },
+    async createWorkItem() { throw new Error('Preview must not create a work item'); }
+  };
+  const result = await service.previewRelatedBatch({ incidentId: incident.incidentId, supportTeams: ['APP_SUPPORT'] }, actionContext, { sharePoint, ado });
+  assert.equal(result.results.length, 1);
+  assert.equal(result.results[0].description, '<p><strong>Alert:</strong> Checkout failure</p>');
+  assert.equal(result.results[0].descriptionText, 'Alert: Checkout failure');
+  assert.equal(result.results[0].tags, 'P1');
+  assert.equal(result.results[0].primaryWorkItemId, 9101);
+});
+
 test('idempotent create returns the stored work item without calling Azure DevOps', async () => {
   await withFlags({ OPERATIONS_CREATE_ENABLED: 'true' }, async () => {
     const key = service.makeIdempotencyKey(incident.incidentId, 'APP_SUPPORT', 'same-request');
