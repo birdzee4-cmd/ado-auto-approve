@@ -49,8 +49,8 @@
 - [x] ปิด Incident ไม่ได้เมื่อมีงานเปิด — Production UI UAT `INC-2026-000224` เมื่อ 2026-09-26: 2/3 closed, Primary `#882895` ยัง Processing; ปุ่ม Close ถูก disable
 - [x] ปิด Incident ไม่ได้เมื่อ Alert ยัง FIRING — UAT รายการเดียวกันแสดง blocker `Monitoring alert is not RESOLVED` และไม่มีคำสั่งปิดถูกส่ง
 - [x] ตรวจเงื่อนไขพร้อมปิด — `INC-2026-000224` แสดง `RESOLVED`, Work Items `3/3 closed` และ `READY_TO_CLOSE`; พบว่า tracking เคยขึ้น `CLOSED` ก่อนมี `INCIDENT_CLOSED` จึงเพิ่ม regression guard ให้ Incident ที่มี RELATED คง `OPEN` จนกด Close สำเร็จ
-- [ ] ปิดได้เมื่อมี Primary และ Work Item ทุกใบปิด โดยไม่ต้องยืนยัน Recovery
-- [ ] Close UAT ของ `INC-2026-000224`: รอบแรกได้ HTTP 500; หลังเพิ่ม structured error พบสาเหตุจริงเป็น HTTP 403 ขณะพยายามสร้าง closure columns และ Incident ยังคง OPEN จึงเปลี่ยนมาใช้ append-only Audit เป็น source of truth ก่อนทดสอบซ้ำ
+- [x] ปิดได้เมื่อมี Primary, Work Item ทุกใบปิด และ Alert RESOLVED — Production UAT `INC-2026-000224` สำเร็จเมื่อ 2026-09-27 01:15 (Asia/Bangkok); Tracking เปลี่ยนเป็น `CLOSED` และ Timeline มี `INCIDENT_CLOSED`
+- [x] Close UAT ของ `INC-2026-000224`: รอบแรกได้ HTTP 500; structured error เปิดเผย HTTP 403 จากการสร้าง closure columns จึงเปลี่ยนมาใช้ append-only Audit เป็น source of truth และทดสอบซ้ำสำเร็จโดยไม่เพิ่ม SharePoint schema permission
 - [x] แก้ POST error boundary ให้ await write handler ภายใน try/catch เพื่อคืน sanitized error code/detail แทน Azure 500 แบบ body ว่าง
 - [ ] Audit แยก Operations identity กับ ADO identity
 - [ ] ผู้ไม่มี write role และผู้ไม่ Connect ถูกปฏิเสธ
