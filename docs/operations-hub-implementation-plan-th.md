@@ -19,9 +19,9 @@
 
 | Phase | สถานะ |
 |---|---|
-| Phase 0 — Baseline | ยังไม่เริ่ม |
+| Phase 0 — Baseline | เสร็จแล้ว: มีเอกสาร workflow/schema, package backup พร้อม checksum และยืนยัน Primary ล่าสุดจาก Production |
 | Phase 1 — Data Model และ Compatibility Layer | Read path ผ่าน; Tier 1 PRIMARY ใช้ Flow เดิมได้; Mapping จำเป็นเฉพาะก่อนเปิด Related creation |
-| Phase 2 — Azure DevOps Connection และสิทธิ์ | Production แสดง ADO Connected เป็น `kiattisak.yo@buzzebees.com`; ยังรอทดสอบ reconnect/disconnect และยืนยัน role ของ Tier 1 |
+| Phase 2 — Azure DevOps Connection และสิทธิ์ | Production แสดง ADO Connected เป็น `kiattisak.yo@buzzebees.com`; ยืนยัน Static Web Apps roles แล้ว เหลือทดสอบ reconnect/disconnect |
 | Phase 3 — Write API | Repository implementation เสร็จ; flag defaults ปิด; เพิ่ม capabilities read endpoint ให้ UI ตรวจสถานะ |
 | Phase 4 — Operations Hub UI ใหม่ | Repository implementation เสร็จ; ปุ่ม write ถูกปิดตาม capabilities จาก API |
 | Phase 5 — Automation เพิ่มเติม | Logic App reconciliation ทำงานทุก 10 นาทีใน dry-run; live Sync/Reconciliation ยังปิดรอ UAT |
@@ -30,11 +30,11 @@
 
 ## Phase 0 — Baseline และสำรองระบบเดิม
 
-- [ ] บันทึก diagram และพฤติกรรม Production Workflow
-- [ ] สำรอง Power Automate package และ connection references
-- [ ] บันทึก schema และตัวอย่างข้อมูล Existing SharePoint Incident List
-- [ ] บันทึก ADO Project, Work Item Type, Area Path และ state ที่ใช้งานจริง
-- [ ] ยืนยันว่า Production Workflow ยังทำงานเหมือนเดิม
+- [x] บันทึก diagram และพฤติกรรม Production Workflow ในเอกสาร workflow/runbook
+- [x] สำรอง Power Automate packages และ connection references — Incident Automation v3.8.5 SHA-256 `8AFC72B79E884DCA2075541D92197F2B798D24AA34764DB58082DDC3C0D5AB41`; Reconciliation v1.3.0 SHA-256 `077F7C0418C6139084DA7308B89EF39BB8905A0571F0465C82A72FBB2CE306B3`
+- [x] บันทึก schema และตัวอย่างข้อมูล Existing SharePoint Incident List/Supporting Lists ใน `docs/operations-hub.md`
+- [x] บันทึก ADO Project, Work Item Type, Area Path และ state ที่ใช้งานจริง; ตรวจ Primary `#882975` เป็น `IT Support Case`, Area `Buzzebees\\Other\\IT Support Team`, State `Processing`
+- [x] ยืนยันว่า Production Workflow ยังทำงานเหมือนเดิมจาก Primary ล่าสุด `#882975` เมื่อ 2026-09-27
 
 ## Phase 1 — Data Model และ Compatibility Layer
 
@@ -75,7 +75,7 @@ Checkpoint: Read path และ Tier 1 PRIMARY เดิมพร้อมใช
 - [x] เพิ่ม unit tests สำหรับ identity validation, fail-closed, role gate และ hash return URL
 - [x] ยืนยันสถานะ ADO `Connected` ในหน้า Production; backend status เชื่อมต่อผ่าน delegated identity verification
 - [ ] ทดสอบ Reconnect/Disconnect กับ Azure DevOps จริง
-- [ ] ยืนยัน role assignments ของ Tier 1 ใน Static Web Apps production
+- [x] ยืนยัน role assignments ใน Static Web Apps Production: `kiattisak.yo@buzzebees.com` มี `admin` และ `it_support_approve`; ผู้ใช้อื่นยังคงตาม assignments เดิมโดยไม่มีการแก้ไข
 
 Checkpoint: การเชื่อมต่อของบัญชีปัจจุบัน verified แล้ว; ก่อนเปิด write actions ต้องทดสอบ reconnect/disconnect และยืนยัน role assignments ของ Tier 1
 
@@ -101,7 +101,7 @@ Checkpoint: การเชื่อมต่อของบัญชีปั�
 - [x] เพิ่ม Create/Link/Sync/Close controls; ถอด Confirm Recovery ออกจาก UI
 - [x] แสดง closure blockers และ Timeline/Audit
 - [x] เพิ่มหน้า Service Mapping แบบ read-only สำหรับ Admin
-- [ ] Visual/UAT review ใน environment จริง
+- [x] Visual/UAT review ใน Production: Create hybrid, duplicate prevention, sync, close guard และ Assignee display ผ่าน targeted UAT
 
 ## Phase 5 — Automation เพิ่มเติม
 
@@ -125,7 +125,7 @@ Checkpoint: การเชื่อมต่อของบัญชีปั�
 - [ ] ทดสอบ Alert ซ้ำและ Alert ที่กลับมาหลัง Incident ปิด
 - [x] API test suite ผ่าน: 50/50 tests (`node test/<file>.test.js`; `node --test` ถูกจำกัดโดย environment ด้วย `spawn EPERM`)
 - [x] TypeScript/Vite production build ผ่าน
-- [ ] ยืนยัน Production Workflow ไม่มี regression ใน environment
+- [x] ยืนยัน Production Workflow ไม่มี regression จากการสร้าง Primary ล่าสุด `#882975` และ Operations Hub ยังคงไม่สร้าง Primary ซ้ำ
 - [ ] Tier 1 ลงนาม UAT
 
 ## Phase 7 — Rollout และ Rollback

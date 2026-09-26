@@ -2,12 +2,12 @@
 
 ## ก่อน Deploy
 
-- [ ] สำรอง Production Workflow package และ connection references
+- [x] สำรอง Production Workflow package และ connection references — v3.8.5 SHA-256 `8AFC72B79E884DCA2075541D92197F2B798D24AA34764DB58082DDC3C0D5AB41`; Reconciliation v1.3.0 SHA-256 `077F7C0418C6139084DA7308B89EF39BB8905A0571F0465C82A72FBB2CE306B3`
 - [x] Provision `OperationsHubWorkItems`, `OperationsHubServiceMapping`, `OperationsHubAudit`
 - [x] ใช้ `OperationsHubAudit` event `INCIDENT_CLOSED/SUCCEEDED` เป็น closure source of truth เพื่อให้ใช้สิทธิ์เขียน item เดิมและไม่ต้องขอสิทธิ์จัดการ SharePoint schema
 - [x] เพิ่มและยืนยัน Service Mapping สำหรับ App Support/Tier 2 แล้ว; ไม่กระทบการแสดง PRIMARY จาก Production Workflow เดิม
-- [ ] ยืนยัน Tier 1 role และ Azure DevOps permissions
-- [ ] ตั้ง supporting-list settings โดยยังปิด feature flags ทั้งหมด
+- [x] ยืนยัน Tier 1 role และ Azure DevOps permissions — บัญชี UAT มี `admin,it_support_approve`; delegated ADO create/sync ผ่าน Production UAT
+- [x] ตั้ง supporting-list settings และตรวจยืนยัน feature flags ทั้งหกเป็น `false` หลัง UAT
 
 ## Deployment sequence
 
@@ -40,7 +40,7 @@
 
 ## Smoke/UAT scenarios
 
-- [ ] Incident เดิมแสดง PRIMARY/TIER1 ถูกต้อง
+- [x] Incident เดิมแสดง PRIMARY/TIER1 ถูกต้อง และ Primary ล่าสุด `#882975` จาก Production Workflow แสดง project/type/area/state ตรงกับ baseline
 - [x] Tier 1 สร้าง APP_SUPPORT RELATED จาก mapping ได้ — Production `INC-2026-000233` สร้าง `#882972` เป็น `Service Form`, New, ไม่ assign, tags `appsupport_pool; ITSupport_Pool`
 - [x] Tier 1 สร้าง TIER2 RELATED จาก mapping ได้ — Production `INC-2026-000233` สร้าง `#882973` เป็น `IT Support Case`, New, assign `ITSupport Admin`, tag `ITSupport_Pool`
 - [x] double click/retry ไม่สร้างงานซ้ำ — API บังคับหนึ่ง RELATED ต่อ Incident/ทีมแม้ request key เปลี่ยน และ UI ปิดทีมที่มีใบงานอยู่แล้ว; Production `INC-2026-000233` มี App Support `#882972` และ Tier 2 `#882973` เพียงทีมละหนึ่งใบ
@@ -54,7 +54,7 @@
 - [x] แก้ POST error boundary ให้ await write handler ภายใน try/catch เพื่อคืน sanitized error code/detail แทน Azure 500 แบบ body ว่าง
 - [ ] Audit แยก Operations identity กับ ADO identity
 - [ ] ผู้ไม่มี write role และผู้ไม่ Connect ถูกปฏิเสธ
-- [ ] Production Workflow ยังรับ Alert และสร้าง PRIMARY เหมือนเดิม
+- [x] Production Workflow ยังรับ Alert และสร้าง PRIMARY เหมือนเดิม — ตรวจ Primary ล่าสุด `#882975` เมื่อ 2026-09-27 โดย Operations Hub ไม่สร้าง Primary ซ้ำ
 
 ## Monitoring
 
