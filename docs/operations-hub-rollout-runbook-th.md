@@ -44,7 +44,8 @@
 - [x] Tier 1 สร้าง APP_SUPPORT RELATED จาก mapping ได้ — Production `INC-2026-000233` สร้าง `#882972` เป็น `Service Form`, New, ไม่ assign, tags `appsupport_pool; ITSupport_Pool`
 - [x] Tier 1 สร้าง TIER2 RELATED จาก mapping ได้ — Production `INC-2026-000233` สร้าง `#882973` เป็น `IT Support Case`, New, assign `ITSupport Admin`, tag `ITSupport_Pool`
 - [x] double click/retry ไม่สร้างงานซ้ำ — API บังคับหนึ่ง RELATED ต่อ Incident/ทีมแม้ request key เปลี่ยน และ UI ปิดทีมที่มีใบงานอยู่แล้ว; Production `INC-2026-000233` มี App Support `#882972` และ Tier 2 `#882973` เพียงทีมละหนึ่งใบ
-- [ ] Link Existing สร้าง Related relation
+- [x] Link Existing สร้าง Related relation — Production UAT `INC-2026-000235` เมื่อ 2026-09-27 เชื่อม `#882976` (TIER2, New, assign `ITSupport Admin`) กับ Primary `#882975`; หน้าเว็บแสดง `0/2 closed` และ Timeline มี `LINK_EXISTING_WORK_ITEM/SUCCEEDED`
+- [x] Link Existing กู้ partial success ได้โดยไม่สร้าง relation ซ้ำ — รอบแรก ADO relation สำเร็จแต่ SharePoint ปฏิเสธค่า optional ที่ว่าง; แก้ให้ละเว้น `ClosedAt` และ optional fields ที่ยังไม่มี แล้ว retry สำเร็จ โดย `#882976` มี Related relation ไป `#882975` เพียงหนึ่งรายการ
 - [x] Synchronize อัปเดต state/assignee/closed time — targeted Production UAT `INC-2026-000224` เมื่อ 2026-09-26: Work Items 3 ใบสำเร็จทั้งหมด, failed 0, notification disabled และ reconciliation flag ถูกปิดกลับ
 - [x] ปิด Incident ไม่ได้เมื่อมีงานเปิด — Production UI UAT `INC-2026-000224` เมื่อ 2026-09-26: 2/3 closed, Primary `#882895` ยัง Processing; ปุ่ม Close ถูก disable
 - [x] ปิด Incident ไม่ได้เมื่อ Alert ยัง FIRING — UAT รายการเดียวกันแสดง blocker `Monitoring alert is not RESOLVED` และไม่มีคำสั่งปิดถูกส่ง
@@ -55,6 +56,7 @@
 - [ ] Audit แยก Operations identity กับ ADO identity
 - [ ] ผู้ไม่มี write role และผู้ไม่ Connect ถูกปฏิเสธ
 - [x] Production Workflow ยังรับ Alert และสร้าง PRIMARY เหมือนเดิม — ตรวจ Primary ล่าสุด `#882975` เมื่อ 2026-09-27 โดย Operations Hub ไม่สร้าง Primary ซ้ำ
+- [x] หลัง Link Existing UAT ปิด feature flags ทั้งหกกลับเป็น `false`: create, link, sync, close, reconciliation และ notification
 
 ## Monitoring
 
