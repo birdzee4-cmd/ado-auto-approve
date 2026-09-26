@@ -113,7 +113,7 @@ test('App Support profile matches the required Production Service Form fields', 
   assert.equal(field('Custom.Deadline'), '2026-09-26T17:00:00.000Z');
   assert.equal(field('Custom.ServicePriority'), '2-High');
   assert.equal(field('Custom.Country'), 'Thai');
-  assert.equal(field('Custom.GroupsofSubject'), undefined);
+  assert.equal(field('Custom.GroupsofSubject'), 'อื่น ๆ (Other)');
   assert.equal(field('Custom.MonitoringSourceTracker'), 'Not Applicable (N/A)');
   assert.equal(field('Custom.ActualIncidentTime'), incident.firstSeen);
   assert.equal(field('System.AssignedTo'), undefined);
