@@ -20,6 +20,15 @@ test('Operations API rejects unauthenticated and unauthorized requests', async (
     query: {}
   });
   assert.equal(forbidden.res.status, 403);
+
+  const forbiddenWrite = { log: { warn() {}, error() {} } };
+  await operations(forbiddenWrite, {
+    method: 'POST',
+    headers: { 'x-ms-client-principal': principal(['authenticated']) },
+    params: { path: 'incidents/INC-1/work-items/link' },
+    body: { supportTeam: 'TIER2', workItemId: 9201 }
+  });
+  assert.equal(forbiddenWrite.res.status, 403);
 });
 
 test('admin mapping inventory includes disabled drafts while resolution remains enabled-only', async () => {

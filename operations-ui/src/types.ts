@@ -180,4 +180,6 @@ export interface AuditEvent {
   incidentId?: string;
   result: string;
   detail?: string;
+  operationsUserEmail?: string;
+  adoIdentityEmail?: string;
 }

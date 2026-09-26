@@ -307,6 +307,7 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-closure li.is-done { color: #096847; }
 .ops-closure > small { color: #8d2929; }
 .ops-timeline small { color: var(--ops-muted); }
+.ops-timeline .ops-audit-identities { color: #554a37; font-weight: 600; }
 
 .ops-rule-layout { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, .8fr); gap: 17px; }
 .ops-rule-card, .ops-safety-card, .ops-integration-card { border: 1px solid var(--ops-line); border-radius: 10px; background: var(--ops-paper); box-shadow: 0 12px 30px rgba(42, 37, 27, .065); }
