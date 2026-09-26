@@ -403,6 +403,51 @@ test('reconciliation dry-run works with write flags disabled and performs no syn
   }
 });
 
+test('reconciliation can target one incident for controlled UAT', async () => {
+  const previousKey = process.env.OPERATIONS_AUTOMATION_KEY;
+  const originalListIncidents = operationsSharePoint.listIncidents;
+  process.env.OPERATIONS_AUTOMATION_KEY = 'target-key';
+  operationsSharePoint.listIncidents = async () => [
+    { incidentId: 'INC-031', displayId: 'INC-2026-000031', operationsStatus: 'OPEN', workItemSummary: { total: 1, open: 1 } },
+    { incidentId: 'INC-032', displayId: 'INC-2026-000032', operationsStatus: 'OPEN', workItemSummary: { total: 2, open: 2 } }
+  ];
+  try {
+    const context = { log: { warn() {}, error() {} } };
+    await reconcile(context, {
+      headers: { 'x-operations-automation-key': 'target-key' },
+      body: { dryRun: true, incidentId: 'INC-2026-000032' }
+    });
+    const body = JSON.parse(context.res.body);
+    assert.equal(context.res.status, 200);
+    assert.equal(body.processed, 1);
+    assert.equal(body.candidates[0].incidentId, 'INC-032');
+  } finally {
+    operationsSharePoint.listIncidents = originalListIncidents;
+    if (previousKey == null) delete process.env.OPERATIONS_AUTOMATION_KEY;
+    else process.env.OPERATIONS_AUTOMATION_KEY = previousKey;
+  }
+});
+
+test('targeted reconciliation returns 404 instead of silently processing another incident', async () => {
+  const previousKey = process.env.OPERATIONS_AUTOMATION_KEY;
+  const originalListIncidents = operationsSharePoint.listIncidents;
+  process.env.OPERATIONS_AUTOMATION_KEY = 'target-key';
+  operationsSharePoint.listIncidents = async () => [];
+  try {
+    const context = { log: { warn() {}, error() {} } };
+    await reconcile(context, {
+      headers: { 'x-operations-automation-key': 'target-key' },
+      body: { dryRun: true, incidentId: 'INC-2026-999999' }
+    });
+    assert.equal(context.res.status, 404);
+    assert.equal(JSON.parse(context.res.body).error, 'INCIDENT_NOT_FOUND');
+  } finally {
+    operationsSharePoint.listIncidents = originalListIncidents;
+    if (previousKey == null) delete process.env.OPERATIONS_AUTOMATION_KEY;
+    else process.env.OPERATIONS_AUTOMATION_KEY = previousKey;
+  }
+});
+
 test('live reconciliation uses its own gate and does not require the manual sync flag', async () => {
   const previousKey = process.env.OPERATIONS_AUTOMATION_KEY;
   const previousReconcile = process.env.OPERATIONS_RECONCILIATION_ENABLED;

@@ -57,6 +57,7 @@
 ### Phase 5 — UAT และ rollout
 
 - [x] Automated API/UI tests
+- [x] รองรับ targeted reconciliation ด้วย Incident ID สำหรับ Controlled UAT โดยไม่กระทบ Incident อื่น
 - [ ] Import UAT flow เป็น Create as new และคงสถานะ Off
 - [ ] Read-only/dry-run verification
 - [x] เปิด create flag ชั่วคราวเพื่อ Production test ที่ได้รับอนุญาต

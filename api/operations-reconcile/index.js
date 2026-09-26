@@ -10,9 +10,14 @@ module.exports = async function (context, req) {
       return respond(context, 503, { ok: false, error: 'FEATURE_DISABLED' });
     }
     const maximum = Math.max(1, Math.min(Number(req.body && req.body.maxItems) || 100, 250));
+    const targetIncidentId = String(req.body && req.body.incidentId || '').trim();
     const incidents = (await sharePoint.listIncidents(1000))
+      .filter(item => !targetIncidentId || item.incidentId === targetIncidentId || item.displayId === targetIncidentId)
       .filter(item => item.operationsStatus !== 'CLOSED' && item.workItemSummary && item.workItemSummary.total > 0)
       .slice(0, maximum);
+    if (targetIncidentId && incidents.length === 0) {
+      return respond(context, 404, { ok: false, error: 'INCIDENT_NOT_FOUND', incidentId: targetIncidentId });
+    }
     if (dryRun) {
       return respond(context, 200, {
         ok: true,
