@@ -65,7 +65,14 @@
 - [x] เปลี่ยน `operations-hub-reconcile` เป็น live `scope=ALL`; ปรับรอบจาก 10 นาทีเป็น 5 นาทีหลัง Production UAT
 - [x] Targeted Production UAT `INC-2026-000224` sync Primary, Tier 2 และ App Support สำเร็จ 3/3, failed 0 และผลตรวจซ้ำตรงกับ ADO ทุกใบ
 - [x] แก้ scheduler timeout: ลด batch จาก 100 เป็น 5 และเรียง Incident ตาม `LastSyncedAt` เก่าสุดก่อนเพื่อหมุนงานโดยไม่ starvation; Production run เวลา 17:03 น. สำเร็จภายในประมาณ 26 วินาที
-- [x] Teams notification ยังคงปิดจนกว่าจะทำ UAT การแจ้งเตือนแยก
+- [x] Teams webhook delivery UAT ส่งข้อความควบคุมสำเร็จเมื่อ 2026-09-27 17:43 (Asia/Bangkok), provider ตอบ HTTP 204; automatic notification flag ยังคงปิด
+- [ ] ทดสอบ automatic notification Audit/EventKey deduplication ด้วย Incident ที่เข้าเงื่อนไขจริงก่อนเปิด `OPERATIONS_NOTIFICATION_ENABLED`
+
+## Incident auto-refresh — 2026-09-27
+
+- [x] เพิ่ม refresh รายการ Incident อัตโนมัติทุก 60 วินาที พร้อมเวลาอัปเดตล่าสุดและปุ่ม `Refresh now`
+- [x] หยุด auto-refresh เมื่อแท็บไม่ active, เมื่อเปิด Incident drawer/form หรือขณะ action กำลังทำงาน และป้องกัน request ซ้อน
+- [x] UI production build ผ่าน และ Azure Static Web Apps deployment run `36313523411` สำเร็จจาก commit `7567573`
 
 ## Monitoring
 

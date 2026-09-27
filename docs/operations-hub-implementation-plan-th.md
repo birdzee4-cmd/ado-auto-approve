@@ -102,6 +102,7 @@ Checkpoint: การเชื่อมต่อของบัญชีปั�
 - [x] แสดง closure blockers และ Timeline/Audit
 - [x] เพิ่มหน้า Service Mapping แบบ read-only สำหรับ Admin
 - [x] Visual/UAT review ใน Production: Create hybrid, duplicate prevention, sync, close guard และ Assignee display ผ่าน targeted UAT
+- [x] เพิ่ม Incident auto-refresh ทุก 60 วินาที, `Refresh now`, เวลาอัปเดตล่าสุด และ pause guard ระหว่าง drawer/form/action
 
 ## Phase 5 — Automation เพิ่มเติม
 
@@ -114,6 +115,7 @@ Checkpoint: การเชื่อมต่อของบัญชีปั�
 - [x] ตั้ง `OPERATIONS_AUTOMATION_KEY` โดยไม่เปิดเผยค่า และตรวจยืนยันว่า `OPERATIONS_RECONCILIATION_ENABLED=false`, `OPERATIONS_SYNC_ENABLED=false`
 - [x] Trigger dry-run smoke test สำเร็จ 2 runs เมื่อ 2026-09-25; definition ป้องกันข้อมูลด้วย secure inputs/outputs และรายงาน `writeOperations=0`
 - [x] เปลี่ยน scheduler เป็น live reconciliation หลัง Sync/Reconciliation UAT ผ่าน — เริ่มด้วย `scope=RELATED` และ cutover เป็น `scope=ALL` เมื่อ 2026-09-27 หลังปิด Flow v1.3.0; targeted Production verification `INC-2026-000224` synchronized 3/3, failed 0
+- [x] Teams webhook delivery UAT ผ่าน HTTP 204; automatic notification ยังคงปิดจนกว่าจะทดสอบ Audit/EventKey กับ Incident candidate จริง
 - [ ] Duplicate Alert จาก monitoring ยังใช้กติกาของ Production Workflow เดิมจนกว่าจะมีโครงการแยก
 
 ## Phase 6 — Tests และ UAT
