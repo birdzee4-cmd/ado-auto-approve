@@ -62,7 +62,7 @@
 
 - [x] Shadow comparison ของ Primary ผ่านครบสถานะ Closed, Processing และ Reject โดยไม่มี write operation
 - [x] ปิด `Operations Hub - VSTS Reconciliation v1.3.0`; run สุดท้ายก่อนปิดจบด้วย Succeeded
-- [x] เปลี่ยน `operations-hub-reconcile` เป็น live `scope=ALL` ทุก 10 นาที
+- [x] เปลี่ยน `operations-hub-reconcile` เป็น live `scope=ALL`; ปรับรอบจาก 10 นาทีเป็น 5 นาทีหลัง Production UAT
 - [x] Targeted Production UAT `INC-2026-000224` sync Primary, Tier 2 และ App Support สำเร็จ 3/3, failed 0 และผลตรวจซ้ำตรงกับ ADO ทุกใบ
 - [x] แก้ scheduler timeout: ลด batch จาก 100 เป็น 5 และเรียง Incident ตาม `LastSyncedAt` เก่าสุดก่อนเพื่อหมุนงานโดยไม่ starvation; Production run เวลา 17:03 น. สำเร็จภายในประมาณ 26 วินาที
 - [x] Teams notification ยังคงปิดจนกว่าจะทำ UAT การแจ้งเตือนแยก

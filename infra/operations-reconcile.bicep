@@ -16,7 +16,7 @@ param workflowState string = 'Disabled'
 
 @minValue(5)
 @maxValue(60)
-param intervalMinutes int = 10
+param intervalMinutes int = 5
 
 @minValue(1)
 @maxValue(250)

@@ -5,9 +5,9 @@ param(
   [string]$WorkflowName = 'operations-hub-reconcile',
   [string]$EndpointUri = 'https://mango-wave-09cff3700.7.azurestaticapps.net/api/operations-reconcile',
   [ValidateRange(5, 60)]
-  [int]$IntervalMinutes = 10,
+  [int]$IntervalMinutes = 5,
   [ValidateRange(1, 250)]
-  [int]$MaxItems = 100,
+  [int]$MaxItems = 5,
   [switch]$EnableWorkflow,
   [switch]$LiveReconciliation
 )
