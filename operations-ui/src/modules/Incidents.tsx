@@ -271,7 +271,8 @@ function lifecycleIssueMessage(issues: string[]) {
 function isActiveIncident(item: Incident) {
   return !isOperationsClosed(item)
     && item.trackingStatus !== 'CLOSED'
-    && !isWaitingForResolved(item);
+    && !isWaitingForResolved(item)
+    && !isActionRequired(item);
 }
 
 function isWaitingForResolved(item: Incident) {
