@@ -12,7 +12,11 @@ module.exports = async function (context, req) {
     const maximum = Math.max(1, Math.min(Number(req.body && req.body.maxItems) || 100, 250));
     const targetIncidentId = String(req.body && req.body.incidentId || '').trim();
     const reconciliationScope = String(req.body && req.body.scope || '').trim().toUpperCase();
-    const roles = reconciliationScope === 'RELATED' ? ['RELATED'] : undefined;
+    const roles = reconciliationScope === 'RELATED'
+      ? ['RELATED']
+      : reconciliationScope === 'PRIMARY'
+        ? ['PRIMARY']
+        : undefined;
     const incidents = (await sharePoint.listIncidents(1000))
       .filter(item => !targetIncidentId || item.incidentId === targetIncidentId || item.displayId === targetIncidentId)
       .filter(item => item.operationsStatus !== 'CLOSED' && item.workItemSummary && item.workItemSummary.total > 0)

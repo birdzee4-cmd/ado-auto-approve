@@ -608,6 +608,47 @@ test('live reconciliation uses its own gate and does not require the manual sync
   }
 });
 
+test('reconciliation PRIMARY scope compares only primary work items in dry-run', async () => {
+  const originalListIncidents = operationsSharePoint.listIncidents;
+  const originalListAudit = operationsSharePoint.listAudit;
+  const originalPreview = service.previewWorkItemSynchronization;
+  const previousKey = process.env.OPERATIONS_AUTOMATION_KEY;
+  let capturedRoles;
+  process.env.OPERATIONS_AUTOMATION_KEY = 'shadow-key';
+  operationsSharePoint.listIncidents = async () => [{
+    ...incident,
+    operationsStatus: 'OPEN',
+    workItemSummary: { total: 2, open: 2 },
+    workItems: [
+      { workItemId: 7001, role: 'PRIMARY', state: 'Processing' },
+      { workItemId: 7002, role: 'RELATED', state: 'New' }
+    ]
+  }];
+  operationsSharePoint.listAudit = async () => [];
+  service.previewWorkItemSynchronization = async input => {
+    capturedRoles = input.roles;
+    return { readOnly: true, items: [{ workItemId: 7001, role: 'PRIMARY', ok: true }] };
+  };
+  try {
+    const requestContext = { log: { warn() {}, error() {} } };
+    await reconcile(requestContext, {
+      headers: { 'x-operations-automation-key': 'shadow-key' },
+      body: { dryRun: true, compareAdo: true, scope: 'PRIMARY', maxItems: 1 }
+    });
+    const body = JSON.parse(requestContext.res.body);
+    assert.deepEqual(capturedRoles, ['PRIMARY']);
+    assert.equal(body.writeOperations, 0);
+    assert.equal(body.candidates[0].adoComparison.length, 1);
+    assert.equal(body.candidates[0].adoComparison[0].role, 'PRIMARY');
+  } finally {
+    operationsSharePoint.listIncidents = originalListIncidents;
+    operationsSharePoint.listAudit = originalListAudit;
+    service.previewWorkItemSynchronization = originalPreview;
+    if (previousKey == null) delete process.env.OPERATIONS_AUTOMATION_KEY;
+    else process.env.OPERATIONS_AUTOMATION_KEY = previousKey;
+  }
+});
+
 test('reconciliation notifications have stable duplicate keys', () => {
   const relatedOpen = {
     ...incident,
