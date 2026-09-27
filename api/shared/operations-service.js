@@ -372,16 +372,29 @@ async function previewWorkItemSynchronization(input, context, dependencies = {})
       assignedTo: { stored: stored.assignedTo || '', ado: current.assignedTo || '' },
       closedAt: { stored: stored.closedAt || null, ado: current.closedAt || null }
     };
+    const matches = String(comparison.state.stored || '') === String(comparison.state.ado || '')
+      && String(comparison.assignedTo.stored || '') === String(comparison.assignedTo.ado || '')
+      && timestampsEquivalent(comparison.closedAt.stored, comparison.closedAt.ado);
     items.push({
       workItemId: stored.workItemId,
       role: stored.role,
       supportTeam: stored.supportTeam,
       ok: true,
-      matches: Object.values(comparison).every(value => String(value.stored || '') === String(value.ado || '')),
+      matches,
       comparison
     });
   }
   return { incidentId: incident.incidentId, readOnly: true, items };
+}
+
+function timestampsEquivalent(left, right) {
+  if (!left && !right) return true;
+  if (!left || !right) return false;
+  const leftTime = Date.parse(left);
+  const rightTime = Date.parse(right);
+  if (!Number.isFinite(leftTime) || !Number.isFinite(rightTime)) return String(left) === String(right);
+  // SharePoint may truncate sub-second precision while Azure DevOps retains it.
+  return Math.abs(leftTime - rightTime) < 1000;
 }
 
 async function synchronizeWorkItems(input, context, dependencies = {}) {

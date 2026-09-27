@@ -744,3 +744,39 @@ test('work item synchronization preview compares ADO without SharePoint writes o
   assert.equal(writes, 0);
   assert.equal(audits, 0);
 });
+
+test('work item synchronization preview treats sub-second timestamp precision as equivalent', async () => {
+  const result = await service.previewWorkItemSynchronization(
+    { incidentId: incident.incidentId, roles: ['PRIMARY'] },
+    { accessToken: 'test-token', operationsIdentity: {}, adoIdentity: {} },
+    {
+      sharePoint: {
+        getIncident: async () => ({
+          ...incident,
+          workItems: [{
+            workItemId: 7003,
+            role: 'PRIMARY',
+            state: 'Closed',
+            assignedTo: 'Bird',
+            closedAt: '2026-09-26T11:05:58Z'
+          }]
+        })
+      },
+      ado: {
+        getWorkItem: async id => ({
+          ok: true,
+          status: 200,
+          body: {
+            id,
+            fields: {
+              'System.State': 'Closed',
+              'System.AssignedTo': { displayName: 'Bird' },
+              'Microsoft.VSTS.Common.ClosedDate': '2026-09-26T11:05:58.68Z'
+            }
+          }
+        })
+      }
+    }
+  );
+  assert.equal(result.items[0].matches, true);
+});
