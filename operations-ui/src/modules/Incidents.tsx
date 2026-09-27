@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { loadAdoConnection, operationsApi } from '../api';
 import { AdoStateBadge, EmptyState, ErrorState, LoadingState, PageHeading, StatusBadge } from '../components';
 import type { AdoConnectionStatus, AuditEvent, Incident, OperationsCapabilities, RelatedTicketPreview, SupportTeam } from '../types';
@@ -14,6 +14,9 @@ export function Incidents() {
   const [actionError, setActionError] = useState('');
   const [actionMessage, setActionMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+  const refreshInFlight = useRef(false);
   const [connection, setConnection] = useState<AdoConnectionStatus | null>(null);
   const [capabilities, setCapabilities] = useState<OperationsCapabilities>({ createRelated: false, linkExisting: false, synchronize: false, closeIncident: false });
   const [supportTeam, setSupportTeam] = useState<SupportTeam>('APP_SUPPORT');
@@ -38,18 +41,40 @@ export function Incidents() {
     closed: overviewItems.filter(item => item.trackingStatus === 'CLOSED').length
   };
 
-  const load = () => {
+  const load = async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
     setError('');
     const allRequest = operationsApi.incidents('', search);
     const visibleRequest = status && status !== 'ATTENTION' ? operationsApi.incidents(status, search) : allRequest;
-    Promise.all([visibleRequest, allRequest])
-      .then(([visible, all]) => {
-        setItems(status === 'ATTENTION' ? visible.items.filter(item => ['PENDING', 'FAILED', 'NOT_CREATED'].includes(item.trackingStatus) || item.hasLifecycleConflict) : visible.items);
-        setOverviewItems(all.items);
-      })
-      .catch(err => setError(err.message));
+    try {
+      const [visible, all] = await Promise.all([visibleRequest, allRequest]);
+      setItems(status === 'ATTENTION' ? visible.items.filter(item => ['PENDING', 'FAILED', 'NOT_CREATED'].includes(item.trackingStatus) || item.hasLifecycleConflict) : visible.items);
+      setOverviewItems(all.items);
+      setLastUpdatedAt(new Date());
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      refreshInFlight.current = false;
+      setRefreshing(false);
+    }
   };
-  useEffect(load, [status]);
+  useEffect(() => { void load(); }, [status]);
+  useEffect(() => {
+    const refreshWhenSafe = () => {
+      if (document.visibilityState === 'visible' && !busy && !selected) void load();
+    };
+    const intervalId = window.setInterval(refreshWhenSafe, 60_000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refreshWhenSafe();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [status, search, busy, selected]);
   useEffect(() => { loadAdoConnection().then(setConnection).catch(() => setConnection({ connected: false })); }, []);
   useEffect(() => { operationsApi.capabilities().then(setCapabilities).catch(() => setCapabilities({ createRelated: false, linkExisting: false, synchronize: false, closeIncident: false })); }, []);
 
@@ -104,7 +129,7 @@ export function Incidents() {
   };
 
   return <section className="ops-incidents-page">
-    <PageHeading eyebrow="Incident command center" title="Incidents" actions={<span className="ops-live-label"><i /> Live from SharePoint</span>} />
+    <PageHeading eyebrow="Incident command center" title="Incidents" actions={<div className="ops-refresh-status"><span className="ops-live-label"><i /> Live from SharePoint</span><small>{lastUpdatedAt ? `Updated ${formatClock(lastUpdatedAt)}` : 'Waiting for first update'} · Auto every 60 sec</small><button className="ops-button ops-button-secondary" type="button" disabled={refreshing || busy} onClick={() => void load()}>{refreshing ? 'Refreshing…' : 'Refresh now'}</button></div>} />
     <div className="ops-incident-overview" aria-label="Incident overview">
       <button className={status === '' ? 'is-active' : ''} onClick={() => setStatus('')}><span>All incidents</span><strong>{overview.total}</strong><small>Current result set</small></button>
       <button className={status === 'OPEN' ? 'is-active' : ''} onClick={() => setStatus('OPEN')}><span>Open</span><strong>{overview.active}</strong><small>Work in progress</small></button>
@@ -161,6 +186,10 @@ function formatDate(value?: string) {
   return value && Number.isFinite(Date.parse(value))
     ? new Date(value).toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })
     : '-';
+}
+
+function formatClock(value: Date) {
+  return value.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 function formatRelativeDate(value?: string) {
