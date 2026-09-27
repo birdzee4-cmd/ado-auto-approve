@@ -253,7 +253,9 @@ function lifecycleIssueMessage(issues: string[]) {
 }
 
 function isActiveIncident(item: Incident) {
-  return String(item.operationsStatus || '').toUpperCase() !== 'CLOSED';
+  return String(item.operationsStatus || '').toUpperCase() !== 'CLOSED'
+    && item.trackingStatus !== 'CLOSED'
+    && !isWaitingForResolved(item);
 }
 
 function isWaitingForResolved(item: Incident) {
