@@ -352,6 +352,38 @@ async function synchronize(input, context, dependencies = {}) {
   return synchronizeWorkItems(input, context, dependencies);
 }
 
+async function previewWorkItemSynchronization(input, context, dependencies = {}) {
+  const sp = dependencies.sharePoint || defaultSharePoint;
+  const ado = dependencies.ado || defaultAdo;
+  const incident = await requireIncident(sp, input.incidentId);
+  const requestedRoles = Array.isArray(input.roles)
+    ? new Set(input.roles.map(role => String(role || '').trim().toUpperCase()).filter(role => role === 'PRIMARY' || role === 'RELATED'))
+    : null;
+  const items = [];
+  for (const stored of (incident.workItems || []).filter(item => !requestedRoles || requestedRoles.has(String(item.role || '').toUpperCase()))) {
+    const response = await ado.getWorkItem(stored.workItemId, { accessToken: context.accessToken });
+    if (!response.ok || !response.body) {
+      items.push({ workItemId: stored.workItemId, role: stored.role, ok: false, status: response.status });
+      continue;
+    }
+    const current = normalizeAdoWorkItem(response.body);
+    const comparison = {
+      state: { stored: stored.state || '', ado: current.state || '' },
+      assignedTo: { stored: stored.assignedTo || '', ado: current.assignedTo || '' },
+      closedAt: { stored: stored.closedAt || null, ado: current.closedAt || null }
+    };
+    items.push({
+      workItemId: stored.workItemId,
+      role: stored.role,
+      supportTeam: stored.supportTeam,
+      ok: true,
+      matches: Object.values(comparison).every(value => String(value.stored || '') === String(value.ado || '')),
+      comparison
+    });
+  }
+  return { incidentId: incident.incidentId, readOnly: true, items };
+}
+
 async function synchronizeWorkItems(input, context, dependencies = {}) {
   const sp = dependencies.sharePoint || defaultSharePoint;
   const ado = dependencies.ado || defaultAdo;
@@ -556,5 +588,6 @@ module.exports = {
   previewRelatedBatch,
   resolveMapping,
   synchronize,
+  previewWorkItemSynchronization,
   synchronizeWorkItems
 };

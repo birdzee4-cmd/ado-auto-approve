@@ -659,3 +659,47 @@ test('reconciliation dry-run previews notification and checks audit without send
     operationsSharePoint.listAudit = originalListAudit;
   }
 });
+
+test('work item synchronization preview compares ADO without SharePoint writes or audit', async () => {
+  let writes = 0;
+  let audits = 0;
+  const result = await service.previewWorkItemSynchronization(
+    { incidentId: incident.incidentId, roles: ['PRIMARY'] },
+    { accessToken: 'test-token', operationsIdentity: {}, adoIdentity: {} },
+    {
+      sharePoint: {
+        getIncident: async () => ({
+          ...incident,
+          workItems: [
+            { workItemId: 7001, role: 'PRIMARY', state: 'Processing', assignedTo: 'Bird', closedAt: null },
+            { workItemId: 7002, role: 'RELATED', state: 'New' }
+          ]
+        }),
+        updateIncidentRecord: async () => { writes += 1; },
+        updateWorkItemRecord: async () => { writes += 1; },
+        createAudit: async () => { audits += 1; }
+      },
+      ado: {
+        getWorkItem: async id => ({
+          ok: true,
+          status: 200,
+          body: {
+            id,
+            fields: {
+              'System.State': 'Closed',
+              'System.AssignedTo': { displayName: 'Bird' },
+              'Microsoft.VSTS.Common.ClosedDate': '2026-09-27T08:00:00Z'
+            }
+          }
+        })
+      }
+    }
+  );
+  assert.equal(result.readOnly, true);
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0].workItemId, 7001);
+  assert.equal(result.items[0].matches, false);
+  assert.equal(result.items[0].comparison.state.ado, 'Closed');
+  assert.equal(writes, 0);
+  assert.equal(audits, 0);
+});

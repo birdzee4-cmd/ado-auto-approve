@@ -21,10 +21,18 @@ module.exports = async function (context, req) {
       return respond(context, 404, { ok: false, error: 'INCIDENT_NOT_FOUND', incidentId: targetIncidentId });
     }
     if (dryRun) {
-      const candidates = await Promise.all(incidents.map(notificationDryRunCandidate));
+      const compareAdo = Boolean(req.body && req.body.compareAdo === true);
+      const actionContext = automationContext(req);
+      const candidates = await Promise.all(incidents.map(async incident => {
+        const candidate = await notificationDryRunCandidate(incident);
+        if (!compareAdo) return candidate;
+        const comparison = await service.previewWorkItemSynchronization({ incidentId: incident.incidentId, roles }, actionContext);
+        return { ...candidate, adoComparison: comparison.items };
+      }));
       return respond(context, 200, {
         ok: true,
         dryRun: true,
+        compareAdo,
         processed: incidents.length,
         writeOperations: 0,
         candidates
