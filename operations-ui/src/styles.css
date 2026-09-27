@@ -316,6 +316,7 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-closure ul { display: grid; gap: 5px; margin: 0; padding-left: 20px; color: #8d2929; }
 .ops-closure li.is-done { color: #096847; }
 .ops-closure > small { color: #8d2929; }
+.ops-closure > small.ops-closure-warning { color: #8a6107; }
 .ops-timeline small { color: var(--ops-muted); }
 .ops-timeline .ops-audit-identities { color: #554a37; font-weight: 600; }
 

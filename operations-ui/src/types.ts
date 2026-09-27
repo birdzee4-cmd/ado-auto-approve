@@ -113,10 +113,11 @@ export interface Incident {
   operationsClosedAt?: string;
   closeEligibility?: {
     allowed: boolean;
-    readinessStatus?: string;
-    blockingWorkItems: number[];
-    reasons: string[];
-  };
+      readinessStatus?: string;
+      blockingWorkItems: number[];
+      reasons: string[];
+      warnings?: string[];
+    };
 }
 
 export interface ServiceMapping {

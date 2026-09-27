@@ -462,7 +462,7 @@ async function closeIncident(input, context, dependencies = {}) {
     incidentId: incident.incidentId,
     action: 'INCIDENT_CLOSED',
     result: 'SUCCEEDED',
-    detail: `Closed at ${now}`
+    detail: `Closed at ${now}; monitoring status: ${incident.status || 'UNKNOWN'}${eligibility.warnings?.length ? '; manual monitoring override applied' : ''}`
   });
   return { incidentId: incident.incidentId, closed: true, closedAt: now };
 }
@@ -470,17 +470,21 @@ async function closeIncident(input, context, dependencies = {}) {
 function closeEligibility(incident) {
   const items = incident && incident.workItems || [];
   const reasons = [];
+  const warnings = [];
   const primary = items.find(item => item.role === 'PRIMARY');
   if (!primary) reasons.push('Primary work item is missing');
   const blockingItems = items.filter(item => !defaultWorkItems.isClosedState(item.state));
   const blockingWorkItems = blockingItems.map(item => item.workItemId);
   for (const item of blockingItems) reasons.push(`${item.supportTeam || item.role || 'Work item'} #${item.workItemId} is ${item.state || 'not closed'}`);
-  if (String(incident?.status || '').toUpperCase() !== 'RESOLVED') reasons.push('Monitoring alert is not RESOLVED');
+  if (String(incident?.status || '').toUpperCase() !== 'RESOLVED') warnings.push('Monitoring alert is not RESOLVED; manual closure will be recorded in the audit trail');
   return {
     allowed: reasons.length === 0,
-    readinessStatus: reasons.length === 0 ? 'READY_TO_CLOSE' : readinessStatus(items),
+    readinessStatus: reasons.length === 0
+      ? warnings.length > 0 ? 'READY_TO_CLOSE_WITH_WARNING' : 'READY_TO_CLOSE'
+      : readinessStatus(items),
     blockingWorkItems,
-    reasons
+    reasons,
+    warnings
   };
 }
 

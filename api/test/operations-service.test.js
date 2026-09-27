@@ -273,13 +273,20 @@ test('one related work item per team is enforced across different request keys',
   });
 });
 
-test('closure policy requires a primary and all work items closed, without recovery confirmation', () => {
+test('closure policy requires a primary and all work items closed, while unresolved monitoring is an audited warning', () => {
   const blocked = service.closeEligibility(incident);
   assert.equal(blocked.allowed, false);
   assert.deepEqual(blocked.blockingWorkItems, [9101]);
   assert.equal(blocked.readinessStatus, 'TIER1_INVESTIGATING');
   assert.ok(blocked.reasons.includes('TIER1 #9101 is Active'));
-  assert.ok(blocked.reasons.includes('Monitoring alert is not RESOLVED'));
+  assert.ok(blocked.warnings.includes('Monitoring alert is not RESOLVED; manual closure will be recorded in the audit trail'));
+  const manualEligible = service.closeEligibility({
+    ...incident,
+    status: 'FIRING',
+    workItems: [{ workItemId: 9101, role: 'PRIMARY', state: 'Closed' }]
+  });
+  assert.equal(manualEligible.allowed, true);
+  assert.equal(manualEligible.readinessStatus, 'READY_TO_CLOSE_WITH_WARNING');
   const eligible = service.closeEligibility({
     ...incident,
     status: 'RESOLVED',
