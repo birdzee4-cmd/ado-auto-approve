@@ -20,6 +20,7 @@ module.exports = async function (context, req) {
     const incidents = (await sharePoint.listIncidents(1000))
       .filter(item => !targetIncidentId || item.incidentId === targetIncidentId || item.displayId === targetIncidentId)
       .filter(item => item.operationsStatus !== 'CLOSED' && item.workItemSummary && item.workItemSummary.total > 0)
+      .sort((left, right) => reconciliationOrder(left, right))
       .slice(0, maximum);
     if (targetIncidentId && incidents.length === 0) {
       return respond(context, 404, { ok: false, error: 'INCIDENT_NOT_FOUND', incidentId: targetIncidentId });
@@ -81,6 +82,13 @@ function dryRunCandidate(incident) {
     openWorkItems: Number(summary.open || 0),
     lastSyncedAt: incident.lastSyncedAt || ''
   };
+}
+
+function reconciliationOrder(left, right) {
+  const leftTime = Date.parse(left.lastSyncedAt || '') || 0;
+  const rightTime = Date.parse(right.lastSyncedAt || '') || 0;
+  if (leftTime !== rightTime) return leftTime - rightTime;
+  return String(left.displayId || left.incidentId || '').localeCompare(String(right.displayId || right.incidentId || ''));
 }
 
 async function notificationDryRunCandidate(incident) {
@@ -172,3 +180,4 @@ module.exports.authorized = authorized;
 module.exports.dryRunCandidate = dryRunCandidate;
 module.exports.notificationDryRunCandidate = notificationDryRunCandidate;
 module.exports.notificationCandidate = notificationCandidate;
+module.exports.reconciliationOrder = reconciliationOrder;

@@ -515,6 +515,30 @@ test('reconciliation dry-run works with write flags disabled and performs no syn
   }
 });
 
+test('reconciliation processes the oldest synchronized incidents first so small batches do not starve', async () => {
+  const previousKey = process.env.OPERATIONS_AUTOMATION_KEY;
+  const originalListIncidents = operationsSharePoint.listIncidents;
+  process.env.OPERATIONS_AUTOMATION_KEY = 'rotation-key';
+  operationsSharePoint.listIncidents = async () => [
+    { incidentId: 'INC-NEW', displayId: 'INC-2026-000003', operationsStatus: 'OPEN', workItemSummary: { total: 1, open: 1 }, lastSyncedAt: '2026-09-27T09:00:00Z' },
+    { incidentId: 'INC-NEVER', displayId: 'INC-2026-000001', operationsStatus: 'OPEN', workItemSummary: { total: 1, open: 1 }, lastSyncedAt: '' },
+    { incidentId: 'INC-OLD', displayId: 'INC-2026-000002', operationsStatus: 'OPEN', workItemSummary: { total: 1, open: 1 }, lastSyncedAt: '2026-09-26T09:00:00Z' }
+  ];
+  try {
+    const context = { log: { warn() {}, error() {} } };
+    await reconcile(context, {
+      headers: { 'x-operations-automation-key': 'rotation-key' },
+      body: { dryRun: true, maxItems: 2 }
+    });
+    const body = JSON.parse(context.res.body);
+    assert.deepEqual(body.candidates.map(item => item.incidentId), ['INC-NEVER', 'INC-OLD']);
+  } finally {
+    operationsSharePoint.listIncidents = originalListIncidents;
+    if (previousKey == null) delete process.env.OPERATIONS_AUTOMATION_KEY;
+    else process.env.OPERATIONS_AUTOMATION_KEY = previousKey;
+  }
+});
+
 test('reconciliation can target one incident for controlled UAT', async () => {
   const previousKey = process.env.OPERATIONS_AUTOMATION_KEY;
   const originalListIncidents = operationsSharePoint.listIncidents;

@@ -20,7 +20,7 @@ param intervalMinutes int = 10
 
 @minValue(1)
 @maxValue(250)
-param maxItems int = 100
+param maxItems int = 5
 
 @description('When true, authenticate and enumerate candidates without synchronizing or writing audit records.')
 param dryRun bool = true
