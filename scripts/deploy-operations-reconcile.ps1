@@ -7,7 +7,7 @@ param(
   [ValidateRange(5, 60)]
   [int]$IntervalMinutes = 5,
   [ValidateRange(1, 250)]
-  [int]$MaxItems = 5,
+  [int]$MaxItems = 20,
   [switch]$EnableWorkflow,
   [switch]$LiveReconciliation
 )
