@@ -39,5 +39,5 @@ Audit `EventKey` ใช้ป้องกันข้อความสถาน
 - [x] เก็บ automation key ใน secure configuration
 - [x] ทดสอบด้วย `maxItems: 1`
 - [ ] ตรวจ Audit และ Teams notification
-- [x] เปิด schedule หลัง UAT เท่านั้น — live ทุก 10 นาทีแบบ `scope=RELATED`; notification ยังปิด
+- [x] เปิด schedule หลัง UAT เท่านั้น — live ทุก 10 นาทีแบบ `scope=ALL`; Flow v1.3.0 ปิดแล้ว และ notification ยังปิด
 - [ ] ยืนยันว่าปิด Flow ใหม่นี้แล้ว Production Workflow ยังทำงานต่อ

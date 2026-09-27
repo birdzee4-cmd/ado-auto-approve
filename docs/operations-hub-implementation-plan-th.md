@@ -113,7 +113,7 @@ Checkpoint: การเชื่อมต่อของบัญชีปั�
 - [x] สร้าง Scheduled Flow `operations-hub-reconcile` ใน tenant เป็นรอบทุก 10 นาที และเปิดใช้งานเฉพาะ `dryRun=true`
 - [x] ตั้ง `OPERATIONS_AUTOMATION_KEY` โดยไม่เปิดเผยค่า และตรวจยืนยันว่า `OPERATIONS_RECONCILIATION_ENABLED=false`, `OPERATIONS_SYNC_ENABLED=false`
 - [x] Trigger dry-run smoke test สำเร็จ 2 runs เมื่อ 2026-09-25; definition ป้องกันข้อมูลด้วย secure inputs/outputs และรายงาน `writeOperations=0`
-- [x] เปลี่ยน scheduler เป็น live reconciliation หลัง Sync/Reconciliation UAT ผ่าน — เปิดทุก 10 นาทีแบบ `scope=RELATED` เพื่อไม่เขียน Primary ซ้ำกับ Flow v1.3.0; targeted Production verification `INC-2026-000235` synchronized 1/1, failed 0
+- [x] เปลี่ยน scheduler เป็น live reconciliation หลัง Sync/Reconciliation UAT ผ่าน — เริ่มด้วย `scope=RELATED` และ cutover เป็น `scope=ALL` เมื่อ 2026-09-27 หลังปิด Flow v1.3.0; targeted Production verification `INC-2026-000224` synchronized 3/3, failed 0
 - [ ] Duplicate Alert จาก monitoring ยังใช้กติกาของ Production Workflow เดิมจนกว่าจะมีโครงการแยก
 
 ## Phase 6 — Tests และ UAT

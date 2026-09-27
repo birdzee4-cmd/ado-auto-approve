@@ -58,6 +58,14 @@
 - [x] Production Workflow ยังรับ Alert และสร้าง PRIMARY เหมือนเดิม — ตรวจ Primary ล่าสุด `#882975` เมื่อ 2026-09-27 โดย Operations Hub ไม่สร้าง Primary ซ้ำ
 - [x] หลัง Link Existing UAT ปิด feature flags ทั้งหกกลับเป็น `false`: create, link, sync, close, reconciliation และ notification
 
+## Reconciliation cutover — 2026-09-27
+
+- [x] Shadow comparison ของ Primary ผ่านครบสถานะ Closed, Processing และ Reject โดยไม่มี write operation
+- [x] ปิด `Operations Hub - VSTS Reconciliation v1.3.0`; run สุดท้ายก่อนปิดจบด้วย Succeeded
+- [x] เปลี่ยน `operations-hub-reconcile` เป็น live `scope=ALL` ทุก 10 นาที
+- [x] Targeted Production UAT `INC-2026-000224` sync Primary, Tier 2 และ App Support สำเร็จ 3/3, failed 0 และผลตรวจซ้ำตรงกับ ADO ทุกใบ
+- [x] Teams notification ยังคงปิดจนกว่าจะทำ UAT การแจ้งเตือนแยก
+
 ## Monitoring
 
 ติดตาม API 4xx/5xx, `ADO_CREATE_FAILED`, `MAPPING_NOT_FOUND`, `INCIDENT_CLOSE_BLOCKED`, reconciliation HTTP 207, notification failure, duplicate WorkItemId และ `LastSyncedAt` ที่เก่าเกินรอบ schedule
