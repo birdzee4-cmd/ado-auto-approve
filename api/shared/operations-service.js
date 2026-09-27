@@ -447,6 +447,14 @@ async function closeIncident(input, context, dependencies = {}) {
     throw operationalError(502, 'WORK_ITEM_SYNC_FAILED', detail);
   }
   const incident = await requireIncident(sp, input.incidentId);
+  if (String(incident.operationsStatus || '').toUpperCase() === 'CLOSED') {
+    return {
+      incidentId: incident.incidentId,
+      closed: true,
+      duplicate: true,
+      closedAt: incident.operationsClosedAt || null
+    };
+  }
   const eligibility = closeEligibility(incident);
   if (!eligibility.allowed) {
     await audit(sp, context, { incidentId: incident.incidentId, action: 'INCIDENT_CLOSE_BLOCKED', result: 'BLOCKED', detail: eligibility.reasons.join('; ') });

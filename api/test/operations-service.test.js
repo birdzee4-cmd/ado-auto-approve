@@ -439,6 +439,30 @@ test('close synchronizes current ADO state and succeeds without the standalone s
   });
 });
 
+test('close is idempotent when the incident already has a successful closure audit', async () => {
+  await withFlags({ OPERATIONS_SYNC_ENABLED: 'false', OPERATIONS_CLOSE_ENABLED: 'true' }, async () => {
+    const audits = [];
+    const alreadyClosed = {
+      ...incident,
+      status: 'FIRING',
+      operationsStatus: 'CLOSED',
+      operationsClosedAt: '2026-09-27T14:06:51.000Z',
+      workItems: [{ workItemId: 9101, role: 'PRIMARY', state: 'Closed' }]
+    };
+    const sharePoint = {
+      async getIncident() { return alreadyClosed; },
+      async updateIncidentRecord() {},
+      async appendAudit(fields) { audits.push(fields); }
+    };
+    const ado = { async getWorkItem(id) { return { ok: true, body: { id, fields: { 'System.State': 'Closed' } } }; } };
+    const result = await service.closeIncident({ incidentId: incident.incidentId }, actionContext, { sharePoint, ado });
+    assert.equal(result.closed, true);
+    assert.equal(result.duplicate, true);
+    assert.equal(result.closedAt, alreadyClosed.operationsClosedAt);
+    assert.equal(audits.filter(item => item.Action === 'INCIDENT_CLOSED').length, 0);
+  });
+});
+
 test('close is blocked if any Work Item latest state cannot be verified', async () => {
   await withFlags({ OPERATIONS_SYNC_ENABLED: 'false', OPERATIONS_CLOSE_ENABLED: 'true' }, async () => {
     const sharePoint = {
