@@ -629,3 +629,33 @@ test('reconciliation notifications have stable duplicate keys', () => {
   }, 0);
   assert.equal(allClosed, null);
 });
+
+test('reconciliation dry-run previews notification and checks audit without sending', async () => {
+  const originalListAudit = operationsSharePoint.listAudit;
+  const relatedOpen = {
+    ...incident,
+    displayId: 'INC-2026-000235',
+    workItems: [
+      { workItemId: 882975, role: 'PRIMARY', state: 'Processing' },
+      { workItemId: 882976, role: 'RELATED', state: 'New' }
+    ],
+    workItemSummary: { total: 2, closed: 0, open: 2 }
+  };
+  let auditReads = 0;
+  operationsSharePoint.listAudit = async () => {
+    auditReads += 1;
+    return [];
+  };
+  try {
+    const preview = await reconcile.notificationDryRunCandidate(relatedOpen);
+    assert.equal(preview.notification.required, true);
+    assert.equal(preview.notification.duplicate, false);
+    assert.equal(preview.notification.type, 'RELATED_WORK_REMAINS');
+    assert.match(preview.notification.eventKey, /related-open:882976:New$/);
+    assert.match(preview.notification.message, /Incident: INC-2026-000235/);
+    assert.match(preview.notification.message, /#882976 \(New\)/);
+    assert.equal(auditReads, 1);
+  } finally {
+    operationsSharePoint.listAudit = originalListAudit;
+  }
+});

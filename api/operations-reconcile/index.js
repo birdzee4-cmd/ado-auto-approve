@@ -21,12 +21,13 @@ module.exports = async function (context, req) {
       return respond(context, 404, { ok: false, error: 'INCIDENT_NOT_FOUND', incidentId: targetIncidentId });
     }
     if (dryRun) {
+      const candidates = await Promise.all(incidents.map(notificationDryRunCandidate));
       return respond(context, 200, {
         ok: true,
         dryRun: true,
         processed: incidents.length,
         writeOperations: 0,
-        candidates: incidents.map(dryRunCandidate)
+        candidates
       });
     }
     const results = [];
@@ -67,6 +68,25 @@ function dryRunCandidate(incident) {
     workItems: Number(summary.total || 0),
     openWorkItems: Number(summary.open || 0),
     lastSyncedAt: incident.lastSyncedAt || ''
+  };
+}
+
+async function notificationDryRunCandidate(incident) {
+  const candidate = dryRunCandidate(incident);
+  const notification = notificationCandidate(incident, 0);
+  if (!notification) return { ...candidate, notification: { required: false } };
+
+  const existing = await sharePoint.listAudit(incident.incidentId);
+  const duplicate = existing.some(event => event.eventKey === notification.eventKey);
+  return {
+    ...candidate,
+    notification: {
+      required: true,
+      duplicate,
+      type: notification.type,
+      eventKey: notification.eventKey,
+      message: notification.message
+    }
   };
 }
 
@@ -138,4 +158,5 @@ function respond(context, status, payload) {
 
 module.exports.authorized = authorized;
 module.exports.dryRunCandidate = dryRunCandidate;
+module.exports.notificationDryRunCandidate = notificationDryRunCandidate;
 module.exports.notificationCandidate = notificationCandidate;
