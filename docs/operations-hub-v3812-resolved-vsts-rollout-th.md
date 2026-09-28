@@ -1,4 +1,4 @@
-# Operations Hub Incident Automation v3.8.11
+# Operations Hub Incident Automation v3.8.12
 
 ## การเปลี่ยนแปลง
 
@@ -11,11 +11,11 @@
 
 ## ขั้นตอนนำขึ้นระบบ
 
-1. Import `artifacts/power-automate/OperationsHub-IncidentAutomation-v3.8.11.zip`
+1. Import `artifacts/power-automate/OperationsHub-IncidentAutomation-v3.8.12.zip`
 2. เลือก Update existing หรือสร้าง Flow ใหม่ตามขั้นตอน UAT ปัจจุบัน
 3. Map connection เดิมของ Outlook, SharePoint, Teams, Approvals และ Azure DevOps
-4. Turn on v3.8.11
-5. Turn off v3.8.10 หลังยืนยันว่า v3.8.11 เปิดสำเร็จ เพื่อป้องกันอีเมลถูกประมวลผลสอง Flow
+4. Turn on v3.8.12
+5. Turn off v3.8.10 หลังยืนยันว่า v3.8.12 เปิดสำเร็จ เพื่อป้องกันอีเมลถูกประมวลผลสอง Flow
 
 ## UAT ที่แนะนำ
 
@@ -27,6 +27,6 @@
 
 ## Rollback
 
-- Turn off v3.8.11
+- Turn off v3.8.12
 - Turn on v3.8.10
 - การเปลี่ยนกลับไม่ลบ Comment หรือย้อน State ของ VSTS ที่ถูกปิดไปแล้ว
