@@ -362,13 +362,11 @@ async function closeResolvedPrimaryIfReady(input, context, dependencies = {}) {
   const primary = (incident.workItems || []).find(item => item.role === 'PRIMARY');
   if (!primary) return { closed: false, reason: 'primary-missing' };
   if (defaultWorkItems.isClosedState(primary.state)) return { closed: false, reason: 'primary-already-closed' };
+  const commentResult = await ensureResolvedPrimaryComment(incident, primary, sp, ado, context);
   const openRelated = (incident.workItems || []).filter(item => item.role === 'RELATED' && !defaultWorkItems.isClosedState(item.state));
-  if (openRelated.length > 0) return { closed: false, reason: 'related-work-open', blockingWorkItems: openRelated.map(item => item.workItemId) };
+  if (openRelated.length > 0) return { closed: false, reason: 'related-work-open', commented: commentResult.commented, blockingWorkItems: openRelated.map(item => item.workItemId) };
 
-  const resolvedAt = incident.resolvedAt || new Date().toISOString();
-  const comment = `<p><b>✅ MONITORING ALERT RESOLVED</b></p><p>All related Work Items are closed. Operations Hub automatically closed this Tier 1 Work Item.<br><b>Incident:</b> ${escapeHtml(incident.displayId || incident.incidentId)}<br><b>Resolved at:</b> ${escapeHtml(resolvedAt)}</p>`;
   const response = await ado.updateWorkItem(primary.workItemId, [
-    { op: 'add', path: '/fields/System.History', value: comment },
     { op: 'add', path: '/fields/System.State', value: 'Closed' }
   ]);
   if (!response.ok) throw operationalError(response.status || 502, 'PRIMARY_AUTO_CLOSE_FAILED', `Tier 1 Work Item #${primary.workItemId} could not be closed`);
@@ -386,7 +384,29 @@ async function closeResolvedPrimaryIfReady(input, context, dependencies = {}) {
     result: 'SUCCEEDED',
     detail: 'Monitoring is RESOLVED and all related Work Items are closed'
   });
-  return { closed: true, workItemId: primary.workItemId };
+  return { closed: true, commented: commentResult.commented, workItemId: primary.workItemId };
+}
+
+async function ensureResolvedPrimaryComment(incident, primary, sp, ado, context) {
+  const eventKey = `RESOLVED_TIER1_COMMENT:${incident.incidentId}:${primary.workItemId}`;
+  const existing = typeof sp.listAudit === 'function' ? await sp.listAudit(incident.incidentId) : [];
+  if (existing.some(event => event.eventKey === eventKey)) return { commented: false, duplicate: true };
+
+  const resolvedAt = formatBangkokTime(incident.resolvedAt || new Date().toISOString());
+  const comment = `<p><b>✅ MONITORING ALERT RESOLVED</b></p><p>Monitoring reported that this alert is resolved.<br><b>Incident:</b> ${escapeHtml(incident.displayId || incident.incidentId)}<br><b>Resolved at (Asia/Bangkok):</b> ${escapeHtml(resolvedAt)}<br><b>Source:</b> Grafana Monitoring / Operations Hub</p>`;
+  const response = await ado.updateWorkItem(primary.workItemId, [
+    { op: 'add', path: '/fields/System.History', value: comment }
+  ]);
+  if (!response.ok) throw operationalError(response.status || 502, 'PRIMARY_RESOLVED_COMMENT_FAILED', `RESOLVED comment could not be added to Tier 1 Work Item #${primary.workItemId}`);
+  await audit(sp, context, {
+    incidentId: incident.incidentId,
+    workItemId: primary.workItemId,
+    action: 'ADD_RESOLVED_COMMENT_TO_TIER1',
+    result: 'SUCCEEDED',
+    detail: 'Monitoring RESOLVED comment added to the Tier 1 Work Item',
+    eventKey
+  });
+  return { commented: true, duplicate: false };
 }
 
 async function previewWorkItemSynchronization(input, context, dependencies = {}) {
