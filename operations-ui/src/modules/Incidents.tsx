@@ -207,11 +207,11 @@ export function Incidents() {
     {items && filteredItems.length === 0 && <EmptyState title="No matching incidents" detail="Change the filter or wait for Power Automate to write an incident to SharePoint." />}
     {items && filteredItems.length > 0 && <div className="ops-incident-results">
       <div className="ops-results-head"><div><strong>{filteredItems.length} incidents</strong><span>Sorted by Incident number, newest first</span></div><small>Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredItems.length)} of {filteredItems.length}</small></div>
-      <div className="ops-incident-columns" aria-hidden="true"><span>Incident / alert</span><span>Resource / owner</span><span>Work item</span><span>Lifecycle</span><span>Last synced</span><span /></div>
+      <div className="ops-incident-columns" aria-hidden="true"><span>Incident / alert</span><span>Resource / owner</span><span>Progress / VSTS</span><span>Lifecycle</span><span>Last synced</span><span /></div>
       <div className="ops-card-list">{visibleItems.map(item => <button className={`ops-incident-card is-${item.trackingStatus.toLowerCase().replace('_', '-')}${item.hasLifecycleConflict && !isOperationsClosed(item) ? ' has-lifecycle-conflict' : ''}${isOperationsClosed(item) ? ' is-operations-closed' : ''}`} key={item.incidentId} onClick={() => openIncident(item.incidentId)} aria-label={`Open incident ${item.displayId || item.incidentId}`}>
         <span className="ops-incident-main"><span className="ops-incident-id-row"><strong className="ops-incident-display-id">{item.displayId || item.incidentId}</strong><StatusBadge value={isOperationsClosed(item) ? 'CLOSED' : item.hasLifecycleConflict ? 'NEEDS_REVIEW' : item.status} /></span><span className="ops-incident-alert">{humanizeAlert(item.alertName)}</span></span>
         <span className="ops-incident-service"><strong>{item.resource || item.service || 'Unknown resource'}</strong><small>{item.assignedTo || 'Unassigned'} · {item.environment || 'Unknown environment'}</small></span>
-        <span className="ops-cell-stack"><AdoStateBadge value={item.adoState} /><small>{item.workItemId ? `#${item.workItemId}` : 'No work item'}</small></span>
+        <span className="ops-cell-stack ops-incident-progress"><StatusBadge value={incidentProgress(item)} /><small>{item.workItemId ? `VSTS ${item.adoState || 'Unknown'} · #${item.workItemId}` : 'No VSTS work item'}</small></span>
         <StatusBadge value={isOperationsClosed(item) ? 'CLOSED' : isWaitingForResolved(item) ? 'WAITING_RESOLVED' : item.trackingStatus} />
         <span className="ops-cell-stack ops-incident-time"><strong>{formatRelativeDate(item.lastSyncedAt || item.lastSeen)}</strong><small>{formatDate(item.lastSyncedAt || item.lastSeen)}</small></span>
         <span className="ops-row-arrow" aria-hidden="true">→</span>
@@ -221,7 +221,7 @@ export function Incidents() {
     {selected && <div className="ops-drawer-backdrop" onMouseDown={e => { if (e.currentTarget === e.target) setSelected(null); }}><aside className="ops-detail-drawer" aria-label="Incident details">
       <div className="ops-drawer-head"><div><small>Incident ID</small><h2 className="ops-incident-display-id">{selected.incident.displayId || selected.incident.incidentId}</h2><p>{selected.incident.alertName}</p></div><button className="ops-icon-button" onClick={() => setSelected(null)} aria-label="Close details">×</button></div>
       {selected.incident.hasLifecycleConflict && <div className="ops-data-warning ops-data-warning-compact" role="alert"><div><strong>Lifecycle state requires review</strong><span>{lifecycleIssueMessage(selected.incident.lifecycleIssues || [])}</span></div></div>}
-      <dl className="ops-detail-grid"><dt>Alert status</dt><dd><StatusBadge value={selected.incident.status} /></dd><dt>Tracking</dt><dd><StatusBadge value={selected.incident.trackingStatus} /></dd><dt>Workflow</dt><dd>{selected.incident.workflowStatus || '-'}</dd><dt>ADO state</dt><dd><AdoStateBadge value={selected.incident.adoState} /></dd><dt>Service</dt><dd>{selected.incident.service || selected.incident.resource}</dd><dt>Environment</dt><dd>{selected.incident.environment || '-'}</dd><dt>Priority</dt><dd>{selected.incident.priority || '-'}</dd><dt>First seen</dt><dd>{formatDate(selected.incident.firstSeen)}</dd><dt>Resolved at</dt><dd>{formatDate(selected.incident.resolvedAt)}</dd><dt>Duration</dt><dd>{formatDuration(selected.incident.durationMinutes)}</dd><dt>Email received</dt><dd>{formatDate(selected.incident.receivedAt)}</dd><dt>Occurrences</dt><dd>{selected.incident.occurrenceCount ?? '-'}</dd><dt>Assigned to</dt><dd>{selected.incident.assignedTo || '-'}</dd><dt>Work item</dt><dd>{selected.incident.workItemUrl ? <a href={selected.incident.workItemUrl} target="_blank" rel="noreferrer">#{selected.incident.workItemId}</a> : 'Not created'}</dd><dt>SharePoint ID</dt><dd>{selected.incident.sharePointId ?? '-'}</dd><dt>Technical ID</dt><dd><code className="ops-technical-id" title="Technical IncidentId; select to copy">{selected.incident.incidentId || '-'}</code></dd><dt>Last synced</dt><dd>{formatDate(selected.incident.lastSyncedAt)}</dd></dl>
+      <dl className="ops-detail-grid"><dt>Alert status</dt><dd><StatusBadge value={selected.incident.status} /></dd><dt>Progress</dt><dd><StatusBadge value={incidentProgress(selected.incident)} /></dd><dt>Approval</dt><dd><StatusBadge value={approvalStatus(selected.incident)} /></dd><dt>Tracking</dt><dd><StatusBadge value={selected.incident.trackingStatus} /></dd><dt>Workflow</dt><dd>{selected.incident.workflowStatus || '-'}</dd><dt>ADO state</dt><dd><AdoStateBadge value={selected.incident.adoState} /></dd><dt>Service</dt><dd>{selected.incident.service || selected.incident.resource}</dd><dt>Environment</dt><dd>{selected.incident.environment || '-'}</dd><dt>Priority</dt><dd>{selected.incident.priority || '-'}</dd><dt>First seen</dt><dd>{formatDate(selected.incident.firstSeen)}</dd><dt>Resolved at</dt><dd>{formatDate(selected.incident.resolvedAt)}</dd><dt>Duration</dt><dd>{formatDuration(selected.incident.durationMinutes)}</dd><dt>Email received</dt><dd>{formatDate(selected.incident.receivedAt)}</dd><dt>Occurrences</dt><dd>{selected.incident.occurrenceCount ?? '-'}</dd><dt>Assigned to</dt><dd>{selected.incident.assignedTo || '-'}</dd><dt>Work item</dt><dd>{selected.incident.workItemUrl ? <a href={selected.incident.workItemUrl} target="_blank" rel="noreferrer">#{selected.incident.workItemId}</a> : 'Not created'}</dd><dt>SharePoint ID</dt><dd>{selected.incident.sharePointId ?? '-'}</dd><dt>Technical ID</dt><dd><code className="ops-technical-id" title="Technical IncidentId; select to copy">{selected.incident.incidentId || '-'}</code></dd><dt>Last synced</dt><dd>{formatDate(selected.incident.lastSyncedAt)}</dd></dl>
       {alertDetails.length > 0 && <section className="ops-alert-details"><h3>Monitoring Alert Details</h3><dl className="ops-detail-grid">{alertDetails.map(({ label, value }) => <Fragment key={label}><dt>{label}</dt><dd>{value}</dd></Fragment>)}</dl></section>}
       {selected.incident.errorDetail && <div className="ops-error"><strong>Power Automate error</strong><span>{selected.incident.errorDetail}</span></div>}
       <section className="ops-work-items"><div className="ops-section-title"><div><small>AZURE DEVOPS</small><h3>Work Items in this Incident</h3></div><strong>{selected.incident.workItemSummary.closed}/{selected.incident.workItemSummary.total} closed</strong></div>
@@ -299,6 +299,32 @@ function isActionRequired(item: Incident) {
 
 function isOperationsClosed(item: Incident) {
   return String(item.operationsStatus || '').toUpperCase() === 'CLOSED';
+}
+
+function approvalStatus(item: Incident) {
+  const outcome = String(item.approvalOutcome || '').trim().toUpperCase();
+  const workflow = String(item.workflowStatus || '').trim().toUpperCase();
+  if (['APPROVE', 'APPROVED'].includes(outcome) || workflow.includes('APPROVED')) return 'APPROVED';
+  if (['REJECT', 'REJECTED'].includes(outcome) || workflow.includes('REJECTED')) return 'REJECTED';
+  if (item.approvalCompletedAt) return outcome || 'COMPLETED';
+  if (item.approvalRequestedAt || item.approvalId || workflow.includes('APPROVAL')) return 'AWAITING_APPROVAL';
+  return 'NOT_REQUESTED';
+}
+
+function incidentProgress(item: Incident) {
+  if (isOperationsClosed(item)) return 'INCIDENT_CLOSED';
+  const relatedTeams = new Set(item.workItems
+    .filter(workItem => workItem.role === 'RELATED')
+    .map(workItem => workItem.supportTeam));
+  if (relatedTeams.has('APP_SUPPORT') && relatedTeams.has('TIER2')) return 'BOTH_TEAMS_CREATED';
+  if (relatedTeams.has('APP_SUPPORT')) return 'APP_SUPPORT_CREATED';
+  if (relatedTeams.has('TIER2')) return 'TIER2_CREATED';
+  const approval = approvalStatus(item);
+  if (approval === 'APPROVED') return 'APPROVED';
+  if (approval === 'REJECTED') return 'REJECTED';
+  if (approval === 'AWAITING_APPROVAL') return 'AWAITING_APPROVAL';
+  if (item.workItemId) return 'PRIMARY_CREATED';
+  return item.workflowStatus || 'RECEIVED';
 }
 
 function compareIncidentNumberDescending(left: Incident, right: Incident) {
