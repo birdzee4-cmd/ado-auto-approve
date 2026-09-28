@@ -181,6 +181,7 @@ test('create related work item uses delegated identity, persists mapping output,
     assert.equal(result.workItem.role, 'RELATED');
     assert.equal(writes.records[0].SupportTeam, 'APP_SUPPORT');
     assert.equal(writes.records[0].AssignedTo, 'App Support Agent');
+    assert.equal(writes.records[0].WorkItemUrl, 'https://dev.azure.com/Buzzebees/_workitems/edit/9102');
     assert.equal(writes.audits[0].OperationsUserEmail, 'tier1@example.com');
     assert.equal(writes.audits[0].AdoIdentityEmail, 'tier1.ado@example.com');
   });
@@ -206,6 +207,7 @@ test('create persists the mapped assignee when the ADO create response omits ide
     await service.createRelated({ incidentId: incident.incidentId, supportTeam: 'TIER2', idempotencyKey: 'tier2-request' }, actionContext, { sharePoint, ado });
 
     assert.equal(records[0].AssignedTo, 'ITSupport Admin');
+    assert.equal(records[0].WorkItemUrl, 'https://dev.azure.com/Buzzebees/Buzzebees/_workitems/edit/9103');
   });
 });
 

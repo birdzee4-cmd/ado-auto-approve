@@ -56,7 +56,8 @@ function attachWorkItems(incidents, storedWorkItems) {
     const primary = primaryWorkItemFromIncident(incident);
     const candidates = [primary, ...(byIncident.get(String(incident.incidentId || '').toLowerCase()) || [])]
       .filter(Boolean);
-    const workItems = deduplicateWorkItems(candidates, primary && primary.workItemId);
+    const workItems = deduplicateWorkItems(candidates, primary && primary.workItemId)
+      .map(item => item.url ? item : { ...item, url: deriveWorkItemUrl(incident.workItemUrl, item.workItemId) });
     const summary = summarizeWorkItems(workItems);
     return {
       ...incident,
@@ -65,6 +66,24 @@ function attachWorkItems(incidents, storedWorkItems) {
       trackingStatus: aggregateTrackingStatus(incident.trackingStatus, workItems, incident.operationsStatus)
     };
   });
+}
+
+function deriveWorkItemUrl(primaryWorkItemUrl, workItemId) {
+  if (!primaryWorkItemUrl || !Number.isSafeInteger(Number(workItemId))) return '';
+  try {
+    const url = new URL(primaryWorkItemUrl);
+    const host = url.hostname.toLowerCase();
+    if (url.protocol !== 'https:' || (host !== 'dev.azure.com' && !host.endsWith('.visualstudio.com'))) return '';
+    const marker = '/_workitems/edit/';
+    const markerIndex = url.pathname.toLowerCase().indexOf(marker);
+    if (markerIndex < 0) return '';
+    url.pathname = `${url.pathname.slice(0, markerIndex)}${marker}${Number(workItemId)}`;
+    url.search = '';
+    url.hash = '';
+    return url.toString();
+  } catch (error) {
+    return '';
+  }
 }
 
 function deduplicateWorkItems(items, primaryWorkItemId) {

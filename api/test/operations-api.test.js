@@ -248,6 +248,29 @@ test('Related SharePoint work items are composed without changing the primary fi
   assert.equal(composed.trackingStatus, 'OPEN');
 });
 
+test('Related work items without stored URLs inherit a safe Azure DevOps link from the primary item', () => {
+  const incident = {
+    incidentId: 'INC-RELATED-LINK',
+    workItemId: 6101,
+    workItemUrl: 'https://dev.azure.com/Buzzebees/Buzzebees/_workitems/edit/6101',
+    adoState: 'New',
+    trackingStatus: 'OPEN'
+  };
+  const related = {
+    workItemId: 6102,
+    incidentId: incident.incidentId,
+    role: 'RELATED',
+    supportTeam: 'TIER2',
+    state: 'New',
+    url: '',
+    source: 'OPERATIONS_HUB_WORK_ITEMS'
+  };
+
+  const [composed] = workItems.attachWorkItems([incident], [related]);
+
+  assert.equal(composed.workItems[1].url, 'https://dev.azure.com/Buzzebees/Buzzebees/_workitems/edit/6102');
+});
+
 test('Duplicate supporting records cannot replace the existing primary ownership', () => {
   const incidents = [{
     incidentId: 'INC-DUPE',

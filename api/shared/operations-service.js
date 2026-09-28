@@ -153,6 +153,7 @@ async function createRelated(input, context, dependencies = {}) {
     throw operationalError(created.status || 502, 'ADO_CREATE_FAILED', `Azure DevOps create failed (${diagnostic})`);
   }
   const normalized = normalizeAdoWorkItem(created.body);
+  const workItemUrl = normalized.url || buildWorkItemUrl(adoConfig.org, mapping.adoProject, normalized.workItemId);
   await sp.createWorkItemRecord({
     Title: normalized.title || `Work item #${normalized.workItemId}`,
     IncidentId: incident.incidentId,
@@ -160,6 +161,7 @@ async function createRelated(input, context, dependencies = {}) {
     Role: 'RELATED',
     SupportTeam: normalizeTeam(mapping.supportTeam),
     State: normalized.state,
+    WorkItemUrl: workItemUrl,
     AssignedTo: normalized.assignedTo || mapping.assignedTeam || '',
     IdempotencyKey: idempotencyKey
   });
@@ -171,7 +173,7 @@ async function createRelated(input, context, dependencies = {}) {
     detail: `${normalizeTeam(mapping.supportTeam)} via mapping ${mapping.mappingId}; credential ${credentialMode}`,
     eventKey: `create:${idempotencyKey}`
   });
-  return { incident, workItem: { ...normalized, role: 'RELATED', supportTeam: normalizeTeam(mapping.supportTeam) }, mapping, duplicate: false, credentialMode };
+  return { incident, workItem: { ...normalized, url: workItemUrl, role: 'RELATED', supportTeam: normalizeTeam(mapping.supportTeam) }, mapping, duplicate: false, credentialMode };
 }
 
 async function createRelatedBatch(input, context, dependencies = {}) {
@@ -550,6 +552,11 @@ function normalizeAdoWorkItem(item) {
     createdAt: String(fields['System.CreatedDate'] || ''),
     closedAt: String(fields['Microsoft.VSTS.Common.ClosedDate'] || fields['System.ClosedDate'] || '')
   };
+}
+
+function buildWorkItemUrl(organization, project, workItemId) {
+  if (!organization || !project || !Number.isSafeInteger(Number(workItemId))) return '';
+  return `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(project)}/_workitems/edit/${Number(workItemId)}`;
 }
 
 function makeIdempotencyKey(incidentId, supportTeam, requestKey) {
