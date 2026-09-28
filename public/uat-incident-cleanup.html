@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="th">
+<meta charset="utf-8">
+<title>Operations Hub UAT Incident Cleanup</title>
+<style>body{font-family:Segoe UI,sans-serif;max-width:900px;margin:40px auto;padding:0 20px}button{padding:10px 16px;margin-right:8px}pre{white-space:pre-wrap;background:#f4f4f4;padding:16px;border-radius:8px}</style>
+<h1>Operations Hub UAT Incident Cleanup</h1>
+<p>เป้าหมาย: Incident ก่อน 28/09/2026 00:00 น. (Asia/Bangkok) ที่ยังไม่ถูกปิด</p>
+<button id="preview">Preview only</button>
+<button id="execute" disabled>Close previewed incidents</button>
+<pre id="result">ยังไม่ได้ตรวจสอบ</pre>
+<script>
+const cutoff = '2026-09-27T17:00:00.000Z';
+const output = document.querySelector('#result');
+const execute = document.querySelector('#execute');
+async function request(body) {
+  const response = await fetch('/api/operations/maintenance/close-before', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  const result = await response.json();
+  output.textContent = JSON.stringify(result, null, 2);
+  if (!response.ok) throw new Error(result.error || 'Request failed');
+  return result;
+}
+document.querySelector('#preview').addEventListener('click', async () => {
+  execute.disabled = true;
+  const result = await request({ cutoff, dryRun: true });
+  execute.disabled = !(result.data && result.data.count > 0);
+});
+execute.addEventListener('click', async () => {
+  execute.disabled = true;
+  await request({ cutoff, dryRun: false, confirm: 'CLOSE_PREPRODUCTION_INCIDENTS' });
+});
+</script>
+</html>
