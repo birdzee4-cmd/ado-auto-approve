@@ -416,6 +416,60 @@ test('scheduled reconciliation can synchronize related work items without rewrit
   assert.equal(relatedUpdates[0].id, 44);
 });
 
+test('resolved reconciliation closes Tier 1 only after every related work item is closed', async () => {
+  const writes = [];
+  const audits = [];
+  const resolvedIncident = {
+    ...incident,
+    status: 'RESOLVED',
+    resolvedAt: '2026-09-28T03:56:00.000Z',
+    sharePointId: 241,
+    workItems: [
+      { workItemId: 9101, role: 'PRIMARY', supportTeam: 'TIER1', state: 'New' },
+      { workItemId: 9102, role: 'RELATED', supportTeam: 'APP_SUPPORT', state: 'Closed' },
+      { workItemId: 9103, role: 'RELATED', supportTeam: 'TIER2', state: 'Closed' }
+    ]
+  };
+  const sharePoint = {
+    async getIncident() { return resolvedIncident; },
+    async updateIncidentRecord(id, fields) { writes.push({ id, fields }); },
+    async appendAudit(fields) { audits.push(fields); }
+  };
+  const ado = {
+    async updateWorkItem(id, patches) {
+      assert.equal(id, 9101);
+      assert.ok(patches.some(item => item.path === '/fields/System.History' && item.value.includes('MONITORING ALERT RESOLVED')));
+      assert.ok(patches.some(item => item.path === '/fields/System.State' && item.value === 'Closed'));
+      return { ok: true, status: 200, body: { id, fields: { 'System.State': 'Closed', 'Microsoft.VSTS.Common.ClosedDate': '2026-09-28T04:00:00.000Z' } } };
+    }
+  };
+
+  const result = await service.closeResolvedPrimaryIfReady({ incidentId: incident.incidentId }, actionContext, { sharePoint, ado });
+
+  assert.equal(result.closed, true);
+  assert.equal(writes[0].fields.AdoState, 'Closed');
+  assert.equal(audits[0].Action, 'AUTO_CLOSE_TIER1_AFTER_RESOLVED');
+});
+
+test('resolved reconciliation keeps Tier 1 open while a related work item remains open', async () => {
+  const resolvedIncident = {
+    ...incident,
+    status: 'RESOLVED',
+    workItems: [
+      { workItemId: 9101, role: 'PRIMARY', supportTeam: 'TIER1', state: 'New' },
+      { workItemId: 9102, role: 'RELATED', supportTeam: 'APP_SUPPORT', state: 'Processing' }
+    ]
+  };
+  const sharePoint = { async getIncident() { return resolvedIncident; } };
+  const ado = { async updateWorkItem() { throw new Error('Tier 1 must remain open'); } };
+
+  const result = await service.closeResolvedPrimaryIfReady({ incidentId: incident.incidentId }, actionContext, { sharePoint, ado });
+
+  assert.equal(result.closed, false);
+  assert.equal(result.reason, 'related-work-open');
+  assert.deepEqual(result.blockingWorkItems, [9102]);
+});
+
 test('close synchronizes current ADO state and succeeds without the standalone sync flag', async () => {
   await withFlags({ OPERATIONS_SYNC_ENABLED: 'false', OPERATIONS_CLOSE_ENABLED: 'true' }, async () => {
     const updates = [];

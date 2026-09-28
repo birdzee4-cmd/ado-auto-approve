@@ -354,6 +354,41 @@ async function synchronize(input, context, dependencies = {}) {
   return synchronizeWorkItems(input, context, dependencies);
 }
 
+async function closeResolvedPrimaryIfReady(input, context, dependencies = {}) {
+  const sp = dependencies.sharePoint || defaultSharePoint;
+  const ado = dependencies.ado || defaultAdo;
+  const incident = await requireIncident(sp, input.incidentId);
+  if (String(incident.status || '').toUpperCase() !== 'RESOLVED') return { closed: false, reason: 'alert-not-resolved' };
+  const primary = (incident.workItems || []).find(item => item.role === 'PRIMARY');
+  if (!primary) return { closed: false, reason: 'primary-missing' };
+  if (defaultWorkItems.isClosedState(primary.state)) return { closed: false, reason: 'primary-already-closed' };
+  const openRelated = (incident.workItems || []).filter(item => item.role === 'RELATED' && !defaultWorkItems.isClosedState(item.state));
+  if (openRelated.length > 0) return { closed: false, reason: 'related-work-open', blockingWorkItems: openRelated.map(item => item.workItemId) };
+
+  const resolvedAt = incident.resolvedAt || new Date().toISOString();
+  const comment = `<p><b>✅ MONITORING ALERT RESOLVED</b></p><p>All related Work Items are closed. Operations Hub automatically closed this Tier 1 Work Item.<br><b>Incident:</b> ${escapeHtml(incident.displayId || incident.incidentId)}<br><b>Resolved at:</b> ${escapeHtml(resolvedAt)}</p>`;
+  const response = await ado.updateWorkItem(primary.workItemId, [
+    { op: 'add', path: '/fields/System.History', value: comment },
+    { op: 'add', path: '/fields/System.State', value: 'Closed' }
+  ]);
+  if (!response.ok) throw operationalError(response.status || 502, 'PRIMARY_AUTO_CLOSE_FAILED', `Tier 1 Work Item #${primary.workItemId} could not be closed`);
+  const normalized = normalizeAdoWorkItem(response.body || {});
+  const now = new Date().toISOString();
+  await sp.updateIncidentRecord(incident.sharePointId, {
+    AdoState: normalized.state || 'Closed',
+    AdoClosedAt: normalized.closedAt || now,
+    LastSyncedAt: now
+  });
+  await audit(sp, context, {
+    incidentId: incident.incidentId,
+    workItemId: primary.workItemId,
+    action: 'AUTO_CLOSE_TIER1_AFTER_RESOLVED',
+    result: 'SUCCEEDED',
+    detail: 'Monitoring is RESOLVED and all related Work Items are closed'
+  });
+  return { closed: true, workItemId: primary.workItemId };
+}
+
 async function previewWorkItemSynchronization(input, context, dependencies = {}) {
   const sp = dependencies.sharePoint || defaultSharePoint;
   const ado = dependencies.ado || defaultAdo;
@@ -620,6 +655,7 @@ module.exports = {
   previewRelatedBatch,
   resolveMapping,
   synchronize,
+  closeResolvedPrimaryIfReady,
   previewWorkItemSynchronization,
   synchronizeWorkItems
 };

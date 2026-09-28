@@ -52,8 +52,12 @@ module.exports = async function (context, req) {
         const result = await service.synchronizeWorkItems({ incidentId: incident.incidentId, roles }, actionContext);
         const failed = result.items.filter(item => !item.ok).length;
         const refreshed = await sharePoint.getIncident(incident.incidentId);
-        const notification = await notifyIfNeeded(refreshed, failed, actionContext);
-        results.push({ incidentId: incident.incidentId, ok: failed === 0, synchronized: result.items.length, failed, notification });
+        const primaryClosure = failed === 0
+          ? await service.closeResolvedPrimaryIfReady({ incidentId: incident.incidentId }, actionContext)
+          : { closed: false, reason: 'synchronization-failed' };
+        const afterClosure = primaryClosure.closed ? await sharePoint.getIncident(incident.incidentId) : refreshed;
+        const notification = await notifyIfNeeded(afterClosure, failed, actionContext);
+        results.push({ incidentId: incident.incidentId, ok: failed === 0, synchronized: result.items.length, failed, primaryClosure, notification });
       } catch (err) {
         context.log.warn(`Operations reconciliation failed for ${incident.incidentId}: ${err.message}`);
         results.push({ incidentId: incident.incidentId, ok: false, error: err.code || err.message });

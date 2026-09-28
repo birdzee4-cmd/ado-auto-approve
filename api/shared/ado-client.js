@@ -471,6 +471,15 @@ async function addRelatedWorkItemLink(workItemId, relatedWorkItemId, comment, op
   });
 }
 
+async function updateWorkItem(workItemId, patches, options) {
+  const { org } = getConfig();
+  const path = `/${encodeURIComponent(org)}/_apis/wit/workitems/${encodeURIComponent(String(workItemId))}?api-version=7.1`;
+  return adoRequest('PATCH', path, patches, {
+    ...(options || {}),
+    contentType: 'application/json-patch+json'
+  });
+}
+
 /**
  * ดึง Branch Policy Configurations สำหรับ branch ที่ระบุ
  *
@@ -809,6 +818,7 @@ module.exports = {
   getWorkItem,
   createWorkItem,
   addRelatedWorkItemLink,
+  updateWorkItem,
   approvePR,
   rejectPR,
   setAutoComplete,
