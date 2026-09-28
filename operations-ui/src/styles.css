@@ -204,7 +204,7 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-refresh-status .ops-live-label { justify-self: start; }
 .ops-refresh-status > small { color: var(--ops-muted); font-size: .7rem; }
 .ops-refresh-status > button { grid-column: 2; grid-row: 1 / span 2; min-width: 112px; }
-.ops-incident-overview { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 11px; margin-bottom: 14px; }
+.ops-incident-overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 11px; margin-bottom: 14px; }
 .ops-incident-overview button { position: relative; min-height: 112px; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 17px 18px; overflow: hidden; border: 1px solid var(--ops-line); border-radius: 10px; background: var(--ops-paper); color: #292723; text-align: left; cursor: pointer; box-shadow: 0 8px 22px rgba(42,37,27,.055); }
 .ops-incident-overview button::after { content: ''; position: absolute; right: -30px; bottom: -48px; width: 92px; height: 92px; border: 18px solid rgba(245,164,0,.08); border-radius: 50%; }
 .ops-incident-overview button:hover, .ops-incident-overview button.is-active { border-color: var(--ops-yellow); box-shadow: 0 9px 24px rgba(214,140,0,.13); }
@@ -259,6 +259,8 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-status-awaiting-approval, .ops-status-primary-created { color: #7b5607; background: #fff8e5; border-color: #e8cc7f; }
 .ops-status-queued, .ops-status-processing, .ops-status-pending { color: #7b5607; background: #fff8e5; border-color: #e8cc7f; }
 .ops-status-waiting-resolved { color: #7b5607; background: #fff8e5; border-color: #e8cc7f; }
+.ops-status-waiting-support { color: #175b91; background: #edf6ff; border-color: #93c5e8; }
+.ops-status-ready-to-close { color: #096847; background: #ecfaf4; border-color: #9cd8c3; }
 .ops-status-cancelled { color: #67510c; background: #fff8df; border-color: #d9bd65; }
 .ops-status-not-created { color: #57534c; background: #f4f1e9; border-color: #c8c2b5; }
 .ops-ado-state { min-width: 70px; justify-content: center; text-transform: none; }
@@ -285,6 +287,9 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-alert-details .ops-detail-grid { grid-template-columns: 115px 1fr; margin: 8px 0 0; }
 .ops-technical-id { display: inline-block; max-width: 100%; padding: 3px 6px; border-radius: 4px; background: #f0ede5; color: #5c574e; font-size: .78rem; font-weight: 500; user-select: all; }
 .ops-timeline h3 { margin: 24px 0 13px; }
+.ops-timeline-head { display: flex !important; min-height: 0 !important; align-items: center; justify-content: space-between; gap: 12px; }
+.ops-timeline-head h3 { margin: 24px 0 13px; }
+.ops-timeline-head .ops-button { min-height: 32px; margin-top: 11px; padding: 5px 9px; font-size: .7rem; }
 .ops-timeline > div { display: grid; grid-template-columns: 10px 1fr; gap: 12px; min-height: 57px; }
 .ops-timeline > div > span { position: relative; width: 9px; height: 9px; margin-top: 5px; border-radius: 50%; background: var(--ops-yellow); box-shadow: 0 0 0 4px #fff3d3; }
 .ops-timeline > div > span::after { content: ''; position: absolute; top: 13px; left: 4px; width: 1px; height: 40px; background: #d9d1bf; }
