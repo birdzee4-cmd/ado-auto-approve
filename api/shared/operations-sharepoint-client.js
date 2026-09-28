@@ -115,7 +115,7 @@ async function getListId(listName) {
   return list.id;
 }
 
-async function listItems(maxItems, listName) {
+async function listItems(maxItems, listName, filter) {
   const maximum = Math.max(1, Math.min(Number(maxItems) || 500, 1000));
   const siteId = await getSiteId();
   const listId = await getListId(listName);
@@ -124,8 +124,9 @@ async function listItems(maxItems, listName) {
     Authorization: 'Bearer ' + token,
     Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly'
   };
+  const filterQuery = filter ? `&$filter=${encodeURIComponent(filter)}` : '';
   let url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items` +
-    '?$expand=fields&$orderby=lastModifiedDateTime desc&$top=200';
+    `?$expand=fields${filterQuery}&$orderby=lastModifiedDateTime desc&$top=200`;
   const items = [];
 
   while (url && items.length < maximum) {
@@ -142,7 +143,11 @@ async function listIncidents(maxItems) {
   const config = getConfig();
   let incidents = (await listItems(maxItems, config.listName)).map(mapSharePointIncident).sort(compareNewest);
   if (config.auditListName) {
-    const closureEvents = (await listItems(1000, config.auditListName))
+    const closureEvents = (await listItems(
+      1000,
+      config.auditListName,
+      "fields/field_6 eq 'INCIDENT_CLOSED' and fields/field_7 eq 'SUCCEEDED'"
+    ))
       .map(mapAuditEvent)
       .filter(item => item.eventType === 'INCIDENT_CLOSED' && item.result === 'SUCCEEDED');
     incidents = attachIncidentClosureEvents(incidents, closureEvents);
@@ -307,7 +312,8 @@ async function listAudit(incidentId) {
   const config = getConfig();
   if (!config.auditListName) return [];
   const target = String(incidentId || '').toLowerCase();
-  return (await listItems(1000, config.auditListName))
+  const escapedIncidentId = String(incidentId || '').replace(/'/g, "''");
+  return (await listItems(1000, config.auditListName, `fields/field_4 eq '${escapedIncidentId}'`))
     .map(mapAuditEvent)
     .filter(item => item.incidentId.toLowerCase() === target)
     .sort((left, right) => Date.parse(right.timestamp || '') - Date.parse(left.timestamp || ''));
