@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const [sourceRoot, outputRoot] = process.argv.slice(2);
-if (!sourceRoot || !outputRoot) throw new Error('Usage: node build-operations-hub-v3812-resolved-vsts.js <v3.8.10-directory> <output-directory>');
+if (!sourceRoot || !outputRoot) throw new Error('Usage: node build-operations-hub-v3813-resolved-vsts.js <v3.8.10-directory> <output-directory>');
 const source = path.resolve(sourceRoot);
 const output = path.resolve(outputRoot);
 if (!fs.existsSync(source)) throw new Error(`Source package directory does not exist: ${source}`);
@@ -42,15 +42,14 @@ resolved.Scope_Update_Tier1_after_RESOLVED = {
               account: 'buzzebees',
               project: 'Buzzebees',
               type: 'IT Support Case',
-              id: "@int(first(body('Get_latest_open_FIRING')?['value'])?['AdoWorkItemId'])",
-              'workItem/otherFields': {
-                'System.History': "<p><b>✅ MONITORING ALERT RESOLVED</b></p><p><b>Alert:</b> @{outputs('Compose_AlertName')}<br><b>Resource:</b> @{outputs('Compose_Resource')}<br><b>Environment:</b> @{outputs('Compose_Environment')}<br><b>First seen (Asia/Bangkok):</b> @{outputs('Compose_FirstSeenDisplay')}<br><b>Resolved at (Asia/Bangkok):</b> @{outputs('Compose_ResolvedAtDisplay')}<br><b>Incident:</b> @{first(body('Get_latest_open_FIRING')?['value'])?['IncidentId']}<br><b>Source:</b> Grafana Monitoring / Operations Hub</p>"
-              }
+              workItemId: "@int(first(body('Get_latest_open_FIRING')?['value'])?['AdoWorkItemId'])",
+              format: 'Html',
+              text: "<p><b>✅ MONITORING ALERT RESOLVED</b></p><p><b>Alert:</b> @{outputs('Compose_AlertName')}<br><b>Resource:</b> @{outputs('Compose_Resource')}<br><b>Environment:</b> @{outputs('Compose_Environment')}<br><b>First seen (Asia/Bangkok):</b> @{outputs('Compose_FirstSeenDisplay')}<br><b>Resolved at (Asia/Bangkok):</b> @{outputs('Compose_ResolvedAtDisplay')}<br><b>Incident:</b> @{first(body('Get_latest_open_FIRING')?['value'])?['IncidentId']}<br><b>Source:</b> Grafana Monitoring / Operations Hub</p>"
             },
             host: {
               apiId: '/providers/Microsoft.PowerApps/apis/shared_visualstudioteamservices',
               connectionName: 'shared_visualstudioteamservices',
-              operationId: 'UpdateWorkItem'
+              operationId: 'CreateWorkItemCommentAsync'
             },
             authentication: "@parameters('$authentication')"
           }
@@ -146,12 +145,12 @@ resolved.Post_RESOLVED_to_Teams.runAfter = {
   Scope_Update_Tier1_after_RESOLVED: ['Succeeded', 'Failed', 'TimedOut', 'Skipped']
 };
 
-const displayName = 'Operations Hub - Incident Automation v3.8.12';
+const displayName = 'Operations Hub - Incident Automation v3.8.13';
 wrapper.properties.displayName = displayName;
-workflow.contentVersion = '3.8.12.0';
+workflow.contentVersion = '3.8.13.0';
 workflow.metadata.clientLastModifiedTime = new Date().toISOString();
-manifest.details.displayName = 'OperationsHub-IncidentAutomation-v3.8.12';
-manifest.details.description = 'RESOLVED lifecycle: comment through the Azure DevOps connector Other Fields parameter, close Tier 1 only when there are no open related Work Items, and isolate SharePoint/Teams processing from VSTS failures.';
+manifest.details.displayName = 'OperationsHub-IncidentAutomation-v3.8.13';
+manifest.details.description = 'RESOLVED lifecycle: add a Tier 1 comment with the Azure DevOps Create work item comment action, close Tier 1 only when there are no open related Work Items, and isolate SharePoint/Teams processing from VSTS failures.';
 manifest.details.createdTime = new Date().toISOString();
 manifest.resources[assetId].details.displayName = displayName;
 writeJson(definitionPath, wrapper);
