@@ -80,18 +80,6 @@ module.exports = async function (context, req) {
 async function handleWrite(context, req, path, principal) {
   const writer = auth.requireOperationsWriter(context, req);
   if (!writer.ok) return jsonResponse(context, writer.status, writer.body);
-  const body = parseBody(req.body);
-  if (path === 'maintenance/close-before') {
-    const data = await operationsService.closePreproductionIncidentsBefore(body, {
-      correlationId: String(req.headers && (req.headers['x-correlation-id'] || req.headers['x-ms-request-id']) || require('crypto').randomUUID()),
-      operationsIdentity: {
-        id: principal.userId || '',
-        name: principal.userDetails || '',
-        email: principal.userDetails || ''
-      }
-    });
-    return jsonResponse(context, 200, { ok: true, data });
-  }
   const delegated = require('../shared/ado-user-token');
   const token = await delegated.getValidAccessToken(req, principal);
   if (!token.ok) {
@@ -113,6 +101,7 @@ async function handleWrite(context, req, path, principal) {
   if (!match) return jsonResponse(context, 404, { ok: false, error: 'Operations write route not found' }, token.setCookie);
   const incidentId = match[1];
   const action = match[2];
+  const body = parseBody(req.body);
   const actionContext = {
     accessToken: token.accessToken,
     correlationId: String(req.headers && (req.headers['x-correlation-id'] || req.headers['x-ms-request-id']) || require('crypto').randomUUID()),

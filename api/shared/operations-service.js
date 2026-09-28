@@ -532,39 +532,6 @@ async function closeIncident(input, context, dependencies = {}) {
   return { incidentId: incident.incidentId, closed: true, closedAt: now };
 }
 
-async function closePreproductionIncidentsBefore(input, context, dependencies = {}) {
-  const sp = dependencies.sharePoint || defaultSharePoint;
-  const cutoff = new Date(String(input.cutoff || ''));
-  if (!Number.isFinite(cutoff.getTime())) throw operationalError(400, 'INVALID_CUTOFF', 'cutoff must be a valid ISO timestamp');
-  const incidents = await sp.listIncidents(1000);
-  const candidates = incidents.filter(incident => {
-    if (String(incident.operationsStatus || '').toUpperCase() === 'CLOSED') return false;
-    const timestamp = Date.parse(incident.firstSeen || incident.receivedAt || incident.createdAt || '');
-    return Number.isFinite(timestamp) && timestamp < cutoff.getTime();
-  }).sort((left, right) => String(left.displayId || left.incidentId).localeCompare(String(right.displayId || right.incidentId)));
-  const summary = candidates.map(incident => ({
-    incidentId: incident.incidentId,
-    displayId: incident.displayId,
-    firstSeen: incident.firstSeen || incident.receivedAt || incident.createdAt || '',
-    workItemId: incident.workItemId || null
-  }));
-  if (input.dryRun !== false) return { dryRun: true, cutoff: cutoff.toISOString(), count: summary.length, incidents: summary };
-  if (input.confirm !== 'CLOSE_PREPRODUCTION_INCIDENTS') {
-    throw operationalError(400, 'CONFIRMATION_REQUIRED', 'confirm must equal CLOSE_PREPRODUCTION_INCIDENTS');
-  }
-  for (const incident of candidates) {
-    await audit(sp, context, {
-      incidentId: incident.incidentId,
-      workItemId: incident.workItemId || null,
-      action: 'INCIDENT_CLOSED',
-      result: 'SUCCEEDED',
-      detail: `Pre-production UAT cleanup: incident predates ${cutoff.toISOString()}; Azure DevOps verification intentionally bypassed because historical Work Items may have been deleted`,
-      eventKey: `UAT_BULK_CLOSE:${cutoff.toISOString()}:${incident.incidentId}`
-    });
-  }
-  return { dryRun: false, cutoff: cutoff.toISOString(), closed: summary.length, incidents: summary };
-}
-
 function closeEligibility(incident) {
   const items = incident && incident.workItems || [];
   const reasons = [];
@@ -699,7 +666,6 @@ module.exports = {
   buildCreatePatches,
   closeEligibility,
   closeIncident,
-  closePreproductionIncidentsBefore,
   createRelated,
   createRelatedBatch,
   featureEnabled,

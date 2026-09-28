@@ -582,40 +582,6 @@ test('close is blocked if any Work Item latest state cannot be verified', async 
   });
 });
 
-test('pre-production cleanup dry-run selects only open incidents before the Bangkok cutoff', async () => {
-  const sharePoint = {
-    async listIncidents() {
-      return [
-        { incidentId: 'old-open', displayId: 'INC-2026-000001', firstSeen: '2026-09-27T16:59:59.000Z', operationsStatus: '' },
-        { incidentId: 'old-closed', displayId: 'INC-2026-000002', firstSeen: '2026-09-27T10:00:00.000Z', operationsStatus: 'CLOSED' },
-        { incidentId: 'new-open', displayId: 'INC-2026-000003', firstSeen: '2026-09-27T17:00:00.000Z', operationsStatus: '' }
-      ];
-    }
-  };
-  const result = await service.closePreproductionIncidentsBefore({ cutoff: '2026-09-27T17:00:00.000Z', dryRun: true }, actionContext, { sharePoint });
-  assert.equal(result.count, 1);
-  assert.equal(result.incidents[0].incidentId, 'old-open');
-});
-
-test('pre-production cleanup records an explicit idempotent closure audit without ADO verification', async () => {
-  const audits = [];
-  const sharePoint = {
-    async listIncidents() {
-      return [{ incidentId: 'old-open', displayId: 'INC-2026-000001', firstSeen: '2026-09-27T16:00:00.000Z', operationsStatus: '', workItemId: 123 }];
-    },
-    async appendAudit(fields) { audits.push(fields); }
-  };
-  const result = await service.closePreproductionIncidentsBefore({
-    cutoff: '2026-09-27T17:00:00.000Z',
-    dryRun: false,
-    confirm: 'CLOSE_PREPRODUCTION_INCIDENTS'
-  }, actionContext, { sharePoint });
-  assert.equal(result.closed, 1);
-  assert.equal(audits[0].Action, 'INCIDENT_CLOSED');
-  assert.equal(audits[0].Result, 'SUCCEEDED');
-  assert.equal(audits[0].EventKey, 'UAT_BULK_CLOSE:2026-09-27T17:00:00.000Z:old-open');
-});
-
 test('automation key comparison fails closed', () => {
   const previous = process.env.OPERATIONS_AUTOMATION_KEY;
   process.env.OPERATIONS_AUTOMATION_KEY = 'expected-key';
