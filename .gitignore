@@ -15,6 +15,15 @@ public/operations-assets/
 .function-package/
 scratch/
 
+# Temporary build, inspection, validation, and unpacked package folders
+tmp-*/
+
+# Generated local outputs and previews
+outputs/
+
+# Local Power Automate packages, exports, backups, and staging folders
+artifacts/power-automate/
+
 # Ignore local settings
 api/local.settings.json
 

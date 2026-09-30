@@ -32,7 +32,7 @@
 
 - [x] บันทึก diagram และพฤติกรรม Production Workflow ในเอกสาร workflow/runbook
 - [x] สำรอง Power Automate packages และ connection references — Incident Automation v3.8.5 SHA-256 `8AFC72B79E884DCA2075541D92197F2B798D24AA34764DB58082DDC3C0D5AB41`; Reconciliation v1.3.0 SHA-256 `077F7C0418C6139084DA7308B89EF39BB8905A0571F0465C82A72FBB2CE306B3`
-- [x] บันทึก schema และตัวอย่างข้อมูล Existing SharePoint Incident List/Supporting Lists ใน `docs/operations-hub.md`
+- [x] บันทึก schema และตัวอย่างข้อมูล Existing SharePoint Incident List/Supporting Lists ใน `docs/operations-hub/overview/operations-hub.md`
 - [x] บันทึก ADO Project, Work Item Type, Area Path และ state ที่ใช้งานจริง; ตรวจ Primary `#882975` เป็น `IT Support Case`, Area `Buzzebees\\Other\\IT Support Team`, State `Processing`
 - [x] ยืนยันว่า Production Workflow ยังทำงานเหมือนเดิมจาก Primary ล่าสุด `#882975` เมื่อ 2026-09-27
 

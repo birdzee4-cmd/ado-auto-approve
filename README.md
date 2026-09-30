@@ -82,7 +82,7 @@ flowchart LR
 |---|---|
 | `docs/approve-release-workflow.md` | แผนภาพและ guardrails ของ workflow Approve Release |
 | `docs/app-service-portal-runbook.md` | คู่มือติดตั้ง ดูแล และตรวจสอบ App Service Portal |
-| `docs/operations-hub.md` | Architecture, SharePoint schema, API settings และ rollout ของ Operations Hub |
+| `docs/operations-hub/` | Architecture, plans, runbooks และ release evidence ของ Operations Hub |
 | `docs/function-app-api-migration-plan.md` | แผนแยก App Service Portal API ไปยัง Azure Function App |
 | `docs/TECH-REPORT-TH.md` | รายงานสรุปเทคโนโลยี สถาปัตยกรรม และภาพรวมค่าใช้จ่าย |
 | `docs/skills/SKILL.md` | ศูนย์รวมคู่มือกฎเกณฑ์และทักษะการพัฒนาของโปรเจกต์ |

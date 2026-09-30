@@ -43,6 +43,29 @@ emailTrigger.runtimeConfiguration = emailTrigger.runtimeConfiguration || {};
 emailTrigger.runtimeConfiguration.concurrency = { runs: 1 };
 
 const actions = indexActions(workflow.actions || {});
+
+// Keep canonical timestamps unchanged for SharePoint correlation, Incident ID
+// generation, and reconciliation.  Human-facing surfaces use a separate,
+// consistently formatted Bangkok-time value.
+const firstSeenAt = requiredAction(actions, 'Compose_FirstSeenAt');
+const firstSeenDisplay = {
+  type: 'Compose',
+  inputs: "@concat(substring(outputs('Compose_FirstSeenRaw'),0,16),' น. (UTC+7)')",
+  runAfter: { Compose_FirstSeenAt: ['Succeeded'] }
+};
+insertActionAfter(actions, 'Compose_FirstSeenAt', 'Compose_FirstSeenDisplay', firstSeenDisplay);
+moveDirectDependants(actions, 'Compose_FirstSeenAt', 'Compose_FirstSeenDisplay', new Set(['Compose_FirstSeenDisplay']));
+
+const resolvedAt = requiredAction(actions, 'Compose_ResolvedAt');
+const resolvedAtDisplay = {
+  type: 'Compose',
+  inputs: "@concat(substring(outputs('Compose_ResolvedAtRaw'),0,16),' น. (UTC+7)')",
+  runAfter: { Compose_ResolvedAt: ['Succeeded'] }
+};
+insertActionAfter(actions, 'Compose_ResolvedAt', 'Compose_ResolvedAtDisplay', resolvedAtDisplay);
+moveDirectDependants(actions, 'Compose_ResolvedAt', 'Compose_ResolvedAtDisplay', new Set(['Compose_ResolvedAtDisplay']));
+
+replaceHumanFacingTimestamps(workflow.actions);
 const route = requiredAction(actions, 'Condition_AppService_Subject_Routing');
 route.expression = {
   and: [
@@ -86,7 +109,7 @@ wrapper.properties.displayName = displayName;
 
 packageManifest.details.displayName = 'OperationsHub-IncidentAutomation-v3.8.6';
 packageManifest.details.description =
-  'Lifecycle repair: accept App Service FIRING and RESOLVED mail, deduplicate by both message ID fields, restore FIRING incident dedup, and preserve safe serialized ingestion.';
+  'Lifecycle and time-display repair: accept App Service FIRING and RESOLVED mail, preserve canonical system timestamps, show Bangkok time consistently in VSTS, Teams, and Approval, deduplicate by both message ID fields, and preserve safe serialized ingestion.';
 packageManifest.details.createdTime = new Date().toISOString();
 const flowResource = packageManifest.resources && packageManifest.resources[flowResourceId];
 if (!flowResource) throw new Error(`Flow resource ${flowResourceId} was not found in package manifest`);
@@ -115,6 +138,61 @@ function requiredAction(actions, name) {
   const action = actions.get(name);
   if (!action) throw new Error(`Required action was not found: ${name}`);
   return action;
+}
+
+function insertActionAfter(actions, existingName, newName, newAction) {
+  if (actions.has(newName)) throw new Error(`Action already exists: ${newName}`);
+  for (const action of actions.values()) {
+    for (const container of [action.actions, action.else && action.else.actions]) {
+      if (!container || !Object.prototype.hasOwnProperty.call(container, existingName)) continue;
+      const reordered = {};
+      for (const [name, value] of Object.entries(container)) {
+        reordered[name] = value;
+        if (name === existingName) reordered[newName] = newAction;
+      }
+      for (const key of Object.keys(container)) delete container[key];
+      Object.assign(container, reordered);
+      actions.set(newName, newAction);
+      return;
+    }
+  }
+  throw new Error(`Parent container was not found for action: ${existingName}`);
+}
+
+function moveDirectDependants(actions, oldName, newName, excluded) {
+  for (const [name, action] of actions.entries()) {
+    if (excluded.has(name) || !action.runAfter || !action.runAfter[oldName]) continue;
+    action.runAfter[newName] = action.runAfter[oldName];
+    delete action.runAfter[oldName];
+  }
+}
+
+function replaceHumanFacingTimestamps(rootActions) {
+  visit(rootActions);
+
+  function visit(group) {
+    for (const action of Object.values(group || {})) {
+      const parameters = action.inputs && action.inputs.parameters;
+      if (parameters) {
+        for (const [key, value] of Object.entries(parameters)) {
+          if (typeof value !== 'string' || !isHumanFacingParameter(key)) continue;
+          parameters[key] = value
+            .replaceAll("outputs('Compose_FirstSeenAt')", "outputs('Compose_FirstSeenDisplay')")
+            .replaceAll("outputs('Compose_ResolvedAt')", "outputs('Compose_ResolvedAtDisplay')")
+            .replaceAll('<b>First seen:</b>', '<b>First seen (Asia/Bangkok):</b>')
+            .replaceAll('First seen:', 'First seen (Asia/Bangkok):')
+            .replaceAll('<b>Resolved at:</b>', '<b>Resolved at (Asia/Bangkok):</b>')
+            .replaceAll('Resolved at:', 'Resolved at (Asia/Bangkok):');
+        }
+      }
+      visit(action.actions);
+      visit(action.else && action.else.actions);
+    }
+  }
+
+  function isHumanFacingParameter(key) {
+    return key === 'workItem/description' || key === 'body/messageBody' || key.endsWith('/details');
+  }
 }
 
 function readJson(filePath) {

@@ -63,7 +63,10 @@ function buildCreatePatches(incident, mapping, input, primaryWorkItemId, organiz
     input.detail ? `<p><strong>Tier 1 detail:</strong><br>${escapeHtml(input.detail).replace(/\r?\n/g, '<br>')}</p>` : ''
   ].filter(Boolean).join('');
   const description = String(primaryWorkItem?.fields?.['System.Description'] || generatedDescription);
-  const tags = String(mapping.defaultTags || '').trim().replace(/;\s*$/, '');
+  const tags = Array.from(new Set([
+    ...String(mapping.defaultTags || '').split(';').map(tag => tag.trim()).filter(Boolean),
+    'Operations_Hub'
+  ])).join(';');
   const patches = [
     patch('/fields/System.Title', title),
     patch('/fields/System.Description', description),
@@ -267,7 +270,6 @@ function profileFields(supportTeam, incident, primaryWorkItem) {
     'Custom.Environment',
     'Custom.ApprovalStatus',
     'Custom.Permission',
-    'Custom.Owner',
     'Custom.ImpactCase',
     'Custom.PriorityCase',
     'Custom.TYPE_ALL',

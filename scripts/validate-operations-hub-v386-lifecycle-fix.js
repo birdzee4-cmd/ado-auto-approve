@@ -46,6 +46,24 @@ const firingCondition = jsonOf('Condition_FIRING_Incident_Exists');
 check(firingCondition.includes("length(body('Get_items_by_IncidentId')?['value'])"), 'FIRING dedup uses IncidentId lookup results');
 check(!firingCondition.includes('CONTROLLED_TEST_DEDUP_BYPASS_DISABLED'), 'controlled-test dedup bypass is absent');
 
+const firstSeenDisplay = actionMap.get('Compose_FirstSeenDisplay');
+const resolvedAtDisplay = actionMap.get('Compose_ResolvedAtDisplay');
+check(String(firstSeenDisplay && firstSeenDisplay.inputs || '').includes("substring(outputs('Compose_FirstSeenRaw'),0,16)"), 'First seen display uses the source Bangkok wall-clock value');
+check(String(resolvedAtDisplay && resolvedAtDisplay.inputs || '').includes("substring(outputs('Compose_ResolvedAtRaw'),0,16)"), 'Resolved at display uses the source Bangkok wall-clock value');
+check(String(firstSeenDisplay && firstSeenDisplay.inputs || '').includes('(UTC+7)'), 'First seen display identifies UTC+7');
+check(String(resolvedAtDisplay && resolvedAtDisplay.inputs || '').includes('(UTC+7)'), 'Resolved at display identifies UTC+7');
+
+for (const [name, action] of actionMap.entries()) {
+  const parameters = action.inputs && action.inputs.parameters || {};
+  for (const [key, value] of Object.entries(parameters)) {
+    if (typeof value !== 'string' || !isHumanFacingParameter(key)) continue;
+    check(!value.includes("outputs('Compose_FirstSeenAt')"), `${name} ${key} does not expose the canonical FirstSeenAt value`);
+    check(!value.includes("outputs('Compose_ResolvedAt')"), `${name} ${key} does not expose the canonical ResolvedAt value`);
+    if (value.toLowerCase().includes('first seen')) check(value.includes("outputs('Compose_FirstSeenDisplay')"), `${name} ${key} uses the Bangkok First seen display`);
+    if (value.toLowerCase().includes('resolved at')) check(value.includes("outputs('Compose_ResolvedAtDisplay')"), `${name} ${key} uses the Bangkok Resolved at display`);
+  }
+}
+
 const resolvedFilter = parameter('Get_latest_open_FIRING', '$filter');
 for (const invariant of ['Title eq', 'Resource eq', "AlertStatus eq ''FIRING''", 'ResolvedAt eq null', 'FirstSeenAt lt']) {
   check(resolvedFilter.includes(invariant), `RESOLVED correlation includes ${invariant}`);
@@ -69,6 +87,10 @@ function parameter(actionName, parameterName) {
 
 function jsonOf(actionName) {
   return JSON.stringify(actionMap.get(actionName) || {});
+}
+
+function isHumanFacingParameter(key) {
+  return key === 'workItem/description' || key === 'body/messageBody' || key.endsWith('/details');
 }
 
 function check(condition, message) {

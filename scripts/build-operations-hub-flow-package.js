@@ -437,12 +437,12 @@ function buildApprovedActions() {
                 SystemProgram: 'Support Request',
                 TYPE_ALL: 'Problem Server',
                 SUBTYPE: 'Problem Server',
-                Owner: 'Poon',
+                Owner: "@if(contains(outputs('Compose_Approver_Name'),'('),trim(first(split(last(split(outputs('Compose_Approver_Name'),'(')),')'))),'')",
                 'Assigned to': 'natthakit@buzzebees.com',
                 'Priority Case': '2-High'
               },
               'workItem/dynamicFields/Custom.Permission': 'None',
-              'workItem/dynamicFields/System.Tags': 'ITSupport_Pool;ITSupport-ProblemServer;ITSupport-AutoCreateIncidentCase'
+              'workItem/dynamicFields/System.Tags': 'ITSupport_Pool;Operations_Hub;ITSupport-ProblemServer;ITSupport-AutoCreateIncidentCase'
             },
             host: connectorHost('shared_visualstudioteamservices', 'CreateWorkItem'),
             authentication: "@parameters('$authentication')"

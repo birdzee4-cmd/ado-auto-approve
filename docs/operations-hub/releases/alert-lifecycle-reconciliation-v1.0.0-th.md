@@ -46,3 +46,9 @@
 - จำนวน Waiting resolved ลดลงหลังอีเมล RESOLVED มาถึงภายในประมาณ 5–10 นาที
 - ไม่มี Incident ที่ถูก resolve ผิด Resource
 - Teams anomaly ต้องถูกตรวจสอบและแก้ mapping/รูปแบบอีเมลก่อนขยายรองรับ alert ประเภทใหม่
+
+## Hotfix v1.0.1
+
+- ประมวลผลเฉพาะอีเมล `CRITICAL / P1` เพราะ Warning/P2 เป็น notification-only และไม่มี Incident ให้จับคู่
+- กรณี `NO MATCH` จะไม่ส่งข้อความ Teams เนื่องจากอาจเป็นอีเมลย้อนหลังหรือ Incident ที่ไม่มีอยู่ตามการออกแบบ
+- Teams จะแจ้งเฉพาะ `AMBIGUOUS MATCH` เมื่อพบ Incident ที่เป็นไปได้มากกว่าหนึ่งใบและ Flow จะไม่แก้ข้อมูล

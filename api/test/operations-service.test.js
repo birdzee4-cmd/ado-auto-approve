@@ -79,8 +79,8 @@ test('work-item patch uses mapped fields and a Related relation', () => {
   const description = patches.find(item => item.path === '/fields/System.Description').value;
   assert.ok(patches.some(item => item.path === '/fields/System.AreaPath' && item.value === mapping.areaPath));
   assert.ok(patches.some(item => item.path === '/fields/System.AssignedTo' && item.value === mapping.assignedTeam));
-  assert.equal(patches.find(item => item.path === '/fields/System.Tags').value, 'P1');
-  assert.ok(!patches.find(item => item.path === '/fields/System.Tags').value.includes('OperationsHub'));
+  assert.equal(patches.find(item => item.path === '/fields/System.Tags').value, 'P1;Operations_Hub');
+  assert.ok(patches.find(item => item.path === '/fields/System.Tags').value.includes('Operations_Hub'));
   assert.ok(!patches.find(item => item.path === '/fields/System.Tags').value.includes(incident.displayId));
   assert.ok(patches.some(item => item.path === '/relations/-' && item.value.rel === 'System.LinkTypes.Related'));
   assert.ok(description.includes('CRITICAL / P1'));
@@ -121,7 +121,7 @@ test('App Support profile matches the required Production Service Form fields', 
   assert.equal(field('Custom.MonitoringSourceTracker'), 'Not Applicable (N/A)');
   assert.equal(field('Custom.ActualIncidentTime'), incident.firstSeen);
   assert.equal(field('System.AssignedTo'), undefined);
-  assert.equal(field('System.Tags'), 'appsupport_pool; ITSupport_Pool');
+  assert.equal(field('System.Tags'), 'appsupport_pool;ITSupport_Pool;Operations_Hub');
 });
 
 test('Tier 2 profile clones the verified IT Support Case fields from Tier 1', () => {
@@ -147,8 +147,10 @@ test('Tier 2 profile clones the verified IT Support Case fields from Tier 1', ()
   };
   const patches = service.buildCreatePatches(incident, tier2Mapping, {}, 9101, 'Buzzebees', { fields: primaryFields });
   for (const [name, value] of Object.entries(primaryFields)) {
+    if (name === 'Custom.Owner') continue;
     assert.equal(patches.find(item => item.path === `/fields/${name}`)?.value, value);
   }
+  assert.equal(patches.find(item => item.path === '/fields/Custom.Owner'), undefined);
   assert.equal(patches.find(item => item.path === '/fields/System.AssignedTo')?.value, 'ITSupport Admin');
 });
 
