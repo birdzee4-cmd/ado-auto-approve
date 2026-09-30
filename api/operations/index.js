@@ -167,7 +167,7 @@ function dashboardSummary(incidents, query = {}, now = new Date()) {
   const activeItems = items.filter(item => !isOperationsClosed(item));
   const lifecycleConflicts = activeItems.filter(item => item.hasLifecycleConflict && !isWaitingForResolved(item));
   const needsAttention = activeItems
-    .filter(item => isActionRequired(item))
+    .filter(item => isBacklogItem(item))
     .sort((a, b) => incidentTimestamp(b) - incidentTimestamp(a))
     .slice(0, 8);
 

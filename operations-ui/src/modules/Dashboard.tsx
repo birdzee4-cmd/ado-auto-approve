@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { operationsApi } from '../api';
 import { AdoStateBadge, EmptyState, ErrorState, LoadingState, PageHeading, StatusBadge } from '../components';
-import type { DashboardData } from '../types';
+import type { DashboardData, Incident } from '../types';
 
 const emptyDashboard: DashboardData = { totalIncidents: 0, adoWorkItems: 0, openWorkItems: 0, closedWorkItems: 0, awaitingApproval: 0, cancelledItems: 0, failedItems: 0, lifecycleConflicts: 0, recentIncidents: [], selectedDate: '', daily: { newIncidents: 0, resolvedIncidents: 0, adoCreated: 0, failedIncidents: 0, pendingApproval: 0, openBacklog: 0, lifecycleConflicts: 0, incidents: [] }, dailySeries: [], needsAttention: [] };
 
@@ -36,7 +36,7 @@ export function Dashboard() {
         </div>
         <div className="ops-dashboard-grid">
           <TrendChart series={data.dailySeries} />
-          <article className="ops-panel ops-attention-panel"><div className="ops-panel-heading"><div><span>CURRENT BACKLOG</span><h2>Needs attention</h2><small>{data.needsAttention.length ? `Showing ${data.needsAttention.length} of ${data.daily.openBacklog}` : 'No outstanding action'}</small></div><strong>{data.daily.openBacklog}</strong></div>{data.needsAttention.length === 0 ? <EmptyState title="Queue is clear" detail="No open, pending, failed, or lifecycle-conflict incidents." /> : <><div className="ops-attention-list">{data.needsAttention.map(item => <a href={`#/incidents?id=${encodeURIComponent(item.incidentId)}`} key={item.incidentId}><div><strong>{item.displayId}</strong><small>{item.service || item.resource || item.alertName}</small></div><StatusBadge value={item.hasLifecycleConflict ? 'NEEDS_REVIEW' : item.trackingStatus} /></a>)}</div><div className="ops-panel-footer"><a href="#/incidents?status=ATTENTION">View all backlog →</a></div></>}</article>
+          <article className="ops-panel ops-attention-panel"><div className="ops-panel-heading"><div><span>CURRENT BACKLOG</span><h2>Operational backlog</h2><small>{data.needsAttention.length ? `Showing ${data.needsAttention.length} of ${data.daily.openBacklog}` : 'No outstanding work'}</small></div><strong>{data.daily.openBacklog}</strong></div>{data.needsAttention.length === 0 ? <EmptyState title="Queue is clear" detail="No open, pending, failed, waiting, or lifecycle-conflict incidents." /> : <><div className="ops-attention-list">{data.needsAttention.map(item => <a href={`#/incidents?id=${encodeURIComponent(item.incidentId)}`} key={item.incidentId}><div><strong>{item.displayId}</strong><small>{item.service || item.resource || item.alertName}</small></div><StatusBadge value={dashboardQueueStatus(item)} /></a>)}</div><div className="ops-panel-footer"><a href="#/incidents?status=ATTENTION">View all backlog →</a></div></>}</article>
         </div>
         <article className="ops-panel ops-daily-table">
           <div className="ops-panel-heading"><div><span>DAILY INCIDENT LOG</span><h2>Incidents first seen on {formatDay(data.selectedDate)}</h2></div><small>{data.generatedAt ? `Updated ${formatTime(data.generatedAt)}` : 'Current status'}</small></div>
@@ -75,4 +75,25 @@ function formatTime(value?: string) {
   return value && Number.isFinite(Date.parse(value))
     ? new Date(value).toLocaleTimeString('en-US', { timeZone: 'Asia/Bangkok' })
     : '-';
+}
+
+function dashboardQueueStatus(item: Incident) {
+  if (item.hasLifecycleConflict && !isWaitingForResolved(item)) return 'NEEDS_REVIEW';
+  if (isReadyToClose(item)) return 'READY_TO_CLOSE';
+  if (isWaitingForResolved(item)) return 'WAITING_RESOLVED';
+  if (isWaitingForSupport(item)) return 'WAITING_SUPPORT';
+  return item.trackingStatus;
+}
+
+function isWaitingForResolved(item: Incident) {
+  return item.status === 'FIRING' && item.workItemSummary.total > 0 && item.workItemSummary.open === 0;
+}
+
+function isWaitingForSupport(item: Incident) {
+  return !['PENDING', 'FAILED', 'NOT_CREATED'].includes(item.trackingStatus)
+    && item.workItems.some(workItem => workItem.role === 'RELATED' && !['CLOSED', 'DONE', 'REMOVED', 'RESOLVED', 'REJECT', 'REJECTED'].includes(String(workItem.state || '').toUpperCase()));
+}
+
+function isReadyToClose(item: Incident) {
+  return item.status === 'RESOLVED' && item.workItemSummary.total > 0 && item.workItemSummary.open === 0;
 }
