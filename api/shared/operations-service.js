@@ -36,7 +36,8 @@ function resolveMapping(mappings, incident, supportTeam) {
 }
 
 function buildCreatePatches(incident, mapping, input, primaryWorkItemId, organization, primaryWorkItem) {
-  const title = String(input.title || `[${incident.displayId || incident.incidentId}] ${incident.alertName || incident.service}`).trim().slice(0, 255);
+  const defaultTitle = `[${incident.displayId || incident.incidentId}] ${incident.alertName || incident.service || 'Operations Hub incident'}${incident.resource ? ` | ${incident.resource}` : ''}`;
+  const title = String(input.title || defaultTitle).trim().slice(0, 255);
   const alertDetails = [
     ['Current Alert State', incident.status],
     ['Alert', incident.alertName],

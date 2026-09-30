@@ -175,6 +175,7 @@ test('create related work item uses delegated identity, persists mapping output,
         assert.equal(options.accessToken, 'delegated-token');
         assert.ok(patches.some(item => item.path === '/relations/-'));
         assert.ok(patches.some(item => item.path === '/fields/System.Description' && item.value === '<p>Primary description</p>'));
+        assert.equal(patches.find(item => item.path === '/fields/System.Title').value, '[INC-2026-000031] Checkout failure | prd-checkout');
         return { ok: true, status: 200, body: { id: 9102, fields: { 'System.Title': 'App task', 'System.State': 'New', 'System.AssignedTo': { displayName: 'App Support Agent' } }, _links: { html: { href: 'https://dev.azure.com/Buzzebees/_workitems/edit/9102' } } } };
       }
     };
