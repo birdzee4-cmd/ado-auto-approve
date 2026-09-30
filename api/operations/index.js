@@ -193,7 +193,8 @@ function dashboardSummary(incidents, query = {}, now = new Date()) {
         return activeItems.includes(item) && isBacklogItem(item) && openedDate && openedDate <= selectedDate;
       }).length,
       lifecycleConflicts: lifecycleConflicts.length,
-      incidents: dailyItems.slice(0, 25)
+      incidents: dailyItems.slice(0, 25),
+      totalIncidents: dailyItems.length
     },
     dailySeries: buildDailySeries(items, selectedDate, 14),
     needsAttention,

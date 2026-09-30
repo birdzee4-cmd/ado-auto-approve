@@ -171,6 +171,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .ops-panel-heading h2 { margin: 3px 0 0; font-size: 1.22rem; }
 .ops-panel-heading small { color: var(--ops-muted); }
 .ops-table-wrap { overflow-x: auto; }
+.ops-table-wrap table { min-width: 980px; }
+.ops-table-link { color: #7c5000; font-weight: 800; text-decoration: none; }
+.ops-table-link:hover { text-decoration: underline; }
+.ops-muted { color: var(--ops-muted); }
 .mapping-summary { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 14px; color: var(--muted); }
 .mapping-summary span { padding: 8px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); }
 .mapping-summary-enabled strong { color: #2f7d32; }

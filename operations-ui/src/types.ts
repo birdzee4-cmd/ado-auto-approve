@@ -167,6 +167,7 @@ export interface DashboardData {
     pendingApproval: number;
     openBacklog: number;
     lifecycleConflicts?: number;
+    totalIncidents?: number;
     incidents: Incident[];
   };
   dailySeries: Array<{ date: string; opened: number; resolved: number; failed: number }>;
