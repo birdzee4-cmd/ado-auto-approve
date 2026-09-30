@@ -75,6 +75,7 @@ test('mapping resolution is deterministic and mapping-only', () => {
 
 test('work-item patch uses mapped fields and a Related relation', () => {
   const patches = service.buildCreatePatches(incident, mapping, { detail: '<unsafe>' }, 9101, 'Buzzebees');
+  assert.equal(patches.find(item => item.path === '/fields/System.Title').value, '[INC-2026-000031] Checkout failure | prd-checkout');
   const description = patches.find(item => item.path === '/fields/System.Description').value;
   assert.ok(patches.some(item => item.path === '/fields/System.AreaPath' && item.value === mapping.areaPath));
   assert.ok(patches.some(item => item.path === '/fields/System.AssignedTo' && item.value === mapping.assignedTeam));
@@ -442,7 +443,11 @@ test('resolved reconciliation closes Tier 1 only after every related work item i
       updateCalls += 1;
       assert.equal(id, 9101);
       if (updateCalls === 1) {
-        assert.ok(patches.some(item => item.path === '/fields/System.History' && item.value.includes('MONITORING ALERT RESOLVED')));
+        const resolvedComment = patches.find(item => item.path === '/fields/System.History').value;
+        assert.ok(resolvedComment.includes('MONITORING ALERT RESOLVED'));
+        assert.ok(resolvedComment.includes('Case ID:'));
+        assert.ok(resolvedComment.includes('Incident ID:'));
+        assert.ok(resolvedComment.includes('AzureAppServiceHigh5xxRateCritical') || resolvedComment.includes('Checkout failure'));
         assert.equal(patches.some(item => item.path === '/fields/System.State'), false);
       } else {
         assert.ok(patches.some(item => item.path === '/fields/System.State' && item.value === 'Closed'));

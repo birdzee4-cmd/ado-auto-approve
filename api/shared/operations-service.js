@@ -56,7 +56,8 @@ function buildCreatePatches(incident, mapping, input, primaryWorkItemId, organiz
     ['Resolved At', formatBangkokTime(incident.resolvedAt)]
   ].filter(([, value]) => value != null && String(value).trim() !== '');
   const generatedDescription = [
-    `<p><strong>Operations Hub Incident:</strong> ${escapeHtml(incident.displayId || incident.incidentId)}</p>`,
+    `<p><strong>Case ID:</strong> ${escapeHtml(incident.displayId || incident.incidentId)}</p>`,
+    `<p><strong>Incident ID:</strong> ${escapeHtml(incident.incidentId)}</p>`,
     ...alertDetails.map(([label, value]) => `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</p>`),
     input.detail ? `<p><strong>Tier 1 detail:</strong><br>${escapeHtml(input.detail).replace(/\r?\n/g, '<br>')}</p>` : ''
   ].filter(Boolean).join('');
@@ -393,7 +394,7 @@ async function ensureResolvedPrimaryComment(incident, primary, sp, ado, context)
   if (existing.some(event => event.eventKey === eventKey)) return { commented: false, duplicate: true };
 
   const resolvedAt = formatBangkokTime(incident.resolvedAt || new Date().toISOString());
-  const comment = `<p><b>✅ MONITORING ALERT RESOLVED</b></p><p>Monitoring reported that this alert is resolved.<br><b>Incident:</b> ${escapeHtml(incident.displayId || incident.incidentId)}<br><b>Resolved at (Asia/Bangkok):</b> ${escapeHtml(resolvedAt)}<br><b>Source:</b> Grafana Monitoring / Operations Hub</p>`;
+  const comment = `<p><b>✅ MONITORING ALERT RESOLVED</b></p><p>Monitoring reported that this alert is resolved.<br><b>Case ID:</b> ${escapeHtml(incident.displayId || incident.incidentId)}<br><b>Alert:</b> ${escapeHtml(incident.alertName || '')}<br><b>Resource:</b> ${escapeHtml(incident.resource || '')}<br><b>Environment:</b> ${escapeHtml(incident.environment || '')}<br><b>First seen (Asia/Bangkok):</b> ${escapeHtml(formatBangkokTime(incident.firstSeen))}<br><b>Resolved at (Asia/Bangkok):</b> ${escapeHtml(resolvedAt)}<br><b>Incident ID:</b> ${escapeHtml(incident.incidentId)}<br><b>Source:</b> Grafana Monitoring / Operations Hub</p>`;
   const response = await ado.updateWorkItem(primary.workItemId, [
     { op: 'add', path: '/fields/System.History', value: comment }
   ]);
