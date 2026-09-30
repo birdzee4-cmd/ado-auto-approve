@@ -164,8 +164,10 @@ function dashboardSummary(incidents, query = {}, now = new Date()) {
     .sort((a, b) => incidentTimestamp(b) - incidentTimestamp(a));
   const resolvedToday = items.filter(item => dateKey(item.resolvedAt) === selectedDate);
   const adoCreatedToday = items.filter(item => dateKey(item.adoCreatedAt) === selectedDate);
-  const needsAttention = items
-    .filter(item => ['OPEN', 'PENDING', 'FAILED'].includes(item.trackingStatus) || item.hasLifecycleConflict)
+  const activeItems = items.filter(item => !isOperationsClosed(item));
+  const lifecycleConflicts = activeItems.filter(item => item.hasLifecycleConflict && !isWaitingForResolved(item));
+  const needsAttention = activeItems
+    .filter(item => isActionRequired(item))
     .sort((a, b) => incidentTimestamp(b) - incidentTimestamp(a))
     .slice(0, 8);
 
@@ -177,7 +179,7 @@ function dashboardSummary(incidents, query = {}, now = new Date()) {
     awaitingApproval: items.filter(item => item.workflowStatus === 'AWAITING_APPROVAL' || item.trackingStatus === 'PENDING').length,
     cancelledItems: items.filter(item => item.trackingStatus === 'CANCELLED').length,
     failedItems: items.filter(item => item.trackingStatus === 'FAILED').length,
-    lifecycleConflicts: items.filter(item => item.hasLifecycleConflict).length,
+    lifecycleConflicts: lifecycleConflicts.length,
     recentIncidents: items.slice(0, 10),
     selectedDate,
     daily: {
@@ -188,15 +190,56 @@ function dashboardSummary(incidents, query = {}, now = new Date()) {
       pendingApproval: dailyItems.filter(item => item.workflowStatus === 'AWAITING_APPROVAL' || item.trackingStatus === 'PENDING').length,
       openBacklog: items.filter(item => {
         const openedDate = dateKey(item.firstSeen || item.receivedAt || item.createdAt);
-        return (['OPEN', 'PENDING', 'FAILED'].includes(item.trackingStatus) || item.hasLifecycleConflict) && openedDate && openedDate <= selectedDate;
+        return activeItems.includes(item) && isBacklogItem(item) && openedDate && openedDate <= selectedDate;
       }).length,
-      lifecycleConflicts: items.filter(item => item.hasLifecycleConflict).length,
+      lifecycleConflicts: lifecycleConflicts.length,
       incidents: dailyItems.slice(0, 25)
     },
     dailySeries: buildDailySeries(items, selectedDate, 14),
     needsAttention,
     generatedAt: new Date().toISOString()
   };
+}
+
+function isOperationsClosed(item) {
+  return String(item.operationsStatus || '').toUpperCase() === 'CLOSED';
+}
+
+function isWaitingForResolved(item) {
+  return !isOperationsClosed(item)
+    && item.status === 'FIRING'
+    && workItemCount(item, 'total') > 0
+    && workItemCount(item, 'open') === 0;
+}
+
+function isWaitingForSupport(item) {
+  return !isOperationsClosed(item)
+    && !['PENDING', 'FAILED', 'NOT_CREATED'].includes(item.trackingStatus)
+    && (item.workItems || []).some(workItem => workItem.role === 'RELATED' && !isClosedWorkItemState(workItem.state));
+}
+
+function isReadyToClose(item) {
+  return !isOperationsClosed(item)
+    && item.status === 'RESOLVED'
+    && workItemCount(item, 'total') > 0
+    && workItemCount(item, 'open') === 0;
+}
+
+function isActionRequired(item) {
+  return !isOperationsClosed(item)
+    && !isWaitingForSupport(item)
+    && !isWaitingForResolved(item)
+    && !isReadyToClose(item)
+    && (['PENDING', 'FAILED', 'NOT_CREATED'].includes(item.trackingStatus)
+      || Boolean(item.hasLifecycleConflict));
+}
+
+function isBacklogItem(item) {
+  return isActionRequired(item) || isWaitingForSupport(item) || isWaitingForResolved(item) || isReadyToClose(item);
+}
+
+function isClosedWorkItemState(value) {
+  return ['CLOSED', 'DONE', 'REMOVED', 'RESOLVED', 'REJECT', 'REJECTED'].includes(String(value || '').trim().toUpperCase());
 }
 
 function workItemCount(item, kind) {
