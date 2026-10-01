@@ -57,7 +57,7 @@
     { "route": "/api/list-repositories", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/list-repo-refs", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/ado-auth-start", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },
-    { "route": "/api/ado-auth-callback", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },
+    { "route": "/api/ado-auth-callback", "methods": ["GET"], "allowedRoles": ["anonymous"] },
     { "route": "/api/ado-auth-status", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/ado-auth-disconnect", "methods": ["POST"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/auto-approve-settings", "methods": ["GET", "POST"], "allowedRoles": ["it_support_approve", "admin"] },

@@ -91,3 +91,27 @@ test('OAuth callback query parameters are inserted before hash routes', () => {
     '/operations.html?adoConnected=1#/incidents'
   );
 });
+
+test('OAuth callback restores the signed-in principal from encrypted state when SWA omits its auth cookie', () => {
+  assert.deepEqual(
+    callback.resolveCallbackPrincipal(null, {
+      userId: 'operations-user-id',
+      userDetails: 'tier1@example.com'
+    }),
+    {
+      userId: 'operations-user-id',
+      userDetails: 'tier1@example.com'
+    }
+  );
+});
+
+test('OAuth callback prefers the live SWA principal when it is available', () => {
+  const livePrincipal = { userId: 'live-user-id', userDetails: 'live@example.com' };
+  assert.equal(
+    callback.resolveCallbackPrincipal(livePrincipal, {
+      userId: 'state-user-id',
+      userDetails: 'state@example.com'
+    }),
+    livePrincipal
+  );
+});

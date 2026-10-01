@@ -3,14 +3,6 @@ module.exports = async function (context, req) {
     const auth = require('../shared/auth');
     const delegated = require('../shared/ado-user-token');
     const principal = auth.parseClientPrincipal(req.headers);
-    if (!principal) {
-      context.res = {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-        body: { ok: false, error: 'Authentication required' }
-      };
-      return;
-    }
 
     const code = req.query && req.query.code;
     const state = req.query && req.query.state;
@@ -42,7 +34,19 @@ module.exports = async function (context, req) {
       };
       return;
     }
-    if (statePayload.userId && principal.userId && statePayload.userId !== principal.userId) {
+    // SWA can omit its auth cookie on the cross-site OAuth redirect. The
+    // encrypted, short-lived state cookie already contains the authenticated
+    // principal captured by ado-auth-start, so it is safe to restore it here.
+    const callbackPrincipal = resolveCallbackPrincipal(principal, statePayload);
+    if (!callbackPrincipal.userId && !callbackPrincipal.userDetails) {
+      context.res = {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+        body: { ok: false, error: 'Authentication required' }
+      };
+      return;
+    }
+    if (statePayload.userId && principal && principal.userId && statePayload.userId !== principal.userId) {
       context.res = {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
@@ -76,9 +80,9 @@ module.exports = async function (context, req) {
       return;
     }
 
-    const record = delegated.buildTokenRecord(tokenResult.body, principal);
+    const record = delegated.buildTokenRecord(tokenResult.body, callbackPrincipal);
     record.adoIdentity = verified.identity;
-    const tokenCookie = await delegated.createTokenCookie(record, principal);
+    const tokenCookie = await delegated.createTokenCookie(record, callbackPrincipal);
     const returnLocation = appendQuery(statePayload.returnTo || '/dashboard.html', 'adoConnected=1');
     context.res = {
       status: 302,
@@ -109,4 +113,12 @@ function appendQuery(url, query) {
   return base + (base.includes('?') ? '&' : '?') + query + hash;
 }
 
+function resolveCallbackPrincipal(principal, statePayload) {
+  return principal || {
+    userId: statePayload && statePayload.userId || '',
+    userDetails: statePayload && statePayload.userDetails || ''
+  };
+}
+
 module.exports.appendQuery = appendQuery;
+module.exports.resolveCallbackPrincipal = resolveCallbackPrincipal;
