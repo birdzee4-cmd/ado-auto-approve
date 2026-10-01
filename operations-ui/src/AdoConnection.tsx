@@ -8,7 +8,6 @@ export function AdoConnection() {
   const [busy, setBusy] = useState(false);
 
   const refresh = async (recover = false) => {
-    setError('');
     try { setStatus(await loadAdoConnection(recover)); }
     catch (err) { setError((err as Error).message); }
   };
