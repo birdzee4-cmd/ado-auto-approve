@@ -16,7 +16,12 @@ export function AdoConnection() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const returnedFromConnect = params.get('adoConnected') === '1';
-    refresh(returnedFromConnect);
+    const callbackError = params.get('adoError') || '';
+    // Keep the OAuth error visible.  Previously it was removed from the URL
+    // before being rendered, leaving users with only the unhelpful
+    // "Not connected" label.
+    if (callbackError) setError(callbackError);
+    refresh(returnedFromConnect).catch(() => undefined);
     if (params.has('adoConnected') || params.has('adoError')) {
       params.delete('adoConnected');
       params.delete('adoError');
