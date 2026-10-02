@@ -100,7 +100,7 @@ async function handleRestart(context, req) {
   try {
     const client = require('./appservice-client');
     const audit = require('./appservice-audit-client');
-    const result = await client.restartAppService(name, user, resourceGroup);
+    const result = await client.restartAppService(name, user, resourceGroup, body && body.subscriptionId);
     await audit.safeAudit(context, {
       action: 'RestartAppService',
       user,

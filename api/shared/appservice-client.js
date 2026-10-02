@@ -2,13 +2,14 @@ const DEFAULT_SUBSCRIPTION_ID = 'f9bca0f4-1e5b-487f-a2ef-a6578a936ef1';
 const DEFAULT_RESOURCE_GROUP = 'Default-STG-TH-ServicesBackEnd-All-Group';
 const DEFAULT_NAME_PREFIX = 'stg-';
 
-let cachedClient = null;
+const cachedClients = new Map();
 let cachedApps = null;
 let cachedAppsAt = 0;
 const restartCooldowns = new Map();
 
 function getConfig() {
   const subscriptionId = process.env.APP_SERVICE_SUBSCRIPTION_ID || DEFAULT_SUBSCRIPTION_ID;
+  const productionSubscriptionId = String(process.env.APP_SERVICE_PROD_SUBSCRIPTION_ID || '').trim();
   const resourceGroup = process.env.APP_SERVICE_RESOURCE_GROUP || DEFAULT_RESOURCE_GROUP;
   const namePrefix = process.env.APP_SERVICE_NAME_PREFIX || DEFAULT_NAME_PREFIX;
   const allowedNames = String(process.env.APP_SERVICE_ALLOWED_NAMES || '')
@@ -22,6 +23,7 @@ function getConfig() {
   if (!resourceGroup) throw new Error('Missing APP_SERVICE_RESOURCE_GROUP');
   return {
     subscriptionId,
+    productionSubscriptionId,
     resourceGroup,
     allResourceGroups,
     namePrefix,
@@ -40,13 +42,15 @@ function createPublicError(statusCode, message) {
   return err;
 }
 
-function getClient() {
-  if (cachedClient) return cachedClient;
-  const { WebSiteManagementClient } = require('@azure/arm-appservice');
+function getClient(subscriptionId) {
   const cfg = getConfig();
+  const target = subscriptionId || cfg.subscriptionId;
+  if (cachedClients.has(target)) return cachedClients.get(target);
+  const { WebSiteManagementClient } = require('@azure/arm-appservice');
   const credential = getCredential(cfg);
-  cachedClient = new WebSiteManagementClient(credential, cfg.subscriptionId);
-  return cachedClient;
+  const client = new WebSiteManagementClient(credential, target);
+  cachedClients.set(target, client);
+  return client;
 }
 
 function getCredential(cfg) {
@@ -366,17 +370,25 @@ function getArmRequestTimeoutMs() {
   return Math.max(5, seconds) * 1000;
 }
 
-async function getAllowedApp(name, requestedResourceGroup) {
+async function getAllowedApp(name, requestedResourceGroup, requestedSubscriptionId) {
   const target = normalizeName(name);
   if (!target) {
     throw createPublicError(400, 'Missing app service name');
   }
 
   const cfg = getConfig();
+  const subscriptionId = requestedSubscriptionId || cfg.subscriptionId;
+  if (![cfg.subscriptionId, cfg.productionSubscriptionId].filter(Boolean).includes(subscriptionId)) {
+    throw createPublicError(403, 'Subscription is outside the configured allow-list');
+  }
   if (!isAllowedAppName(target, cfg.namePrefix, cfg.allowedNames, cfg.allowAll)) {
     throw createPublicError(403, 'App Service is outside the configured allow-list scope');
   }
 
+  if (subscriptionId !== cfg.subscriptionId && cfg.allowAll && requestedResourceGroup) {
+    const direct = await getClient(subscriptionId).webApps.get(String(requestedResourceGroup), target);
+    if (direct) return mapApp(direct, String(requestedResourceGroup));
+  }
   const apps = await listAllowedAppServices(false);
   const found = apps.find(app => app.name.toLowerCase() === target.toLowerCase());
   if (found) return found;
@@ -385,7 +397,7 @@ async function getAllowedApp(name, requestedResourceGroup) {
   const fresh = refreshed.find(app => app.name.toLowerCase() === target.toLowerCase());
   if (fresh) return fresh;
   if (cfg.allowAll && requestedResourceGroup) {
-    const direct = await getClient().webApps.get(String(requestedResourceGroup), target);
+    const direct = await getClient(subscriptionId).webApps.get(String(requestedResourceGroup), target);
     if (direct) return mapApp(direct, String(requestedResourceGroup));
   }
 
@@ -408,9 +420,9 @@ async function getAppSettings(name) {
   };
 }
 
-async function restartAppService(name, actor, resourceGroup) {
+async function restartAppService(name, actor, resourceGroup, subscriptionId) {
   const cfg = getConfig();
-  const app = await getAllowedApp(name, resourceGroup);
+  const app = await getAllowedApp(name, resourceGroup, subscriptionId);
   const key = app.name.toLowerCase();
   const now = Date.now();
   const cooldown = restartCooldowns.get(key);

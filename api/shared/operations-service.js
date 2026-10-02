@@ -30,7 +30,10 @@ async function restartAppService(input, context, dependencies = {}) {
   const actor = context.operationsIdentity?.email || context.operationsIdentity?.name || 'Operations Hub';
   let result;
   try {
-    result = await appService.restartAppService(resource, incident.resourceGroup, context.principalHeader);
+    const subscriptionId = String(incident.environment || '').toLowerCase().includes('prod')
+      ? process.env.APP_SERVICE_PROD_SUBSCRIPTION_ID
+      : process.env.APP_SERVICE_SUBSCRIPTION_ID;
+    result = await appService.restartAppService(resource, incident.resourceGroup, subscriptionId, context.principalHeader);
     const detail = [
       '✅ TIER1 ACTION COMPLETED', '',
       'Action: Restart App Service', `Resource: ${resource}`,
