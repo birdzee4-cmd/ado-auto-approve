@@ -13,6 +13,7 @@ function getConfig() {
   const namePrefix = process.env.APP_SERVICE_NAME_PREFIX || DEFAULT_NAME_PREFIX;
   const allowedNames = String(process.env.APP_SERVICE_ALLOWED_NAMES || '')
     .split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
+  const allowAll = String(process.env.APP_SERVICE_ALLOW_ALL || '').trim().toLowerCase() === 'true';
   const allResourceGroups = isAllResourceGroupsScope(resourceGroup);
   const tenantId = process.env.AZURE_TENANT_ID || '36f04887-ce29-484c-900e-f23ad3f60b77';
   const cacheTtlMs = Math.max(5000, Number(process.env.APP_SERVICE_CACHE_TTL_SECONDS || 60) * 1000);
@@ -25,6 +26,7 @@ function getConfig() {
     allResourceGroups,
     namePrefix,
     allowedNames,
+    allowAll,
     tenantId,
     cacheTtlMs,
     restartCooldownMs
@@ -208,7 +210,7 @@ async function listResourceGroupAppServices(cfg) {
   const apps = [];
   for await (const app of client.webApps.listByResourceGroup(cfg.resourceGroup)) {
     const row = mapApp(app, cfg.resourceGroup);
-    if (isAllowedAppName(row.name, cfg.namePrefix, cfg.allowedNames)) apps.push(row);
+    if (isAllowedAppName(row.name, cfg.namePrefix, cfg.allowedNames, cfg.allowAll)) apps.push(row);
   }
   return apps;
 }
@@ -257,7 +259,7 @@ async function listSubscriptionAppServicesFromResourceGraph(cfg) {
     const rows = Array.isArray(response.data) ? response.data : [];
     rows.forEach(row => {
       const app = mapResourceGraphApp(row);
-      if (isAllowedAppName(app.name, cfg.namePrefix, cfg.allowedNames)) apps.push(app);
+      if (isAllowedAppName(app.name, cfg.namePrefix, cfg.allowedNames, cfg.allowAll)) apps.push(app);
     });
     skipToken = response.skipToken || response.$skipToken || '';
     pageCount += 1;
@@ -289,7 +291,7 @@ async function listSubscriptionAppServicesFromArmResources(cfg) {
     const rows = Array.isArray(response.value) ? response.value : [];
     rows.forEach(row => {
       const app = mapResourceApp(row);
-      if (isAllowedAppName(app.name, cfg.namePrefix, cfg.allowedNames)) apps.push(app);
+      if (isAllowedAppName(app.name, cfg.namePrefix, cfg.allowedNames, cfg.allowAll)) apps.push(app);
     });
     url = response.nextLink || '';
   }
@@ -371,7 +373,7 @@ async function getAllowedApp(name) {
   }
 
   const cfg = getConfig();
-  if (!isAllowedAppName(target, cfg.namePrefix, cfg.allowedNames)) {
+  if (!isAllowedAppName(target, cfg.namePrefix, cfg.allowedNames, cfg.allowAll)) {
     throw createPublicError(403, 'App Service is outside the configured allow-list scope');
   }
 
@@ -437,10 +439,10 @@ function normalizeName(name) {
   return String(name || '').trim();
 }
 
-function isAllowedAppName(name, prefix, allowedNames = []) {
+function isAllowedAppName(name, prefix, allowedNames = [], allowAll = false) {
   const value = normalizeName(name).toLowerCase();
   const targetPrefix = String(prefix || DEFAULT_NAME_PREFIX).trim().toLowerCase();
-  return !!value && ((!!targetPrefix && value.startsWith(targetPrefix)) || allowedNames.includes(value));
+  return !!value && (allowAll || (!!targetPrefix && value.startsWith(targetPrefix)) || allowedNames.includes(value));
 }
 
 function isAllResourceGroupsScope(resourceGroup) {
