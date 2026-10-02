@@ -47,13 +47,23 @@ function getClient(subscriptionId) {
   const target = subscriptionId || cfg.subscriptionId;
   if (cachedClients.has(target)) return cachedClients.get(target);
   const { WebSiteManagementClient } = require('@azure/arm-appservice');
-  const credential = getCredential(cfg);
+  const credential = getCredential(cfg, target);
   const client = new WebSiteManagementClient(credential, target);
   cachedClients.set(target, client);
   return client;
 }
 
-function getCredential(cfg) {
+function getCredential(cfg, subscriptionId) {
+  if (subscriptionId === cfg.productionSubscriptionId) {
+    const tenantId = String(process.env.AZURE_PROD_TENANT_ID || '').trim();
+    const clientId = String(process.env.AZURE_PROD_CLIENT_ID || '').trim();
+    const clientSecret = String(process.env.AZURE_PROD_CLIENT_SECRET || '').trim();
+    if (!tenantId || !clientId || !clientSecret) {
+      throw createPublicError(503, 'Production Azure credential is not configured');
+    }
+    const { ClientSecretCredential } = require('@azure/identity');
+    return new ClientSecretCredential(tenantId, clientId, clientSecret);
+  }
   const rawManagedIdentity = createRawManagedIdentityCredential();
   if (rawManagedIdentity) return rawManagedIdentity;
 
