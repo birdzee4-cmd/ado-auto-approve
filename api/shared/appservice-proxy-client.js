@@ -56,11 +56,11 @@ async function forward(context, req, routeName) {
   return true;
 }
 
-async function restartAppService(name, principalHeader) {
+async function restartAppService(name, resourceGroup, principalHeader) {
   const baseUrl = getBaseUrl();
   const secret = process.env.APP_SERVICE_PROXY_SECRET;
   if (!baseUrl || !secret) throw Object.assign(new Error('App Service backend proxy is not configured'), { status: 503 });
-  const body = JSON.stringify({ name });
+  const body = JSON.stringify({ name, resourceGroup });
   const headers = {
     Accept: 'application/json',
     'Content-Type': 'application/json',

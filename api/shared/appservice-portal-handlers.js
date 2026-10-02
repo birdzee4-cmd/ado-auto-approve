@@ -95,11 +95,12 @@ async function handleRestart(context, req) {
     try { body = JSON.parse(body); } catch (e) { body = {}; }
   }
   const name = String(body && body.name || '').trim();
+  const resourceGroup = String(body && body.resourceGroup || '').trim();
 
   try {
     const client = require('./appservice-client');
     const audit = require('./appservice-audit-client');
-    const result = await client.restartAppService(name, user);
+    const result = await client.restartAppService(name, user, resourceGroup);
     await audit.safeAudit(context, {
       action: 'RestartAppService',
       user,

@@ -366,7 +366,7 @@ function getArmRequestTimeoutMs() {
   return Math.max(5, seconds) * 1000;
 }
 
-async function getAllowedApp(name) {
+async function getAllowedApp(name, requestedResourceGroup) {
   const target = normalizeName(name);
   if (!target) {
     throw createPublicError(400, 'Missing app service name');
@@ -384,6 +384,10 @@ async function getAllowedApp(name) {
   const refreshed = await listAllowedAppServices(true);
   const fresh = refreshed.find(app => app.name.toLowerCase() === target.toLowerCase());
   if (fresh) return fresh;
+  if (cfg.allowAll && requestedResourceGroup) {
+    const direct = await getClient().webApps.get(String(requestedResourceGroup), target);
+    if (direct) return mapApp(direct, String(requestedResourceGroup));
+  }
 
   throw createPublicError(404, 'App Service not found in allowed staging scope');
 }
@@ -404,9 +408,9 @@ async function getAppSettings(name) {
   };
 }
 
-async function restartAppService(name, actor) {
+async function restartAppService(name, actor, resourceGroup) {
   const cfg = getConfig();
-  const app = await getAllowedApp(name);
+  const app = await getAllowedApp(name, resourceGroup);
   const key = app.name.toLowerCase();
   const now = Date.now();
   const cooldown = restartCooldowns.get(key);
