@@ -56,6 +56,30 @@ async function forward(context, req, routeName) {
   return true;
 }
 
+async function restartAppService(name, principalHeader) {
+  const baseUrl = getBaseUrl();
+  const secret = process.env.APP_SERVICE_PROXY_SECRET;
+  if (!baseUrl || !secret) throw Object.assign(new Error('App Service backend proxy is not configured'), { status: 503 });
+  const body = JSON.stringify({ name });
+  const headers = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    'Content-Length': Buffer.byteLength(body),
+    'x-appservice-portal-proxy-secret': secret
+  };
+  if (principalHeader) headers['x-ms-client-principal'] = principalHeader;
+  const result = await request('POST', new URL(baseUrl + '/api/restart-appservice'), headers, body);
+  let payload;
+  try { payload = JSON.parse(result.body || '{}'); } catch (err) { payload = {}; }
+  if (result.status < 200 || result.status >= 300 || payload.ok === false) {
+    const error = new Error(payload.detail || payload.error || 'Failed to restart App Service');
+    error.status = result.status;
+    error.retryAfterSeconds = payload.retryAfterSeconds;
+    throw error;
+  }
+  return payload;
+}
+
 function getBaseUrl() {
   return String(process.env.APP_SERVICE_FUNCTION_BASE_URL || '').trim().replace(/\/+$/, '');
 }
@@ -163,5 +187,6 @@ function sanitizeError(err) {
 
 module.exports = {
   isConfigured,
-  forward
+  forward,
+  restartAppService
 };

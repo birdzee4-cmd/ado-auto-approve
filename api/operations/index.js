@@ -111,7 +111,8 @@ async function handleWrite(context, req, path, principal) {
       name: principal.userDetails || '',
       email: principal.userDetails || ''
     },
-    adoIdentity: verified.identity
+    adoIdentity: verified.identity,
+    principalHeader: req.headers && (req.headers['x-ms-client-principal'] || req.headers['X-MS-CLIENT-PRINCIPAL'] || '')
   };
   let data;
   if (action === 'work-items/related/preview') data = await operationsService.previewRelatedBatch({ ...body, incidentId }, actionContext);

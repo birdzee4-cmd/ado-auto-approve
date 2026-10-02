@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const defaultSharePoint = require('./operations-sharepoint-client');
 const defaultAdo = require('./ado-client');
 const defaultWorkItems = require('./operations-work-items');
-const defaultAppService = require('./appservice-client');
+const defaultAppService = require('./appservice-proxy-client');
 
 function featureEnabled(name) {
   return String(process.env[name] || '').trim().toLowerCase() === 'true';
@@ -30,7 +30,7 @@ async function restartAppService(input, context, dependencies = {}) {
   const actor = context.operationsIdentity?.email || context.operationsIdentity?.name || 'Operations Hub';
   let result;
   try {
-    result = await appService.restartAppService(resource, actor);
+    result = await appService.restartAppService(resource, context.principalHeader);
     const detail = [
       '✅ TIER1 ACTION COMPLETED', '',
       'Action: Restart App Service', `Resource: ${resource}`,
