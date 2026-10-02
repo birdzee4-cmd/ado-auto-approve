@@ -98,7 +98,10 @@ function buildCreatePatches(incident, mapping, input, primaryWorkItemId, organiz
     ...alertDetails.map(([label, value]) => `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</p>`),
     input.detail ? `<p><strong>Tier 1 detail:</strong><br>${escapeHtml(input.detail).replace(/\r?\n/g, '<br>')}</p>` : ''
   ].filter(Boolean).join('');
-  const description = String(primaryWorkItem?.fields?.['System.Description'] || generatedDescription);
+  const sourceDescription = String(primaryWorkItem?.fields?.['System.Description'] || generatedDescription);
+  const description = normalizeTeam(mapping.supportTeam) === 'APP_SUPPORT'
+    ? withAppSupportInvestigationRequest(sourceDescription)
+    : sourceDescription;
   const tags = Array.from(new Set([
     ...String(mapping.defaultTags || '').split(';').map(tag => tag.trim()).filter(Boolean),
     'Operations_Hub'
@@ -126,6 +129,31 @@ function buildCreatePatches(incident, mapping, input, primaryWorkItemId, organiz
     });
   }
   return patches;
+}
+
+const APP_SUPPORT_INVESTIGATION_MARKER = 'App Support Investigation Request';
+
+function withAppSupportInvestigationRequest(description) {
+  if (String(description).includes(APP_SUPPORT_INVESTIGATION_MARKER)) return String(description);
+  const standard = [
+    '<h3>App Support Investigation Request</h3>',
+    '<p>Grafana Monitoring ตรวจพบความผิดปกติของระบบ<br>รบกวนทีม <strong>App Support</strong> ตรวจสอบ Application ที่เกี่ยวข้องในส่วนดังต่อไปนี้:</p>',
+    '<ul>',
+    '<li><strong>Application Log / Exception</strong> — ตรวจสอบ Error, Exception หรือความผิดปกติของระบบ</li>',
+    '<li><strong>Transaction / Process</strong> — ตรวจสอบ Transaction หรือ Process ที่อาจได้รับผลกระทบ</li>',
+    '<li><strong>Application Availability</strong> — ตรวจสอบว่าสามารถเข้าใช้งาน Application ได้ตามปกติหรือไม่</li>',
+    '<li><strong>Application Functionality</strong> — ตรวจสอบว่ามี Function หรือ Service ใดไม่สามารถใช้งานได้หรือทำงานผิดปกติ</li>',
+    '</ul>',
+    '<h3>ผลการตรวจสอบ</h3>',
+    '<p>กรุณาระบุผลการตรวจสอบเพื่อใช้ประกอบการติดตาม Incident:</p>',
+    '<ul>',
+    '<li><strong>Application Status:</strong> Normal / Degraded / Unavailable</li>',
+    '<li><strong>Impact:</strong> No Impact / Impact Detected</li>',
+    '<li><strong>Remark:</strong> ข้อมูลเพิ่มเติม (ถ้ามี)</li>',
+    '</ul>',
+    '<hr>'
+  ].join('');
+  return standard + String(description);
 }
 
 async function createRelated(input, context, dependencies = {}) {
