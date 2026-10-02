@@ -449,7 +449,7 @@ async function restartAppService(name, actor, resourceGroup, subscriptionId) {
   });
 
   try {
-    const client = getClient();
+    const client = getClient(subscriptionId || cfg.subscriptionId);
     await client.webApps.restart(app.resourceGroup || cfg.resourceGroup, app.name);
     return {
       app,
