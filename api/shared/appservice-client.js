@@ -11,6 +11,8 @@ function getConfig() {
   const subscriptionId = process.env.APP_SERVICE_SUBSCRIPTION_ID || DEFAULT_SUBSCRIPTION_ID;
   const resourceGroup = process.env.APP_SERVICE_RESOURCE_GROUP || DEFAULT_RESOURCE_GROUP;
   const namePrefix = process.env.APP_SERVICE_NAME_PREFIX || DEFAULT_NAME_PREFIX;
+  const allowedNames = String(process.env.APP_SERVICE_ALLOWED_NAMES || '')
+    .split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
   const allResourceGroups = isAllResourceGroupsScope(resourceGroup);
   const tenantId = process.env.AZURE_TENANT_ID || '36f04887-ce29-484c-900e-f23ad3f60b77';
   const cacheTtlMs = Math.max(5000, Number(process.env.APP_SERVICE_CACHE_TTL_SECONDS || 60) * 1000);
@@ -22,6 +24,7 @@ function getConfig() {
     resourceGroup,
     allResourceGroups,
     namePrefix,
+    allowedNames,
     tenantId,
     cacheTtlMs,
     restartCooldownMs
@@ -205,7 +208,7 @@ async function listResourceGroupAppServices(cfg) {
   const apps = [];
   for await (const app of client.webApps.listByResourceGroup(cfg.resourceGroup)) {
     const row = mapApp(app, cfg.resourceGroup);
-    if (isAllowedAppName(row.name, cfg.namePrefix)) apps.push(row);
+    if (isAllowedAppName(row.name, cfg.namePrefix, cfg.allowedNames)) apps.push(row);
   }
   return apps;
 }
@@ -235,7 +238,7 @@ async function listSubscriptionAppServicesFromResourceGraph(cfg) {
       query: [
         "Resources",
         "| where type =~ 'microsoft.web/sites'",
-        "| where name startswith '" + escapeKustoString(cfg.namePrefix) + "'",
+        "| where name startswith '" + escapeKustoString(cfg.namePrefix) + "'" + (cfg.allowedNames.length ? " or " + cfg.allowedNames.map(name => "name =~ '" + escapeKustoString(name) + "'").join(' or ') : ''),
         "| project id, name, resourceGroup, location, kind, state=tostring(properties.state), defaultHostName=tostring(properties.defaultHostName)",
         "| order by name asc"
       ].join(' '),
@@ -253,7 +256,7 @@ async function listSubscriptionAppServicesFromResourceGraph(cfg) {
     const rows = Array.isArray(response.data) ? response.data : [];
     rows.forEach(row => {
       const app = mapResourceGraphApp(row);
-      if (isAllowedAppName(app.name, cfg.namePrefix)) apps.push(app);
+      if (isAllowedAppName(app.name, cfg.namePrefix, cfg.allowedNames)) apps.push(app);
     });
     skipToken = response.skipToken || response.$skipToken || '';
     pageCount += 1;
@@ -285,7 +288,7 @@ async function listSubscriptionAppServicesFromArmResources(cfg) {
     const rows = Array.isArray(response.value) ? response.value : [];
     rows.forEach(row => {
       const app = mapResourceApp(row);
-      if (isAllowedAppName(app.name, cfg.namePrefix)) apps.push(app);
+      if (isAllowedAppName(app.name, cfg.namePrefix, cfg.allowedNames)) apps.push(app);
     });
     url = response.nextLink || '';
   }
@@ -367,8 +370,8 @@ async function getAllowedApp(name) {
   }
 
   const cfg = getConfig();
-  if (!isAllowedAppName(target, cfg.namePrefix)) {
-    throw createPublicError(403, 'App Service is outside the allowed staging scope');
+  if (!isAllowedAppName(target, cfg.namePrefix, cfg.allowedNames)) {
+    throw createPublicError(403, 'App Service is outside the configured allow-list scope');
   }
 
   const apps = await listAllowedAppServices(false);
@@ -433,10 +436,10 @@ function normalizeName(name) {
   return String(name || '').trim();
 }
 
-function isAllowedAppName(name, prefix) {
+function isAllowedAppName(name, prefix, allowedNames = []) {
   const value = normalizeName(name).toLowerCase();
   const targetPrefix = String(prefix || DEFAULT_NAME_PREFIX).trim().toLowerCase();
-  return !!value && !!targetPrefix && value.startsWith(targetPrefix);
+  return !!value && ((!!targetPrefix && value.startsWith(targetPrefix)) || allowedNames.includes(value));
 }
 
 function isAllResourceGroupsScope(resourceGroup) {
@@ -514,6 +517,7 @@ function getScope() {
     configuredResourceGroup: cfg.resourceGroup,
     resourceGroupMode: cfg.allResourceGroups ? 'subscription' : 'resourceGroup',
     namePrefix: cfg.namePrefix,
+    allowedNames: cfg.allowedNames,
     tenantId: cfg.tenantId
   };
 }
