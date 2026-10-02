@@ -25,7 +25,7 @@ export function Incidents() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const refreshInFlight = useRef(false);
   const [connection, setConnection] = useState<AdoConnectionStatus | null>(null);
-  const [capabilities, setCapabilities] = useState<OperationsCapabilities>({ createRelated: false, linkExisting: false, synchronize: false, closeIncident: false });
+  const [capabilities, setCapabilities] = useState<OperationsCapabilities>({ createRelated: false, linkExisting: false, synchronize: false, closeIncident: false, restartAppService: false });
   const [escalationTargets, setEscalationTargets] = useState<Array<'APP_SUPPORT' | 'TIER2'>>([]);
   const [mappingPreviews, setMappingPreviews] = useState<Partial<Record<'APP_SUPPORT' | 'TIER2', RelatedTicketPreview>>>({});
   const alertDetails: Array<{ label: string; value: string }> = selected ? [
@@ -108,7 +108,7 @@ export function Incidents() {
     };
   }, [status, search, busy, selected]);
   useEffect(() => { loadAdoConnection().then(setConnection).catch(() => setConnection({ connected: false })); }, []);
-  useEffect(() => { operationsApi.capabilities().then(setCapabilities).catch(() => setCapabilities({ createRelated: false, linkExisting: false, synchronize: false, closeIncident: false })); }, []);
+  useEffect(() => { operationsApi.capabilities().then(setCapabilities).catch(() => setCapabilities({ createRelated: false, linkExisting: false, synchronize: false, closeIncident: false, restartAppService: false })); }, []);
 
   const openIncident = async (id: string, preserveFeedback = false) => {
     try {
@@ -188,6 +188,16 @@ export function Incidents() {
     }, `Created ${targets.length} related Work Item${targets.length > 1 ? 's' : ''}: ${targetNames.join(' + ')}`);
   };
 
+  const restartSelectedAppService = async () => {
+    if (!selected) return;
+    const resource = selected.incident.resource || selected.incident.service || '';
+    if (!resource || !window.confirm(`Restart ${resource} in ${selected.incident.environment || 'the current environment'}?\n\nThis may cause a short service interruption.`)) return;
+    await runAction(
+      () => operationsApi.restartAppService(selected.incident.incidentId, resource),
+      `Restart App Service completed: ${resource}`
+    );
+  };
+
   return <section className="ops-incidents-page">
     <PageHeading eyebrow="Incident command center" title="Incidents" actions={<div className="ops-refresh-status"><span className="ops-live-label"><i /> Live from SharePoint</span><small>{lastUpdatedAt ? `Updated ${formatClock(lastUpdatedAt)}` : 'Waiting for first update'} · Auto every 60 sec</small><button className="ops-button ops-button-secondary" type="button" disabled={refreshing || busy} onClick={() => void load()}>{refreshing ? 'Refreshing…' : 'Refresh now'}</button></div>} />
     <div className="ops-incident-overview" aria-label="Incident overview">
@@ -238,7 +248,8 @@ export function Incidents() {
       <section className="ops-action-panel"><div className="ops-section-title"><div><small>TIER 1 ACTIONS</small><h3>Incident controls</h3></div><span className={`ops-connection-pill ${connection?.connected ? 'is-connected' : ''}`}>{connection?.connected ? `Connected: ${connection.adoIdentity?.email || connection.user}` : 'ADO not connected'}</span></div>
         {actionError && <div className="ops-inline-error">{actionError}</div>}{actionMessage && <div className="ops-inline-success">{actionMessage}</div>}
         {!connection?.connected && <button className="ops-button ops-button-wide" onClick={() => window.location.assign('/api/ado-auth-start?returnTo=' + encodeURIComponent('/operations.html#/incidents'))}>Connect Azure DevOps</button>}
-        {!capabilities.createRelated && !capabilities.linkExisting && !capabilities.synchronize && !capabilities.closeIncident && <p className="ops-muted">Operations Hub write actions are disabled by the administrator.</p>}
+        {!capabilities.createRelated && !capabilities.linkExisting && !capabilities.synchronize && !capabilities.closeIncident && !capabilities.restartAppService && <p className="ops-muted">Operations Hub write actions are disabled by the administrator.</p>}
+        <div className="ops-action-group"><h4>Tier1 actions</h4><p className="ops-muted">Run the approved action and automatically record the result in the primary VSTS Discussion.</p><button className="ops-button ops-button-danger" disabled={busy || !connection?.connected || !capabilities.restartAppService || !selected.incident.resource} onClick={restartSelectedAppService}>{busy ? 'Working…' : 'Restart App Service'}</button></div>
         <div className="ops-action-group"><h4>Escalation workspace</h4><p className="ops-muted">No team is selected automatically. Select one team or both teams, then preview before creating. Description is copied from the current Tier 1 Primary Ticket.</p>
           <div className="ops-target-selector">{(['APP_SUPPORT', 'TIER2'] as const).map(team => { const exists = selected.incident.workItems.some(item => item.role === 'RELATED' && item.supportTeam === team); return <label key={team}><input type="checkbox" checked={escalationTargets.includes(team)} disabled={exists} onChange={() => toggleEscalationTarget(team)} /> {team === 'APP_SUPPORT' ? 'App Support' : 'IT Tier 2 / Infra'} <small>{exists ? 'Already linked' : team === 'APP_SUPPORT' ? 'Service Form' : 'IT Support Case'}</small></label>; })}</div>
           <button className="ops-button ops-button-secondary" onClick={previewMappings} disabled={busy || escalationTargets.length === 0}>Preview selected tickets</button>

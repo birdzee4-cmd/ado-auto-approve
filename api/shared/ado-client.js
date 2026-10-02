@@ -480,6 +480,12 @@ async function updateWorkItem(workItemId, patches, options) {
   });
 }
 
+async function addWorkItemComment(workItemId, comment, options) {
+  const text = String(comment || '').trim();
+  if (!text) throw new Error('Work Item comment cannot be empty');
+  return updateWorkItem(workItemId, [{ op: 'add', path: '/fields/System.History', value: text }], options);
+}
+
 /**
  * ดึง Branch Policy Configurations สำหรับ branch ที่ระบุ
  *
@@ -819,6 +825,7 @@ module.exports = {
   createWorkItem,
   addRelatedWorkItemLink,
   updateWorkItem,
+  addWorkItemComment,
   approvePR,
   rejectPR,
   setAutoComplete,

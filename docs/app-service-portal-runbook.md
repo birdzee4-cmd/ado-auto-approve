@@ -1,5 +1,9 @@
 # App Service Portal Runbook
 
+## Operations Hub Tier1 Restart MVP
+
+The Operations Hub `Restart App Service` action is controlled by `OPERATIONS_RESTART_ENABLED` and remains disabled unless the setting is explicitly `true`. It uses the existing App Service allow-list, restart cooldown, Azure DevOps delegated connection, and Managed Identity. After a successful restart it adds a standardized `System.History` Discussion to the primary VSTS Work Item and records an audit event. Enable it only after the target App Services are included in the configured App Service scope and the Function identity has `Microsoft.Web/sites/restart/action`.
+
 เอกสารนี้ใช้สำหรับตรวจและเปิดใช้งาน App Service Portal หลัง deploy ไปยัง Static Web App `ado-auto-approve`
 
 ## Current Production State

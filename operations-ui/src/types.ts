@@ -33,6 +33,7 @@ export interface OperationsCapabilities {
   linkExisting: boolean;
   synchronize: boolean;
   closeIncident: boolean;
+  restartAppService: boolean;
 }
 
 export type WorkItemRole = 'PRIMARY' | 'RELATED';

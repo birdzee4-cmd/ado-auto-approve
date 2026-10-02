@@ -26,7 +26,8 @@ module.exports = async function (context, req) {
           createRelated: operationsService.featureEnabled('OPERATIONS_CREATE_ENABLED'),
           linkExisting: operationsService.featureEnabled('OPERATIONS_LINK_ENABLED'),
           synchronize: operationsService.featureEnabled('OPERATIONS_SYNC_ENABLED'),
-          closeIncident: operationsService.featureEnabled('OPERATIONS_CLOSE_ENABLED')
+          closeIncident: operationsService.featureEnabled('OPERATIONS_CLOSE_ENABLED'),
+          restartAppService: operationsService.featureEnabled('OPERATIONS_RESTART_ENABLED')
         }
       });
     }
@@ -119,6 +120,7 @@ async function handleWrite(context, req, path, principal) {
   else if (action === 'work-items/link') data = await operationsService.linkExisting({ ...body, incidentId }, actionContext);
   else if (action === 'synchronize') data = await operationsService.synchronize({ ...body, incidentId }, actionContext);
   else if (action === 'close') data = await operationsService.closeIncident({ ...body, incidentId }, actionContext);
+  else if (action === 'tier1/restart-app-service') data = await operationsService.restartAppService({ ...body, incidentId }, actionContext);
   else return jsonResponse(context, 404, { ok: false, error: 'Operations write route not found' }, token.setCookie);
   return jsonResponse(context, 200, { ok: true, data }, token.setCookie);
 }

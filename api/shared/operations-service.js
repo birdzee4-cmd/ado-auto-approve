@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const defaultSharePoint = require('./operations-sharepoint-client');
 const defaultAdo = require('./ado-client');
 const defaultWorkItems = require('./operations-work-items');
+const defaultAppService = require('./appservice-client');
 
 function featureEnabled(name) {
   return String(process.env[name] || '').trim().toLowerCase() === 'true';
@@ -13,6 +14,38 @@ function requireFeature(name) {
     error.status = 503;
     error.code = 'FEATURE_DISABLED';
     throw error;
+  }
+}
+
+async function restartAppService(input, context, dependencies = {}) {
+  requireFeature('OPERATIONS_RESTART_ENABLED');
+  const sp = dependencies.sharePoint || defaultSharePoint;
+  const ado = dependencies.ado || defaultAdo;
+  const appService = dependencies.appService || defaultAppService;
+  const incident = await requireIncident(sp, input.incidentId);
+  const primary = (incident.workItems || []).find(item => item.role === 'PRIMARY') || {};
+  if (!primary.workItemId) throw operationalError(409, 'PRIMARY_REQUIRED', 'The incident does not have a primary work item');
+  const resource = String(input.resource || incident.resource || '').trim();
+  if (!resource) throw operationalError(422, 'RESOURCE_REQUIRED', 'Incident resource is required');
+  const actor = context.operationsIdentity?.email || context.operationsIdentity?.name || 'Operations Hub';
+  let result;
+  try {
+    result = await appService.restartAppService(resource, actor);
+    const detail = [
+      '✅ TIER1 ACTION COMPLETED', '',
+      'Action: Restart App Service', `Resource: ${resource}`,
+      `Environment: ${incident.environment || 'Unknown'}`, 'Result: Successfully completed',
+      `Performed by: ${actor}`, `Performed at: ${formatBangkokTime(new Date().toISOString())}`,
+      'Source: Incident Command Center'
+    ].join('\n');
+    const comment = await ado.addWorkItemComment(primary.workItemId, detail, { accessToken: context.accessToken });
+    if (!comment.ok) throw operationalError(comment.status || 502, 'ADO_COMMENT_FAILED', 'App Service restarted, but VSTS Discussion could not be added');
+    await audit(sp, context, { incidentId: incident.incidentId, workItemId: primary.workItemId, action: 'TIER1_RESTART_APP_SERVICE', result: 'SUCCEEDED', detail: `${resource}; VSTS Discussion added` });
+    return { incidentId: incident.incidentId, workItemId: primary.workItemId, resource, result: result || {}, discussionAdded: true };
+  } catch (err) {
+    const detail = `Restart App Service failed for ${resource}: ${err.message}`;
+    await audit(sp, context, { incidentId: incident.incidentId, workItemId: primary.workItemId, action: 'TIER1_RESTART_APP_SERVICE', result: 'FAILED', detail }).catch(() => {});
+    throw err;
   }
 }
 
@@ -670,6 +703,7 @@ module.exports = {
   buildCreatePatches,
   closeEligibility,
   closeIncident,
+  restartAppService,
   createRelated,
   createRelatedBatch,
   featureEnabled,
