@@ -113,6 +113,7 @@ test('App Support profile matches the required Production Service Form fields', 
   const field = name => patches.find(item => item.path === `/fields/${name}`)?.value;
   assert.ok(field('System.Description').startsWith('<h3>App Support Investigation Request</h3>'));
   assert.ok(field('System.Description').endsWith('<p>Exact primary description</p>'));
+  assert.ok(!field('System.Description').includes('Application Availability'));
   assert.ok(field('System.Description').includes('<strong>Application Status:</strong> Normal / Degraded / Unavailable'));
   assert.equal(field('Custom.RequestType'), 'Incident/Issue');
   assert.equal(field('Custom.SeverityIncidentIssue'), 'Severity-2');

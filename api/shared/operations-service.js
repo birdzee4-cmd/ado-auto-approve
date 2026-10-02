@@ -141,7 +141,6 @@ function withAppSupportInvestigationRequest(description) {
     '<ul>',
     '<li><strong>Application Log / Exception</strong> — ตรวจสอบ Error, Exception หรือความผิดปกติของระบบ</li>',
     '<li><strong>Transaction / Process</strong> — ตรวจสอบ Transaction หรือ Process ที่อาจได้รับผลกระทบ</li>',
-    '<li><strong>Application Availability</strong> — ตรวจสอบว่าสามารถเข้าใช้งาน Application ได้ตามปกติหรือไม่</li>',
     '<li><strong>Application Functionality</strong> — ตรวจสอบว่ามี Function หรือ Service ใดไม่สามารถใช้งานได้หรือทำงานผิดปกติ</li>',
     '</ul>',
     '<h3>ผลการตรวจสอบ</h3>',
