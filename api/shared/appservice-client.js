@@ -238,7 +238,8 @@ async function listSubscriptionAppServicesFromResourceGraph(cfg) {
       query: [
         "Resources",
         "| where type =~ 'microsoft.web/sites'",
-        "| where name startswith '" + escapeKustoString(cfg.namePrefix) + "'" + (cfg.allowedNames.length ? " or " + cfg.allowedNames.map(name => "name =~ '" + escapeKustoString(name) + "'").join(' or ') : ''),
+        // Fetch App Service resources first, then apply the explicit local allow-list.
+        // This avoids Resource Graph name-filter edge cases for approved production names.
         "| project id, name, resourceGroup, location, kind, state=tostring(properties.state), defaultHostName=tostring(properties.defaultHostName)",
         "| order by name asc"
       ].join(' '),
