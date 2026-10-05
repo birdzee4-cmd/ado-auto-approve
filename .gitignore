@@ -24,9 +24,18 @@ outputs/
 # Local Power Automate packages, exports, backups, and staging folders
 artifacts/power-automate/
 
+# Temporary Power Automate inspection/build folders and local package exports
+.tmp/
+tmp_*/
+_build_*/
+_inspect_*/
+OperationsHub-*.zip
+patch_flow_package.js
+
 # Ignore local settings
 api/local.settings.json
 
 
 # Ignore local Azure Storage emulator data
 .azurite/
+.azcli/

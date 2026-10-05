@@ -272,9 +272,19 @@ export function Incidents() {
 }
 
 function formatDate(value?: string) {
-  return value && Number.isFinite(Date.parse(value))
-    ? new Date(value).toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })
+  const timestamp = parseTimestamp(value);
+  return timestamp
+    ? timestamp.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })
     : '-';
+}
+
+// SharePoint/API timestamps are UTC instants. Treat timezone-less ISO values as UTC
+// instead of allowing the browser's local timezone to reinterpret them.
+function parseTimestamp(value?: string) {
+  if (!value) return undefined;
+  const normalized = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`;
+  const timestamp = new Date(normalized);
+  return Number.isFinite(timestamp.getTime()) ? timestamp : undefined;
 }
 
 function formatClock(value: Date) {
