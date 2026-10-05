@@ -98,6 +98,7 @@ export const operationsApi = {
   createRelatedBatch: (incidentId: string, input: { supportTeams: Array<Exclude<SupportTeam, 'TIER1'>>; idempotencyKey: string }) => request<{ succeeded: number; failed: number; results: Array<{ supportTeam: string; ok: boolean; workItem?: { workItemId: number }; detail?: string }> }>(`/api/operations/incidents/${encodeURIComponent(incidentId)}/work-items/related/batch`, { method: 'POST', body: JSON.stringify(input) }),
   linkExisting: (incidentId: string, input: { supportTeam: SupportTeam; workItemId: number }) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/work-items/link`, { method: 'POST', body: JSON.stringify(input) }),
   synchronize: (incidentId: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/synchronize`, { method: 'POST', body: '{}' }),
-  close: (incidentId: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/close`, { method: 'POST', body: '{}' })
+  close: (incidentId: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/close`, { method: 'POST', body: '{}' }),
+  manualClose: (incidentId: string, reason: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/manual-close`, { method: 'POST', body: JSON.stringify({ reason }) })
   ,restartAppService: (incidentId: string, resource: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/tier1/restart-app-service`, { method: 'POST', body: JSON.stringify({ resource }) })
 };

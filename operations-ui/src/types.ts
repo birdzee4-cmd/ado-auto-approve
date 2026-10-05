@@ -33,6 +33,7 @@ export interface OperationsCapabilities {
   linkExisting: boolean;
   synchronize: boolean;
   closeIncident: boolean;
+  manualCloseIncident?: boolean;
   restartAppService: boolean;
   alertEventWrite?: boolean;
 }

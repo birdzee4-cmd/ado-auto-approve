@@ -37,6 +37,7 @@ module.exports = async function (context, req) {
           linkExisting: operationsService.featureEnabled('OPERATIONS_LINK_ENABLED'),
           synchronize: operationsService.featureEnabled('OPERATIONS_SYNC_ENABLED'),
           closeIncident: operationsService.featureEnabled('OPERATIONS_CLOSE_ENABLED'),
+          manualCloseIncident: operationsService.featureEnabled('OPERATIONS_MANUAL_CLOSE_ENABLED'),
           restartAppService: operationsService.featureEnabled('OPERATIONS_RESTART_ENABLED'),
           alertEventWrite: alertService.featureEnabled('OPERATIONS_ALERT_EVENT_WRITE_ENABLED')
         }
@@ -128,6 +129,11 @@ async function handleWrite(context, req, path, principal) {
       firstSeenAt: body.firstSeenAt || incident.firstSeen, receivedAt: body.receivedAt || body.resolvedAt
     }, actionContext);
     return jsonResponse(context, result.duplicate ? 200 : 202, { ok: true, data: result });
+  }
+  const manualClose = /^incidents\/([A-Za-z0-9._:-]+)\/manual-close$/.exec(path);
+  if (manualClose) {
+    const data = await operationsService.manualCloseIncident({ ...body, incidentId: manualClose[1] }, actionContext);
+    return jsonResponse(context, 200, { ok: true, data });
   }
   const delegated = require('../shared/ado-user-token');
   const token = await delegated.getValidAccessToken(req, principal);

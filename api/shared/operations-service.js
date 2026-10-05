@@ -599,6 +599,20 @@ async function closeIncident(input, context, dependencies = {}) {
   return { incidentId: incident.incidentId, closed: true, closedAt: now };
 }
 
+async function manualCloseIncident(input, context, dependencies = {}) {
+  requireFeature('OPERATIONS_MANUAL_CLOSE_ENABLED');
+  const sp = dependencies.sharePoint || defaultSharePoint;
+  const incident = await requireIncident(sp, input.incidentId);
+  const reason = String(input.reason || '').trim();
+  if (reason.length < 10) throw operationalError(422, 'MANUAL_CLOSE_REASON_REQUIRED', 'A manual closure reason of at least 10 characters is required');
+  if (String(incident.operationsStatus || '').toUpperCase() === 'CLOSED') return { incidentId: incident.incidentId, closed: true, duplicate: true, closedAt: incident.operationsClosedAt || null };
+  const now = new Date().toISOString();
+  const resolvedAt = incident.resolvedAt || input.resolvedAt || now;
+  if (String(incident.status || '').toUpperCase() !== 'RESOLVED' || !incident.resolvedAt) await sp.updateIncidentRecord(incident.sharePointId, { AlertStatus: 'RESOLVED', ResolvedAt: resolvedAt, LastSyncedAt: now });
+  await audit(sp, context, { incidentId: incident.incidentId, action: 'INCIDENT_MANUAL_OVERRIDE_CLOSED', result: 'SUCCEEDED', detail: `Manual override closed at ${now}; reason: ${reason}; previous alert status: ${incident.status || 'UNKNOWN'}` });
+  return { incidentId: incident.incidentId, closed: true, manualOverride: true, closedAt: now, resolvedAt };
+}
+
 function closeEligibility(incident) {
   const items = incident && incident.workItems || [];
   const reasons = [];
@@ -733,6 +747,7 @@ module.exports = {
   buildCreatePatches,
   closeEligibility,
   closeIncident,
+  manualCloseIncident,
   restartAppService,
   createRelated,
   createRelatedBatch,
