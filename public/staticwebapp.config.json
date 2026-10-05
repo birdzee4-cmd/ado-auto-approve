@@ -36,6 +36,7 @@
     { "route": "/build-diagnostics.html", "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/build-diagnostics", "rewrite": "/build-diagnostics.html", "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/userinfo", "allowedRoles": ["authenticated"] },
+    { "route": "/api/operations/alert-events", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/operations/*", "methods": ["GET", "POST"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/operations-reconcile", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/deployments/*", "methods": ["GET", "PUT"], "allowedRoles": ["it_support_approve", "admin"] },

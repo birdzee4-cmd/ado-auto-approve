@@ -3,12 +3,14 @@ import { loadCurrentUser } from './api';
 import { AdoConnection } from './AdoConnection';
 import { Dashboard } from './modules/Dashboard';
 import { Incidents } from './modules/Incidents';
+import { AlertEvents } from './modules/AlertEvents';
 import { Mappings } from './modules/Mappings';
 import type { CurrentUser, RouteId } from './types';
 
 const routes: Array<{ id: RouteId; label: string; short: string; adminOnly?: boolean }> = [
   { id: 'dashboard', label: 'Dashboard', short: 'DB' },
   { id: 'incidents', label: 'Incidents', short: 'IN' },
+  { id: 'alert-events', label: 'Alert Events', short: 'AE' },
   { id: 'mappings', label: 'Service Mapping', short: 'MP', adminOnly: true }
 ];
 
@@ -32,7 +34,7 @@ export function App() {
   }, []);
 
   const visibleRoutes = routes.filter(item => !item.adminOnly || user.isAdmin);
-  const content = route === 'incidents' ? <Incidents /> : route === 'mappings' && user.isAdmin ? <Mappings /> : <Dashboard />;
+  const content = route === 'incidents' ? <Incidents /> : route === 'alert-events' ? <AlertEvents /> : route === 'mappings' && user.isAdmin ? <Mappings /> : <Dashboard />;
 
   return <div className="ops-app">
     <header className="ops-topbar">

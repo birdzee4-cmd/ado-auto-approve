@@ -1,4 +1,4 @@
-export type RouteId = 'dashboard' | 'incidents' | 'mappings';
+export type RouteId = 'dashboard' | 'incidents' | 'alert-events' | 'mappings';
 
 export type IncidentStatus = 'FIRING' | 'RESOLVED';
 export type TrackingStatus = 'OPEN' | 'CLOSED' | 'PENDING' | 'FAILED' | 'CANCELLED' | 'NOT_CREATED';
@@ -34,6 +34,7 @@ export interface OperationsCapabilities {
   synchronize: boolean;
   closeIncident: boolean;
   restartAppService: boolean;
+  alertEventWrite?: boolean;
 }
 
 export type WorkItemRole = 'PRIMARY' | 'RELATED';
@@ -185,4 +186,27 @@ export interface AuditEvent {
   detail?: string;
   operationsUserEmail?: string;
   adoIdentityEmail?: string;
+}
+
+export type AlertEventStatus = 'RECEIVED' | 'MATCHED' | 'PROCESSED' | 'DUPLICATE' | 'UNMATCHED' | 'AMBIGUOUS' | 'FAILED';
+
+export interface AlertEvent {
+  sharePointId?: number;
+  eventId: string;
+  messageId: string;
+  eventType: 'FIRING' | 'RESOLVED';
+  incidentId?: string;
+  alertName: string;
+  resource: string;
+  firstSeenAt: string;
+  resolvedAt?: string;
+  receivedAt: string;
+  rawSubject?: string;
+  processingStatus: AlertEventStatus;
+  matchedIncidentId?: string;
+  matchMethod?: string;
+  errorCode?: string;
+  errorDetail?: string;
+  attemptCount: number;
+  processedAt?: string;
 }

@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const sharePoint = require('../shared/operations-sharepoint-client');
 const service = require('../shared/operations-service');
+const alertService = require('../shared/operations-alert-service');
 
 module.exports = async function (context, req) {
   try {
@@ -17,6 +18,12 @@ module.exports = async function (context, req) {
       : reconciliationScope === 'PRIMARY'
         ? ['PRIMARY']
         : undefined;
+    const alertWritesEnabled = alertService.featureEnabled('OPERATIONS_ALERT_EVENT_WRITE_ENABLED');
+    const storedAlertEvents = typeof sharePoint.listAlertEvents === 'function' ? await sharePoint.listAlertEvents(1000) : [];
+    const pendingAlertEvents = storedAlertEvents
+      .filter(event => (alertService.RETRYABLE.has(event.processingStatus) || (alertWritesEnabled && event.processingStatus === 'MATCHED')) && Number(event.attemptCount || 0) < 5)
+      .filter(event => !targetIncidentId || event.incidentId === targetIncidentId || event.matchedIncidentId === targetIncidentId)
+      .slice(0, Math.min(maximum, 20));
     const incidents = (await sharePoint.listIncidents(1000))
       .filter(item => !targetIncidentId || item.incidentId === targetIncidentId || item.displayId === targetIncidentId)
       .filter(item => item.operationsStatus !== 'CLOSED' && item.workItemSummary && item.workItemSummary.total > 0)
@@ -40,8 +47,18 @@ module.exports = async function (context, req) {
         compareAdo,
         processed: incidents.length,
         writeOperations: 0,
-        candidates
+        candidates,
+        alertEvents: pendingAlertEvents.map(event => ({ eventId: event.eventId, eventType: event.eventType, processingStatus: event.processingStatus, attemptCount: event.attemptCount, alertName: event.alertName, resource: event.resource, firstSeenAt: event.firstSeenAt, resolvedAt: event.resolvedAt }))
       });
+    }
+    const alertEventResults = [];
+    for (const event of pendingAlertEvents) {
+      try {
+        const processed = await alertService.processEvent(event, { ...automationContext(req), shadow: !alertWritesEnabled });
+        alertEventResults.push({ eventId: event.eventId, ok: true, status: processed.processingStatus, matchedIncidentId: processed.matchedIncidentId || '' });
+      } catch (err) {
+        alertEventResults.push({ eventId: event.eventId, ok: false, error: err.code || err.message });
+      }
     }
     const results = [];
     for (const incident of incidents) {
@@ -68,7 +85,8 @@ module.exports = async function (context, req) {
       processed: results.length,
       succeeded: results.filter(item => item.ok).length,
       failed: results.filter(item => !item.ok).length,
-      results
+      results,
+      alertEvents: alertEventResults
     });
   } catch (err) {
     context.log.error('Operations reconciliation failed:', err);

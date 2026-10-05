@@ -129,7 +129,7 @@ test('Successful close audit is the explicit incident closure source of truth', 
 });
 
 test('Operations capabilities expose only fail-closed feature booleans to authorized operators', async () => {
-  const keys = ['OPERATIONS_CREATE_ENABLED', 'OPERATIONS_LINK_ENABLED', 'OPERATIONS_SYNC_ENABLED', 'OPERATIONS_CLOSE_ENABLED'];
+  const keys = ['OPERATIONS_CREATE_ENABLED', 'OPERATIONS_LINK_ENABLED', 'OPERATIONS_SYNC_ENABLED', 'OPERATIONS_CLOSE_ENABLED', 'OPERATIONS_RESTART_ENABLED', 'OPERATIONS_ALERT_EVENT_WRITE_ENABLED'];
   const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
   try {
     for (const key of keys) delete process.env[key];
@@ -146,7 +146,9 @@ test('Operations capabilities expose only fail-closed feature booleans to author
       createRelated: false,
       linkExisting: false,
       synchronize: true,
-      closeIncident: false
+      closeIncident: false,
+      restartAppService: false,
+      alertEventWrite: false
     });
   } finally {
     for (const key of keys) {

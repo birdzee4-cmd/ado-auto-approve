@@ -1,4 +1,4 @@
-import type { AdoConnectionStatus, AuditEvent, CurrentUser, DashboardData, Incident, OperationsCapabilities, RelatedTicketPreview, ServiceMapping, SupportTeam } from './types';
+import type { AdoConnectionStatus, AlertEvent, AuditEvent, CurrentUser, DashboardData, Incident, OperationsCapabilities, RelatedTicketPreview, ServiceMapping, SupportTeam } from './types';
 
 interface ApiEnvelope<T> {
   ok: boolean;
@@ -86,6 +86,10 @@ export const operationsApi = {
     if (search) query.set('search', search);
     return request<{ items: Incident[]; count: number }>(`/api/operations/incidents?${query.toString()}`);
   },
+  alertEvents: (status = '') => request<{ items: AlertEvent[]; count: number }>(`/api/operations/alert-events${status ? `?status=${encodeURIComponent(status)}` : ''}`),
+  processAlertEvent: (eventId: string, dryRun = true) => request<AlertEvent>(`/api/operations/alert-events/${encodeURIComponent(eventId)}/process`, { method: 'POST', body: JSON.stringify({ dryRun }) }),
+  confirmAlertEvent: (eventId: string, incidentId: string) => request<AlertEvent>(`/api/operations/alert-events/${encodeURIComponent(eventId)}/confirm`, { method: 'POST', body: JSON.stringify({ incidentId }) }),
+  rejectAlertEvent: (eventId: string) => request<AlertEvent>(`/api/operations/alert-events/${encodeURIComponent(eventId)}/reject`, { method: 'POST', body: '{}' }),
   incident: (id: string) => request<{ incident: Incident; timeline: AuditEvent[] }>(`/api/operations/incidents/${encodeURIComponent(id)}`),
   mappings: () => request<{ items: ServiceMapping[]; count: number }>('/api/operations/mappings'),
   resolveMapping: (incidentId: string, supportTeam: SupportTeam) => request<{ mapping: ServiceMapping }>(`/api/operations/mappings/resolve?incidentId=${encodeURIComponent(incidentId)}&supportTeam=${encodeURIComponent(supportTeam)}`),

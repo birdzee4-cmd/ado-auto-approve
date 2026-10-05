@@ -316,6 +316,8 @@ function checkOperationsReconcileConfig() {
   const hasKey = Boolean(String(process.env.OPERATIONS_AUTOMATION_KEY || '').trim());
   const reconciliationEnabled = String(process.env.OPERATIONS_RECONCILIATION_ENABLED || '').trim().toLowerCase() === 'true';
   const syncEnabled = String(process.env.OPERATIONS_SYNC_ENABLED || '').trim().toLowerCase() === 'true';
+  const alertEventsListConfigured = Boolean(String(process.env.OPERATIONS_ALERT_EVENTS_LIST_NAME || '').trim());
+  const alertEventWriteEnabled = String(process.env.OPERATIONS_ALERT_EVENT_WRITE_ENABLED || '').trim().toLowerCase() === 'true';
   const ready = hasKey && reconciliationEnabled && syncEnabled;
   return buildCheck(
     'operations-reconcile',
@@ -329,6 +331,8 @@ function checkOperationsReconcileConfig() {
       automationKeyConfigured: hasKey,
       reconciliationEnabled,
       syncEnabled,
+      alertEventsListConfigured,
+      alertEventMode: alertEventWriteEnabled ? 'live' : 'shadow',
       requiredFlags: ['OPERATIONS_RECONCILIATION_ENABLED', 'OPERATIONS_SYNC_ENABLED']
     }
   );

@@ -1,14 +1,24 @@
 const auth = require('../shared/auth');
 const sharePoint = require('../shared/operations-sharepoint-client');
 const operationsService = require('../shared/operations-service');
+const alertService = require('../shared/operations-alert-service');
+const crypto = require('crypto');
 
 module.exports = async function (context, req) {
+  const path = normalizePath(req.params && req.params.path);
+  const method = String(req.method || 'GET').toUpperCase();
+  if (method === 'POST' && path === 'alert-events' && automationAuthorized(req)) {
+    try {
+      const result = await alertService.ingest(parseBody(req.body), automationActionContext(req));
+      return jsonResponse(context, result.duplicate ? 200 : 202, { ok: true, data: result });
+    } catch (err) {
+      return jsonResponse(context, Number(err.status) || 503, { ok: false, error: err.code || 'ALERT_EVENT_INGEST_FAILED', detail: err.message });
+    }
+  }
   const roleCheck = auth.requireAnyRole(context, req, ['it_support_approve', 'admin']);
   if (!roleCheck.ok) return jsonResponse(context, roleCheck.status, roleCheck.body);
-
-  const path = normalizePath(req.params && req.params.path);
   try {
-    if (String(req.method || 'GET').toUpperCase() === 'POST') {
+    if (method === 'POST') {
       // Await inside this try/catch so rejected write operations are converted
       // into the same sanitized JSON error contract as read operations.
       return await handleWrite(context, req, path, roleCheck.principal);
@@ -27,7 +37,8 @@ module.exports = async function (context, req) {
           linkExisting: operationsService.featureEnabled('OPERATIONS_LINK_ENABLED'),
           synchronize: operationsService.featureEnabled('OPERATIONS_SYNC_ENABLED'),
           closeIncident: operationsService.featureEnabled('OPERATIONS_CLOSE_ENABLED'),
-          restartAppService: operationsService.featureEnabled('OPERATIONS_RESTART_ENABLED')
+          restartAppService: operationsService.featureEnabled('OPERATIONS_RESTART_ENABLED'),
+          alertEventWrite: alertService.featureEnabled('OPERATIONS_ALERT_EVENT_WRITE_ENABLED')
         }
       });
     }
@@ -35,6 +46,13 @@ module.exports = async function (context, req) {
     if (path === 'incidents') {
       const incidents = filterIncidents(await sharePoint.listIncidents(1000), req.query || {});
       return jsonResponse(context, 200, { ok: true, data: { items: incidents, count: incidents.length } });
+    }
+
+    if (path === 'alert-events') {
+      const status = String(req.query && req.query.status || '').trim().toUpperCase();
+      const top = Math.max(1, Math.min(Number(req.query && req.query.top) || 200, 1000));
+      const events = await sharePoint.listAlertEvents(top, status);
+      return jsonResponse(context, 200, { ok: true, data: { items: events, count: events.length } });
     }
 
     if (path === 'mappings') {
@@ -81,6 +99,36 @@ module.exports = async function (context, req) {
 async function handleWrite(context, req, path, principal) {
   const writer = auth.requireOperationsWriter(context, req);
   if (!writer.ok) return jsonResponse(context, writer.status, writer.body);
+  const body = parseBody(req.body);
+  const actionContext = userActionContext(req, principal);
+  if (path === 'alert-events') {
+    const result = await alertService.ingest(body, actionContext);
+    return jsonResponse(context, result.duplicate ? 200 : 202, { ok: true, data: result });
+  }
+  const eventAction = /^alert-events\/([A-Za-z0-9._:-]+)\/(process|confirm|reject)$/.exec(path);
+  if (eventAction) {
+    const eventId = eventAction[1];
+    const action = eventAction[2];
+    let data;
+    if (action === 'process') data = body.dryRun !== false
+      ? await alertService.previewEvent(eventId)
+      : await alertService.processEvent(eventId, { ...actionContext, shadow: false });
+    else if (action === 'confirm') data = await alertService.confirmMatch(eventId, body.incidentId, actionContext);
+    else data = await alertService.rejectEvent(eventId, actionContext);
+    return jsonResponse(context, 200, { ok: true, data });
+  }
+  const backfill = /^incidents\/([A-Za-z0-9._:-]+)\/resolved-backfill$/.exec(path);
+  if (backfill) {
+    const incident = await sharePoint.getIncident(backfill[1]);
+    if (!incident) return jsonResponse(context, 404, { ok: false, error: 'INCIDENT_NOT_FOUND' });
+    const result = await alertService.ingest({
+      ...body, eventType: 'RESOLVED', incidentId: incident.incidentId,
+      messageId: body.messageId || `resolved-backfill:${incident.incidentId}:${body.resolvedAt || ''}`,
+      alertName: body.alertName || incident.alertName, resource: body.resource || incident.resource,
+      firstSeenAt: body.firstSeenAt || incident.firstSeen, receivedAt: body.receivedAt || body.resolvedAt
+    }, actionContext);
+    return jsonResponse(context, result.duplicate ? 200 : 202, { ok: true, data: result });
+  }
   const delegated = require('../shared/ado-user-token');
   const token = await delegated.getValidAccessToken(req, principal);
   if (!token.ok) {
@@ -102,8 +150,7 @@ async function handleWrite(context, req, path, principal) {
   if (!match) return jsonResponse(context, 404, { ok: false, error: 'Operations write route not found' }, token.setCookie);
   const incidentId = match[1];
   const action = match[2];
-  const body = parseBody(req.body);
-  const actionContext = {
+  const adoActionContext = {
     accessToken: token.accessToken,
     correlationId: String(req.headers && (req.headers['x-correlation-id'] || req.headers['x-ms-request-id']) || require('crypto').randomUUID()),
     operationsIdentity: {
@@ -115,15 +162,35 @@ async function handleWrite(context, req, path, principal) {
     principalHeader: req.headers && (req.headers['x-ms-client-principal'] || req.headers['X-MS-CLIENT-PRINCIPAL'] || '')
   };
   let data;
-  if (action === 'work-items/related/preview') data = await operationsService.previewRelatedBatch({ ...body, incidentId }, actionContext);
-  else if (action === 'work-items/related') data = await operationsService.createRelated({ ...body, incidentId }, actionContext);
-  else if (action === 'work-items/related/batch') data = await operationsService.createRelatedBatch({ ...body, incidentId }, actionContext);
-  else if (action === 'work-items/link') data = await operationsService.linkExisting({ ...body, incidentId }, actionContext);
-  else if (action === 'synchronize') data = await operationsService.synchronize({ ...body, incidentId }, actionContext);
-  else if (action === 'close') data = await operationsService.closeIncident({ ...body, incidentId }, actionContext);
-  else if (action === 'tier1/restart-app-service') data = await operationsService.restartAppService({ ...body, incidentId }, actionContext);
+  if (action === 'work-items/related/preview') data = await operationsService.previewRelatedBatch({ ...body, incidentId }, adoActionContext);
+  else if (action === 'work-items/related') data = await operationsService.createRelated({ ...body, incidentId }, adoActionContext);
+  else if (action === 'work-items/related/batch') data = await operationsService.createRelatedBatch({ ...body, incidentId }, adoActionContext);
+  else if (action === 'work-items/link') data = await operationsService.linkExisting({ ...body, incidentId }, adoActionContext);
+  else if (action === 'synchronize') data = await operationsService.synchronize({ ...body, incidentId }, adoActionContext);
+  else if (action === 'close') data = await operationsService.closeIncident({ ...body, incidentId }, adoActionContext);
+  else if (action === 'tier1/restart-app-service') data = await operationsService.restartAppService({ ...body, incidentId }, adoActionContext);
   else return jsonResponse(context, 404, { ok: false, error: 'Operations write route not found' }, token.setCookie);
   return jsonResponse(context, 200, { ok: true, data }, token.setCookie);
+}
+
+function userActionContext(req, principal) {
+  return {
+    correlationId: String(req.headers && (req.headers['x-correlation-id'] || req.headers['x-ms-request-id']) || crypto.randomUUID()),
+    operationsIdentity: { id: principal.userId || '', name: principal.userDetails || '', email: principal.userDetails || '' }
+  };
+}
+
+function automationActionContext(req) {
+  return {
+    correlationId: String(req.headers && (req.headers['x-correlation-id'] || req.headers['x-ms-workflow-run-id']) || crypto.randomUUID()),
+    operationsIdentity: { id: 'power-automate', name: 'Power Automate', email: '' }, shadow: true
+  };
+}
+
+function automationAuthorized(req) {
+  const expected = String(process.env.OPERATIONS_AUTOMATION_KEY || '');
+  const actual = String(req.headers && req.headers['x-operations-automation-key'] || '');
+  return Boolean(expected && actual && expected.length === actual.length && crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(actual)));
 }
 
 function parseBody(body) {

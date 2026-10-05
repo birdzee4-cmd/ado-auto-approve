@@ -20,7 +20,8 @@ function getConfig() {
     listName: process.env.OPERATIONS_SHAREPOINT_LIST_NAME || 'Operations Hub Incidents',
     workItemsListName: process.env.OPERATIONS_WORK_ITEMS_LIST_NAME || '',
     mappingsListName: process.env.OPERATIONS_MAPPINGS_LIST_NAME || '',
-    auditListName: process.env.OPERATIONS_AUDIT_LIST_NAME || ''
+    auditListName: process.env.OPERATIONS_AUDIT_LIST_NAME || '',
+    alertEventsListName: process.env.OPERATIONS_ALERT_EVENTS_LIST_NAME || ''
   };
   const missing = ['tenant', 'clientId', 'clientSecret', 'hostname', 'sitePath']
     .filter(key => !config[key]);
@@ -296,6 +297,76 @@ function mapIncidentWriteFields(fields, fieldMap = {}) {
 async function appendAudit(fields) {
   const config = getConfig();
   return createSupportingItem(config.auditListName, mapAuditWriteFields(fields));
+}
+
+async function listAlertEvents(maxItems, status) {
+  if (!String(process.env.OPERATIONS_ALERT_EVENTS_LIST_NAME || '').trim()) return [];
+  const config = getConfig();
+  if (!config.alertEventsListName) return [];
+  const normalizedStatus = String(status || '').trim().toUpperCase();
+  const filter = normalizedStatus ? `fields/ProcessingStatus eq '${normalizedStatus.replace(/'/g, "''")}'` : '';
+  return (await listItems(maxItems || 200, config.alertEventsListName, filter))
+    .map(mapAlertEvent)
+    .sort((left, right) => Date.parse(left.receivedAt || left.createdAt || '') - Date.parse(right.receivedAt || right.createdAt || ''));
+}
+
+async function getAlertEvent(eventId) {
+  const target = String(eventId || '').trim().toLowerCase();
+  if (!target) return null;
+  if (!String(process.env.OPERATIONS_ALERT_EVENTS_LIST_NAME || '').trim()) return null;
+  const config = getConfig();
+  const escaped = String(eventId).replace(/'/g, "''");
+  return (await listItems(5, config.alertEventsListName, `fields/EventId eq '${escaped}'`)).map(mapAlertEvent).find(item => item.eventId.toLowerCase() === target) || null;
+}
+
+async function findAlertEventByMessageId(messageId) {
+  const target = String(messageId || '').trim().toLowerCase();
+  if (!target) return null;
+  if (!String(process.env.OPERATIONS_ALERT_EVENTS_LIST_NAME || '').trim()) return null;
+  const config = getConfig();
+  const escaped = String(messageId).replace(/'/g, "''");
+  return (await listItems(5, config.alertEventsListName, `fields/MessageId eq '${escaped}'`)).map(mapAlertEvent).find(item => item.messageId.toLowerCase() === target) || null;
+}
+
+async function createAlertEvent(fields) {
+  if (!String(process.env.OPERATIONS_ALERT_EVENTS_LIST_NAME || '').trim()) throw new Error('Operations Alert Events SharePoint List is not configured');
+  const config = getConfig();
+  return createSupportingItem(config.alertEventsListName, mapAlertEventWriteFields(fields));
+}
+
+async function updateAlertEvent(itemId, fields) {
+  if (!String(process.env.OPERATIONS_ALERT_EVENTS_LIST_NAME || '').trim()) throw new Error('Operations Alert Events SharePoint List is not configured');
+  const config = getConfig();
+  return updateSupportingItem(config.alertEventsListName, itemId, mapAlertEventWriteFields(fields));
+}
+
+function mapAlertEventWriteFields(fields) {
+  return Object.fromEntries(Object.entries(fields || {}).filter(([, value]) => value !== undefined && value !== null));
+}
+
+function mapAlertEvent(item) {
+  const fields = item && item.fields || {};
+  return {
+    sharePointId: sharePointItemId(item),
+    eventId: textField(fields, ['EventId']) || String(item && item.id || ''),
+    messageId: textField(fields, ['MessageId']),
+    eventType: textField(fields, ['EventType']).toUpperCase(),
+    incidentId: textField(fields, ['IncidentId']),
+    alertName: textField(fields, ['AlertName']),
+    resource: textField(fields, ['Resource']),
+    firstSeenAt: dateField(fields, ['FirstSeenAt']),
+    resolvedAt: dateField(fields, ['ResolvedAt']),
+    receivedAt: dateField(fields, ['ReceivedAt']),
+    rawSubject: textField(fields, ['RawSubject']),
+    processingStatus: textField(fields, ['ProcessingStatus']).toUpperCase() || 'RECEIVED',
+    matchedIncidentId: textField(fields, ['MatchedIncidentId']),
+    matchMethod: textField(fields, ['MatchMethod']),
+    errorCode: textField(fields, ['ErrorCode']),
+    errorDetail: textField(fields, ['ErrorDetail']),
+    attemptCount: numberField(fields, ['AttemptCount']) || 0,
+    processedAt: dateField(fields, ['ProcessedAt']),
+    createdAt: dateField(fields, ['Created']) || isoDate(item && item.createdDateTime)
+  };
 }
 
 function mapAuditWriteFields(fields) {
@@ -576,6 +647,13 @@ module.exports = {
   createWorkItemRecord,
   updateWorkItemRecord,
   updateIncidentRecord,
+  listAlertEvents,
+  getAlertEvent,
+  findAlertEventByMessageId,
+  createAlertEvent,
+  updateAlertEvent,
+  mapAlertEvent,
+  mapAlertEventWriteFields,
   appendAudit,
   listAudit,
   mapAuditEvent,
