@@ -1,6 +1,8 @@
 # Operations Hub Alert Events — Rollout Runbook
 
-ระบบนี้เก็บ FIRING/RESOLVED event ก่อนทำ correlation และเริ่มใช้งานใน Shadow Mode โดย Flow เดิมยังเป็นผู้เขียน Incident ตามปกติ
+ระบบนี้เก็บ FIRING/RESOLVED event เพื่อใช้ตรวจสอบเท่านั้น โดย Production Flow เป็น source of truth สำหรับ Incident, Approval, Azure DevOps และสถานะ RESOLVED
+
+หน้า Alert Events เป็น read-only monitoring surface ห้ามใช้เพื่อยืนยัน จับคู่ ปฏิเสธ หรือแก้ไข Incident ด้วยตนเอง การ reconciliation หากเปิดใช้งานต้องทำผ่าน scheduled service และใช้กติกาชุดเดียวกับ Production Flow
 
 ## 1. Provision SharePoint
 
@@ -29,7 +31,7 @@ OPERATIONS_ALERT_EVENT_WRITE_ENABLED=false
 
 เมื่อ UAT ผ่าน ให้ตั้ง `OPERATIONS_ALERT_EVENT_WRITE_ENABLED=true`. Scheduled reconciliation จะนำ event `MATCHED` และ retryable events มาประมวลผล โดยจำกัด 20 รายการต่อรอบและสูงสุด 5 attempts.
 
-หน้า `Alert Events` ใน Operations Hub ใช้สำหรับ Dry Run, Confirm Match, Reject และตรวจ error. Manual confirmation ไม่ปิด ADO Work Item หรือ Operations Incident อัตโนมัติ.
+หน้า `Alert Events` ใน Operations Hub ใช้ดู event, status และ error แบบ read-only เท่านั้น ไม่มี Dry Run, Confirm Match หรือ Reject จากหน้าเว็บ
 
 ## Rollback
 

@@ -103,20 +103,21 @@ async function handleWrite(context, req, path, principal) {
   const body = parseBody(req.body);
   const actionContext = userActionContext(req, principal);
   if (path === 'alert-events') {
-    const result = await alertService.ingest(body, actionContext);
-    return jsonResponse(context, result.duplicate ? 200 : 202, { ok: true, data: result });
+    return jsonResponse(context, 405, {
+      ok: false,
+      error: 'ALERT_EVENTS_READ_ONLY',
+      detail: 'Alert Events ingestion is restricted to the authenticated Production Power Automate endpoint.'
+    });
   }
-  const eventAction = /^alert-events\/([A-Za-z0-9._:-]+)\/(process|confirm|reject)$/.exec(path);
-  if (eventAction) {
-    const eventId = eventAction[1];
-    const action = eventAction[2];
-    let data;
-    if (action === 'process') data = body.dryRun !== false
-      ? await alertService.previewEvent(eventId)
-      : await alertService.processEvent(eventId, { ...actionContext, shadow: false });
-    else if (action === 'confirm') data = await alertService.confirmMatch(eventId, body.incidentId, actionContext);
-    else data = await alertService.rejectEvent(eventId, actionContext);
-    return jsonResponse(context, 200, { ok: true, data });
+  // Alert Events is intentionally a read-only monitoring surface. Event
+  // ingestion remains automation-only above; reconciliation is owned by the
+  // scheduled service and must not be triggered from the UI.
+  if (/^alert-events\/[A-Za-z0-9._:-]+\/(process|confirm|reject)$/.test(path)) {
+    return jsonResponse(context, 405, {
+      ok: false,
+      error: 'ALERT_EVENTS_READ_ONLY',
+      detail: 'Alert Events is read-only. The production Flow and scheduled reconciliation own lifecycle updates.'
+    });
   }
   const backfill = /^incidents\/([A-Za-z0-9._:-]+)\/resolved-backfill$/.exec(path);
   if (backfill) {
