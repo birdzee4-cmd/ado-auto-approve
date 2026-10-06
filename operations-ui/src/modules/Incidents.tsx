@@ -8,6 +8,7 @@ export function Incidents() {
   const [items, setItems] = useState<Incident[] | null>(null);
   const [overviewItems, setOverviewItems] = useState<Incident[]>([]);
   const [selected, setSelected] = useState<{ incident: Incident; timeline: AuditEvent[] } | null>(null);
+  const [selectedLoading, setSelectedLoading] = useState(false);
   const [showTechnicalEvents, setShowTechnicalEvents] = useState(false);
   // Open the Incident page with the complete list by default. Explicit
   // status links (for example, Needs review) still apply their filter.
@@ -113,6 +114,7 @@ export function Incidents() {
   useEffect(() => { operationsApi.capabilities().then(setCapabilities).catch(() => setCapabilities({ createRelated: false, linkExisting: false, synchronize: false, closeIncident: false, manualCloseIncident: false, restartAppService: false })); }, []);
 
   const openIncident = async (id: string, preserveFeedback = false) => {
+    setSelectedLoading(true);
     try {
       const detail = await operationsApi.incident(id);
       setSelected(detail);
@@ -124,6 +126,7 @@ export function Incidents() {
       }
       setMappingPreviews({});
     } catch (err) { setError((err as Error).message); }
+    finally { setSelectedLoading(false); }
   };
   useEffect(() => {
     const incidentId = routeParams.get('id');
@@ -161,6 +164,7 @@ export function Incidents() {
     try {
       await operationsApi.close(selected.incident.incidentId);
       setSelected(null);
+      setSelectedLoading(false);
       window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/incidents`);
       await load();
     } catch (err) {
@@ -246,7 +250,9 @@ export function Incidents() {
       </button>)}</div>
       {pageCount > 1 && <div className="ops-pagination"><button className="ops-button ops-button-secondary" disabled={currentPage === 1} onClick={() => setPage(value => Math.max(1, value - 1))}>Previous</button><span>Page {currentPage} of {pageCount}</span><button className="ops-button ops-button-secondary" disabled={currentPage === pageCount} onClick={() => setPage(value => Math.min(pageCount, value + 1))}>Next</button></div>}
     </div>}
-    {selected && <div className="ops-drawer-backdrop" onMouseDown={e => { if (e.currentTarget === e.target) setSelected(null); }}><aside className="ops-detail-drawer" aria-label="Incident details">
+    {(selected || selectedLoading) && <div className="ops-drawer-backdrop" onMouseDown={e => { if (e.currentTarget === e.target && !selectedLoading) setSelected(null); }}><aside className={`ops-detail-drawer${selectedLoading ? ' is-loading' : ''}`} aria-label="Incident details">
+      {selectedLoading && !selected && <div className="ops-detail-loading" role="status"><span className="ops-spinner" /><strong>Loading incident details…</strong><small>กำลังดึงข้อมูล Incident และ Timeline</small></div>}
+      {selected && <>
       <div className="ops-drawer-head"><div><small>INCIDENT COMMAND DETAIL</small><div className="ops-drawer-title-row"><h2 className="ops-incident-display-id">{selected.incident.displayId || selected.incident.incidentId}</h2><StatusBadge value={isOperationsClosed(selected.incident) ? 'CLOSED' : selected.incident.status} /></div><p>{humanizeAlert(selected.incident.alertName)}</p><div className="ops-drawer-meta"><span>{selected.incident.resource}</span><span>{selected.incident.environment || 'Unknown environment'}</span><span>{selected.incident.priority || 'No priority'}</span></div></div><button className="ops-icon-button" onClick={() => setSelected(null)} aria-label="Close details">×</button></div>
       <div className="ops-incident-summary" aria-label="Incident summary">
         <SummaryCard label="Alert" value={displayStatus(selected.incident.status)} detail={selected.incident.resolvedAt ? 'Monitoring recovery received' : 'Monitoring alert is active'} />
@@ -276,6 +282,7 @@ export function Incidents() {
         <div className="ops-closure"><h4>Closure checklist</h4><p className="ops-muted">Readiness: {isOperationsClosed(selected.incident) ? 'Closed' : displayStatus(selected.incident.closeEligibility?.readinessStatus || 'CHECKING')}</p><ul><li className={selected.incident.workItemSummary.total > 0 ? 'is-done' : ''}>Primary Work Item exists</li><li className={selected.incident.workItemSummary.open === 0 && selected.incident.workItemSummary.total > 0 ? 'is-done' : ''}>All Work Items are closed</li><li className={selected.incident.status === 'RESOLVED' ? 'is-done' : ''}>Monitoring alert is recovered (recommended)</li></ul>{!isOperationsClosed(selected.incident) && selected.incident.closeEligibility?.reasons.map(reason => <small key={reason}>{reason}</small>)}{!isOperationsClosed(selected.incident) && selected.incident.closeEligibility?.warnings?.map(warning => <small className="ops-closure-warning" key={warning}>{warning}</small>)}<div className="ops-card-actions"><button className="ops-button ops-button-secondary" disabled={busy || !connection?.connected || !capabilities.synchronize} onClick={() => runAction(() => operationsApi.synchronize(selected.incident.incidentId), 'Work Item states synchronized')}>Synchronize</button><button className="ops-button" disabled={busy || !connection?.connected || !capabilities.closeIncident || !selected.incident.closeEligibility?.allowed || isOperationsClosed(selected.incident)} onClick={closeSelectedIncident}>{isOperationsClosed(selected.incident) ? 'Incident Closed' : busy ? 'Closing…' : 'Close Incident'}</button>{!isOperationsClosed(selected.incident) && selected.incident.hasLifecycleConflict && <button className="ops-button ops-button-danger" disabled={busy || !capabilities.manualCloseIncident} onClick={manualCloseSelectedIncident}>Manual Override / Force Close</button>}</div></div>
       </section>
       <div className="ops-timeline"><div className="ops-timeline-head"><div><small>ACTIVITY</small><h3>Incident timeline</h3></div><button type="button" className="ops-button ops-button-secondary" onClick={() => setShowTechnicalEvents(value => !value)}>{showTechnicalEvents ? 'Hide system activity' : 'Show system activity'}</button></div>{timelineForDisplay(selected.timeline, showTechnicalEvents).map(event => <div key={event.eventId}><span /><p><strong>{humanizeEventType(event.eventType)}</strong><small>{event.detail || event.result} · {formatDate(event.timestamp)}</small>{(event.operationsUserEmail || event.adoIdentityEmail) && <small className="ops-audit-identities">Operations: {event.operationsUserEmail || 'Unknown'} · Azure DevOps: {event.adoIdentityEmail || 'Unknown'}</small>}</p></div>)}</div>
+      </>}
     </aside></div>}
   </section>;
 }
