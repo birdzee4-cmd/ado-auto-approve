@@ -309,6 +309,14 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-summary-card-neutral strong { color: #57534c; }
 .ops-incident-section { margin-top: 8px; }
 .ops-incident-section .ops-section-title { margin-bottom: 2px; }
+.ops-incident-workspace { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(280px, .92fr); grid-template-areas: 'timeline information' 'timeline alert' 'timeline work' 'technical technical' 'actions actions'; gap: 0 24px; align-items: start; }
+.ops-workspace-information { grid-area: information; }
+.ops-workspace-alert { grid-area: alert; }
+.ops-workspace-work-items { grid-area: work; }
+.ops-workspace-technical { grid-area: technical; }
+.ops-workspace-actions { grid-area: actions; }
+.ops-workspace-timeline { grid-area: timeline; min-width: 0; max-height: 430px; overflow-y: auto; padding-right: 10px; }
+.ops-workspace-timeline .ops-timeline-head { position: sticky; top: 0; z-index: 1; padding-bottom: 6px; background: var(--ops-paper); }
 .ops-technical-details { margin-top: 18px; padding: 0 13px; border: 1px solid var(--ops-line); border-radius: 8px; background: #faf8f2; }
 .ops-technical-details summary { padding: 13px 0; color: var(--ops-muted); cursor: pointer; font-size: .8rem; font-weight: 800; }
 .ops-technical-details .ops-detail-grid { margin: 0 0 8px; }
@@ -319,6 +327,9 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-detail-grid dd { overflow-wrap: anywhere; font-weight: 600; }
 .ops-detail-grid a { color: #875900; }
 .ops-alert-details { margin: 20px 0; padding: 15px; border: 1px solid var(--ops-line); border-radius: 8px; background: #faf8f2; }
+.ops-workspace-alert { margin: 14px 0 0; padding: 0; border: 1px solid var(--ops-line); border-radius: 8px; background: #faf8f2; }
+.ops-workspace-alert details summary { padding: 13px; color: var(--ops-muted); cursor: pointer; font-size: .8rem; font-weight: 800; }
+.ops-workspace-alert .ops-detail-grid { margin: 0 13px 8px; }
 .ops-alert-details h3 { margin: 0; font-size: .95rem; }
 .ops-alert-details .ops-detail-grid { grid-template-columns: 115px 1fr; margin: 8px 0 0; }
 .ops-technical-id { display: inline-block; max-width: 100%; padding: 3px 6px; border-radius: 4px; background: #f0ede5; color: #5c574e; font-size: .78rem; font-weight: 500; user-select: all; }
@@ -455,6 +466,13 @@ td small { margin-top: 3px; color: var(--ops-muted); }
   .ops-drawer-backdrop { padding: 12px; }
   .ops-detail-drawer { max-height: calc(100vh - 24px); padding: 20px 16px; border-radius: 11px; }
   .ops-incident-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ops-incident-workspace { display: flex; flex-direction: column; gap: 0; }
+  .ops-workspace-timeline { order: 5; width: 100%; max-height: 360px; padding-right: 0; }
+  .ops-workspace-information { order: 1; width: 100%; }
+  .ops-workspace-alert { order: 2; width: 100%; }
+  .ops-workspace-work-items { order: 3; width: 100%; }
+  .ops-workspace-technical { order: 4; width: 100%; }
+  .ops-workspace-actions { order: 6; width: 100%; }
   .ops-detail-grid { grid-template-columns: 105px 1fr; }
 }
 
