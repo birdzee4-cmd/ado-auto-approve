@@ -2,7 +2,23 @@ import type { ReactNode } from 'react';
 
 export function StatusBadge({ value }: { value: string }) {
   const className = value.toLowerCase().replace(/_/g, '-');
-  return <span className={`ops-status ops-status-${className}`}>{value.replace(/_/g, ' ')}</span>;
+  return <span className={`ops-status ops-status-${className}`}>{displayStatus(value)}</span>;
+}
+
+export function displayStatus(value?: string) {
+  const key = String(value || '').trim().toUpperCase();
+  const labels: Record<string, string> = {
+    FIRING: 'Active', RESOLVED: 'Recovered',
+    RECEIVED: 'Received', AWAITING_APPROVAL: 'Awaiting approval', CREATED: 'Work item created',
+    REJECTED: 'Rejected', FAILED: 'Automation failed', CANCELLED: 'Cancelled',
+    OPEN: 'In progress', CLOSED: 'Closed', PENDING: 'Awaiting action', NOT_CREATED: 'Work item not created',
+    WAITING_RESOLVED: 'Waiting for alert recovery', WAITING_SUPPORT: 'Waiting for support',
+    READY_TO_CLOSE: 'Ready to close', NEEDS_REVIEW: 'Needs review',
+    APPROVED: 'Approved', NOT_REQUESTED: 'Not requested', COMPLETED: 'Completed',
+    ACTIVE: 'Active', PROCESSED: 'Processed', MATCHED: 'Matched', UNMATCHED: 'Unmatched',
+    AMBIGUOUS: 'Needs review', DUPLICATE: 'Duplicate'
+  };
+  return labels[key] || key.replace(/_/g, ' ') || '-';
 }
 
 export function AdoStateBadge({ value }: { value?: string }) {

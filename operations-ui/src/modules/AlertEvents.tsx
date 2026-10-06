@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { operationsApi } from '../api';
-import { EmptyState, ErrorState, LoadingState, PageHeading, StatusBadge } from '../components';
+import { displayStatus, EmptyState, ErrorState, LoadingState, PageHeading, StatusBadge } from '../components';
 import type { AlertEvent } from '../types';
 
 export function AlertEvents() {
@@ -20,7 +20,7 @@ export function AlertEvents() {
     <PageHeading eyebrow="Alert lifecycle · Read-only monitoring" title="Alert Events" actions={<button className="ops-button ops-button-secondary" onClick={() => void load()}>Refresh</button>} />
     <p className="ops-muted">ข้อมูลหน้านี้รับมาจาก Production Power Automate เพื่อใช้ตรวจสอบเท่านั้น Flow หลักเป็นผู้ดูแล Incident และสถานะจริง</p>
     <div className="ops-incident-controls">
-      <label className="ops-filter-control"><span>STATUS</span><select value={status} onChange={event => setStatus(event.target.value)}><option value="">All events</option>{['RECEIVED', 'MATCHED', 'PROCESSED', 'UNMATCHED', 'AMBIGUOUS', 'FAILED', 'DUPLICATE'].map(value => <option value={value} key={value}>{value}</option>)}</select></label>
+      <label className="ops-filter-control"><span>STATUS</span><select value={status} onChange={event => setStatus(event.target.value)}><option value="">All events</option>{['RECEIVED', 'MATCHED', 'PROCESSED', 'UNMATCHED', 'AMBIGUOUS', 'FAILED', 'DUPLICATE'].map(value => <option value={value} key={value}>{displayStatus(value)}</option>)}</select></label>
     </div>
     {error && <ErrorState message={error} onRetry={load} />}
     {!items && !error && <LoadingState label="Loading alert events…" />}
