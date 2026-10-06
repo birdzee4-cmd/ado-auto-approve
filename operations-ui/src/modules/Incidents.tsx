@@ -281,7 +281,6 @@ function formatDate(value?: string) {
 function formatIncidentDate(value?: string) {
   const timestamp = parseTimestamp(value);
   if (!timestamp) return '-';
-  timestamp.setHours(timestamp.getHours() + 7);
   return timestamp.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' });
 }
 
