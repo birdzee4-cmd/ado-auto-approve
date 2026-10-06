@@ -325,6 +325,7 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-workspace-timeline > summary strong { font-size: .95rem; }
 .ops-workspace-timeline > summary em { margin-left: auto; color: var(--ops-muted); font-size: .75rem; font-style: normal; }
 .ops-timeline-content { padding: 0 15px 16px; border-top: 1px solid var(--ops-line); }
+.ops-workspace-timeline > .ops-timeline-content { display: block; min-height: 0; }
 .ops-timeline-content .ops-timeline-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; color: var(--ops-muted); font-size: .78rem; font-weight: 700; }
 .ops-timeline-content > div:not(.ops-timeline-head) { display: grid; grid-template-columns: 10px 1fr; gap: 12px; min-height: 57px; }
 .ops-technical-details { margin-top: 18px; padding: 0 13px; border: 1px solid var(--ops-line); border-radius: 8px; background: #faf8f2; }
