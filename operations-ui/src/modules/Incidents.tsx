@@ -255,10 +255,10 @@ export function Incidents() {
       {selected && <>
       <div className="ops-drawer-head"><div><small>INCIDENT COMMAND DETAIL</small><div className="ops-drawer-title-row"><h2 className="ops-incident-display-id">{selected.incident.displayId || selected.incident.incidentId}</h2><StatusBadge value={isOperationsClosed(selected.incident) ? 'CLOSED' : selected.incident.status} /></div><p>{humanizeAlert(selected.incident.alertName)}</p><div className="ops-drawer-meta"><span>{selected.incident.resource}</span><span>{selected.incident.environment || 'Unknown environment'}</span><span>{selected.incident.priority || 'No priority'}</span></div></div><button className="ops-icon-button" onClick={() => setSelected(null)} aria-label="Close details">×</button></div>
       <div className="ops-incident-summary" aria-label="Incident summary">
-        <SummaryCard label="Alert" value={displayStatus(selected.incident.status)} detail={selected.incident.resolvedAt ? 'Monitoring recovery received' : 'Monitoring alert is active'} />
-        <SummaryCard label="Incident" value={displayStatus(isOperationsClosed(selected.incident) ? 'CLOSED' : selected.incident.trackingStatus)} detail={isOperationsClosed(selected.incident) ? 'Incident completed' : 'Follow-up in progress'} />
-        <SummaryCard label="Approval" value={displayStatus(approvalStatus(selected.incident))} detail={selected.incident.approvalBy || 'Approval status'} />
-        <SummaryCard label="Work item" value={selected.incident.workItemId ? `#${selected.incident.workItemId}` : 'Not created'} detail={displayStatus(selected.incident.adoState || 'NOT_CREATED')} />
+        <SummaryCard tone={selected.incident.resolvedAt ? 'success' : 'danger'} label="Alert" value={displayStatus(selected.incident.status)} detail={selected.incident.resolvedAt ? 'Monitoring recovery received' : 'Monitoring alert is active'} />
+        <SummaryCard tone={isOperationsClosed(selected.incident) ? 'success' : 'active'} label="Incident" value={displayStatus(isOperationsClosed(selected.incident) ? 'CLOSED' : selected.incident.trackingStatus)} detail={isOperationsClosed(selected.incident) ? 'Incident completed' : 'Follow-up in progress'} />
+        <SummaryCard tone={approvalStatus(selected.incident) === 'APPROVED' ? 'success' : approvalStatus(selected.incident) === 'REJECTED' ? 'danger' : 'warning'} label="Approval" value={displayStatus(approvalStatus(selected.incident))} detail={selected.incident.approvalBy || 'Approval status'} />
+        <SummaryCard tone={selected.incident.adoState && ['CLOSED', 'DONE', 'RESOLVED'].includes(selected.incident.adoState.toUpperCase()) ? 'success' : selected.incident.workItemId ? 'active' : 'neutral'} label="Work item" value={selected.incident.workItemId ? `#${selected.incident.workItemId}` : 'Not created'} detail={displayStatus(selected.incident.adoState || 'NOT_CREATED')} />
       </div>
       {selected.incident.hasLifecycleConflict && <div className="ops-data-warning ops-data-warning-compact" role="alert"><div><strong>Needs review</strong><span>{lifecycleIssueMessage(selected.incident.lifecycleIssues || [])}</span></div></div>}
       <section className="ops-incident-section"><div className="ops-section-title"><div><small>INCIDENT INFORMATION</small><h3>Incident information</h3></div></div><dl className="ops-detail-grid"><dt>First seen</dt><dd>{formatIncidentDate(selected.incident.firstSeen)}</dd><dt>Resolved at</dt><dd>{formatIncidentDate(selected.incident.resolvedAt)}</dd><dt>Duration</dt><dd>{formatDuration(selected.incident.durationMinutes)}</dd><dt>Alert email received</dt><dd>{formatDate(selected.incident.receivedAt)}</dd><dt>Occurrences</dt><dd>{selected.incident.occurrenceCount ?? '-'}</dd><dt>Current owner</dt><dd>{selected.incident.assignedTo || 'Unassigned'}</dd></dl></section>
@@ -287,8 +287,8 @@ export function Incidents() {
   </section>;
 }
 
-function SummaryCard({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return <article className="ops-summary-card"><small>{label}</small><strong>{value}</strong><span>{detail}</span></article>;
+function SummaryCard({ tone, label, value, detail }: { tone: 'success' | 'danger' | 'warning' | 'active' | 'neutral'; label: string; value: string; detail: string }) {
+  return <article className={`ops-summary-card ops-summary-card-${tone}`}><small>{label}</small><strong>{value}</strong><span>{detail}</span></article>;
 }
 
 function formatDate(value?: string) {

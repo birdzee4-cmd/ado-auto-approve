@@ -297,6 +297,16 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-summary-card small { color: var(--ops-muted); font-size: .68rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
 .ops-summary-card strong { overflow-wrap: anywhere; color: #24211c; font-size: .96rem; }
 .ops-summary-card span { color: var(--ops-muted); font-size: .68rem; line-height: 1.35; }
+.ops-summary-card-success { border-color: #9cd8c3; background: #ecfaf4; }
+.ops-summary-card-success strong { color: #096847; }
+.ops-summary-card-danger { border-color: #e9abab; background: #fff0f0; }
+.ops-summary-card-danger strong { color: #9d2929; }
+.ops-summary-card-warning { border-color: #e8cc7f; background: #fff8e5; }
+.ops-summary-card-warning strong { color: #7b5607; }
+.ops-summary-card-active { border-color: #93c5e8; background: #edf6ff; }
+.ops-summary-card-active strong { color: #175b91; }
+.ops-summary-card-neutral { border-color: #c8c2b5; background: #f4f1e9; }
+.ops-summary-card-neutral strong { color: #57534c; }
 .ops-incident-section { margin-top: 8px; }
 .ops-incident-section .ops-section-title { margin-bottom: 2px; }
 .ops-technical-details { margin-top: 18px; padding: 0 13px; border: 1px solid var(--ops-line); border-radius: 8px; background: #faf8f2; }
