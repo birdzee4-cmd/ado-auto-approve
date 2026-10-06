@@ -9,7 +9,9 @@ export function Incidents() {
   const [overviewItems, setOverviewItems] = useState<Incident[]>([]);
   const [selected, setSelected] = useState<{ incident: Incident; timeline: AuditEvent[] } | null>(null);
   const [showTechnicalEvents, setShowTechnicalEvents] = useState(false);
-  const [status, setStatus] = useState(routeParams.get('status') || 'ACTIVE');
+  // Open the Incident page with the complete list by default. Explicit
+  // status links (for example, Needs review) still apply their filter.
+  const [status, setStatus] = useState(routeParams.get('status') || '');
   const [search, setSearch] = useState(routeParams.get('search') || '');
   const [alertStatus, setAlertStatus] = useState('');
   const [adoState, setAdoState] = useState('');
@@ -225,7 +227,7 @@ export function Incidents() {
         <label className="ops-filter-control"><span>VSTS</span><select value={adoState} onChange={e => { setAdoState(e.target.value); setPage(1); }}><option value="">All</option><option value="New">New</option><option value="Processing">Processing</option><option value="Closed">Closed</option><option value="Reject">Reject</option></select></label>
         <label className="ops-filter-control"><span>LIFECYCLE</span><select value={lifecycle} onChange={e => { setLifecycle(e.target.value); setPage(1); }}><option value="">All</option><option value="WAITING_SUPPORT">Waiting for support</option><option value="WAITING_RESOLVED">Waiting for alert recovery</option><option value="READY_TO_CLOSE">Ready to close</option><option value="CONFLICT">Needs review</option><option value="NORMAL">Normal</option></select></label>
         <label className="ops-filter-control"><span>ASSIGNEE</span><select value={assignee} onChange={e => { setAssignee(e.target.value); setPage(1); }}><option value="">All</option>{assigneeOptions.map(value => <option value={value} key={value}>{value}</option>)}</select></label>
-        <button className="ops-button ops-button-secondary ops-clear-filters" type="button" onClick={() => { setStatus('ACTIVE'); setAlertStatus(''); setAdoState(''); setLifecycle(''); setAssignee(''); setSearch(''); setPage(1); }}>Clear filters</button>
+        <button className="ops-button ops-button-secondary ops-clear-filters" type="button" onClick={() => { setStatus(''); setAlertStatus(''); setAdoState(''); setLifecycle(''); setAssignee(''); setSearch(''); setPage(1); }}>Clear filters</button>
       </div>
     </div>
     {error && <ErrorState message={error} onRetry={load} />}
