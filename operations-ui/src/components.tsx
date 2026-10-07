@@ -6,10 +6,10 @@ export function parseUtcTimestamp(value?: string, legacyBangkokWallClock = false
   if (!value) return undefined;
   const normalized = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`;
   const date = new Date(normalized);
-  // Legacy Operations records contain a Bangkok wall-clock value with a +07
-  // offset attached. The offset was applied twice; compensate only for that
-  // known shape and leave normal UTC timestamps unchanged.
-  if (legacyBangkokWallClock && /\+07:?00$/i.test(value)) date.setTime(date.getTime() + 7 * 60 * 60 * 1000);
+  // FirstSeenAt/ResolvedAt in the incident store are legacy Bangkok
+  // wall-clock values exposed as UTC-like timestamps. These two fields need
+  // the Bangkok offset applied once more; normal timestamps do not opt in.
+  if (legacyBangkokWallClock) date.setTime(date.getTime() + 7 * 60 * 60 * 1000);
   return Number.isFinite(date.getTime()) ? date : undefined;
 }
 
