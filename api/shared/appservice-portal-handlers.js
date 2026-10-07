@@ -301,7 +301,9 @@ function normalizeAppServiceLogItem(item) {
     result: fields.Result || '',
     reason: fields.Reason || '',
     source: fields.Log_Source || 'App Service Portal',
-    environment: fields.Environment || 'UNKNOWN',
+    // Before Environment was introduced, Portal could only target STG.
+    // Preserve that historical meaning instead of showing legacy rows as unknown.
+    environment: fields.Environment || ((fields.Log_Source || 'App Service Portal') === 'App Service Portal' ? 'STG' : 'UNKNOWN'),
     subscriptionId: fields.Subscription_ID || '',
     sourcePage: fields.Source_Page || '',
     incidentId: fields.Incident_ID || '',
