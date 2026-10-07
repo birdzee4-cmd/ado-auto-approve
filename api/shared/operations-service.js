@@ -619,6 +619,25 @@ async function manualCloseIncident(input, context, dependencies = {}) {
   return { incidentId: incident.incidentId, closed: true, manualOverride: true, closedAt: now, resolvedAt };
 }
 
+async function manualAlertStatus(input, context, dependencies = {}) {
+  requireFeature('OPERATIONS_MANUAL_ALERT_STATUS_ENABLED');
+  const sp = dependencies.sharePoint || defaultSharePoint;
+  const incident = await requireIncident(sp, input.incidentId);
+  const status = String(input.status || '').trim().toUpperCase();
+  if (!['FIRING', 'RESOLVED'].includes(status)) throw operationalError(422, 'INVALID_ALERT_STATUS', 'Alert status must be Active or Recovered');
+  const reason = String(input.reason || '').trim();
+  if (reason.length < 10) throw operationalError(422, 'ALERT_STATUS_REASON_REQUIRED', 'A reason of at least 10 characters is required');
+  const previous = String(incident.status || '').toUpperCase();
+  if (previous === status) return { incidentId: incident.incidentId, status, duplicate: true };
+  const now = new Date().toISOString();
+  const fields = { AlertStatus: status === 'RESOLVED' ? 'RESOLVED' : 'FIRING', LastSyncedAt: now, LastSourceMessageId: `manual-alert-status:${incident.incidentId}:${now}` };
+  if (status === 'RESOLVED') fields.ResolvedAt = input.resolvedAt || now;
+  else fields.ResolvedAt = null;
+  await sp.updateIncidentRecord(incident.sharePointId, fields);
+  await audit(sp, context, { incidentId: incident.incidentId, action: 'ALERT_STATUS_MANUAL_OVERRIDE', result: 'SUCCEEDED', detail: `Alert status changed from ${previous || 'UNKNOWN'} to ${status}; reason: ${reason}` });
+  return { incidentId: incident.incidentId, status, previousStatus: previous, overriddenAt: now };
+}
+
 function closeEligibility(incident) {
   const items = incident && incident.workItems || [];
   const reasons = [];
@@ -754,6 +773,7 @@ module.exports = {
   closeEligibility,
   closeIncident,
   manualCloseIncident,
+  manualAlertStatus,
   restartAppService,
   createRelated,
   createRelatedBatch,

@@ -99,6 +99,7 @@ export const operationsApi = {
   linkExisting: (incidentId: string, input: { supportTeam: SupportTeam; workItemId: number }) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/work-items/link`, { method: 'POST', body: JSON.stringify(input) }),
   synchronize: (incidentId: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/synchronize`, { method: 'POST', body: '{}' }),
   close: (incidentId: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/close`, { method: 'POST', body: '{}' }),
-  manualClose: (incidentId: string, reason: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/manual-close`, { method: 'POST', body: JSON.stringify({ reason }) })
+  manualClose: (incidentId: string, reason: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/manual-close`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  manualAlertStatus: (incidentId: string, status: 'FIRING' | 'RESOLVED', reason: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/manual-alert-status`, { method: 'POST', body: JSON.stringify({ status, reason }) })
   ,restartAppService: (incidentId: string, resource: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/tier1/restart-app-service`, { method: 'POST', body: JSON.stringify({ resource }) })
 };

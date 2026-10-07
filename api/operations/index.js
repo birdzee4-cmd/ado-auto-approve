@@ -44,6 +44,7 @@ module.exports = async function (context, req) {
           synchronize: operationsService.featureEnabled('OPERATIONS_SYNC_ENABLED'),
           closeIncident: operationsService.featureEnabled('OPERATIONS_CLOSE_ENABLED'),
           manualCloseIncident: operationsService.featureEnabled('OPERATIONS_MANUAL_CLOSE_ENABLED'),
+          manualAlertStatus: operationsService.featureEnabled('OPERATIONS_MANUAL_ALERT_STATUS_ENABLED'),
           restartAppService: operationsService.featureEnabled('OPERATIONS_RESTART_ENABLED'),
           alertEventWrite: alertService.featureEnabled('OPERATIONS_ALERT_EVENT_WRITE_ENABLED')
         }
@@ -176,6 +177,11 @@ async function handleWrite(context, req, path, principal) {
   const manualClose = /^incidents\/([A-Za-z0-9._:-]+)\/manual-close$/.exec(path);
   if (manualClose) {
     const data = await operationsService.manualCloseIncident({ ...body, incidentId: manualClose[1] }, actionContext);
+    return jsonResponse(context, 200, { ok: true, data });
+  }
+  const manualAlert = /^incidents\/([A-Za-z0-9._:-]+)\/manual-alert-status$/.exec(path);
+  if (manualAlert) {
+    const data = await operationsService.manualAlertStatus({ ...body, incidentId: manualAlert[1] }, actionContext);
     return jsonResponse(context, 200, { ok: true, data });
   }
   const delegated = require('../shared/ado-user-token');

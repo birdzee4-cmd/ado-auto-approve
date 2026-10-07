@@ -29,7 +29,7 @@ export function Incidents() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const refreshInFlight = useRef(false);
   const [connection, setConnection] = useState<AdoConnectionStatus | null>(null);
-  const [capabilities, setCapabilities] = useState<OperationsCapabilities>({ createRelated: false, linkExisting: false, synchronize: false, closeIncident: false, manualCloseIncident: false, restartAppService: false });
+  const [capabilities, setCapabilities] = useState<OperationsCapabilities>({ createRelated: false, linkExisting: false, synchronize: false, closeIncident: false, manualCloseIncident: false, manualAlertStatus: false, restartAppService: false });
   const [escalationTargets, setEscalationTargets] = useState<Array<'APP_SUPPORT' | 'TIER2'>>([]);
   const [mappingPreviews, setMappingPreviews] = useState<Partial<Record<'APP_SUPPORT' | 'TIER2', RelatedTicketPreview>>>({});
   const alertDetails: Array<{ label: string; value: string }> = selected ? [
@@ -117,7 +117,7 @@ export function Incidents() {
     };
   }, [status, search, busy, selected]);
   useEffect(() => { loadAdoConnection().then(setConnection).catch(() => setConnection({ connected: false })); }, []);
-  useEffect(() => { operationsApi.capabilities().then(setCapabilities).catch(() => setCapabilities({ createRelated: false, linkExisting: false, synchronize: false, closeIncident: false, manualCloseIncident: false, restartAppService: false })); }, []);
+  useEffect(() => { operationsApi.capabilities().then(setCapabilities).catch(() => setCapabilities({ createRelated: false, linkExisting: false, synchronize: false, closeIncident: false, manualCloseIncident: false, manualAlertStatus: false, restartAppService: false })); }, []);
 
   const openIncident = async (id: string, preserveFeedback = false) => {
     setSelectedLoading(true);
@@ -186,6 +186,17 @@ export function Incidents() {
     if (!reason || reason.trim().length < 10) return;
     if (!window.confirm(`ยืนยัน Manual Override ปิด ${selected.incident.displayId || selected.incident.incidentId} หรือไม่?\n\nเหตุผล: ${reason.trim()}`)) return;
     await runAction(() => operationsApi.manualClose(selected.incident.incidentId, reason.trim()), 'Manual Override ปิด Incident และบันทึก Audit แล้ว');
+  };
+
+  const manualAlertStatusSelectedIncident = async () => {
+    if (!selected) return;
+    const recovered = selected.incident.status !== 'RESOLVED';
+    const nextStatus = recovered ? 'RESOLVED' : 'FIRING';
+    const label = recovered ? 'Recovered' : 'Active';
+    const reason = window.prompt(`เหตุผลสำหรับปรับ Alert status เป็น ${label} (อย่างน้อย 10 ตัวอักษร):`, recovered ? 'ยืนยันว่า Monitoring alert หยุดแล้ว แต่ event ไม่ถูกบันทึก' : 'ยืนยันว่า Monitoring alert กลับมา Active แล้ว');
+    if (!reason || reason.trim().length < 10) return;
+    if (!window.confirm(`ยืนยันเปลี่ยน Alert status เป็น ${label} หรือไม่?\n\nเหตุผล: ${reason.trim()}`)) return;
+    await runAction(() => operationsApi.manualAlertStatus(selected.incident.incidentId, nextStatus, reason.trim()), `ปรับ Alert status เป็น ${label} และบันทึก Audit แล้ว`);
   };
 
   const toggleEscalationTarget = (team: 'APP_SUPPORT' | 'TIER2') => {
@@ -279,7 +290,8 @@ export function Incidents() {
       <section className="ops-action-panel ops-workspace-actions"><div className="ops-section-title"><div><small>INCIDENT ACTIONS</small><h3>Incident controls</h3></div><span className={`ops-connection-pill ${connection?.connected ? 'is-connected' : ''}`}>{connection?.connected ? `Connected: ${connection.adoIdentity?.email || connection.user}` : 'ADO not connected'}</span></div>
         {actionError && <div className="ops-inline-error">{actionError}</div>}{actionMessage && <div className="ops-inline-success">{actionMessage}</div>}
         {!connection?.connected && <button className="ops-button ops-button-wide" onClick={() => window.location.assign('/api/ado-auth-start?returnTo=' + encodeURIComponent('/operations.html#/incidents'))}>Connect Azure DevOps</button>}
-        {!capabilities.createRelated && !capabilities.linkExisting && !capabilities.synchronize && !capabilities.closeIncident && !capabilities.manualCloseIncident && !capabilities.restartAppService && <p className="ops-muted">Operations Hub write actions are disabled by the administrator.</p>}
+        {!capabilities.createRelated && !capabilities.linkExisting && !capabilities.synchronize && !capabilities.closeIncident && !capabilities.manualCloseIncident && !capabilities.manualAlertStatus && !capabilities.restartAppService && <p className="ops-muted">Operations Hub write actions are disabled by the administrator.</p>}
+        {capabilities.manualAlertStatus && <div className="ops-action-group"><h4>Alert status</h4><p className="ops-muted">ใช้เมื่อ Monitoring event ไม่เข้าระบบหรือข้อมูล legacy ไม่ตรงสถานะจริง ระบบจะไม่เปลี่ยน Operations status, ADO state หรือ Related work</p><button className="ops-button ops-button-secondary" disabled={busy} onClick={manualAlertStatusSelectedIncident}>{selected.incident.status === 'RESOLVED' ? 'ปรับเป็น Active' : 'ปรับเป็น Recovered'}</button></div>}
         <div className="ops-action-group"><h4>Tier1 actions</h4><p className="ops-muted">Run the approved action and automatically record the result in the primary VSTS Discussion.</p><button className="ops-button ops-button-danger" disabled={busy || !connection?.connected || !capabilities.restartAppService || !selected.incident.resource} onClick={restartSelectedAppService}>{busy ? 'Working…' : 'Restart App Service'}</button></div>
         <div className="ops-action-group"><h4>Escalation workspace</h4><p className="ops-muted">No team is selected automatically. Select one team or both teams, then preview before creating. Description is copied from the current Tier 1 Primary Ticket.</p>
           <div className="ops-target-selector">{(['APP_SUPPORT', 'TIER2'] as const).map(team => { const exists = selected.incident.workItems.some(item => item.role === 'RELATED' && item.supportTeam === team); return <label key={team}><input type="checkbox" checked={escalationTargets.includes(team)} disabled={exists} onChange={() => toggleEscalationTarget(team)} /> {team === 'APP_SUPPORT' ? 'App Support' : 'IT Tier 2 / Infra'} <small>{exists ? 'Already linked' : team === 'APP_SUPPORT' ? 'Service Form' : 'IT Support Case'}</small></label>; })}</div>

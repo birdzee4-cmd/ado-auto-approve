@@ -34,6 +34,7 @@ export interface OperationsCapabilities {
   synchronize: boolean;
   closeIncident: boolean;
   manualCloseIncident?: boolean;
+  manualAlertStatus?: boolean;
   restartAppService: boolean;
   alertEventWrite?: boolean;
 }
