@@ -229,7 +229,35 @@ function buildAuditFields(opts) {
 
 async function safeAudit(context, opts) {
   try {
-    return await addAuditItem(buildAuditFields(opts || {}));
+    const fields = buildAuditFields(opts || {});
+    const result = await addAuditItem(fields);
+    if (result && result.ok) return result;
+
+    // Older lists may not yet contain the newer tracing columns. Retry with
+    // the established audit columns so the action is still recorded.
+    const legacyFields = {
+      Title: fields.Title,
+      Action: fields.Action,
+      User: fields.User,
+      User_Roles: fields.User_Roles,
+      App_Service_Name: fields.App_Service_Name,
+      Resource_Group: fields.Resource_Group,
+      Result: fields.Result,
+      Reason: fields.Reason,
+      Log_Source: fields.Log_Source,
+      Environment: fields.Environment
+    };
+    const retry = await addAuditItem(legacyFields);
+    if (retry && retry.ok) return retry;
+    if (context && context.log && context.log.warn) {
+      context.log.warn('App Service audit log failed:', {
+        firstStatus: result && result.status,
+        firstBody: result && result.body,
+        retryStatus: retry && retry.status,
+        retryBody: retry && retry.body
+      });
+    }
+    return retry || result;
   } catch (err) {
     if (context && context.log && context.log.warn) {
       context.log.warn('App Service audit log failed:', sanitizeError(err));
