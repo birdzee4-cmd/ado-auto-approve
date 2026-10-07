@@ -18,6 +18,8 @@ async function loadPortalLogs() {
   try {
     const params = new URLSearchParams();
     setParam(params, 'result', getValue('logFilterResult'));
+    setParam(params, 'environment', getValue('logFilterEnvironment'));
+    setParam(params, 'source', getValue('logFilterSource'));
     setParam(params, 'app', getValue('logFilterApp'));
     setParam(params, 'user', getValue('logFilterUser'));
     setParam(params, 'q', getValue('logFilterKeyword'));
@@ -86,7 +88,7 @@ function renderTable(items) {
   if (!tbody) return;
   const rows = Array.isArray(items) ? items : [];
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="portal-log-empty">No App Service restart log rows found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="portal-log-empty">No App Service restart log rows found.</td></tr>';
     return;
   }
 
@@ -94,6 +96,8 @@ function renderTable(items) {
     const actionClass = getActionClass(item);
     return '<tr>' +
       '<td>' + escapeHtml(formatDate(item.createdAt)) + '</td>' +
+      '<td>' + escapeHtml(item.source || '-') + '<small>' + escapeHtml(item.sourcePage || '') + '</small></td>' +
+      '<td><span class="environment-badge environment-' + escapeHtml(String(item.environment || 'UNKNOWN').toLowerCase()) + '">' + escapeHtml(item.environment || 'UNKNOWN') + '</span></td>' +
       '<td><span class="' + actionClass + '">' + escapeHtml(item.action || '-') + '</span></td>' +
       '<td>' + renderResult(item.result) + '</td>' +
       '<td><strong>' + escapeHtml(item.appServiceName || '-') + '</strong><small>' + escapeHtml(item.resourceGroup || '') + '</small></td>' +
@@ -118,7 +122,7 @@ function getActionClass(item) {
 }
 
 function clearFilters() {
-  ['logFilterResult'].forEach(id => {
+  ['logFilterResult', 'logFilterEnvironment', 'logFilterSource'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });

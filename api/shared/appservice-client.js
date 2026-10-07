@@ -453,12 +453,20 @@ async function restartAppService(name, actor, resourceGroup, subscriptionId) {
     await client.webApps.restart(app.resourceGroup || cfg.resourceGroup, app.name);
     return {
       app,
+      subscriptionId: subscriptionId || cfg.subscriptionId,
+      environment: resolveEnvironment(subscriptionId || cfg.subscriptionId, cfg),
       cooldownSeconds: Math.ceil(cfg.restartCooldownMs / 1000)
     };
   } catch (err) {
     restartCooldowns.delete(key);
     throw err;
   }
+}
+
+function resolveEnvironment(subscriptionId, cfg = getConfig()) {
+  if (subscriptionId && subscriptionId === cfg.productionSubscriptionId) return 'PRD';
+  if (subscriptionId && subscriptionId === cfg.subscriptionId) return 'STG';
+  return 'UNKNOWN';
 }
 
 function normalizeName(name) {
@@ -558,6 +566,7 @@ module.exports = {
   getAllowedApp,
   getAppSettings,
   restartAppService,
+  resolveEnvironment,
   isAllowedAppName,
   isAllResourceGroupsScope
 };

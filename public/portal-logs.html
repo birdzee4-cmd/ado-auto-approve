@@ -57,6 +57,23 @@
         </select>
       </label>
       <label>
+        <span>Environment</span>
+        <select id="logFilterEnvironment">
+          <option value="">All environments</option>
+          <option value="STG">STG</option>
+          <option value="PRD">PRD</option>
+          <option value="UNKNOWN">Unknown</option>
+        </select>
+      </label>
+      <label>
+        <span>Source</span>
+        <select id="logFilterSource">
+          <option value="">All sources</option>
+          <option value="App Service Portal">App Service Portal</option>
+          <option value="Incident Command Center">Incident Command Center</option>
+        </select>
+      </label>
+      <label>
         <span>App Service</span>
         <input id="logFilterApp" type="search" placeholder="stg-module..." autocomplete="off" />
       </label>
@@ -89,6 +106,8 @@
         <thead>
           <tr>
             <th>Time</th>
+            <th>Source</th>
+            <th>Environment</th>
             <th>Action</th>
             <th>Result</th>
             <th>App Service</th>

@@ -16,6 +16,11 @@ const OPTIONAL_COLUMNS = [
   'Result',
   'Reason',
   'Log_Source',
+  'Environment',
+  'Subscription_ID',
+  'Source_Page',
+  'Incident_ID',
+  'Work_Item_ID',
   'Event_Key',
   'Viewed_Setting_Keys'
 ];
@@ -211,7 +216,12 @@ function buildAuditFields(opts) {
     Resource_Group: opts.resourceGroup || '',
     Result: opts.result || '',
     Reason: opts.reason || '',
-    Log_Source: 'App Service Portal',
+    Log_Source: opts.logSource || 'App Service Portal',
+    Environment: opts.environment || 'UNKNOWN',
+    Subscription_ID: opts.subscriptionId || '',
+    Source_Page: opts.sourcePage || '',
+    Incident_ID: opts.incidentId || '',
+    Work_Item_ID: opts.workItemId == null ? '' : String(opts.workItemId),
     Event_Key: opts.eventKey || '',
     Viewed_Setting_Keys: Array.isArray(opts.settingKeys) ? opts.settingKeys.join(', ') : ''
   };

@@ -33,7 +33,10 @@ async function restartAppService(input, context, dependencies = {}) {
     const subscriptionId = String(incident.environment || '').toLowerCase().includes('prod')
       ? process.env.APP_SERVICE_PROD_SUBSCRIPTION_ID
       : process.env.APP_SERVICE_SUBSCRIPTION_ID;
-    result = await appService.restartAppService(resource, incident.resourceGroup, subscriptionId, context.principalHeader);
+    result = await appService.restartAppService(resource, incident.resourceGroup, subscriptionId, context.principalHeader, {
+      incidentId: incident.incidentId,
+      workItemId: primary.workItemId
+    });
     const detail = [
       '✅ TIER1 ACTION COMPLETED', '',
       'Action: Restart App Service', `Resource: ${resource}`,

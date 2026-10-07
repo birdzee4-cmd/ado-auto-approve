@@ -56,11 +56,12 @@ async function forward(context, req, routeName) {
   return true;
 }
 
-async function restartAppService(name, resourceGroup, subscriptionId, principalHeader) {
+async function restartAppService(name, resourceGroup, subscriptionId, principalHeader, auditContext = {}) {
   const baseUrl = getBaseUrl();
   const secret = process.env.APP_SERVICE_PROXY_SECRET;
   if (!baseUrl || !secret) throw Object.assign(new Error('App Service backend proxy is not configured'), { status: 503 });
-  const body = JSON.stringify({ name, resourceGroup, subscriptionId });
+  const body = JSON.stringify({ name, resourceGroup, subscriptionId,
+    incidentId: auditContext.incidentId || '', workItemId: auditContext.workItemId || '' });
   const headers = {
     Accept: 'application/json',
     'Content-Type': 'application/json',
@@ -68,6 +69,8 @@ async function restartAppService(name, resourceGroup, subscriptionId, principalH
     'x-appservice-portal-proxy-secret': secret
   };
   if (principalHeader) headers['x-ms-client-principal'] = principalHeader;
+  headers['x-appservice-source'] = 'Incident Command Center';
+  headers['x-appservice-source-page'] = '/operations.html#/incidents';
   const result = await request('POST', new URL(baseUrl + '/api/restart-appservice'), headers, body);
   let payload;
   try { payload = JSON.parse(result.body || '{}'); } catch (err) { payload = {}; }

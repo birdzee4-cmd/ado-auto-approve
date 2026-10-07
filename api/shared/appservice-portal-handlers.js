@@ -96,10 +96,17 @@ async function handleRestart(context, req) {
   }
   const name = String(body && body.name || '').trim();
   const resourceGroup = String(body && body.resourceGroup || '').trim();
+  const source = String(req.headers && req.headers['x-appservice-source'] || 'App Service Portal');
+  const sourcePage = String(req.headers && req.headers['x-appservice-source-page'] || '/portal.html');
 
   try {
     const client = require('./appservice-client');
     const audit = require('./appservice-audit-client');
+    const scope = client.getScope();
+    if (source === 'App Service Portal' && body && body.subscriptionId &&
+        body.subscriptionId !== scope.subscriptionId) {
+      throw Object.assign(new Error('App Service Portal is limited to STG App Services'), { statusCode: 403, expose: true });
+    }
     const result = await client.restartAppService(name, user, resourceGroup, body && body.subscriptionId);
     await audit.safeAudit(context, {
       action: 'RestartAppService',
@@ -109,6 +116,12 @@ async function handleRestart(context, req) {
       resourceGroup: result.app.resourceGroup,
       result: 'Success',
       reason: 'Restart request submitted',
+      logSource: source,
+      sourcePage,
+      environment: result.environment,
+      subscriptionId: result.subscriptionId,
+      incidentId: body && body.incidentId,
+      workItemId: body && body.workItemId,
       eventKey: 'restart:' + result.app.name + ':' + Date.now()
     });
 
@@ -132,6 +145,12 @@ async function handleRestart(context, req) {
       resourceGroup: client.getScope().resourceGroup,
       result: 'Failed',
       reason: detail,
+      logSource: source,
+      sourcePage,
+      environment: client.resolveEnvironment((body && body.subscriptionId) || client.getScope().subscriptionId),
+      subscriptionId: (body && body.subscriptionId) || client.getScope().subscriptionId,
+      incidentId: body && body.incidentId,
+      workItemId: body && body.workItemId,
       eventKey: 'restart-failed:' + (name || 'unknown') + ':' + Date.now()
     });
     context.log.warn('App Service restart failed:', getSafeDiagnostics(err));
@@ -158,6 +177,8 @@ async function handleLogs(context, req) {
     const top = Math.max(1, Math.min(parseInt(query.top, 10) || 100, 200));
     const action = normalizeFilter(query.action);
     const resultFilter = normalizeFilter(query.result);
+    const environment = normalizeFilter(query.environment);
+    const source = normalizeFilter(query.source);
     const app = normalizeFilter(query.app);
     const user = normalizeFilter(query.user);
     const q = normalizeFilter(query.q);
@@ -179,6 +200,8 @@ async function handleLogs(context, req) {
       .filter(item => {
         if (action && !String(item.action || '').toLowerCase().includes(action)) return false;
         if (resultFilter && !String(item.result || '').toLowerCase().includes(resultFilter)) return false;
+        if (environment && String(item.environment || '').toLowerCase() !== environment) return false;
+        if (source && !String(item.source || '').toLowerCase().includes(source)) return false;
         if (app && !String(item.appServiceName || '').toLowerCase().includes(app)) return false;
         if (user && !String(item.user || '').toLowerCase().includes(user)) return false;
         if (q && !matchesAppServiceLogKeyword(item, q)) return false;
@@ -278,6 +301,11 @@ function normalizeAppServiceLogItem(item) {
     result: fields.Result || '',
     reason: fields.Reason || '',
     source: fields.Log_Source || 'App Service Portal',
+    environment: fields.Environment || 'UNKNOWN',
+    subscriptionId: fields.Subscription_ID || '',
+    sourcePage: fields.Source_Page || '',
+    incidentId: fields.Incident_ID || '',
+    workItemId: fields.Work_Item_ID || '',
     eventKey: fields.Event_Key || '',
     viewedSettingKeys: fields.Viewed_Setting_Keys || ''
   };
@@ -319,6 +347,10 @@ function matchesAppServiceLogKeyword(item, keyword) {
     item.result,
     item.reason,
     item.source,
+    item.environment,
+    item.sourcePage,
+    item.incidentId,
+    item.workItemId,
     item.eventKey,
     item.viewedSettingKeys
   ].join(' ').toLowerCase();

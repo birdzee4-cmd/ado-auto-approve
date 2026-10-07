@@ -173,7 +173,18 @@ Reason
 Log_Source
 Event_Key
 Viewed_Setting_Keys
+Environment
+Subscription_ID
+Source_Page
+Incident_ID
+Work_Item_ID
 ```
+
+`App Service Portal` is restricted to the configured staging subscription and writes
+`Environment=STG`. The Incident Command Center may target STG or PRD based on the
+server-resolved incident environment and writes `Log_Source=Incident Command Center`
+with the incident and primary Work Item identifiers. Do not trust an environment value
+from the browser; the API derives it from the validated subscription ID.
 
 The App Service audit client can auto-create optional text columns when `APP_SERVICE_SHAREPOINT_AUTO_CREATE_COLUMNS` is not set to `false`, but the list itself must exist.
 
