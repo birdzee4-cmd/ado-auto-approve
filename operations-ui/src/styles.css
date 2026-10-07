@@ -234,7 +234,10 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-incident-overview button { position: relative; min-height: 112px; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 17px 18px; overflow: hidden; border: 1px solid var(--ops-line); border-radius: 10px; background: var(--ops-paper); color: #292723; text-align: left; cursor: pointer; box-shadow: 0 8px 22px rgba(42,37,27,.055); }
 .ops-incident-overview button::after { content: ''; position: absolute; right: -30px; bottom: -48px; width: 92px; height: 92px; border: 18px solid rgba(245,164,0,.08); border-radius: 50%; }
 .ops-incident-overview button:hover, .ops-incident-overview button.is-active { border-color: var(--ops-yellow); box-shadow: 0 9px 24px rgba(214,140,0,.13); }
-.ops-incident-overview button.is-active { box-shadow: inset 0 3px 0 var(--ops-yellow), 0 9px 24px rgba(214,140,0,.1); }
+.ops-incident-overview button.is-active { border-color: #161616; background: #161616; color: #fff; box-shadow: 0 9px 24px rgba(22,22,22,.2); }
+.ops-incident-overview button.is-active span, .ops-incident-overview button.is-active small { color: rgba(255,255,255,.78); }
+.ops-incident-overview button.is-active strong { color: #fff; }
+.ops-incident-overview button.is-active::after { border-color: rgba(255,255,255,.1); }
 .ops-incident-overview button.is-warning strong { color: #a42828; }
 .ops-incident-overview span { align-self: center; color: var(--ops-muted); font-size: .76rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .ops-incident-overview strong { grid-row: span 2; font-size: 2rem; line-height: 1; }
