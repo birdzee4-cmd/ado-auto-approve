@@ -1397,6 +1397,7 @@ Backend list response time: ~3 seconds
 | `APP_SERVICE_RESOURCE_GROUP` | No | default `Default-STG-TH-ServicesBackEnd-All-Group`; set `ALL`, `*`, or `subscription` to list matching App Services across the whole subscription |
 | `APP_SERVICE_NAME_PREFIX` | No | default `stg-` |
 | `APP_SERVICE_PORTAL_ROLE` | No | default `tester_appservice_manager` |
+| `APP_SERVICE_RESTART_ROLES` | No | comma-separated roles allowed to restart through the API; defaults to `APP_SERVICE_PORTAL_ROLE` plus `admin` |
 | `APP_SERVICE_FUNCTION_BASE_URL` | Required for portal proxy | Function App base URL, for example `https://func-ado-auto-approve-appservice-api.azurewebsites.net` |
 | `APP_SERVICE_PROXY_SECRET` | Required for portal proxy | shared backend-to-backend secret set on both SWA API and the portal Function App |
 | `APP_SERVICE_CACHE_TTL_SECONDS` | No | default `60` |

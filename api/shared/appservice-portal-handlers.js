@@ -15,6 +15,15 @@ function requirePortalRole(context, req) {
   return auth.requireAnyRole(context, req, [requiredRole, 'admin']);
 }
 
+function requireRestartRole(context, req) {
+  const auth = require('./auth');
+  const configured = String(process.env.APP_SERVICE_RESTART_ROLES || '').split(',')
+    .map(role => role.trim()).filter(Boolean);
+  const roles = configured.length ? configured : [process.env.APP_SERVICE_PORTAL_ROLE || 'tester_appservice_manager'];
+  if (!roles.includes('admin')) roles.push('admin');
+  return auth.requireAnyRole(context, req, roles);
+}
+
 async function handleList(context, req) {
   const roleCheck = requirePortalRole(context, req);
   if (!roleCheck.ok) {
@@ -81,7 +90,7 @@ async function handleSettings(context, req) {
 }
 
 async function handleRestart(context, req) {
-  const roleCheck = requirePortalRole(context, req);
+  const roleCheck = requireRestartRole(context, req);
   if (!roleCheck.ok) {
     jsonResponse(context, roleCheck.status, roleCheck.body);
     return;
@@ -362,6 +371,7 @@ function matchesAppServiceLogKeyword(item, keyword) {
 module.exports = {
   jsonResponse,
   requirePortalRole,
+  requireRestartRole,
   handleList,
   handleSettings,
   handleRestart,

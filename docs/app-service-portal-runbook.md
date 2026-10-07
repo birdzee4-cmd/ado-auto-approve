@@ -127,6 +127,7 @@ APP_SERVICE_SUBSCRIPTION_ID=f9bca0f4-1e5b-487f-a2ef-a6578a936ef1
 APP_SERVICE_RESOURCE_GROUP=ALL
 APP_SERVICE_NAME_PREFIX=stg-
 APP_SERVICE_PORTAL_ROLE=tester_appservice_manager
+APP_SERVICE_RESTART_ROLES=tester_appservice_manager,it_support_approve,admin
 APP_SERVICE_PROXY_SECRET=<same value as SWA API>
 ```
 

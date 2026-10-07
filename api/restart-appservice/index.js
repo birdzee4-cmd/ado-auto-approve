@@ -1,6 +1,6 @@
 module.exports = async function (context, req) {
   const handlers = require('../shared/appservice-portal-handlers');
-  const roleCheck = handlers.requirePortalRole(context, req);
+  const roleCheck = handlers.requireRestartRole(context, req);
   if (!roleCheck.ok) {
     handlers.jsonResponse(context, roleCheck.status, roleCheck.body);
     return;
