@@ -193,10 +193,10 @@ export function Incidents() {
     const recovered = selected.incident.status !== 'RESOLVED';
     const nextStatus = recovered ? 'RESOLVED' : 'FIRING';
     const label = recovered ? 'Recovered' : 'Active';
-    const reason = window.prompt(`เหตุผลสำหรับปรับ Alert status เป็น ${label} (อย่างน้อย 10 ตัวอักษร):`, recovered ? 'ยืนยันว่า Monitoring alert หยุดแล้ว แต่ event ไม่ถูกบันทึก' : 'ยืนยันว่า Monitoring alert กลับมา Active แล้ว');
+    const reason = window.prompt(`Reason for changing Alert status to ${label} (minimum 10 characters):`, recovered ? 'Monitoring alert recovered but the event was not recorded' : 'Monitoring alert is active again');
     if (!reason || reason.trim().length < 10) return;
-    if (!window.confirm(`ยืนยันเปลี่ยน Alert status เป็น ${label} หรือไม่?\n\nเหตุผล: ${reason.trim()}`)) return;
-    await runAction(() => operationsApi.manualAlertStatus(selected.incident.incidentId, nextStatus, reason.trim()), `ปรับ Alert status เป็น ${label} และบันทึก Audit แล้ว`);
+    if (!window.confirm(`Confirm changing Alert status to ${label}?\n\nReason: ${reason.trim()}`)) return;
+    await runAction(() => operationsApi.manualAlertStatus(selected.incident.incidentId, nextStatus, reason.trim()), `Alert status changed to ${label}. Audit recorded.`);
   };
 
   const toggleEscalationTarget = (team: 'APP_SUPPORT' | 'TIER2') => {
@@ -291,7 +291,7 @@ export function Incidents() {
         {actionError && <div className="ops-inline-error">{actionError}</div>}{actionMessage && <div className="ops-inline-success">{actionMessage}</div>}
         {!connection?.connected && <button className="ops-button ops-button-wide" onClick={() => window.location.assign('/api/ado-auth-start?returnTo=' + encodeURIComponent('/operations.html#/incidents'))}>Connect Azure DevOps</button>}
         {!capabilities.createRelated && !capabilities.linkExisting && !capabilities.synchronize && !capabilities.closeIncident && !capabilities.manualCloseIncident && !capabilities.manualAlertStatus && !capabilities.restartAppService && <p className="ops-muted">Operations Hub write actions are disabled by the administrator.</p>}
-        {capabilities.manualAlertStatus && <div className="ops-action-group"><h4>Alert status</h4><p className="ops-muted">ใช้เมื่อ Monitoring event ไม่เข้าระบบหรือข้อมูล legacy ไม่ตรงสถานะจริง ระบบจะไม่เปลี่ยน Operations status, ADO state หรือ Related work</p><button className="ops-button ops-button-secondary" disabled={busy} onClick={manualAlertStatusSelectedIncident}>{selected.incident.status === 'RESOLVED' ? 'ปรับเป็น Active' : 'ปรับเป็น Recovered'}</button></div>}
+        {capabilities.manualAlertStatus && <div className="ops-action-group"><h4>Alert status</h4><p className="ops-muted">Use this when a monitoring event was not received or legacy data does not reflect the actual status. Operations status, ADO state, and related work will remain unchanged.</p><button className="ops-button ops-button-secondary" disabled={busy} onClick={manualAlertStatusSelectedIncident}>{selected.incident.status === 'RESOLVED' ? 'Set to Active' : 'Set to Recovered'}</button></div>}
         <div className="ops-action-group"><h4>Tier1 actions</h4><p className="ops-muted">Run the approved action and automatically record the result in the primary VSTS Discussion.</p><button className="ops-button ops-button-danger" disabled={busy || !connection?.connected || !capabilities.restartAppService || !selected.incident.resource} onClick={restartSelectedAppService}>{busy ? 'Working…' : 'Restart App Service'}</button></div>
         <div className="ops-action-group"><h4>Escalation workspace</h4><p className="ops-muted">No team is selected automatically. Select one team or both teams, then preview before creating. Description is copied from the current Tier 1 Primary Ticket.</p>
           <div className="ops-target-selector">{(['APP_SUPPORT', 'TIER2'] as const).map(team => { const exists = selected.incident.workItems.some(item => item.role === 'RELATED' && item.supportTeam === team); return <label key={team}><input type="checkbox" checked={escalationTargets.includes(team)} disabled={exists} onChange={() => toggleEscalationTarget(team)} /> {team === 'APP_SUPPORT' ? 'App Support' : 'IT Tier 2 / Infra'} <small>{exists ? 'Already linked' : team === 'APP_SUPPORT' ? 'Service Form' : 'IT Support Case'}</small></label>; })}</div>
