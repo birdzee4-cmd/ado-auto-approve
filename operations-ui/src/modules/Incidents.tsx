@@ -28,6 +28,7 @@ export function Incidents() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const refreshInFlight = useRef(false);
+  const detailReturnScrollTop = useRef(0);
   const [connection, setConnection] = useState<AdoConnectionStatus | null>(null);
   const [capabilities, setCapabilities] = useState<OperationsCapabilities>({ createRelated: false, linkExisting: false, synchronize: false, closeIncident: false, manualCloseIncident: false, manualAlertStatus: false, restartAppService: false });
   const [escalationTargets, setEscalationTargets] = useState<Array<'APP_SUPPORT' | 'TIER2'>>([]);
@@ -120,6 +121,7 @@ export function Incidents() {
   useEffect(() => { operationsApi.capabilities().then(setCapabilities).catch(() => setCapabilities({ createRelated: false, linkExisting: false, synchronize: false, closeIncident: false, manualCloseIncident: false, manualAlertStatus: false, restartAppService: false })); }, []);
 
   const openIncident = async (id: string, preserveFeedback = false) => {
+    detailReturnScrollTop.current = window.scrollY;
     setSelectedLoading(true);
     try {
       const detail = await operationsApi.incident(id);
@@ -133,6 +135,11 @@ export function Incidents() {
       setMappingPreviews({});
     } catch (err) { setError((err as Error).message); }
     finally { setSelectedLoading(false); }
+  };
+  const closeIncidentDetails = () => {
+    setSelected(null);
+    setSelectedLoading(false);
+    window.requestAnimationFrame(() => window.scrollTo({ top: detailReturnScrollTop.current, behavior: 'auto' }));
   };
   useEffect(() => {
     const incidentId = routeParams.get('id');
@@ -268,10 +275,10 @@ export function Incidents() {
       </button>)}</div>
       {pageCount > 1 && <div className="ops-pagination"><button className="ops-button ops-button-secondary" disabled={currentPage === 1} onClick={() => setPage(value => Math.max(1, value - 1))}>Previous</button><span>Page {currentPage} of {pageCount}</span><button className="ops-button ops-button-secondary" disabled={currentPage === pageCount} onClick={() => setPage(value => Math.min(pageCount, value + 1))}>Next</button></div>}
     </div>}
-    {(selected || selectedLoading) && <div className="ops-drawer-backdrop" onMouseDown={e => { if (e.currentTarget === e.target && !selectedLoading) setSelected(null); }}><aside className={`ops-detail-drawer${selectedLoading && !selected ? ' is-loading' : ''}`} aria-label="Incident details">
+    {(selected || selectedLoading) && <div className="ops-drawer-backdrop" onMouseDown={e => { if (e.currentTarget === e.target && !selectedLoading) closeIncidentDetails(); }}><aside className={`ops-detail-drawer${selectedLoading && !selected ? ' is-loading' : ''}`} aria-label="Incident details">
       {selectedLoading && !selected && <div className="ops-detail-loading" role="status"><span className="ops-spinner" /><strong>Loading incident details…</strong></div>}
       {selected && <>
-      <div className="ops-drawer-head"><div><small>INCIDENT COMMAND DETAIL</small><div className="ops-drawer-title-row"><h2 className="ops-incident-display-id">{selected.incident.displayId || selected.incident.incidentId}</h2><StatusBadge value={operationsStatus(selected.incident)} /></div><p>{humanizeAlert(selected.incident.alertName)}</p><div className="ops-drawer-meta"><span>{selected.incident.resource}</span><span>{selected.incident.environment || 'Unknown environment'}</span><span>{selected.incident.priority || 'No priority'}</span></div></div><button className="ops-icon-button" onClick={() => setSelected(null)} aria-label="Close details">×</button></div>
+      <div className="ops-drawer-head"><div><small>INCIDENT COMMAND DETAIL</small><div className="ops-drawer-title-row"><h2 className="ops-incident-display-id">{selected.incident.displayId || selected.incident.incidentId}</h2><StatusBadge value={operationsStatus(selected.incident)} /></div><p>{humanizeAlert(selected.incident.alertName)}</p><div className="ops-drawer-meta"><span>{selected.incident.resource}</span><span>{selected.incident.environment || 'Unknown environment'}</span><span>{selected.incident.priority || 'No priority'}</span></div></div><button type="button" className="ops-icon-button" onClick={closeIncidentDetails} aria-label="Close details">×</button></div>
       <div className="ops-incident-summary" aria-label="Incident summary">
         <SummaryCard tone={selected.incident.resolvedAt ? 'success' : 'danger'} label="Alert status" value={displayStatus(selected.incident.status)} detail={selected.incident.resolvedAt ? 'Monitoring recovery received' : 'Monitoring alert is active'} />
         <SummaryCard tone={isOperationsClosed(selected.incident) ? 'success' : 'active'} label="Operations status" value={displayStatus(operationsStatus(selected.incident))} detail={isOperationsClosed(selected.incident) ? 'Incident completed' : 'Follow-up in progress'} />
