@@ -247,6 +247,8 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-filter-control { display: grid; min-width: 0; gap: 3px; }
 .ops-filter-control > span { color: var(--ops-muted); font-size: .62rem; font-weight: 800; letter-spacing: .1em; }
 .ops-filter-control select { min-width: 0; width: 100%; }
+.ops-filter-control.is-selected > span { color: #111214; }
+.ops-filter-control.is-selected select { border-color: #111214; background: #111214; color: #fff; box-shadow: 0 4px 12px rgba(17,18,20,.18); }
 .ops-filter-grid { display: grid; grid-template-columns: minmax(135px, 1.15fr) minmax(80px, .65fr) minmax(100px, .85fr) minmax(145px, 1.3fr) minmax(125px, 1fr) auto; align-items: end; gap: 8px; }
 .ops-clear-filters { min-height: 42px; white-space: nowrap; }
 .ops-incident-results { overflow: hidden; border: 1px solid var(--ops-line); border-radius: 11px; background: rgba(255,254,250,.88); box-shadow: 0 12px 30px rgba(42,37,27,.065); }
