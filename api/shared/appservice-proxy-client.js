@@ -80,12 +80,6 @@ async function restartAppService(name, resourceGroup, subscriptionId, principalH
     error.retryAfterSeconds = payload.retryAfterSeconds;
     throw error;
   }
-  if (payload.auditLogged === false) {
-    const error = new Error('App Service restarted, but the Portal audit log could not be written');
-    error.status = 502;
-    error.code = 'APP_SERVICE_AUDIT_FAILED';
-    throw error;
-  }
   return payload;
 }
 
