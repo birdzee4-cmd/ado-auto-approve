@@ -239,12 +239,13 @@ export function Incidents() {
     {items && filteredItems.length === 0 && <EmptyState title="No matching incidents" detail="Change the filter or wait for Power Automate to write an incident to SharePoint." />}
     {items && filteredItems.length > 0 && <div className="ops-incident-results">
       <div className="ops-results-head"><div><strong>{filteredItems.length} incidents</strong><span>Sorted by Incident number, newest first</span></div><small>Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredItems.length)} of {filteredItems.length}</small></div>
-      <div className="ops-incident-columns" aria-hidden="true"><span>Incident / alert</span><span>Resource / owner</span><span>Progress / VSTS</span><span>Incident handling status</span><span>First seen</span><span /></div>
+      <div className="ops-incident-columns" aria-hidden="true"><span>Incident / alert</span><span>Resource / owner</span><span>Progress / VSTS</span><span>Incident handling status</span><span>Related</span><span>First seen</span><span /></div>
       <div className="ops-card-list">{visibleItems.map(item => <button className={`ops-incident-card is-${item.trackingStatus.toLowerCase().replace('_', '-')}${item.hasLifecycleConflict && !isOperationsClosed(item) ? ' has-lifecycle-conflict' : ''}${isOperationsClosed(item) ? ' is-operations-closed' : ''}`} key={item.incidentId} onClick={() => openIncident(item.incidentId)} aria-label={`Open incident ${item.displayId || item.incidentId}`}>
         <span className="ops-incident-main"><span className="ops-incident-id-row"><strong className="ops-incident-display-id">{item.displayId || item.incidentId}</strong><StatusBadge value={isOperationsClosed(item) ? 'CLOSED' : item.hasLifecycleConflict ? 'NEEDS_REVIEW' : item.status} /></span><span className="ops-incident-alert">{humanizeAlert(item.alertName)}</span></span>
-        <span className="ops-incident-service"><strong>{item.resource || item.service || 'Unknown resource'}</strong><small>{item.assignedTo || 'Unassigned'} · {item.environment || 'Unknown environment'}</small><small>{relatedWorkItemLabel(item)}</small></span>
+        <span className="ops-incident-service"><strong>{item.resource || item.service || 'Unknown resource'}</strong><small>{item.assignedTo || 'Unassigned'} · {item.environment || 'Unknown environment'}</small></span>
         <span className="ops-cell-stack ops-incident-progress"><StatusBadge value={incidentProgress(item)} /><small>{item.workItemId ? `VSTS ${item.adoState || 'Unknown'} · #${item.workItemId}` : 'No VSTS work item'}</small></span>
         <StatusBadge value={displayLifecycle(item)} />
+        <span className="ops-cell-stack ops-incident-related"><strong>{relatedWorkItemCount(item) || '—'}</strong><small>{relatedWorkItemSummary(item)}</small></span>
         <span className="ops-cell-stack ops-incident-time"><strong>{formatRelativeDate(item.firstSeen, true)}</strong><small>{formatBangkokTimestamp(item.firstSeen, 'en-GB', true)}</small></span>
         <span className="ops-row-arrow" aria-hidden="true">→</span>
       </button>)}</div>
@@ -262,7 +263,7 @@ export function Incidents() {
       </div>
       {selected.incident.hasLifecycleConflict && <div className="ops-data-warning ops-data-warning-compact" role="alert"><div><strong>Needs review</strong><span>{lifecycleIssueMessage(selected.incident.lifecycleIssues || [])}</span></div></div>}
       <div className="ops-incident-workspace">
-      <section className="ops-incident-section ops-workspace-information"><div className="ops-section-title"><div><small>INCIDENT INFORMATION</small><h3>Incident information</h3></div></div><dl className="ops-detail-grid"><dt>First seen</dt><dd>{formatIncidentDate(selected.incident.firstSeen)}</dd><dt>Resolved at</dt><dd>{formatIncidentDate(selected.incident.resolvedAt)}</dd><dt>Duration</dt><dd>{formatDuration(selected.incident.durationMinutes)}</dd><dt>Alert email received</dt><dd>{formatDate(selected.incident.receivedAt)}</dd><dt>Occurrences</dt><dd>{selected.incident.occurrenceCount ?? '-'}</dd><dt>Current owner</dt><dd>{selected.incident.assignedTo || 'Unassigned'}</dd><dt>Related work items</dt><dd>{relatedWorkItemLabel(selected.incident)}</dd><dt>Last action by</dt><dd>{lastTimelineActor(selected.timeline)}</dd></dl></section>
+      <section className="ops-incident-section ops-workspace-information"><div className="ops-section-title"><div><small>INCIDENT INFORMATION</small><h3>Incident information</h3></div></div><dl className="ops-detail-grid"><dt>First seen</dt><dd>{formatIncidentDate(selected.incident.firstSeen)}</dd><dt>Resolved at</dt><dd>{formatIncidentDate(selected.incident.resolvedAt)}</dd><dt>Duration</dt><dd>{formatDuration(selected.incident.durationMinutes)}</dd><dt>Alert email received</dt><dd>{formatDate(selected.incident.receivedAt)}</dd><dt>Occurrences</dt><dd>{selected.incident.occurrenceCount ?? '-'}</dd><dt>Current owner</dt><dd>{selected.incident.assignedTo || 'Unassigned'}</dd></dl></section>
       {alertDetails.length > 0 && <section className="ops-alert-details ops-workspace-alert"><details open><summary>Monitoring alert details</summary><dl className="ops-detail-grid">{alertDetails.map(({ label, value }) => <Fragment key={label}><dt>{label}</dt><dd>{value}</dd></Fragment>)}</dl></details></section>}
       <details className="ops-technical-details ops-workspace-technical"><summary>Technical details</summary><dl className="ops-detail-grid"><dt>Technical incident ID</dt><dd><code className="ops-technical-id">{selected.incident.incidentId || '-'}</code></dd><dt>SharePoint ID</dt><dd>{selected.incident.sharePointId ?? '-'}</dd><dt>Source message ID</dt><dd><code>{selected.incident.lastSourceMessageId || '-'}</code></dd><dt>Flow run ID</dt><dd><code>{selected.incident.flowRunId || '-'}</code></dd><dt>Last updated</dt><dd>{formatDate(selected.incident.lastSyncedAt)}</dd></dl></details>
       {selected.incident.errorDetail && <div className="ops-error"><strong>Power Automate error</strong><span>{selected.incident.errorDetail}</span></div>}
@@ -309,16 +310,15 @@ function formatTimelineDate(event: { eventType?: string; timestamp?: string }) {
   return monitoringEvent ? formatBangkokTimestamp(event.timestamp, 'en-GB', true) : formatDate(event.timestamp);
 }
 
-function relatedWorkItemLabel(item: Incident) {
+function relatedWorkItemCount(item: Incident) {
   const related = item.workItems.filter(workItem => workItem.role === 'RELATED');
-  if (!related.length) return 'None';
-  return `${related.length} · ${related.map(workItem => `#${workItem.workItemId} (${workItem.assignedTo || 'Unassigned'} · ${displayStatus(workItem.state)})`).join(', ')}`;
+  return related.length;
 }
 
-function lastTimelineActor(events: AuditEvent[]) {
-  const event = events.find(item => item.operationsUserEmail || item.adoIdentityEmail);
-  if (!event) return 'System / not recorded';
-  return event.operationsUserEmail || event.adoIdentityEmail || 'System';
+function relatedWorkItemSummary(item: Incident) {
+  const related = item.workItems.filter(workItem => workItem.role === 'RELATED');
+  if (!related.length) return 'None';
+  return related.map(workItem => `${workItem.assignedTo || 'Unassigned'} · ${displayStatus(workItem.state)}`).join(', ');
 }
 
 function decodeHtmlEntities(value: string) {
