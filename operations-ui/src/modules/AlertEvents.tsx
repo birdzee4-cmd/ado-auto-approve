@@ -35,4 +35,4 @@ export function AlertEvents() {
   </section>;
 }
 
-function formatDate(value?: string) { return formatBangkokTimestamp(value, 'en-GB'); }
+function formatDate(value?: string) { return formatBangkokTimestamp(value, 'en-GB', true); }

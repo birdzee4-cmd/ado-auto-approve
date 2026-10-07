@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { loadAdoConnection, operationsApi } from '../api';
-import { AdoStateBadge, displayStatus, EmptyState, ErrorState, LoadingState, PageHeading, StatusBadge } from '../components';
+import { AdoStateBadge, displayStatus, EmptyState, ErrorState, formatBangkokTimestamp, LoadingState, PageHeading, parseUtcTimestamp, StatusBadge } from '../components';
 import type { AdoConnectionStatus, AuditEvent, Incident, OperationsCapabilities, RelatedTicketPreview } from '../types';
 
 export function Incidents() {
@@ -245,7 +245,7 @@ export function Incidents() {
         <span className="ops-incident-service"><strong>{item.resource || item.service || 'Unknown resource'}</strong><small>{item.assignedTo || 'Unassigned'} · {item.environment || 'Unknown environment'}</small></span>
         <span className="ops-cell-stack ops-incident-progress"><StatusBadge value={incidentProgress(item)} /><small>{item.workItemId ? `VSTS ${item.adoState || 'Unknown'} · #${item.workItemId}` : 'No VSTS work item'}</small></span>
         <StatusBadge value={displayLifecycle(item)} />
-        <span className="ops-cell-stack ops-incident-time"><strong>{formatRelativeDate(item.firstSeen)}</strong><small>{formatDate(item.firstSeen)}</small></span>
+        <span className="ops-cell-stack ops-incident-time"><strong>{formatRelativeDate(item.firstSeen, true)}</strong><small>{formatBangkokTimestamp(item.firstSeen, 'en-US', true)}</small></span>
         <span className="ops-row-arrow" aria-hidden="true">→</span>
       </button>)}</div>
       {pageCount > 1 && <div className="ops-pagination"><button className="ops-button ops-button-secondary" disabled={currentPage === 1} onClick={() => setPage(value => Math.max(1, value - 1))}>Previous</button><span>Page {currentPage} of {pageCount}</span><button className="ops-button ops-button-secondary" disabled={currentPage === pageCount} onClick={() => setPage(value => Math.min(pageCount, value + 1))}>Next</button></div>}
@@ -301,9 +301,7 @@ function formatDate(value?: string) {
 }
 
 function formatIncidentDate(value?: string) {
-  const timestamp = parseTimestamp(value);
-  if (!timestamp) return '-';
-  return timestamp.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' });
+  return formatBangkokTimestamp(value, 'en-US', true);
 }
 
 // SharePoint/API timestamps are UTC instants. Treat timezone-less ISO values as UTC
@@ -319,9 +317,10 @@ function formatClock(value: Date) {
   return value.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-function formatRelativeDate(value?: string) {
-  if (!value || !Number.isFinite(Date.parse(value))) return 'Unknown';
-  const minutes = Math.round((Date.now() - Date.parse(value)) / 60000);
+function formatRelativeDate(value?: string, legacyBangkokWallClock = false) {
+  const timestamp = parseUtcTimestamp(value, legacyBangkokWallClock);
+  if (!timestamp) return 'Unknown';
+  const minutes = Math.round((Date.now() - timestamp.getTime()) / 60000);
   if (minutes < 1) return 'Just now';
   if (minutes < 60) return `${minutes}m ago`;
   if (minutes < 1440) return `${Math.round(minutes / 60)}h ago`;
