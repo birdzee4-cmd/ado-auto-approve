@@ -45,9 +45,21 @@ export function Incidents() {
   ].filter((item): item is { label: string; value: string } => Boolean(item.value && item.value.trim())) : [];
   const sortedItems = [...(items || [])].sort(compareIncidentNumberDescending);
   const assigneeOptions = [...new Set(overviewItems.map(item => item.assignedTo).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b));
+  const alertOptions = [...new Set(overviewItems.map(item => item.status).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const adoStateOptions = [...new Set(overviewItems.map(item => item.adoState?.trim()).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b));
+  const operationsStatusOptions = [...new Set(overviewItems.map(operationsStatus))].sort((a, b) => a.localeCompare(b));
+  const queueOptions = [
+    { value: '', label: 'All incidents', count: overviewItems.length },
+    { value: 'OPEN_INCIDENTS', label: 'Open incidents', count: overviewItems.filter(item => !isOperationsClosed(item)).length },
+    { value: 'ATTENTION', label: 'Follow-up queue', count: overviewItems.filter(isFollowUpItem).length },
+    { value: 'ACTION_REQUIRED', label: 'Needs action', count: overviewItems.filter(isActionRequired).length },
+    ...operationsStatusOptions.map(value => ({ value, label: displayStatus(value), count: overviewItems.filter(item => operationsStatus(item) === value).length }))
+  ].filter(option => !option.value || option.count > 0 || option.value === status);
   const filteredItems = sortedItems.filter(item => {
     if (alertStatus && item.status !== alertStatus) return false;
-    if (adoState && item.adoState !== adoState) return false;
+    if (adoState === 'NOT_CREATED' && item.workItemId) return false;
+    if (adoState === 'UNKNOWN' && (!item.workItemId || item.adoState)) return false;
+    if (adoState && !['NOT_CREATED', 'UNKNOWN'].includes(adoState) && item.adoState?.toUpperCase() !== adoState.toUpperCase()) return false;
     if (assignee && item.assignedTo !== assignee) return false;
     if (lifecycle && operationsStatus(item) !== lifecycle) return false;
     return true;
@@ -77,10 +89,7 @@ export function Incidents() {
         if (status === 'OPEN_INCIDENTS') return !isOperationsClosed(item);
         if (status === 'ATTENTION') return isFollowUpItem(item);
         if (status === 'ACTION_REQUIRED') return isActionRequired(item);
-        if (status === 'WAITING_RESOLVED' || status === 'WAITING_SUPPORT' || status === 'READY_TO_CLOSE') return operationsStatus(item) === status;
-        if (status === 'CLOSED') return isOperationsClosed(item);
-        if (status === 'OPEN') return operationsStatus(item) === 'OPEN';
-        return !status || item.trackingStatus === status;
+        return !status || operationsStatus(item) === status;
       }));
       setOverviewItems(all.items);
       setPage(1);
@@ -223,10 +232,10 @@ export function Incidents() {
     <div className="ops-incident-controls">
       <form className="ops-incident-search" onSubmit={e => { e.preventDefault(); load(); }}><span aria-hidden="true">⌕</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search ID, alert, service or resource…" aria-label="Search incidents" /><button className="ops-button" type="submit">Search</button></form>
       <div className="ops-filter-grid">
-        <label className="ops-filter-control"><span>QUEUE</span><select value={status} onChange={e => setStatus(e.target.value)} aria-label="Filter by queue"><option value="OPEN_INCIDENTS">Open incidents</option><option value="ATTENTION">Follow-up queue</option><option value="ACTION_REQUIRED">Needs action</option><option value="WAITING_SUPPORT">Waiting for support</option><option value="WAITING_RESOLVED">Waiting for alert recovery</option><option value="READY_TO_CLOSE">Ready to close</option><option value="OPEN">In progress</option><option value="CLOSED">Closed incidents</option><option value="PENDING">Awaiting action</option><option value="FAILED">Automation failed</option><option value="NOT_CREATED">Work item not created</option><option value="">All incidents</option></select></label>
-        <label className="ops-filter-control"><span>ALERT</span><select value={alertStatus} onChange={e => { setAlertStatus(e.target.value); setPage(1); }}><option value="">All</option><option value="FIRING">Active</option><option value="RESOLVED">Recovered</option></select></label>
-        <label className="ops-filter-control"><span>ADO STATE</span><select value={adoState} onChange={e => { setAdoState(e.target.value); setPage(1); }}><option value="">All</option><option value="New">New</option><option value="Processing">Processing</option><option value="Closed">Closed</option><option value="Reject">Reject</option></select></label>
-        <label className="ops-filter-control"><span>OPERATIONS STATUS</span><select value={lifecycle} onChange={e => { setLifecycle(e.target.value); setPage(1); }}><option value="">All</option><option value="NEEDS_REVIEW">Needs review</option><option value="WAITING_SUPPORT">Waiting for support</option><option value="WAITING_RESOLVED">Waiting for alert recovery</option><option value="READY_TO_CLOSE">Ready to close</option><option value="OPEN">In progress</option><option value="CLOSED">Closed</option><option value="PENDING">Awaiting action</option><option value="FAILED">Automation failed</option><option value="NOT_CREATED">Work item not created</option></select></label>
+        <label className="ops-filter-control"><span>QUEUE</span><select value={status} onChange={e => setStatus(e.target.value)} aria-label="Filter by queue">{queueOptions.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
+        <label className="ops-filter-control"><span>ALERT</span><select value={alertStatus} onChange={e => { setAlertStatus(e.target.value); setPage(1); }}><option value="">All</option>{alertOptions.map(value => <option value={value} key={value}>{displayStatus(value)}</option>)}</select></label>
+        <label className="ops-filter-control"><span>ADO STATE</span><select value={adoState} onChange={e => { setAdoState(e.target.value); setPage(1); }}><option value="">All</option>{adoStateOptions.map(value => <option value={value} key={value}>{value}</option>)}{overviewItems.some(item => !item.workItemId) && <option value="NOT_CREATED">Not created</option>}{overviewItems.some(item => item.workItemId && !item.adoState) && <option value="UNKNOWN">Unknown</option>}</select></label>
+        <label className="ops-filter-control"><span>OPERATIONS STATUS</span><select value={lifecycle} onChange={e => { setLifecycle(e.target.value); setPage(1); }}><option value="">All</option>{operationsStatusOptions.map(value => <option value={value} key={value}>{displayStatus(value)}</option>)}</select></label>
         <label className="ops-filter-control"><span>ASSIGNEE</span><select value={assignee} onChange={e => { setAssignee(e.target.value); setPage(1); }}><option value="">All</option>{assigneeOptions.map(value => <option value={value} key={value}>{value}</option>)}</select></label>
         <button className="ops-button ops-button-secondary ops-clear-filters" type="button" onClick={() => { setStatus(''); setAlertStatus(''); setAdoState(''); setLifecycle(''); setAssignee(''); setSearch(''); setPage(1); }}>Clear filters</button>
       </div>
