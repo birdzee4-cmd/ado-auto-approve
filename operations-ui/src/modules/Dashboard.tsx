@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { operationsApi } from '../api';
-import { AdoStateBadge, displayStatus, EmptyState, ErrorState, LoadingState, PageHeading, StatusBadge } from '../components';
+import { AdoStateBadge, displayStatus, EmptyState, ErrorState, formatBangkokTimestamp, LoadingState, PageHeading, StatusBadge } from '../components';
 import type { DashboardData, Incident } from '../types';
 
 const emptyDashboard: DashboardData = { totalIncidents: 0, adoWorkItems: 0, openWorkItems: 0, closedWorkItems: 0, awaitingApproval: 0, cancelledItems: 0, failedItems: 0, lifecycleConflicts: 0, recentIncidents: [], selectedDate: '', daily: { newIncidents: 0, resolvedIncidents: 0, adoCreated: 0, failedIncidents: 0, pendingApproval: 0, openBacklog: 0, lifecycleConflicts: 0, incidents: [] }, dailySeries: [], needsAttention: [] };
@@ -66,9 +66,7 @@ function formatDay(value?: string) {
 }
 
 function formatDate(value?: string) {
-  return value && Number.isFinite(Date.parse(value))
-    ? new Date(value).toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })
-    : '-';
+  return formatBangkokTimestamp(value);
 }
 
 function formatTime(value?: string) {

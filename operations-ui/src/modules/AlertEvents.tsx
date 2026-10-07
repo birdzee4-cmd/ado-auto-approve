@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { operationsApi } from '../api';
-import { displayStatus, EmptyState, ErrorState, LoadingState, PageHeading, StatusBadge } from '../components';
+import { displayStatus, EmptyState, ErrorState, formatBangkokTimestamp, LoadingState, PageHeading, StatusBadge } from '../components';
 import type { AlertEvent } from '../types';
 
 export function AlertEvents() {
@@ -35,4 +35,4 @@ export function AlertEvents() {
   </section>;
 }
 
-function formatDate(value?: string) { if (!value) return '-'; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleString('en-GB', { timeZone: 'Asia/Bangkok' }); }
+function formatDate(value?: string) { return formatBangkokTimestamp(value, 'en-GB'); }

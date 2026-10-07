@@ -1,5 +1,19 @@
 import type { ReactNode } from 'react';
 
+// API timestamps are UTC instants. Explicitly mark timezone-less values as UTC
+// so browser locale settings cannot shift incident times inconsistently.
+export function parseUtcTimestamp(value?: string) {
+  if (!value) return undefined;
+  const normalized = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`;
+  const date = new Date(normalized);
+  return Number.isFinite(date.getTime()) ? date : undefined;
+}
+
+export function formatBangkokTimestamp(value?: string, locale = 'en-US') {
+  const date = parseUtcTimestamp(value);
+  return date ? date.toLocaleString(locale, { timeZone: 'Asia/Bangkok' }) : '-';
+}
+
 export function StatusBadge({ value }: { value: string }) {
   const className = value.toLowerCase().replace(/_/g, '-');
   return <span className={`ops-status ops-status-${className}`}>{displayStatus(value)}</span>;
