@@ -282,7 +282,7 @@ export function Incidents() {
         </div>
         <div className="ops-closure"><h4>Closure checklist</h4><p className="ops-muted">Readiness: {isOperationsClosed(selected.incident) ? 'Closed' : displayStatus(selected.incident.closeEligibility?.readinessStatus || 'CHECKING')}</p><ul><li className={selected.incident.workItemSummary.total > 0 ? 'is-done' : ''}>Primary Work Item exists</li><li className={selected.incident.workItemSummary.open === 0 && selected.incident.workItemSummary.total > 0 ? 'is-done' : ''}>All Work Items are closed</li><li className={selected.incident.status === 'RESOLVED' ? 'is-done' : ''}>Monitoring alert is recovered (recommended)</li></ul>{!isOperationsClosed(selected.incident) && selected.incident.closeEligibility?.reasons.map(reason => <small key={reason}>{reason}</small>)}{!isOperationsClosed(selected.incident) && selected.incident.closeEligibility?.warnings?.map(warning => <small className="ops-closure-warning" key={warning}>{warning}</small>)}<div className="ops-card-actions"><button className="ops-button ops-button-secondary" disabled={busy || !connection?.connected || !capabilities.synchronize} onClick={() => runAction(() => operationsApi.synchronize(selected.incident.incidentId), 'Work Item states synchronized')}>Synchronize</button><button className="ops-button" disabled={busy || !connection?.connected || !capabilities.closeIncident || !selected.incident.closeEligibility?.allowed || isOperationsClosed(selected.incident)} onClick={closeSelectedIncident}>{isOperationsClosed(selected.incident) ? 'Incident Closed' : busy ? 'Closing…' : 'Close Incident'}</button>{!isOperationsClosed(selected.incident) && selected.incident.hasLifecycleConflict && <button className="ops-button ops-button-danger" disabled={busy || !capabilities.manualCloseIncident} onClick={manualCloseSelectedIncident}>Manual Override / Force Close</button>}</div></div>
       </section>
-      <details className="ops-timeline ops-workspace-timeline"><summary><span><small>ACTIVITY</small><strong>Incident timeline</strong></span><em>View timeline</em></summary><div className="ops-timeline-content"><div className="ops-timeline-head"><span>Incident activity history</span><button type="button" className="ops-button ops-button-secondary" onClick={event => { event.preventDefault(); setShowTechnicalEvents(value => !value); }}>{showTechnicalEvents ? 'Hide system activity' : 'Show system activity'}</button></div>{timelineForDisplay(selected.timeline, showTechnicalEvents).map(event => <div key={event.eventId}><span /><p><strong>{humanizeEventType(event.eventType)}</strong><small>{event.detail || event.result} · {formatDate(event.timestamp)}</small>{(event.operationsUserEmail || event.adoIdentityEmail) && <small className="ops-audit-identities">Operations: {event.operationsUserEmail || 'Unknown'} · Azure DevOps: {event.adoIdentityEmail || 'Unknown'}</small>}</p></div>)}</div></details>
+      <details className="ops-timeline ops-workspace-timeline"><summary><span><small>ACTIVITY</small><strong>Incident timeline</strong></span><em>View timeline</em></summary><div className="ops-timeline-content"><div className="ops-timeline-head"><span>Incident activity history</span><button type="button" className="ops-button ops-button-secondary" onClick={event => { event.preventDefault(); setShowTechnicalEvents(value => !value); }}>{showTechnicalEvents ? 'Hide system activity' : 'Show system activity'}</button></div>{timelineForDisplay(selected.timeline, showTechnicalEvents).map(event => <div key={event.eventId}><span /><p><strong>{humanizeEventType(event.eventType)}</strong><small>{decodeHtmlEntities(event.detail || event.result)} · {formatTimelineDate(event)}</small>{(event.operationsUserEmail || event.adoIdentityEmail) && <small className="ops-audit-identities">Operations: {event.operationsUserEmail || 'Unknown'} · Azure DevOps: {event.adoIdentityEmail || 'Unknown'}</small>}</p></div>)}</div></details>
       </div>
       </>}
     </aside></div>}
@@ -302,6 +302,18 @@ function formatDate(value?: string) {
 
 function formatIncidentDate(value?: string) {
   return formatBangkokTimestamp(value, 'en-GB', true);
+}
+
+function formatTimelineDate(event: { eventType?: string; timestamp?: string }) {
+  const monitoringEvent = event.eventType === 'ALERT_FIRING' || event.eventType === 'ALERT_RESOLVED';
+  return monitoringEvent ? formatBangkokTimestamp(event.timestamp, 'en-GB', true) : formatDate(event.timestamp);
+}
+
+function decodeHtmlEntities(value: string) {
+  return String(value || '')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
+    .replace(/&colon;/gi, ':');
 }
 
 // SharePoint/API timestamps are UTC instants. Treat timezone-less ISO values as UTC
