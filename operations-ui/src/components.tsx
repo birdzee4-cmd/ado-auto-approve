@@ -13,9 +13,9 @@ export function parseUtcTimestamp(value?: string, legacyBangkokWallClock = false
   return Number.isFinite(date.getTime()) ? date : undefined;
 }
 
-export function formatBangkokTimestamp(value?: string, locale = 'en-US', legacyBangkokWallClock = false) {
+export function formatBangkokTimestamp(value?: string, locale = 'en-GB', legacyBangkokWallClock = false) {
   const date = parseUtcTimestamp(value, legacyBangkokWallClock);
-  return date ? date.toLocaleString(locale, { timeZone: 'Asia/Bangkok' }) : '-';
+  return date ? date.toLocaleString(locale, { timeZone: 'Asia/Bangkok', hour12: false }) : '-';
 }
 
 export function StatusBadge({ value }: { value: string }) {
