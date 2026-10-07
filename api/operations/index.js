@@ -17,6 +17,12 @@ module.exports = async function (context, req) {
   }
   const roleCheck = auth.requireAnyRole(context, req, ['it_support_approve', 'admin']);
   if (!roleCheck.ok) return jsonResponse(context, roleCheck.status, roleCheck.body);
+  // One-time admin migration can be invoked from an authenticated browser session.
+  // It is intentionally limited to this exact route and requires confirmWrite=true.
+  if (method === 'GET' && path === 'legacy-resolved-migration') {
+    const query = req.query || {};
+    return handleWrite(context, { ...req, method: 'POST', body: { ...query, confirmWrite: String(query.confirmWrite || '').toLowerCase() === 'true' } }, path, roleCheck.principal);
+  }
   try {
     if (method === 'POST') {
       // Await inside this try/catch so rejected write operations are converted
