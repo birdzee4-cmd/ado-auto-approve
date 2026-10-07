@@ -53,7 +53,25 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .ops-topbar nav > a:not(.ops-logout) { color: #dadce0; font-size: .86rem; font-weight: 700; text-decoration: none; }
 .ops-topbar nav > a:not(.ops-logout):hover { color: var(--ops-yellow); }
 .ops-topbar nav > img { width: 132px; height: 30px; object-fit: contain; padding-left: 13px; border-left: 1px solid #34363b; }
-.ops-user { max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 7px 12px; border: 1px solid #45474d; border-radius: 999px; color: #f1f2f3; font-size: .8rem; }
+.ops-user {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 8px 14px;
+  border: 1px solid rgba(245, 164, 0, .35);
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff4d6d, #ffb000, #47d16c, #38bdf8, #a78bfa, #ff4d6d), linear-gradient(rgba(245, 164, 0, .08), rgba(245, 164, 0, .08));
+  background-clip: text, padding-box;
+  -webkit-background-clip: text, padding-box;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  box-shadow: inset 0 0 8px rgba(245, 164, 0, .1), 0 0 18px rgba(245, 164, 0, .08);
+  text-shadow: 0 0 12px rgba(245, 164, 0, .5);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+}
 .ops-ado-connection { display: flex; align-items: center; gap: 9px; padding: 6px 9px; border: 1px solid #45474d; border-radius: 8px; background: #202226; }
 .ops-ado-connection > div:first-child { display: grid; gap: 1px; max-width: 230px; }
 .ops-ado-connection span { color: #9da1a8; font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
