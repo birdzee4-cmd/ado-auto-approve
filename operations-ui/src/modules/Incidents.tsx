@@ -44,7 +44,7 @@ export function Incidents() {
     { label: 'Summary', value: selected.incident.alertSummary }
   ].filter((item): item is { label: string; value: string } => Boolean(item.value && item.value.trim())) : [];
   const sortedItems = [...(items || [])].sort(compareIncidentNumberDescending);
-  const assigneeOptions = [...new Set(overviewItems.map(item => item.assignedTo).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b));
+  const assigneeOptions = [...new Set(overviewItems.map(item => normalizeAssignee(item.assignedTo)).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const alertOptions = [...new Set(overviewItems.map(item => item.status).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const adoStateOptions = [...new Set(overviewItems.map(item => item.adoState?.trim()).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b));
   const operationsStatusOptions = [...new Set(overviewItems.map(operationsStatus))].sort((a, b) => a.localeCompare(b));
@@ -60,7 +60,7 @@ export function Incidents() {
     if (adoState === 'NOT_CREATED' && item.workItemId) return false;
     if (adoState === 'UNKNOWN' && (!item.workItemId || item.adoState)) return false;
     if (adoState && !['NOT_CREATED', 'UNKNOWN'].includes(adoState) && item.adoState?.toUpperCase() !== adoState.toUpperCase()) return false;
-    if (assignee && item.assignedTo !== assignee) return false;
+    if (assignee && normalizeAssignee(item.assignedTo) !== assignee) return false;
     if (lifecycle && operationsStatus(item) !== lifecycle) return false;
     return true;
   });
@@ -230,7 +230,7 @@ export function Incidents() {
       <button className={status === '' ? 'is-active' : ''} onClick={() => setStatus('')}><span>All incidents</span><strong>{overview.total}</strong><small>Full history</small></button>
     </div>
     <div className="ops-incident-controls">
-      <form className="ops-incident-search" onSubmit={e => { e.preventDefault(); load(); }}><span aria-hidden="true">⌕</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search ID, alert, service or resource…" aria-label="Search incidents" /><button className="ops-button" type="submit">Search</button></form>
+      <form className="ops-incident-search" onSubmit={e => { e.preventDefault(); load(); }}><span aria-hidden="true">⌕</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search incidents…" aria-label="Search incidents" /><button className="ops-button" type="submit">Search</button></form>
       <div className="ops-filter-grid">
         <label className="ops-filter-control"><span>QUEUE</span><select value={status} onChange={e => setStatus(e.target.value)} aria-label="Filter by queue">{queueOptions.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
         <label className="ops-filter-control"><span>ALERT</span><select value={alertStatus} onChange={e => { setAlertStatus(e.target.value); setPage(1); }}><option value="">All</option>{alertOptions.map(value => <option value={value} key={value}>{displayStatus(value)}</option>)}</select></label>
@@ -380,6 +380,10 @@ function humanizeEventType(value: string) {
 function incidentRouteParams() {
   const query = window.location.hash.split('?')[1] || '';
   return new URLSearchParams(query);
+}
+
+function normalizeAssignee(value?: string) {
+  return String(value || '').replace(/\s*<[^>]+>\s*$/, '').trim();
 }
 
 function lifecycleIssueMessage(issues: string[]) {
