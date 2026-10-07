@@ -13,7 +13,7 @@ export function Incidents() {
   const [showTechnicalEvents, setShowTechnicalEvents] = useState(false);
   // Open the Incident page with the complete list by default. Explicit
   // status links (for example, Needs review) still apply their filter.
-  const [status, setStatus] = useState(routeParams.get('status') || '');
+  const [status, setStatus] = useState(routeParams.get('status') === 'ACTIVE' ? 'OPEN_INCIDENTS' : routeParams.get('status') || '');
   const [search, setSearch] = useState(routeParams.get('search') || '');
   const [alertStatus, setAlertStatus] = useState('');
   const [adoState, setAdoState] = useState('');
@@ -49,11 +49,7 @@ export function Incidents() {
     if (alertStatus && item.status !== alertStatus) return false;
     if (adoState && item.adoState !== adoState) return false;
     if (assignee && item.assignedTo !== assignee) return false;
-    if (lifecycle === 'WAITING_RESOLVED' && !isWaitingForResolved(item)) return false;
-    if (lifecycle === 'WAITING_SUPPORT' && !isWaitingForSupport(item)) return false;
-    if (lifecycle === 'READY_TO_CLOSE' && !isReadyToClose(item)) return false;
-    if (lifecycle === 'CONFLICT' && (!item.hasLifecycleConflict || isWaitingForResolved(item))) return false;
-    if (lifecycle === 'NORMAL' && item.hasLifecycleConflict) return false;
+    if (lifecycle && operationsStatus(item) !== lifecycle) return false;
     return true;
   });
   const pageCount = Math.max(1, Math.ceil(filteredItems.length / pageSize));
@@ -61,11 +57,11 @@ export function Incidents() {
   const visibleItems = filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const overview = {
     total: overviewItems.length,
-    active: overviewItems.filter(isActiveIncident).length,
-    attention: overviewItems.filter(isActionRequired).length,
-    waiting: overviewItems.filter(isWaitingForResolved).length,
-    waitingSupport: overviewItems.filter(isWaitingForSupport).length,
-    readyToClose: overviewItems.filter(isReadyToClose).length,
+    open: overviewItems.filter(item => !isOperationsClosed(item)).length,
+    actionRequired: overviewItems.filter(isActionRequired).length,
+    waiting: overviewItems.filter(item => operationsStatus(item) === 'WAITING_RESOLVED').length,
+    waitingSupport: overviewItems.filter(item => operationsStatus(item) === 'WAITING_SUPPORT').length,
+    readyToClose: overviewItems.filter(item => operationsStatus(item) === 'READY_TO_CLOSE').length,
     closed: overviewItems.filter(isOperationsClosed).length
   };
 
@@ -78,12 +74,12 @@ export function Incidents() {
     try {
       const all = await allRequest;
       setItems(all.items.filter(item => {
-        if (status === 'ACTIVE') return isActiveIncident(item);
-        if (status === 'ATTENTION') return isActionRequired(item);
-        if (status === 'WAITING_RESOLVED') return isWaitingForResolved(item);
-        if (status === 'WAITING_SUPPORT') return isWaitingForSupport(item);
-        if (status === 'READY_TO_CLOSE') return isReadyToClose(item);
+        if (status === 'OPEN_INCIDENTS') return !isOperationsClosed(item);
+        if (status === 'ATTENTION') return isFollowUpItem(item);
+        if (status === 'ACTION_REQUIRED') return isActionRequired(item);
+        if (status === 'WAITING_RESOLVED' || status === 'WAITING_SUPPORT' || status === 'READY_TO_CLOSE') return operationsStatus(item) === status;
         if (status === 'CLOSED') return isOperationsClosed(item);
+        if (status === 'OPEN') return operationsStatus(item) === 'OPEN';
         return !status || item.trackingStatus === status;
       }));
       setOverviewItems(all.items);
@@ -216,8 +212,8 @@ export function Incidents() {
   return <section className="ops-incidents-page">
     <PageHeading eyebrow="Incident command center" title="Incidents" actions={<div className="ops-refresh-status"><span className="ops-live-label"><i /> Live from SharePoint</span><small>{lastUpdatedAt ? `Updated ${formatClock(lastUpdatedAt)}` : 'Waiting for first update'} · Auto every 60 sec</small><button className="ops-button ops-button-secondary" type="button" disabled={refreshing || busy} onClick={() => void load()}>{refreshing ? 'Refreshing…' : 'Refresh now'}</button></div>} />
     <div className="ops-incident-overview" aria-label="Incident overview">
-      <button className={status === 'ACTIVE' ? 'is-active' : ''} onClick={() => setStatus('ACTIVE')}><span>Active</span><strong>{overview.active}</strong><small>Current work queue</small></button>
-      <button className={status === 'ATTENTION' ? 'is-active is-warning' : 'is-warning'} onClick={() => setStatus('ATTENTION')}><span>Needs attention</span><strong>{overview.attention}</strong><small>Review or take action</small></button>
+      <button className={status === 'OPEN_INCIDENTS' ? 'is-active' : ''} onClick={() => setStatus('OPEN_INCIDENTS')}><span>Open incidents</span><strong>{overview.open}</strong><small>Remaining to close</small></button>
+      <button className={status === 'ACTION_REQUIRED' ? 'is-active is-warning' : 'is-warning'} onClick={() => setStatus('ACTION_REQUIRED')}><span>Needs action</span><strong>{overview.actionRequired}</strong><small>Review or take action</small></button>
       <button className={status === 'WAITING_RESOLVED' ? 'is-active' : ''} onClick={() => setStatus('WAITING_RESOLVED')}><span>Waiting for alert recovery</span><strong>{overview.waiting}</strong><small>Work item closed, alert still active</small></button>
       <button className={status === 'WAITING_SUPPORT' ? 'is-active' : ''} onClick={() => setStatus('WAITING_SUPPORT')}><span>Waiting for support</span><strong>{overview.waitingSupport}</strong><small>Related team action</small></button>
       <button className={status === 'READY_TO_CLOSE' ? 'is-active' : ''} onClick={() => setStatus('READY_TO_CLOSE')}><span>Ready to close</span><strong>{overview.readyToClose}</strong><small>Resolved, tickets closed</small></button>
@@ -227,10 +223,10 @@ export function Incidents() {
     <div className="ops-incident-controls">
       <form className="ops-incident-search" onSubmit={e => { e.preventDefault(); load(); }}><span aria-hidden="true">⌕</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search ID, alert, service or resource…" aria-label="Search incidents" /><button className="ops-button" type="submit">Search</button></form>
       <div className="ops-filter-grid">
-        <label className="ops-filter-control"><span>QUEUE</span><select value={status} onChange={e => setStatus(e.target.value)} aria-label="Filter by queue"><option value="ACTIVE">Active</option><option value="ATTENTION">Needs review</option><option value="WAITING_SUPPORT">Waiting for support</option><option value="WAITING_RESOLVED">Waiting for alert recovery</option><option value="READY_TO_CLOSE">Ready to close</option><option value="OPEN">In progress</option><option value="CLOSED">Closed incidents</option><option value="PENDING">Awaiting action</option><option value="FAILED">Automation failed</option><option value="NOT_CREATED">Work item not created</option><option value="">All incidents</option></select></label>
+        <label className="ops-filter-control"><span>QUEUE</span><select value={status} onChange={e => setStatus(e.target.value)} aria-label="Filter by queue"><option value="OPEN_INCIDENTS">Open incidents</option><option value="ATTENTION">Follow-up queue</option><option value="ACTION_REQUIRED">Needs action</option><option value="WAITING_SUPPORT">Waiting for support</option><option value="WAITING_RESOLVED">Waiting for alert recovery</option><option value="READY_TO_CLOSE">Ready to close</option><option value="OPEN">In progress</option><option value="CLOSED">Closed incidents</option><option value="PENDING">Awaiting action</option><option value="FAILED">Automation failed</option><option value="NOT_CREATED">Work item not created</option><option value="">All incidents</option></select></label>
         <label className="ops-filter-control"><span>ALERT</span><select value={alertStatus} onChange={e => { setAlertStatus(e.target.value); setPage(1); }}><option value="">All</option><option value="FIRING">Active</option><option value="RESOLVED">Recovered</option></select></label>
         <label className="ops-filter-control"><span>ADO STATE</span><select value={adoState} onChange={e => { setAdoState(e.target.value); setPage(1); }}><option value="">All</option><option value="New">New</option><option value="Processing">Processing</option><option value="Closed">Closed</option><option value="Reject">Reject</option></select></label>
-        <label className="ops-filter-control"><span>OPERATIONS STATUS</span><select value={lifecycle} onChange={e => { setLifecycle(e.target.value); setPage(1); }}><option value="">All</option><option value="WAITING_SUPPORT">Waiting for support</option><option value="WAITING_RESOLVED">Waiting for alert recovery</option><option value="READY_TO_CLOSE">Ready to close</option><option value="CONFLICT">Needs review</option><option value="NORMAL">Normal</option></select></label>
+        <label className="ops-filter-control"><span>OPERATIONS STATUS</span><select value={lifecycle} onChange={e => { setLifecycle(e.target.value); setPage(1); }}><option value="">All</option><option value="NEEDS_REVIEW">Needs review</option><option value="WAITING_SUPPORT">Waiting for support</option><option value="WAITING_RESOLVED">Waiting for alert recovery</option><option value="READY_TO_CLOSE">Ready to close</option><option value="OPEN">In progress</option><option value="CLOSED">Closed</option><option value="PENDING">Awaiting action</option><option value="FAILED">Automation failed</option><option value="NOT_CREATED">Work item not created</option></select></label>
         <label className="ops-filter-control"><span>ASSIGNEE</span><select value={assignee} onChange={e => { setAssignee(e.target.value); setPage(1); }}><option value="">All</option>{assigneeOptions.map(value => <option value={value} key={value}>{value}</option>)}</select></label>
         <button className="ops-button ops-button-secondary ops-clear-filters" type="button" onClick={() => { setStatus(''); setAlertStatus(''); setAdoState(''); setLifecycle(''); setAssignee(''); setSearch(''); setPage(1); }}>Clear filters</button>
       </div>
@@ -384,40 +380,12 @@ function lifecycleIssueMessage(issues: string[]) {
   return 'Monitoring, workflow, and work-item states are not aligned.';
 }
 
-function isActiveIncident(item: Incident) {
-  return !isOperationsClosed(item)
-    && item.trackingStatus !== 'CLOSED'
-    && !isWaitingForResolved(item)
-    && !isWaitingForSupport(item)
-    && !isReadyToClose(item)
-    && !isActionRequired(item);
-}
-
-function isWaitingForResolved(item: Incident) {
-  return !isOperationsClosed(item)
-    && item.status === 'FIRING'
-    && item.workItemSummary.total > 0
-    && item.workItemSummary.open === 0;
-}
-
-function isWaitingForSupport(item: Incident) {
-  return !isOperationsClosed(item)
-    && !['PENDING', 'FAILED', 'NOT_CREATED'].includes(item.trackingStatus)
-    && item.workItems.some(workItem => workItem.role === 'RELATED' && !isClosedWorkItemState(workItem.state));
-}
-
-function isReadyToClose(item: Incident) {
-  return !isOperationsClosed(item) && item.status === 'RESOLVED' && item.workItemSummary.total > 0 && item.workItemSummary.open === 0;
-}
-
 function isActionRequired(item: Incident) {
-  return !isOperationsClosed(item) && !isWaitingForSupport(item) && !isWaitingForResolved(item) && !isReadyToClose(item) && (['PENDING', 'FAILED', 'NOT_CREATED'].includes(item.trackingStatus)
-    || Boolean(item.hasLifecycleConflict && !isWaitingForResolved(item)));
+  return ['NEEDS_REVIEW', 'PENDING', 'FAILED', 'NOT_CREATED'].includes(operationsStatus(item));
 }
 
-
-function isClosedWorkItemState(value?: string) {
-  return ['CLOSED', 'DONE', 'REMOVED', 'RESOLVED', 'REJECT', 'REJECTED'].includes(String(value || '').trim().toUpperCase());
+function isFollowUpItem(item: Incident) {
+  return isActionRequired(item) || ['WAITING_SUPPORT', 'WAITING_RESOLVED', 'READY_TO_CLOSE'].includes(operationsStatus(item));
 }
 
 function timelineForDisplay(events: AuditEvent[], showTechnical: boolean) {
