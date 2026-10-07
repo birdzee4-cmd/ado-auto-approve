@@ -117,7 +117,7 @@ async function handleRestart(context, req) {
       throw Object.assign(new Error('App Service Portal is limited to STG App Services'), { statusCode: 403, expose: true });
     }
     const result = await client.restartAppService(name, user, resourceGroup, body && body.subscriptionId);
-    await audit.safeAudit(context, {
+    const auditResult = await audit.safeAudit(context, {
       action: 'RestartAppService',
       user,
       roles,
@@ -140,6 +140,7 @@ async function handleRestart(context, req) {
       name: result.app.name,
       resourceGroup: result.app.resourceGroup,
       cooldownSeconds: result.cooldownSeconds,
+      auditLogged: !!(auditResult && auditResult.ok),
       timestamp: new Date().toISOString()
     });
   } catch (err) {
