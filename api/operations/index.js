@@ -109,6 +109,42 @@ async function handleWrite(context, req, path, principal) {
       detail: 'Alert Events ingestion is restricted to the authenticated Production Power Automate endpoint.'
     });
   }
+  const legacyResolved = /^legacy-resolved-migration$/.test(path);
+  if (legacyResolved) {
+    const admin = auth.requireAnyRole(context, req, ['admin']);
+    if (!admin.ok) return jsonResponse(context, admin.status, admin.body);
+    if (body.confirmWrite !== true) {
+      const incidents = (await sharePoint.listIncidents(1000)).filter(item => inLegacyRange(item.incidentId, body.from, body.to));
+      return jsonResponse(context, 200, { ok: true, dryRun: true, data: incidents.map(legacyMigrationPreview) });
+    }
+    const incidents = (await sharePoint.listIncidents(1000)).filter(item => inLegacyRange(item.incidentId, body.from, body.to));
+    const results = [];
+    for (const incident of incidents) {
+      const resolvedAt = legacyResolvedAt(incident);
+      if (String(incident.status || '').toUpperCase() === 'RESOLVED' && incident.resolvedAt) {
+        results.push({ incidentId: incident.incidentId, skipped: true, reason: 'ALREADY_RESOLVED' });
+        continue;
+      }
+      await sharePoint.updateIncidentRecord(incident.sharePointId, {
+        AlertStatus: 'RESOLVED',
+        ResolvedAt: resolvedAt,
+        LastSyncedAt: new Date().toISOString(),
+        LastSourceMessageId: `legacy-resolved-migration:${incident.incidentId}`
+      });
+      await sharePoint.appendAudit({
+        Title: 'LEGACY_RESOLVED_MIGRATION', EventId: crypto.randomUUID(),
+        EventKey: `LEGACY_RESOLVED_MIGRATION:${incident.incidentId}`,
+        CorrelationId: String(req.headers && (req.headers['x-correlation-id'] || req.headers['x-ms-request-id']) || crypto.randomUUID()),
+        IncidentId: incident.incidentId, Action: 'LEGACY_RESOLVED_MIGRATION', Result: 'SUCCEEDED',
+        OperationsUserId: principal.userId || '', OperationsUserName: principal.userDetails || '',
+        OperationsUserEmail: auth.getUserEmail(principal) || '',
+        Detail: 'One-time legacy migration: AlertStatus set to RESOLVED; related work and Operations status preserved.',
+        OccurredAt: new Date().toISOString()
+      });
+      results.push({ incidentId: incident.incidentId, updated: true, resolvedAt });
+    }
+    return jsonResponse(context, 200, { ok: true, dryRun: false, data: results });
+  }
   // Alert Events is intentionally a read-only monitoring surface. Event
   // ingestion remains automation-only above; reconciliation is owned by the
   // scheduled service and must not be triggered from the UI.
@@ -178,6 +214,27 @@ async function handleWrite(context, req, path, principal) {
   else if (action === 'tier1/restart-app-service') data = await operationsService.restartAppService({ ...body, incidentId }, adoActionContext);
   else return jsonResponse(context, 404, { ok: false, error: 'Operations write route not found' }, token.setCookie);
   return jsonResponse(context, 200, { ok: true, data }, token.setCookie);
+}
+
+function inLegacyRange(id, from = 180, to = 278) {
+  const match = /^INC-\d{4}-(\d+)$/.exec(String(id || '').trim().toUpperCase());
+  if (!match) return false;
+  const number = Number(match[1]);
+  return number >= Number(from) && number <= Number(to);
+}
+
+function legacyResolvedAt(incident) {
+  const candidates = [incident.lastAlertAt, incident.lastSeen, incident.firstSeen];
+  const first = Date.parse(incident.firstSeen || '');
+  for (const value of candidates) {
+    const parsed = Date.parse(value || '');
+    if (Number.isFinite(parsed) && (!Number.isFinite(first) || parsed > first)) return new Date(parsed).toISOString();
+  }
+  return new Date((Number.isFinite(first) ? first : Date.now()) + 1000).toISOString();
+}
+
+function legacyMigrationPreview(incident) {
+  return { incidentId: incident.incidentId, currentAlertStatus: incident.status || '', operationsStatus: incident.operationsStatus || '', resolvedAt: legacyResolvedAt(incident), action: String(incident.status || '').toUpperCase() === 'RESOLVED' && incident.resolvedAt ? 'SKIP' : 'UPDATE_ALERT_TO_RESOLVED' };
 }
 
 function userActionContext(req, principal) {
