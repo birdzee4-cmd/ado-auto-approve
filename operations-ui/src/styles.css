@@ -172,6 +172,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .ops-panel-heading small { color: var(--ops-muted); }
 .ops-table-wrap { overflow-x: auto; }
 .ops-table-wrap table { min-width: 980px; }
+.ops-daily-table .ops-operations-status-cell { text-align: center; vertical-align: middle; }
 .ops-table-link { color: #7c5000; font-weight: 800; text-decoration: none; }
 .ops-table-link:hover { text-decoration: underline; }
 .ops-muted { color: var(--ops-muted); }

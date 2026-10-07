@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { operationsApi } from '../api';
-import { AdoStateBadge, displayStatus, EmptyState, ErrorState, formatBangkokTimestamp, LoadingState, PageHeading, StatusBadge } from '../components';
+import { AdoStateBadge, EmptyState, ErrorState, formatBangkokTimestamp, LoadingState, PageHeading, StatusBadge } from '../components';
 import type { DashboardData, Incident } from '../types';
 import { operationsStatus } from '../incidentStatus';
 
@@ -42,8 +42,8 @@ export function Dashboard() {
         <article className="ops-panel ops-daily-table">
           <div className="ops-panel-heading"><div><span>DAILY INCIDENT LOG</span><h2>Incidents first seen on {formatDay(data.selectedDate)}</h2><small>{data.daily.totalIncidents && data.daily.totalIncidents > data.daily.incidents.length ? `Showing latest ${data.daily.incidents.length} of ${data.daily.totalIncidents} incidents` : `${data.daily.incidents.length} incident${data.daily.incidents.length === 1 ? '' : 's'}`}</small></div><small>{data.generatedAt ? `Updated ${formatTime(data.generatedAt)}` : 'Current status'}</small></div>
           {data.daily.incidents.length === 0 ? <EmptyState title="No incidents for this date" detail="Choose another operating date or open the incident explorer to search all records." /> : (
-            <div className="ops-table-wrap"><table><thead><tr><th>Incident</th><th>Resource</th><th>Alert status</th><th>ADO work item</th><th>Related</th><th>ADO state</th><th>Operations status</th><th>First seen</th></tr></thead><tbody>
-              {data.daily.incidents.map(item => <tr key={item.incidentId}><td><a className="ops-table-link" href={`#/incidents?id=${encodeURIComponent(item.incidentId)}`}><strong>{item.displayId || item.incidentId}</strong></a><small>{item.alertName}</small></td><td>{item.resource}</td><td><StatusBadge value={item.status} /></td><td>{item.workItemUrl ? <a className="ops-table-link" href={item.workItemUrl} target="_blank" rel="noreferrer">#{item.workItemId}</a> : item.workItemId ? <span>#{item.workItemId}</span> : <span className="ops-muted">Not created</span>}</td><td>{item.workItems.filter(workItem => workItem.role === 'RELATED').length || '-'}</td><td><AdoStateBadge value={item.adoState} /></td><td><StatusBadge value={operationsStatus(item)} /><small>Workflow status: {displayStatus(item.workflowStatus)}</small></td><td>{formatDate(item.firstSeen)}</td></tr>)}
+            <div className="ops-table-wrap"><table><thead><tr><th>Incident</th><th>Resource</th><th>Alert status</th><th>ADO work item</th><th>Related</th><th>ADO state</th><th className="ops-operations-status-cell">Operations status</th><th>First seen</th></tr></thead><tbody>
+              {data.daily.incidents.map(item => <tr key={item.incidentId}><td><a className="ops-table-link" href={`#/incidents?id=${encodeURIComponent(item.incidentId)}`}><strong>{item.displayId || item.incidentId}</strong></a><small>{item.alertName}</small></td><td>{item.resource}</td><td><StatusBadge value={item.status} /></td><td>{item.workItemUrl ? <a className="ops-table-link" href={item.workItemUrl} target="_blank" rel="noreferrer">#{item.workItemId}</a> : item.workItemId ? <span>#{item.workItemId}</span> : <span className="ops-muted">Not created</span>}</td><td>{item.workItems.filter(workItem => workItem.role === 'RELATED').length || '-'}</td><td><AdoStateBadge value={item.adoState} /></td><td className="ops-operations-status-cell"><StatusBadge value={operationsStatus(item)} /></td><td>{formatDate(item.firstSeen)}</td></tr>)}
             </tbody></table></div>
           )}
         </article>
