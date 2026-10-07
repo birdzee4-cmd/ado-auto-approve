@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { loadAdoConnection, operationsApi } from '../api';
 import { AdoStateBadge, displayStatus, EmptyState, ErrorState, formatBangkokTimestamp, LoadingState, PageHeading, parseUtcTimestamp, StatusBadge } from '../components';
 import type { AdoConnectionStatus, AuditEvent, Incident, OperationsCapabilities, RelatedTicketPreview } from '../types';
+import { isOperationsClosed, operationsStatus } from '../incidentStatus';
 
 export function Incidents() {
   const routeParams = incidentRouteParams();
@@ -228,8 +229,8 @@ export function Incidents() {
       <div className="ops-filter-grid">
         <label className="ops-filter-control"><span>QUEUE</span><select value={status} onChange={e => setStatus(e.target.value)} aria-label="Filter by queue"><option value="ACTIVE">Active</option><option value="ATTENTION">Needs review</option><option value="WAITING_SUPPORT">Waiting for support</option><option value="WAITING_RESOLVED">Waiting for alert recovery</option><option value="READY_TO_CLOSE">Ready to close</option><option value="OPEN">In progress</option><option value="CLOSED">Closed incidents</option><option value="PENDING">Awaiting action</option><option value="FAILED">Automation failed</option><option value="NOT_CREATED">Work item not created</option><option value="">All incidents</option></select></label>
         <label className="ops-filter-control"><span>ALERT</span><select value={alertStatus} onChange={e => { setAlertStatus(e.target.value); setPage(1); }}><option value="">All</option><option value="FIRING">Active</option><option value="RESOLVED">Recovered</option></select></label>
-        <label className="ops-filter-control"><span>VSTS</span><select value={adoState} onChange={e => { setAdoState(e.target.value); setPage(1); }}><option value="">All</option><option value="New">New</option><option value="Processing">Processing</option><option value="Closed">Closed</option><option value="Reject">Reject</option></select></label>
-        <label className="ops-filter-control"><span>LIFECYCLE</span><select value={lifecycle} onChange={e => { setLifecycle(e.target.value); setPage(1); }}><option value="">All</option><option value="WAITING_SUPPORT">Waiting for support</option><option value="WAITING_RESOLVED">Waiting for alert recovery</option><option value="READY_TO_CLOSE">Ready to close</option><option value="CONFLICT">Needs review</option><option value="NORMAL">Normal</option></select></label>
+        <label className="ops-filter-control"><span>ADO STATE</span><select value={adoState} onChange={e => { setAdoState(e.target.value); setPage(1); }}><option value="">All</option><option value="New">New</option><option value="Processing">Processing</option><option value="Closed">Closed</option><option value="Reject">Reject</option></select></label>
+        <label className="ops-filter-control"><span>OPERATIONS STATUS</span><select value={lifecycle} onChange={e => { setLifecycle(e.target.value); setPage(1); }}><option value="">All</option><option value="WAITING_SUPPORT">Waiting for support</option><option value="WAITING_RESOLVED">Waiting for alert recovery</option><option value="READY_TO_CLOSE">Ready to close</option><option value="CONFLICT">Needs review</option><option value="NORMAL">Normal</option></select></label>
         <label className="ops-filter-control"><span>ASSIGNEE</span><select value={assignee} onChange={e => { setAssignee(e.target.value); setPage(1); }}><option value="">All</option>{assigneeOptions.map(value => <option value={value} key={value}>{value}</option>)}</select></label>
         <button className="ops-button ops-button-secondary ops-clear-filters" type="button" onClick={() => { setStatus(''); setAlertStatus(''); setAdoState(''); setLifecycle(''); setAssignee(''); setSearch(''); setPage(1); }}>Clear filters</button>
       </div>
@@ -239,12 +240,12 @@ export function Incidents() {
     {items && filteredItems.length === 0 && <EmptyState title="No matching incidents" detail="Change the filter or wait for Power Automate to write an incident to SharePoint." />}
     {items && filteredItems.length > 0 && <div className="ops-incident-results">
       <div className="ops-results-head"><div><strong>{filteredItems.length} incidents</strong><span>Sorted by Incident number, newest first</span></div><small>Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredItems.length)} of {filteredItems.length}</small></div>
-      <div className="ops-incident-columns" aria-hidden="true"><span>Incident / alert</span><span>Resource / owner</span><span>Progress / VSTS</span><span>Incident handling status</span><span>Related</span><span>First seen</span><span /></div>
+      <div className="ops-incident-columns" aria-hidden="true"><span>Incident / alert</span><span>Resource / owner</span><span>Workflow status / ADO state</span><span>Operations status</span><span>Related</span><span>First seen</span><span /></div>
       <div className="ops-card-list">{visibleItems.map(item => <button className={`ops-incident-card is-${item.trackingStatus.toLowerCase().replace('_', '-')}${item.hasLifecycleConflict && !isOperationsClosed(item) ? ' has-lifecycle-conflict' : ''}${isOperationsClosed(item) ? ' is-operations-closed' : ''}`} key={item.incidentId} onClick={() => openIncident(item.incidentId)} aria-label={`Open incident ${item.displayId || item.incidentId}`}>
-        <span className="ops-incident-main"><span className="ops-incident-id-row"><strong className="ops-incident-display-id">{item.displayId || item.incidentId}</strong><StatusBadge value={isOperationsClosed(item) ? 'CLOSED' : item.hasLifecycleConflict ? 'NEEDS_REVIEW' : item.status} /></span><span className="ops-incident-alert">{humanizeAlert(item.alertName)}</span></span>
+        <span className="ops-incident-main"><span className="ops-incident-id-row"><strong className="ops-incident-display-id">{item.displayId || item.incidentId}</strong><StatusBadge value={item.status} /></span><span className="ops-incident-alert">{humanizeAlert(item.alertName)}</span></span>
         <span className="ops-incident-service"><strong>{item.resource || item.service || 'Unknown resource'}</strong><small>{item.assignedTo || 'Unassigned'} · {item.environment || 'Unknown environment'}</small></span>
-        <span className="ops-cell-stack ops-incident-progress"><StatusBadge value={incidentProgress(item)} /><small>{item.workItemId ? `VSTS ${item.adoState || 'Unknown'} · #${item.workItemId}` : 'No VSTS work item'}</small></span>
-        <StatusBadge value={displayLifecycle(item)} />
+        <span className="ops-cell-stack ops-incident-progress"><StatusBadge value={item.workflowStatus || 'UNKNOWN'} /><small>{item.workItemId ? `ADO state: ${item.adoState || 'Unknown'} · #${item.workItemId}` : 'ADO state: Not created'}</small></span>
+        <StatusBadge value={operationsStatus(item)} />
         <span className="ops-cell-stack ops-incident-related"><strong>{relatedWorkItemCount(item) || '—'}</strong><small>{relatedWorkItemSummary(item)}</small></span>
         <span className="ops-cell-stack ops-incident-time"><strong>{formatRelativeDate(item.firstSeen, true)}</strong><small>{formatBangkokTimestamp(item.firstSeen, 'en-GB', true)}</small></span>
         <span className="ops-row-arrow" aria-hidden="true">→</span>
@@ -254,12 +255,12 @@ export function Incidents() {
     {(selected || selectedLoading) && <div className="ops-drawer-backdrop" onMouseDown={e => { if (e.currentTarget === e.target && !selectedLoading) setSelected(null); }}><aside className={`ops-detail-drawer${selectedLoading && !selected ? ' is-loading' : ''}`} aria-label="Incident details">
       {selectedLoading && !selected && <div className="ops-detail-loading" role="status"><span className="ops-spinner" /><strong>Loading incident details…</strong></div>}
       {selected && <>
-      <div className="ops-drawer-head"><div><small>INCIDENT COMMAND DETAIL</small><div className="ops-drawer-title-row"><h2 className="ops-incident-display-id">{selected.incident.displayId || selected.incident.incidentId}</h2><StatusBadge value={isOperationsClosed(selected.incident) ? 'CLOSED' : selected.incident.status} /></div><p>{humanizeAlert(selected.incident.alertName)}</p><div className="ops-drawer-meta"><span>{selected.incident.resource}</span><span>{selected.incident.environment || 'Unknown environment'}</span><span>{selected.incident.priority || 'No priority'}</span></div></div><button className="ops-icon-button" onClick={() => setSelected(null)} aria-label="Close details">×</button></div>
+      <div className="ops-drawer-head"><div><small>INCIDENT COMMAND DETAIL</small><div className="ops-drawer-title-row"><h2 className="ops-incident-display-id">{selected.incident.displayId || selected.incident.incidentId}</h2><StatusBadge value={operationsStatus(selected.incident)} /></div><p>{humanizeAlert(selected.incident.alertName)}</p><div className="ops-drawer-meta"><span>{selected.incident.resource}</span><span>{selected.incident.environment || 'Unknown environment'}</span><span>{selected.incident.priority || 'No priority'}</span></div></div><button className="ops-icon-button" onClick={() => setSelected(null)} aria-label="Close details">×</button></div>
       <div className="ops-incident-summary" aria-label="Incident summary">
-        <SummaryCard tone={selected.incident.resolvedAt ? 'success' : 'danger'} label="Alert" value={displayStatus(selected.incident.status)} detail={selected.incident.resolvedAt ? 'Monitoring recovery received' : 'Monitoring alert is active'} />
-        <SummaryCard tone={isOperationsClosed(selected.incident) ? 'success' : 'active'} label="Incident" value={displayStatus(isOperationsClosed(selected.incident) ? 'CLOSED' : selected.incident.trackingStatus)} detail={isOperationsClosed(selected.incident) ? 'Incident completed' : 'Follow-up in progress'} />
-        <SummaryCard tone={approvalStatus(selected.incident) === 'APPROVED' ? 'success' : approvalStatus(selected.incident) === 'REJECTED' ? 'danger' : 'warning'} label="Approval" value={displayStatus(approvalStatus(selected.incident))} detail={selected.incident.approvalBy || 'Approval status'} />
-        <SummaryCard tone={selected.incident.adoState && ['CLOSED', 'DONE', 'RESOLVED'].includes(selected.incident.adoState.toUpperCase()) ? 'success' : selected.incident.workItemId ? 'active' : 'neutral'} label="Work item" value={selected.incident.workItemId ? `#${selected.incident.workItemId}` : 'Not created'} detail={displayStatus(selected.incident.adoState || 'NOT_CREATED')} />
+        <SummaryCard tone={selected.incident.resolvedAt ? 'success' : 'danger'} label="Alert status" value={displayStatus(selected.incident.status)} detail={selected.incident.resolvedAt ? 'Monitoring recovery received' : 'Monitoring alert is active'} />
+        <SummaryCard tone={isOperationsClosed(selected.incident) ? 'success' : 'active'} label="Operations status" value={displayStatus(operationsStatus(selected.incident))} detail={isOperationsClosed(selected.incident) ? 'Incident completed' : 'Follow-up in progress'} />
+        <SummaryCard tone="active" label="Workflow status" value={displayStatus(selected.incident.workflowStatus)} detail={`Approval: ${displayStatus(approvalStatus(selected.incident))}`} />
+        <SummaryCard tone={selected.incident.adoState && ['CLOSED', 'DONE', 'RESOLVED'].includes(selected.incident.adoState.toUpperCase()) ? 'success' : selected.incident.workItemId ? 'active' : 'neutral'} label="ADO state" value={selected.incident.adoState || 'Not created'} detail={selected.incident.workItemId ? `Work item #${selected.incident.workItemId}` : 'No ADO work item'} />
       </div>
       {selected.incident.hasLifecycleConflict && <div className="ops-data-warning ops-data-warning-compact" role="alert"><div><strong>Needs review</strong><span>{lifecycleIssueMessage(selected.incident.lifecycleIssues || [])}</span></div></div>}
       <div className="ops-incident-workspace">
@@ -414,13 +415,6 @@ function isActionRequired(item: Incident) {
     || Boolean(item.hasLifecycleConflict && !isWaitingForResolved(item)));
 }
 
-function displayLifecycle(item: Incident) {
-  if (isOperationsClosed(item)) return 'CLOSED';
-  if (isReadyToClose(item)) return 'READY_TO_CLOSE';
-  if (isWaitingForResolved(item)) return 'WAITING_RESOLVED';
-  if (isWaitingForSupport(item)) return 'WAITING_SUPPORT';
-  return item.trackingStatus;
-}
 
 function isClosedWorkItemState(value?: string) {
   return ['CLOSED', 'DONE', 'REMOVED', 'RESOLVED', 'REJECT', 'REJECTED'].includes(String(value || '').trim().toUpperCase());
@@ -437,9 +431,6 @@ function timelineForDisplay(events: AuditEvent[], showTechnical: boolean) {
   return visible.sort((left, right) => (Date.parse(right.timestamp) || 0) - (Date.parse(left.timestamp) || 0));
 }
 
-function isOperationsClosed(item: Incident) {
-  return String(item.operationsStatus || '').toUpperCase() === 'CLOSED';
-}
 
 function approvalStatus(item: Incident) {
   const outcome = String(item.approvalOutcome || '').trim().toUpperCase();
