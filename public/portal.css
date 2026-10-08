@@ -448,7 +448,8 @@
 
 .portal-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 8px;
 }
 
@@ -459,8 +460,8 @@
   justify-content: center;
   border-radius: 8px;
   min-height: 36px;
-  min-width: 70px;
-  padding: 8px 13px;
+  min-width: 68px;
+  padding: 8px 10px;
   font: inherit;
   font-size: 12px;
   font-weight: 800;
