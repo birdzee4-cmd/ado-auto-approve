@@ -307,7 +307,7 @@ function normalizeAppServiceLogItem(item) {
   const fields = item && item.fields || {};
   const source = fields.Log_Source || 'App Service Portal';
   const recordedEnvironment = String(fields.Environment || '').trim().toUpperCase();
-  const inferredEnvironment = source === 'Incident Command Center' &&
+  const inferredEnvironment = ['Incident Command Center', 'Operations Hub'].includes(source) &&
     (!recordedEnvironment || recordedEnvironment === 'UNKNOWN')
     ? (/^prd-/i.test(fields.App_Service_Name || '') ? 'PRD' :
       /^stg-/i.test(fields.App_Service_Name || '') ? 'STG' : '') : '';
@@ -326,7 +326,7 @@ function normalizeAppServiceLogItem(item) {
     source,
     // Before Environment was introduced, Portal could only target STG.
     // Preserve that historical meaning instead of showing legacy rows as unknown.
-    environment: inferredEnvironment || recordedEnvironment || (source === 'App Service Portal' ? 'STG' : 'UNKNOWN'),
+    environment: (inferredEnvironment || recordedEnvironment || (source === 'App Service Portal' ? 'STG' : 'UNKNOWN')).toLowerCase(),
     environmentInferred: !!inferredEnvironment,
     subscriptionId: fields.Subscription_ID || '',
     sourcePage: fields.Source_Page || '',

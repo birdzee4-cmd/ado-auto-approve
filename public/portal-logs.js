@@ -91,7 +91,7 @@ function renderTable(items) {
   if (!tbody) return;
   const rows = Array.isArray(items) ? items : [];
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="10" class="portal-log-empty">No App Service restart log rows found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="portal-log-empty">No App Service restart log rows found.</td></tr>';
     return;
   }
 
@@ -105,7 +105,6 @@ function renderTable(items) {
       '<td><span class="' + actionClass + '">' + escapeHtml(item.action || '-') + '</span></td>' +
       '<td>' + renderResult(item.result) + '</td>' +
       '<td><strong>' + escapeHtml(item.appServiceName || '-') + '</strong><small>' + escapeHtml(item.resourceGroup || '') + '</small></td>' +
-      '<td>' + escapeHtml(item.incidentId || '-') + '<small>' + (item.workItemId ? 'Work Item #' + escapeHtml(item.workItemId) : '') + '</small></td>' +
       '<td>' + escapeHtml(item.user || '-') + '<small>' + escapeHtml(item.userRoles || '') + '</small></td>' +
       '<td>' + escapeHtml(item.reason || '-') + '</td>' +
       '<td><code>' + escapeHtml(item.eventKey || '-') + '</code></td>' +
