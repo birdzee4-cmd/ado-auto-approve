@@ -228,7 +228,7 @@
 .portal-log-table th:nth-child(5), .portal-log-table td:nth-child(5) { width: 8%; }
 .portal-log-table th:nth-child(6), .portal-log-table td:nth-child(6) { width: 15%; }
 .portal-log-table th:nth-child(7), .portal-log-table td:nth-child(7) { width: 17%; }
-.portal-log-table th:nth-child(8), .portal-log-table td:nth-child(8) { width: 19%; }
+.portal-log-table th:nth-child(8), .portal-log-table td:nth-child(8) { width: 21%; }
 
 .portal-log-table small {
   display: block;
