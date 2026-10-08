@@ -183,9 +183,15 @@
 .portal-log-table {
   width: 100%;
   min-width: 0;
+  height: auto !important;
   border-collapse: collapse;
   table-layout: fixed;
   font-size: 12px;
+}
+
+.portal-log-table tbody {
+  display: table-row-group !important;
+  height: auto !important;
 }
 
 .portal-log-table th {
@@ -210,7 +216,9 @@
 }
 
 .portal-log-table tbody tr {
-  height: auto;
+  display: table-row !important;
+  height: auto !important;
+  min-height: 0 !important;
 }
 
 .portal-log-table th:nth-child(1), .portal-log-table td:nth-child(1) { width: 9%; }
