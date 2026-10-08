@@ -88,7 +88,7 @@
 
 .portal-filter-card {
   display: grid;
-  grid-template-columns: 140px minmax(180px, 1fr) minmax(180px, 1fr) minmax(220px, 1.2fr) 90px auto;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
   align-items: end;
   padding: 14px;
