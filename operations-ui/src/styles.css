@@ -306,7 +306,7 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-detail-loading .ops-spinner { width: 30px; height: 30px; border-width: 3px; }
 .ops-detail-loading strong { font-size: 1.05rem; }
 .ops-detail-loading small { color: var(--ops-muted); }
-.ops-detail-refreshing { position: absolute; inset: 0; z-index: 20; display: flex; align-items: flex-start; justify-content: center; gap: 10px; padding: 92px 24px 24px; background: rgba(255, 253, 247, .72); color: #27241f; pointer-events: all; }
+.ops-detail-refreshing { position: absolute; inset: 0; z-index: 20; display: flex; align-items: flex-start; justify-content: center; gap: 10px; padding: 92px 24px 24px; background: rgba(255, 253, 247, .72); color: #27241f; pointer-events: none; }
 .ops-detail-refreshing strong { padding: 10px 16px; border: 1px solid var(--ops-line); border-radius: 999px; background: rgba(255, 255, 255, .92); box-shadow: 0 8px 20px rgba(42,37,27,.1); }
 .ops-detail-refreshing .ops-spinner { width: 20px; height: 20px; margin-top: 10px; border-width: 3px; }
 .ops-drawer-head { position: sticky; top: -30px; z-index: 5; display: flex; justify-content: space-between; gap: 18px; margin: -30px -34px 20px; padding: 30px 34px 18px; background: var(--ops-paper); border-bottom: 3px solid var(--ops-yellow); }
