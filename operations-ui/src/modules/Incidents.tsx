@@ -277,8 +277,8 @@ export function Incidents() {
     </div>}
     {(selected || selectedLoading) && <div className="ops-drawer-backdrop" onMouseDown={e => { if (e.currentTarget === e.target && !selectedLoading) closeIncidentDetails(); }}><aside className={`ops-detail-drawer${selectedLoading && !selected ? ' is-loading' : ''}`} aria-label="Incident details">
       {selectedLoading && !selected && <div className="ops-detail-loading" role="status" aria-live="polite"><span className="ops-spinner" /><strong>Loading incident details…</strong><small>Please wait while the latest incident data is retrieved.</small></div>}
-      {selectedLoading && selected && <div className="ops-detail-refreshing" role="status" aria-live="polite"><span className="ops-spinner" /><strong>Loading latest incident data…</strong></div>}
       {selected && <>
+      <div className="ops-detail-content">
       <div className="ops-drawer-head"><div><small>INCIDENT COMMAND DETAIL</small><div className="ops-drawer-title-row"><h2 className="ops-incident-display-id">{selected.incident.displayId || selected.incident.incidentId}</h2><StatusBadge value={operationsStatus(selected.incident)} /></div><p>{humanizeAlert(selected.incident.alertName)}</p><div className="ops-drawer-meta"><span>{selected.incident.resource}</span><span>{selected.incident.environment || 'Unknown environment'}</span><span>{selected.incident.priority || 'No priority'}</span></div></div><button type="button" className="ops-icon-button" onClick={closeIncidentDetails} aria-label="Close details">×</button></div>
       <div className="ops-incident-summary" aria-label="Incident summary">
         <SummaryCard tone={selected.incident.resolvedAt ? 'success' : 'danger'} label="Alert status" value={displayStatus(selected.incident.status)} detail={selected.incident.resolvedAt ? 'Monitoring recovery received' : 'Monitoring alert is active'} />
@@ -311,7 +311,9 @@ export function Incidents() {
       </section>
       <details className="ops-timeline ops-workspace-timeline"><summary><span><small>ACTIVITY</small><strong>Incident timeline</strong></span><em>View timeline</em></summary><div className="ops-timeline-content"><div className="ops-timeline-head"><span>Incident activity history</span><button type="button" className="ops-button ops-button-secondary" onClick={event => { event.preventDefault(); setShowTechnicalEvents(value => !value); }}>{showTechnicalEvents ? 'Hide system activity' : 'Show system activity'}</button></div>{timelineForDisplay(selected.timeline, showTechnicalEvents).map(event => <div key={event.eventId}><span /><p><strong>{humanizeEventType(event.eventType)}</strong><small>{decodeHtmlEntities(event.detail || event.result)} · {formatTimelineDate(event)}</small>{(event.operationsUserEmail || event.adoIdentityEmail) && <small className="ops-audit-identities">Operations: {event.operationsUserEmail || 'Unknown'} · Azure DevOps: {event.adoIdentityEmail || 'Unknown'}</small>}</p></div>)}</div></details>
       </div>
+      </div>
       </>}
+      {selectedLoading && selected && <div className="ops-detail-refreshing" role="status" aria-live="polite"><span className="ops-spinner" /><strong>Loading latest incident data…</strong></div>}
     </aside></div>}
   </section>;
 }
