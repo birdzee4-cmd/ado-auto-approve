@@ -835,10 +835,20 @@ test('reconciliation notifications have stable duplicate keys', () => {
 
   const allClosed = reconcile.notificationCandidate({
     ...relatedOpen,
+    status: 'RESOLVED',
     workItems: relatedOpen.workItems.map(item => ({ ...item, state: 'Closed' })),
     workItemSummary: { total: 2, closed: 2, open: 0 },
   }, 0);
-  assert.equal(allClosed, null);
+  assert.equal(allClosed.type, 'READY_TO_CLOSE');
+  assert.match(allClosed.message, /^🔔 /u);
+  assert.match(allClosed.message, /#\/incidents\?id=/);
+  assert.equal(allClosed.eventKey, reconcile.notificationCandidate({
+    ...relatedOpen,
+    status: 'RESOLVED',
+    workItems: relatedOpen.workItems.map(item => ({ ...item, state: 'Reject' })),
+  }, 0).eventKey);
+  assert.equal(reconcile.notificationCandidate({ ...relatedOpen, status: 'FIRING', workItems: relatedOpen.workItems.map(item => ({ ...item, state: 'Closed' })) }, 0), null);
+  assert.equal(reconcile.notificationCandidate({ ...relatedOpen, status: 'RESOLVED', operationsStatus: 'CLOSED', workItems: relatedOpen.workItems.map(item => ({ ...item, state: 'Closed' })) }, 0), null);
 });
 
 test('reconciliation dry-run previews notification and checks audit without sending', async () => {

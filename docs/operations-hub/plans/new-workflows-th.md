@@ -33,6 +33,8 @@ Endpoint จะ:
 
 Audit `EventKey` ใช้ป้องกันข้อความสถานะเดิมซ้ำ หากรายการหรือสถานะเปลี่ยนจะได้ EventKey ใหม่
 
+การแจ้งเตือน **Ready to close** แยกเปิดด้วย `OPERATIONS_READY_TO_CLOSE_NOTIFICATION_ENABLED=true` หลัง UAT เพื่อให้เปิดเฉพาะการแจ้งเตือนนี้ได้โดยไม่เปิดข้อความอื่นข้างต้น เมื่อ alert เป็น `RESOLVED` และ Work Item ที่ติดตามทุกใบอยู่ในสถานะสิ้นสุด (รวม `Reject` ตามกติกาปัจจุบัน) ระบบจะส่ง Teams พร้อมลิงก์ไปยัง INC โดยตรงหนึ่งครั้งต่อ INC ผ่าน Audit `EventKey` คงที่ ผู้รับผิดชอบต้องกด Close Incident เอง; reconciliation ไม่ปิด INC ให้
+
 ## Environment checkpoint
 
 - [x] สร้าง Flow ใหม่โดยไม่ clone/แก้ Production Workflow

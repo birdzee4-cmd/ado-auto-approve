@@ -133,9 +133,13 @@ async function notificationDryRunCandidate(incident) {
 }
 
 async function notifyIfNeeded(incident, failedCount, actionContext) {
-  if (!incident || !service.featureEnabled('OPERATIONS_NOTIFICATION_ENABLED')) return { sent: false, reason: 'disabled' };
+  if (!incident) return { sent: false, reason: 'not-required' };
   const candidate = notificationCandidate(incident, failedCount);
   if (!candidate) return { sent: false, reason: 'not-required' };
+  const flag = candidate.type === 'READY_TO_CLOSE'
+    ? 'OPERATIONS_READY_TO_CLOSE_NOTIFICATION_ENABLED'
+    : 'OPERATIONS_NOTIFICATION_ENABLED';
+  if (!service.featureEnabled(flag)) return { sent: false, reason: 'disabled' };
   const existing = await sharePoint.listAudit(incident.incidentId);
   if (existing.some(event => event.eventKey === candidate.eventKey)) return { sent: false, reason: 'duplicate', eventKey: candidate.eventKey };
   const notifier = require('../shared/teams-notifier');
@@ -162,7 +166,18 @@ function notificationCandidate(incident, failedCount) {
     };
   }
   const items = incident.workItems || [];
-  const openRelated = items.filter(item => item.role === 'RELATED' && !require('../shared/operations-work-items').isClosedState(item.state));
+  const workItems = require('../shared/operations-work-items');
+  if (String(incident.operationsStatus || '').toUpperCase() !== 'CLOSED'
+    && String(incident.status || '').toUpperCase() === 'RESOLVED'
+    && items.some(item => item.role === 'PRIMARY')
+    && items.every(item => workItems.isClosedState(item.state))) {
+    return {
+      type: 'READY_TO_CLOSE',
+      eventKey: `operations-notification:${incident.incidentId}:ready-to-close`,
+      message: `🔔 **Operations Hub: Incident ready to close**\n\nIncident: ${displayId}\nMonitoring: Resolved\nAll ${items.length} tracked work items are in terminal states. Please review and confirm closure in Operations Hub.\n${hubUrl}#/incidents?id=${encodeURIComponent(incident.incidentId)}`
+    };
+  }
+  const openRelated = items.filter(item => item.role === 'RELATED' && !workItems.isClosedState(item.state));
   if (openRelated.length > 0) {
     const signature = openRelated.map(item => `${item.workItemId}:${item.state}`).sort().join(',');
     return {

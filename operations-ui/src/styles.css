@@ -271,6 +271,8 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-incident-card.has-lifecycle-conflict { border-left-color: var(--ops-red); background: #fffaf3; }
 .ops-incident-card.is-operations-closed { border-left-color: var(--ops-green); background: #f6fcf9; }
 .ops-incident-card.is-open { border-left-color: var(--ops-yellow); }
+.ops-incident-card.is-ready-to-close { border-left-color: #1772bd; background: #f0f7ff; }
+.ops-incident-card.is-ready-to-close:hover { border-left-color: #115b98; background: #e8f3ff; }
 .ops-incident-main, .ops-incident-service, .ops-cell-stack { min-width: 0; display: grid; gap: 4px; }
 .ops-incident-id-row { display: flex; align-items: center; gap: 8px; }
 .ops-incident-id-row .ops-status { min-height: 20px; padding: 2px 6px; font-size: .57rem; }
