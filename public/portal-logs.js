@@ -99,7 +99,7 @@ function renderTable(items) {
     const actionClass = getActionClass(item);
     return '<tr>' +
       '<td>' + escapeHtml(formatDate(item.createdAt)) + '</td>' +
-      '<td>' + escapeHtml(item.source || '-') + '<small>' + escapeHtml(item.sourcePage || '') + '</small></td>' +
+      '<td><span class="source-badge source-' + sourceClass(item.source) + '">' + escapeHtml(item.source || '-') + '</span><small>' + escapeHtml(item.sourcePage || '') + '</small></td>' +
       '<td><span class="environment-badge environment-' + escapeHtml(String(item.environment || 'UNKNOWN').toLowerCase()) + '">' + escapeHtml(item.environment || 'UNKNOWN') + '</span>' +
         (item.environmentInferred ? '<small>Inferred from app name</small>' : '') + '</td>' +
       '<td><span class="' + actionClass + '">' + escapeHtml(item.action || '-') + '</span></td>' +
@@ -116,6 +116,13 @@ function renderResult(result) {
   const cls = text.toLowerCase() === 'success' ? 'result-success' :
     (text.toLowerCase().includes('fail') ? 'result-failed' : 'result-neutral');
   return '<span class="' + cls + '">' + escapeHtml(text) + '</span>';
+}
+
+function sourceClass(source) {
+  const value = String(source || '').toLowerCase();
+  if (value.includes('operations hub')) return 'operations';
+  if (value.includes('app service portal')) return 'portal';
+  return 'other';
 }
 
 function getActionClass(item) {
