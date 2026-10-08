@@ -3,6 +3,7 @@ const defaultSharePoint = require('./operations-sharepoint-client');
 const defaultAdo = require('./ado-client');
 const defaultWorkItems = require('./operations-work-items');
 const defaultAppService = require('./appservice-proxy-client');
+const defaultAuditLog = require('./appservice-audit-client');
 
 function featureEnabled(name) {
   return String(process.env[name] || '').trim().toLowerCase() === 'true';
@@ -22,6 +23,7 @@ async function restartAppService(input, context, dependencies = {}) {
   const sp = dependencies.sharePoint || defaultSharePoint;
   const ado = dependencies.ado || defaultAdo;
   const appService = dependencies.appService || defaultAppService;
+  const auditLog = dependencies.auditLog || defaultAuditLog;
   const incident = await requireIncident(sp, input.incidentId);
   const primary = (incident.workItems || []).find(item => item.role === 'PRIMARY') || {};
   if (!primary.workItemId) throw operationalError(409, 'PRIMARY_REQUIRED', 'The incident does not have a primary work item');
@@ -38,7 +40,25 @@ async function restartAppService(input, context, dependencies = {}) {
       workItemId: primary.workItemId
     });
     if (!result || result.auditLogged !== true) {
-      throw operationalError(502, 'APP_SERVICE_AUDIT_FAILED', 'App Service restarted, but the Portal audit log could not be written');
+      const fallback = await auditLog.safeAudit(context, {
+        action: 'RestartAppService',
+        user: actor,
+        roles: context.operationsIdentity?.roles || [],
+        appServiceName: resource,
+        resourceGroup: incident.resourceGroup,
+        result: 'Success',
+        reason: 'Restart request submitted',
+        logSource: 'Operations Hub',
+        sourcePage: '/operations.html#/incidents',
+        environment: incident.environment || 'PRD',
+        subscriptionId,
+        incidentId: incident.incidentId,
+        workItemId: primary.workItemId,
+        eventKey: `restart:${resource}:${Date.now()}`
+      });
+      if (!fallback || fallback.ok !== true) {
+        throw operationalError(502, 'APP_SERVICE_AUDIT_FAILED', 'App Service restarted, but the Portal audit log could not be written');
+      }
     }
     const detail = [
       '✅ TIER1 ACTION COMPLETED', '',
