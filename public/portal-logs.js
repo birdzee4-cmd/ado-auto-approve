@@ -13,7 +13,7 @@ async function loadPortalLogs() {
   setResult('Loading App Service Portal Log...', 'info');
 
   const tbody = document.getElementById('portalLogTableBody');
-  if (tbody) tbody.innerHTML = renderSkeletonRows(7, 8);
+  if (tbody) tbody.innerHTML = renderSkeletonRows(10, 8);
 
   try {
     const params = new URLSearchParams();
@@ -21,6 +21,8 @@ async function loadPortalLogs() {
     setParam(params, 'environment', getValue('logFilterEnvironment'));
     setParam(params, 'source', getValue('logFilterSource'));
     setParam(params, 'app', getValue('logFilterApp'));
+    setParam(params, 'incident', getValue('logFilterIncident'));
+    setParam(params, 'workItem', getValue('logFilterWorkItem'));
     setParam(params, 'user', getValue('logFilterUser'));
     setParam(params, 'q', getValue('logFilterKeyword'));
     params.set('top', getValue('logFilterTop') || '100');
@@ -39,7 +41,8 @@ async function loadPortalLogs() {
     renderStats(data.stats || {});
     renderTable(data.items || []);
     setResult('Found ' + data.count + ' items from ' + data.totalFetched +
-      ' fetched rows. Last loaded ' + formatDate(data.fetchedAt), 'success');
+      ' fetched restart rows' + (data.hasMore ? ' (more older records exist)' : '') +
+      '. Last loaded ' + formatDate(data.fetchedAt), 'success');
   } catch (err) {
     renderStats({});
     renderTable([]);
@@ -88,7 +91,7 @@ function renderTable(items) {
   if (!tbody) return;
   const rows = Array.isArray(items) ? items : [];
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="portal-log-empty">No App Service restart log rows found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="portal-log-empty">No App Service restart log rows found.</td></tr>';
     return;
   }
 
@@ -101,6 +104,7 @@ function renderTable(items) {
       '<td><span class="' + actionClass + '">' + escapeHtml(item.action || '-') + '</span></td>' +
       '<td>' + renderResult(item.result) + '</td>' +
       '<td><strong>' + escapeHtml(item.appServiceName || '-') + '</strong><small>' + escapeHtml(item.resourceGroup || '') + '</small></td>' +
+      '<td>' + escapeHtml(item.incidentId || '-') + '<small>' + (item.workItemId ? 'Work Item #' + escapeHtml(item.workItemId) : '') + '</small></td>' +
       '<td>' + escapeHtml(item.user || '-') + '<small>' + escapeHtml(item.userRoles || '') + '</small></td>' +
       '<td>' + escapeHtml(item.reason || '-') + '</td>' +
       '<td><code>' + escapeHtml(item.eventKey || '-') + '</code></td>' +
@@ -126,7 +130,7 @@ function clearFilters() {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
-  ['logFilterApp', 'logFilterUser', 'logFilterKeyword'].forEach(id => {
+  ['logFilterApp', 'logFilterIncident', 'logFilterWorkItem', 'logFilterUser', 'logFilterKeyword'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -136,7 +140,7 @@ function clearFilters() {
 }
 
 function bindFilters() {
-  ['logFilterApp', 'logFilterUser', 'logFilterKeyword'].forEach(id => {
+  ['logFilterApp', 'logFilterIncident', 'logFilterWorkItem', 'logFilterUser', 'logFilterKeyword'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('keydown', event => {

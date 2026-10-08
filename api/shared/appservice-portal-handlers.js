@@ -190,10 +190,13 @@ async function handleLogs(context, req) {
     const environment = normalizeFilter(query.environment);
     const source = normalizeFilter(query.source);
     const app = normalizeFilter(query.app);
+    const incident = normalizeFilter(query.incident);
+    const workItem = normalizeFilter(query.workItem);
     const user = normalizeFilter(query.user);
     const q = normalizeFilter(query.q);
 
-    const response = await audit.getRecentAuditItems(top);
+    const filtered = !!(action || resultFilter || environment || source || app || incident || workItem || user || q);
+    const response = await audit.getRecentAuditItems(top, filtered ? 1000 : top);
     if (!response.ok) {
       jsonResponse(context, 502, {
         ok: false,
@@ -213,16 +216,20 @@ async function handleLogs(context, req) {
         if (environment && String(item.environment || '').toLowerCase() !== environment) return false;
         if (source && !String(item.source || '').toLowerCase().includes(source)) return false;
         if (app && !String(item.appServiceName || '').toLowerCase().includes(app)) return false;
+        if (incident && String(item.incidentId || '').toLowerCase() !== incident) return false;
+        if (workItem && String(item.workItemId || '').toLowerCase() !== workItem) return false;
         if (user && !String(item.user || '').toLowerCase().includes(user)) return false;
         if (q && !matchesAppServiceLogKeyword(item, q)) return false;
         return true;
       })
-      .sort(sortLogNewestFirst);
+      .sort(sortLogNewestFirst)
+      .slice(0, top);
 
     jsonResponse(context, 200, {
       ok: true,
       count: items.length,
       totalFetched: allItems.length,
+      hasMore: !!response.body.hasMore,
       top,
       fetchedAt: new Date().toISOString(),
       stats: buildAppServiceLogStats(items),

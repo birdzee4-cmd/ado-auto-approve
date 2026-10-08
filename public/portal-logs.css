@@ -180,8 +180,8 @@
 }
 
 .portal-log-table {
-  width: 1560px;
-  min-width: 1560px;
+  width: 1760px;
+  min-width: 1760px;
   border-collapse: collapse;
   table-layout: auto;
   font-size: 13px;
@@ -219,11 +219,13 @@
 .portal-log-table th:nth-child(6),
 .portal-log-table td:nth-child(6) { width: 250px; }
 .portal-log-table th:nth-child(7),
-.portal-log-table td:nth-child(7) { width: 250px; }
+.portal-log-table td:nth-child(7) { width: 200px; }
 .portal-log-table th:nth-child(8),
-.portal-log-table td:nth-child(8) { width: 300px; }
+.portal-log-table td:nth-child(8) { width: 250px; }
 .portal-log-table th:nth-child(9),
-.portal-log-table td:nth-child(9) { width: 250px; }
+.portal-log-table td:nth-child(9) { width: 300px; }
+.portal-log-table th:nth-child(10),
+.portal-log-table td:nth-child(10) { width: 250px; }
 
 .portal-log-table small {
   display: block;

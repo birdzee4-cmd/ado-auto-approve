@@ -192,16 +192,25 @@ async function addAuditItem(fields) {
   });
 }
 
-async function getRecentAuditItems(top) {
+async function getRecentAuditItems(top, scanLimit = top) {
   const limit = Math.max(1, Math.min(parseInt(top, 10) || 100, 200));
+  const maximum = Math.max(limit, Math.min(parseInt(scanLimit, 10) || limit, 1000));
   const siteId = await getSiteId();
   const listId = await getListId();
   const token = await getAccessToken();
-  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items` +
+  let url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items` +
     `?$expand=fields&$orderby=createdDateTime desc&$top=${limit}`;
-  return httpRequest('GET', url, {
-    Authorization: 'Bearer ' + token
-  });
+  const items = [];
+  while (url && items.length < maximum) {
+    const response = await httpRequest('GET', url, { Authorization: 'Bearer ' + token });
+    if (!response.ok) return response;
+    items.push(...(response.body.value || []));
+    url = response.body['@odata.nextLink'] || '';
+    if (url && !url.startsWith('https://graph.microsoft.com/')) {
+      throw new Error('Unexpected SharePoint pagination URL');
+    }
+  }
+  return { ok: true, status: 200, body: { value: items.slice(0, maximum), hasMore: !!url } };
 }
 
 function buildAuditFields(opts) {
