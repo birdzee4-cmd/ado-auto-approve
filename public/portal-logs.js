@@ -25,7 +25,7 @@ async function loadPortalLogs() {
     setParam(params, 'workItem', getValue('logFilterWorkItem'));
     setParam(params, 'user', getValue('logFilterUser'));
     setParam(params, 'q', getValue('logFilterKeyword'));
-    params.set('top', getValue('logFilterTop') || '100');
+    params.set('top', getValue('logFilterTop') || '200');
 
     const response = await safeFetchJson('/api/appservice-logs?' + params.toString(), { timeoutMs: 45000 });
     if (!response.ok || !response.data || !response.data.ok) {
@@ -136,7 +136,7 @@ function clearFilters() {
     if (el) el.value = '';
   });
   const top = document.getElementById('logFilterTop');
-  if (top) top.value = '100';
+  if (top) top.value = '200';
   loadPortalLogs();
 }
 
