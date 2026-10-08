@@ -172,6 +172,7 @@
 }
 
 .portal-log-table-wrap {
+  display: block;
   overflow-x: auto;
   background: #ffffff;
   border: 1px solid rgba(245, 164, 0, 0.24);
@@ -204,6 +205,12 @@
   color: #374151;
   vertical-align: top;
   overflow-wrap: anywhere;
+  height: auto;
+  line-height: 1.25;
+}
+
+.portal-log-table tbody tr {
+  height: auto;
 }
 
 .portal-log-table th:nth-child(1), .portal-log-table td:nth-child(1) { width: 9%; }
