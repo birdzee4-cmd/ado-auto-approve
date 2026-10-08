@@ -424,14 +424,26 @@ function isFollowUpItem(item: Incident) {
 }
 
 function timelineForDisplay(events: AuditEvent[], showTechnical: boolean) {
-  if (showTechnical) return events;
-  const syncEvents = events.filter(event => event.eventType === 'SYNCHRONIZE_WORK_ITEMS');
-  const visible = events.filter(event => !['SYNCHRONIZE_WORK_ITEMS', 'LAST_SYNCED'].includes(event.eventType));
+  // App Service restart activity is recorded in the dedicated Portal Logs.
+  // Keep it out of the Incident Hub timeline so this view remains focused on
+  // incident and work-item lifecycle activity.
+  const withoutRestartEvents = events.filter(event => !isRestartAppServiceEvent(event));
+  if (showTechnical) return withoutRestartEvents;
+  const syncEvents = withoutRestartEvents.filter(event => event.eventType === 'SYNCHRONIZE_WORK_ITEMS');
+  const visible = withoutRestartEvents.filter(event => !['SYNCHRONIZE_WORK_ITEMS', 'LAST_SYNCED'].includes(event.eventType));
   if (syncEvents.length > 0) {
     const latest = syncEvents.reduce((left, right) => Date.parse(left.timestamp) >= Date.parse(right.timestamp) ? left : right);
     visible.push({ ...latest, eventId: `WORK_ITEMS_SYNCED_SUMMARY:${latest.eventId}`, eventType: 'WORK_ITEMS_SYNCED', detail: `${latest.detail || latest.result} · ${syncEvents.length} synchronization${syncEvents.length === 1 ? '' : 's'} recorded` });
   }
   return visible.sort((left, right) => (Date.parse(right.timestamp) || 0) - (Date.parse(left.timestamp) || 0));
+}
+
+function isRestartAppServiceEvent(event: AuditEvent) {
+  const eventType = String(event.eventType || '').toUpperCase();
+  const detail = String(event.detail || '').toLowerCase();
+  return eventType === 'TIER1_RESTART_APP_SERVICE' ||
+    eventType.includes('RESTART_APP_SERVICE') ||
+    detail.includes('restart app service');
 }
 
 
