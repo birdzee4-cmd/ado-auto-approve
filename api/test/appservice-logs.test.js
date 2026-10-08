@@ -42,3 +42,26 @@ test('Portal log search scans older rows and matches Incident and Work Item IDs 
     audit.getRecentAuditItems = original;
   }
 });
+
+test('Portal displays inferred PRD only when an older Hub row has no environment', async () => {
+  const original = audit.getRecentAuditItems;
+  audit.getRecentAuditItems = async () => ({ ok: true, body: { value: [
+    { id: '1', fields: { Action: 'RestartAppService', Log_Source: 'Incident Command Center',
+      App_Service_Name: 'prd-checkout', Environment: 'UNKNOWN' } },
+    { id: '2', fields: { Action: 'RestartAppService', Log_Source: 'App Service Portal',
+      App_Service_Name: 'prd-test', Environment: 'STG' } }
+  ] } });
+  try {
+    const context = { log: { error() {} } };
+    await handlers.handleLogs(context, {
+      headers: { 'x-ms-client-principal': principal(['tester_appservice_manager']) }, query: {}
+    });
+    const items = JSON.parse(context.res.body).items;
+    assert.equal(items[0].environment, 'STG');
+    assert.equal(items[0].environmentInferred, false);
+    assert.equal(items[1].environment, 'PRD');
+    assert.equal(items[1].environmentInferred, true);
+  } finally {
+    audit.getRecentAuditItems = original;
+  }
+});

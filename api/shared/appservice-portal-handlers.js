@@ -305,6 +305,12 @@ function getSafeDiagnostics(err) {
 
 function normalizeAppServiceLogItem(item) {
   const fields = item && item.fields || {};
+  const source = fields.Log_Source || 'App Service Portal';
+  const recordedEnvironment = String(fields.Environment || '').trim().toUpperCase();
+  const inferredEnvironment = source === 'Incident Command Center' &&
+    (!recordedEnvironment || recordedEnvironment === 'UNKNOWN')
+    ? (/^prd-/i.test(fields.App_Service_Name || '') ? 'PRD' :
+      /^stg-/i.test(fields.App_Service_Name || '') ? 'STG' : '') : '';
   return {
     id: item.id,
     createdAt: item.createdDateTime,
@@ -317,10 +323,11 @@ function normalizeAppServiceLogItem(item) {
     resourceGroup: fields.Resource_Group || '',
     result: fields.Result || '',
     reason: fields.Reason || '',
-    source: fields.Log_Source || 'App Service Portal',
+    source,
     // Before Environment was introduced, Portal could only target STG.
     // Preserve that historical meaning instead of showing legacy rows as unknown.
-    environment: fields.Environment || ((fields.Log_Source || 'App Service Portal') === 'App Service Portal' ? 'STG' : 'UNKNOWN'),
+    environment: inferredEnvironment || recordedEnvironment || (source === 'App Service Portal' ? 'STG' : 'UNKNOWN'),
+    environmentInferred: !!inferredEnvironment,
     subscriptionId: fields.Subscription_ID || '',
     sourcePage: fields.Source_Page || '',
     incidentId: fields.Incident_ID || '',

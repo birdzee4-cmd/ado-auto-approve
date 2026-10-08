@@ -100,7 +100,8 @@ function renderTable(items) {
     return '<tr>' +
       '<td>' + escapeHtml(formatDate(item.createdAt)) + '</td>' +
       '<td>' + escapeHtml(item.source || '-') + '<small>' + escapeHtml(item.sourcePage || '') + '</small></td>' +
-      '<td><span class="environment-badge environment-' + escapeHtml(String(item.environment || 'UNKNOWN').toLowerCase()) + '">' + escapeHtml(item.environment || 'UNKNOWN') + '</span></td>' +
+      '<td><span class="environment-badge environment-' + escapeHtml(String(item.environment || 'UNKNOWN').toLowerCase()) + '">' + escapeHtml(item.environment || 'UNKNOWN') + '</span>' +
+        (item.environmentInferred ? '<small>Inferred from app name</small>' : '') + '</td>' +
       '<td><span class="' + actionClass + '">' + escapeHtml(item.action || '-') + '</span></td>' +
       '<td>' + renderResult(item.result) + '</td>' +
       '<td><strong>' + escapeHtml(item.appServiceName || '-') + '</strong><small>' + escapeHtml(item.resourceGroup || '') + '</small></td>' +
