@@ -45,7 +45,7 @@ async function restartAppService(input, context, dependencies = {}) {
       'Action: Restart App Service', `Resource: ${resource}`,
       `Environment: ${incident.environment || 'Unknown'}`, 'Result: Successfully completed',
       `Performed by: ${actor}`, `Performed at: ${formatBangkokTime(new Date().toISOString())}`,
-      'Source: Incident Command Center'
+      'Source: Operations Hub'
     ].join('\n');
     const comment = await ado.addWorkItemComment(primary.workItemId, detail, { accessToken: context.accessToken });
     if (!comment.ok) throw operationalError(comment.status || 502, 'ADO_COMMENT_FAILED', 'App Service restarted, but VSTS Discussion could not be added');

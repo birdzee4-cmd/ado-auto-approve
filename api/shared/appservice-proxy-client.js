@@ -69,7 +69,7 @@ async function restartAppService(name, resourceGroup, subscriptionId, principalH
     'x-appservice-portal-proxy-secret': secret
   };
   if (principalHeader) headers['x-ms-client-principal'] = principalHeader;
-  headers['x-appservice-source'] = 'Incident Command Center';
+  headers['x-appservice-source'] = 'Operations Hub';
   headers['x-appservice-source-page'] = '/operations.html#/incidents';
   const result = await request('POST', new URL(baseUrl + '/api/restart-appservice'), headers, body);
   let payload;
