@@ -35,6 +35,8 @@ Audit `EventKey` ใช้ป้องกันข้อความสถาน
 
 การแจ้งเตือน **Ready to close** แยกเปิดด้วย `OPERATIONS_READY_TO_CLOSE_NOTIFICATION_ENABLED=true` หลัง UAT เพื่อให้เปิดเฉพาะการแจ้งเตือนนี้ได้โดยไม่เปิดข้อความอื่นข้างต้น เมื่อ alert เป็น `RESOLVED` และ Work Item ที่ติดตามทุกใบอยู่ในสถานะสิ้นสุด (รวม `Reject` ตามกติกาปัจจุบัน) ระบบจะส่ง Teams พร้อมลิงก์ไปยัง INC โดยตรงหนึ่งครั้งต่อ INC ผ่าน Audit `EventKey` คงที่ ผู้รับผิดชอบต้องกด Close Incident เอง; reconciliation ไม่ปิด INC ให้
 
+ตั้งค่า secret `TEAMS_READY_TO_CLOSE_WEBHOOK_URL` เป็น Teams Workflows webhook URL ของแชต `AzureAppServiceHigh5xxRateCritical` ก่อน deploy การเปลี่ยนปลายทางนี้ Ready to close จะส่ง Adaptive Card เฉพาะ URL ดังกล่าว; ถ้าไม่มีค่า ระบบจะไม่ส่งและไม่ fallback ไป `TEAMS_WEBHOOK_URL` ของ General การแจ้งประเภทอื่นยังใช้ `TEAMS_WEBHOOK_URL` เดิม `EventKey` ของปลายทางใหม่นับแยกจาก General จึงส่ง INC ที่ยัง Ready to close ไปห้องใหม่ได้หนึ่งครั้ง
+
 ## Environment checkpoint
 
 - [x] สร้าง Flow ใหม่โดยไม่ clone/แก้ Production Workflow

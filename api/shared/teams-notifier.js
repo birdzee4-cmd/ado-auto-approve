@@ -20,9 +20,9 @@ const { URL } = require('url');
 /**
  * ส่ง payload เข้า Teams Webhook
  */
-function sendTeamsMessage(payload) {
+function sendTeamsMessage(payload, options = {}) {
   return new Promise((resolve, reject) => {
-    const webhookUrl = process.env.TEAMS_WEBHOOK_URL;
+    const webhookUrl = options.webhookUrl || process.env.TEAMS_WEBHOOK_URL;
     if (!webhookUrl) {
       return reject(new Error('TEAMS_WEBHOOK_URL is not configured in environment variables'));
     }
@@ -35,7 +35,7 @@ function sendTeamsMessage(payload) {
     }
 
     const data = JSON.stringify(payload);
-    const options = {
+    const requestOptions = {
       hostname: parsed.hostname,
       port: parsed.port || 443,
       path: parsed.pathname + parsed.search,
@@ -47,7 +47,7 @@ function sendTeamsMessage(payload) {
       timeout: 10000
     };
 
-    const req = https.request(options, (res) => {
+    const req = https.request(requestOptions, (res) => {
       let body = '';
       res.on('data', chunk => body += chunk);
       res.on('end', () => {
@@ -73,8 +73,8 @@ function sendTeamsMessage(payload) {
 /**
  * Helper สำหรับส่ง markdown text
  */
-function sendTeamsText(text) {
-  return sendTeamsMessage({ text: text });
+function sendTeamsText(text, options) {
+  return sendTeamsMessage({ text: text }, options);
 }
 
 /**

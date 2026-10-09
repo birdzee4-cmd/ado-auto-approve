@@ -140,10 +140,21 @@ async function notifyIfNeeded(incident, failedCount, actionContext) {
     ? 'OPERATIONS_READY_TO_CLOSE_NOTIFICATION_ENABLED'
     : 'OPERATIONS_NOTIFICATION_ENABLED';
   if (!service.featureEnabled(flag)) return { sent: false, reason: 'disabled' };
+  const readyWebhookUrl = candidate.type === 'READY_TO_CLOSE'
+    ? String(process.env.TEAMS_READY_TO_CLOSE_WEBHOOK_URL || '').trim()
+    : '';
+  if (candidate.type === 'READY_TO_CLOSE' && !readyWebhookUrl) {
+    return { sent: false, reason: 'destination-not-configured' };
+  }
+  if (readyWebhookUrl && readyWebhookUrl === String(process.env.TEAMS_WEBHOOK_URL || '').trim()) {
+    return { sent: false, reason: 'destination-matches-default' };
+  }
   const existing = await sharePoint.listAudit(incident.incidentId);
   if (existing.some(event => event.eventKey === candidate.eventKey)) return { sent: false, reason: 'duplicate', eventKey: candidate.eventKey };
   const notifier = require('../shared/teams-notifier');
-  const result = await notifier.sendTeamsText(candidate.message);
+  const result = readyWebhookUrl
+    ? await notifier.sendTeamsMessage(candidate.card, { webhookUrl: readyWebhookUrl })
+    : await notifier.sendTeamsText(candidate.message);
   if (!result.ok) return { sent: false, reason: 'provider-failed', status: result.status };
   await service.audit(sharePoint, actionContext, {
     incidentId: incident.incidentId,
@@ -171,10 +182,20 @@ function notificationCandidate(incident, failedCount) {
     && String(incident.status || '').toUpperCase() === 'RESOLVED'
     && items.some(item => item.role === 'PRIMARY')
     && items.every(item => workItems.isClosedState(item.state))) {
+    const incidentUrl = `${hubUrl}#/incidents?id=${encodeURIComponent(incident.incidentId)}`;
     return {
       type: 'READY_TO_CLOSE',
-      eventKey: `operations-notification:${incident.incidentId}:ready-to-close`,
-      message: `🔔 **Operations Hub: Incident ready to close**\n\nIncident: ${displayId}\nMonitoring: Resolved\nAll ${items.length} tracked work items are in terminal states. Please review and confirm closure in Operations Hub.\n${hubUrl}#/incidents?id=${encodeURIComponent(incident.incidentId)}`
+      eventKey: `operations-notification:${incident.incidentId}:ready-to-close:azureappservicehigh5xxratecritical`,
+      message: `🔔 **Operations Hub: Incident ready to close**\n\nIncident: ${displayId}\nMonitoring: Resolved\nAll ${items.length} tracked work items are in terminal states. Please review and confirm closure in Operations Hub.\n${incidentUrl}`,
+      card: {
+        type: 'AdaptiveCard',
+        version: '1.4',
+        body: [
+          { type: 'TextBlock', text: '🔔 Operations Hub: Incident ready to close', weight: 'Bolder', size: 'Medium', wrap: true },
+          { type: 'TextBlock', text: `Incident: ${displayId}\nMonitoring: Resolved\nAll ${items.length} tracked work items are in terminal states. Please review and confirm closure in Operations Hub.`, wrap: true }
+        ],
+        actions: [{ type: 'Action.OpenUrl', title: 'Open Incident', url: incidentUrl }]
+      }
     };
   }
   const openRelated = items.filter(item => item.role === 'RELATED' && !workItems.isClosedState(item.state));
@@ -217,4 +238,5 @@ module.exports.authorized = authorized;
 module.exports.dryRunCandidate = dryRunCandidate;
 module.exports.notificationDryRunCandidate = notificationDryRunCandidate;
 module.exports.notificationCandidate = notificationCandidate;
+module.exports.notifyIfNeeded = notifyIfNeeded;
 module.exports.reconciliationOrder = reconciliationOrder;

@@ -3,6 +3,7 @@ const test = require('node:test');
 const service = require('../shared/operations-service');
 const reconcile = require('../operations-reconcile');
 const operationsSharePoint = require('../shared/operations-sharepoint-client');
+const teamsNotifier = require('../shared/teams-notifier');
 
 function withFlags(flags, fn) {
   const previous = {};
@@ -840,6 +841,7 @@ test('reconciliation notifications have stable duplicate keys', () => {
     workItemSummary: { total: 2, closed: 2, open: 0 },
   }, 0);
   assert.equal(allClosed.type, 'READY_TO_CLOSE');
+  assert.match(allClosed.eventKey, /:azureappservicehigh5xxratecritical$/);
   assert.match(allClosed.message, /^🔔 /u);
   assert.match(allClosed.message, /#\/incidents\?id=/);
   assert.equal(allClosed.eventKey, reconcile.notificationCandidate({
@@ -849,6 +851,64 @@ test('reconciliation notifications have stable duplicate keys', () => {
   }, 0).eventKey);
   assert.equal(reconcile.notificationCandidate({ ...relatedOpen, status: 'FIRING', workItems: relatedOpen.workItems.map(item => ({ ...item, state: 'Closed' })) }, 0), null);
   assert.equal(reconcile.notificationCandidate({ ...relatedOpen, status: 'RESOLVED', operationsStatus: 'CLOSED', workItems: relatedOpen.workItems.map(item => ({ ...item, state: 'Closed' })) }, 0), null);
+});
+
+test('ready-to-close notification uses its dedicated Teams webhook and audit key', async () => {
+  const ready = {
+    ...incident,
+    status: 'RESOLVED',
+    workItems: [{ workItemId: 9101, role: 'PRIMARY', state: 'Closed' }]
+  };
+  const originalSend = teamsNotifier.sendTeamsText;
+  const originalSendMessage = teamsNotifier.sendTeamsMessage;
+  const originalListAudit = operationsSharePoint.listAudit;
+  const originalAppendAudit = operationsSharePoint.appendAudit;
+  const sent = [];
+  const audits = [];
+  teamsNotifier.sendTeamsMessage = async (card, options) => {
+    sent.push({ card, options });
+    return { ok: true, status: 204 };
+  };
+  operationsSharePoint.listAudit = async () => audits.map(event => ({ eventKey: event.EventKey }));
+  operationsSharePoint.appendAudit = async event => { audits.push(event); return event; };
+  try {
+    await withFlags({
+      OPERATIONS_READY_TO_CLOSE_NOTIFICATION_ENABLED: 'true',
+      TEAMS_READY_TO_CLOSE_WEBHOOK_URL: 'https://example.test/ready-room'
+    }, async () => {
+      const first = await reconcile.notifyIfNeeded(ready, 0, {});
+      const second = await reconcile.notifyIfNeeded(ready, 0, {});
+      assert.equal(first.sent, true);
+      assert.equal(second.reason, 'duplicate');
+      assert.equal(sent.length, 1);
+      assert.equal(sent[0].options.webhookUrl, 'https://example.test/ready-room');
+      assert.match(sent[0].card.body[0].text, /^🔔 /u);
+      assert.match(sent[0].card.actions[0].url, /#\/incidents\?id=/);
+      assert.equal(audits[0].EventKey, first.eventKey);
+    });
+    await withFlags({
+      OPERATIONS_READY_TO_CLOSE_NOTIFICATION_ENABLED: 'true',
+      TEAMS_READY_TO_CLOSE_WEBHOOK_URL: ''
+    }, async () => {
+      const missing = await reconcile.notifyIfNeeded(ready, 0, {});
+      assert.equal(missing.reason, 'destination-not-configured');
+      assert.equal(sent.length, 1);
+    });
+    await withFlags({
+      OPERATIONS_READY_TO_CLOSE_NOTIFICATION_ENABLED: 'true',
+      TEAMS_READY_TO_CLOSE_WEBHOOK_URL: 'https://example.test/general',
+      TEAMS_WEBHOOK_URL: 'https://example.test/general'
+    }, async () => {
+      const sameRoom = await reconcile.notifyIfNeeded(ready, 0, {});
+      assert.equal(sameRoom.reason, 'destination-matches-default');
+      assert.equal(sent.length, 1);
+    });
+  } finally {
+    teamsNotifier.sendTeamsText = originalSend;
+    teamsNotifier.sendTeamsMessage = originalSendMessage;
+    operationsSharePoint.listAudit = originalListAudit;
+    operationsSharePoint.appendAudit = originalAppendAudit;
+  }
 });
 
 test('reconciliation dry-run previews notification and checks audit without sending', async () => {
