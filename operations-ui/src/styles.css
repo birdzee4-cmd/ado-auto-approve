@@ -260,7 +260,7 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-results-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--ops-line); }
 .ops-results-head > div { display: flex; align-items: baseline; gap: 10px; }
 .ops-results-head span, .ops-results-head small { color: var(--ops-muted); font-size: .76rem; }
-.ops-incident-columns, .ops-incident-card { display: grid; grid-template-columns: minmax(210px,1.2fr) minmax(150px,.8fr) 170px 135px minmax(85px,.5fr) 125px minmax(155px,.9fr) 20px; align-items: center; gap: 12px; }
+.ops-incident-columns, .ops-incident-card { display: grid; grid-template-columns: minmax(195px,1.2fr) minmax(135px,.8fr) 145px 115px 105px minmax(75px,.5fr) 115px minmax(150px,.9fr) 18px; align-items: center; gap: 10px; }
 .ops-incident-columns { padding: 10px 18px; color: #817b70; background: #f0ede5; font-size: .64rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .ops-card-list { display: grid; }
 .ops-pagination { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 14px 18px; border-top: 1px solid var(--ops-line); color: var(--ops-muted); font-size: .78rem; font-weight: 700; }
@@ -281,6 +281,7 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-incident-alert { color: var(--ops-muted); font-size: .78rem; }
 .ops-incident-service strong { font-size: .84rem; }
 .ops-incident-service small, .ops-cell-stack small, .ops-incident-time { color: var(--ops-muted); font-size: .7rem; }
+.ops-incident-ado .ops-status { text-transform: none; }
 .ops-incident-owner { min-width: 0; overflow-wrap: anywhere; color: #34312c; font-size: .78rem; font-weight: 700; }
 .ops-incident-time strong { color: #34312c; font-size: .78rem; }
 .ops-row-arrow { color: #a7a095; font-size: 1.15rem; transition: transform .16s ease, color .16s ease; }
@@ -463,8 +464,9 @@ td small { margin-top: 3px; color: var(--ops-muted); }
   .ops-incident-overview { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .ops-incident-controls { grid-template-columns: 1fr; }
   .ops-filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .ops-incident-columns, .ops-incident-card { grid-template-columns: minmax(190px,1.1fr) minmax(135px,.8fr) 160px 125px minmax(135px,.8fr) 20px; }
-  .ops-incident-columns > :nth-child(5), .ops-incident-card > :nth-child(5), .ops-incident-columns > :nth-child(6), .ops-incident-card > :nth-child(6) { display: none; }
+  .ops-incident-results { overflow-x: auto; }
+  .ops-incident-columns, .ops-incident-card { min-width: 920px; grid-template-columns: minmax(180px,1.1fr) minmax(125px,.8fr) 135px 110px 105px minmax(130px,.8fr) 18px; }
+  .ops-incident-columns > :nth-child(6), .ops-incident-card > :nth-child(6), .ops-incident-columns > :nth-child(7), .ops-incident-card > :nth-child(7) { display: none; }
 }
 
 @media (max-width: 760px) {
@@ -501,13 +503,19 @@ td small { margin-top: 3px; color: var(--ops-muted); }
   .ops-filter-control select { width: 100%; }
   .ops-results-head { align-items: flex-start; }
   .ops-results-head > div { display: grid; gap: 2px; }
+  .ops-incident-results { overflow-x: hidden; }
   .ops-incident-columns { display: none; }
-  .ops-incident-card { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 15px; }
-  .ops-incident-card > :nth-child(2) { grid-column: 1; }
-  .ops-incident-card > :nth-child(3), .ops-incident-card > :nth-child(5), .ops-incident-card > :nth-child(6) { display: none; }
-  .ops-incident-card > :nth-child(4) { grid-column: 2; grid-row: 1; }
-  .ops-incident-card > :nth-child(7) { grid-column: 1; grid-row: 3; }
-  .ops-row-arrow { grid-column: 2; grid-row: 3; justify-self: end; }
+  .ops-incident-card { min-width: 0; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 15px; }
+  .ops-incident-card > :nth-child(2) { grid-column: 1; grid-row: 2; }
+  .ops-incident-card > :nth-child(3) { grid-column: 1; grid-row: 3; }
+  .ops-incident-card > :nth-child(4) { grid-column: 1; grid-row: 4; }
+  .ops-incident-card > :nth-child(5) { grid-column: 2; grid-row: 1; }
+  .ops-incident-card > :nth-child(6), .ops-incident-card > :nth-child(7) { display: none; }
+  .ops-incident-card > :nth-child(8) { grid-column: 1; grid-row: 5; }
+  .ops-incident-progress::before, .ops-incident-ado::before { color: var(--ops-muted); font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+  .ops-incident-progress::before { content: 'Workflow status'; }
+  .ops-incident-ado::before { content: 'ADO state'; }
+  .ops-row-arrow { grid-column: 2; grid-row: 5; justify-self: end; }
   .ops-drawer-backdrop { padding: 12px; }
   .ops-detail-drawer { height: calc(100vh - 24px); max-height: calc(100vh - 24px); border-radius: 11px; }
   .ops-detail-content { padding: 20px 16px; }
