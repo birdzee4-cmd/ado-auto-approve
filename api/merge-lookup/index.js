@@ -337,7 +337,7 @@ module.exports = async function (context, req) {
       ? getPipelineCountry({ ciName: detectedBuild.name })
       : { code: '', name: '', inferred: false };
     const stgMapping = !rule && detectedBuild
-      ? findStagingPipelineMappingByCi(detectedBuild.name)
+      ? findStagingPipelineMappingByCi(detectedBuild.name, pr)
       : null;
     const historical = !rule && !detectedBuild && !stgMapping && branchCandidate
       ? await getHistoricalEvidence(repositoryId, pr, branchCandidate, userAuth)

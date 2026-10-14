@@ -114,12 +114,21 @@ function findMergePipelineRule(pr) {
   ) || null;
 }
 
-function findStagingPipelineMappingByCi(ciName) {
+function isOverseasPr(pr) {
+  return /overseas/i.test([pr && pr.sourceRefName, pr && pr.targetRefName].filter(Boolean).join(' '));
+}
+
+function mappingMatchesOverseas(item, pr) {
+  return /overseas/i.test([item && item.cdName, item && item.cdPath].filter(Boolean).join(' ')) === isOverseasPr(pr);
+}
+
+function findStagingPipelineMappingByCi(ciName, pr) {
   const target = normalize(ciName);
   if (!target) return null;
-  return (Array.isArray(STG_CI_CD_MAP) ? STG_CI_CD_MAP : []).find(item =>
+  const matches = (Array.isArray(STG_CI_CD_MAP) ? STG_CI_CD_MAP : []).filter(item =>
     normalize(item && item.ciName) === target
-  ) || null;
+  );
+  return matches.find(item => pr && mappingMatchesOverseas(item, pr)) || matches[0] || null;
 }
 
 function normalizeForCandidate(value) {
@@ -216,7 +225,8 @@ function findPossibleStagingPipelineMapping(pr) {
   const candidates = (Array.isArray(STG_CI_CD_MAP) ? STG_CI_CD_MAP : [])
     .map(item => ({ item, score: scoreStagingCandidate(item, tokens, country.code) }))
     .filter(result => result.score > 0)
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => b.score - a.score ||
+      Number(mappingMatchesOverseas(b.item, pr)) - Number(mappingMatchesOverseas(a.item, pr)));
   if (!candidates.length) return null;
   return candidates[0].item;
 }
