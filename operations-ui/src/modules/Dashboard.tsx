@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { operationsApi } from '../api';
+import { AdoConnection } from '../AdoConnection';
 import { AdoStateBadge, EmptyState, ErrorState, formatBangkokTimestamp, LoadingState, PageHeading, StatusBadge } from '../components';
 import type { DashboardData, Incident } from '../types';
 import { operationsStatus } from '../incidentStatus';
@@ -23,7 +24,7 @@ export function Dashboard() {
 
   return (
     <section>
-      <PageHeading eyebrow="Daily operations dashboard" title="Incident Overview" actions={<><label className="ops-date-control"><span>Operating date</span><input type="date" value={selectedDate} onChange={event => setSelectedDate(event.target.value)} /></label><button className="ops-button" onClick={load}>Refresh</button></>} />
+      <PageHeading eyebrow="Daily operations dashboard" title="Incident Overview" actions={<><AdoConnection /><label className="ops-date-control"><span>Operating date</span><input type="date" value={selectedDate} onChange={event => setSelectedDate(event.target.value)} /></label><button className="ops-button" onClick={load}>Refresh</button></>} />
       {!data && !error && <LoadingState />}
       {error && <ErrorState message={error} onRetry={load} />}
       {data && <>

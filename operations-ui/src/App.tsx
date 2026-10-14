@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { loadCurrentUser } from './api';
-import { AdoConnection } from './AdoConnection';
 import { Dashboard } from './modules/Dashboard';
 import { Incidents } from './modules/Incidents';
 import { AlertEvents } from './modules/AlertEvents';
@@ -39,7 +38,7 @@ export function App() {
   return <div className="ops-app">
     <header className="ops-topbar">
       <div className="ops-brand"><button className="ops-mobile-menu" onClick={() => setMenuOpen(value => !value)} aria-label="Open navigation">☰</button><img src="/assets/buzzebees-icon.png" alt="Buzzebees" /><div><strong>Operations Hub</strong><span>Buzzebees Internal Applications</span></div></div>
-      <nav><AdoConnection /><a href="/applications.html">All applications</a><span className="ops-user">{user.email || user.name}</span><a className="ops-logout" href="/.auth/logout?post_logout_redirect_uri=/">Logout</a><img src="/assets/buzzebees-powered.png" alt="Powered by Buzzebees" /></nav>
+      <nav><a href="/applications.html">All applications</a><span className="ops-user">{user.email || user.name}</span><a className="ops-logout" href="/.auth/logout?post_logout_redirect_uri=/">Logout</a><img src="/assets/buzzebees-powered.png" alt="Powered by Buzzebees" /></nav>
     </header>
     <div className="ops-workspace">
       <aside className={`ops-sidebar ${menuOpen ? 'is-open' : ''}`}>
