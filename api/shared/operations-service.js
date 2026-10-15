@@ -485,11 +485,14 @@ async function ensureResolvedPrimaryComment(incident, primary, sp, ado, context)
   const existing = typeof sp.listAudit === 'function' ? await sp.listAudit(incident.incidentId) : [];
   if (existing.some(event => event.eventKey === eventKey)) return { commented: false, duplicate: true };
 
+  const commentPat = process.env.ADO_RESOLVED_COMMENT_PAT;
+  if (!commentPat) throw operationalError(503, 'RESOLVED_COMMENT_CREDENTIAL_MISSING', 'ADO_RESOLVED_COMMENT_PAT is required for the Tier 1 RESOLVED comment');
+
   const resolvedAt = formatBangkokTime(incident.resolvedAt || new Date().toISOString());
   const comment = `<p><b>✅ MONITORING ALERT RESOLVED</b></p><p>Monitoring reported that this alert is resolved.<br><b>Case ID:</b> ${escapeHtml(incident.displayId || incident.incidentId)}<br><b>Alert:</b> ${escapeHtml(incident.alertName || '')}<br><b>Resource:</b> ${escapeHtml(incident.resource || '')}<br><b>Environment:</b> ${escapeHtml(incident.environment || '')}<br><b>First seen (Asia/Bangkok):</b> ${escapeHtml(formatBangkokTime(incident.firstSeen))}<br><b>Resolved at (Asia/Bangkok):</b> ${escapeHtml(resolvedAt)}<br><b>Incident ID:</b> ${escapeHtml(incident.incidentId)}<br><b>Source:</b> Grafana Monitoring / Operations Hub</p>`;
   const response = await ado.updateWorkItem(primary.workItemId, [
     { op: 'add', path: '/fields/System.History', value: comment }
-  ]);
+  ], { pat: commentPat });
   if (!response.ok) throw operationalError(response.status || 502, 'PRIMARY_RESOLVED_COMMENT_FAILED', `RESOLVED comment could not be added to Tier 1 Work Item #${primary.workItemId}`);
   await audit(sp, context, {
     incidentId: incident.incidentId,

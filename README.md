@@ -963,6 +963,7 @@ api/shared/attention.js
 | `ADO_ORGANIZATION` | Yes | organization จาก `dev.azure.com/<org>` |
 | `ADO_PROJECT` | Yes | Azure DevOps project |
 | `ADO_PAT` | Yes | Service credential สำหรับ system/background read path เช่น release/system lookup, health check และ daily/exception/hourly sync; Dashboard PR Queue, Merge Lookup และ action Approve / Reject / Approve Release ใช้ delegated user token หลัง Connect Azure DevOps |
+| `ADO_RESOLVED_COMMENT_PAT` | Operations Hub reconciliation | PAT ของบัญชี IT Support ที่มี Work Items Read & write สำหรับคอมเมนต์ `✅ MONITORING ALERT RESOLVED` บน Tier 1 เท่านั้น; หากไม่มี API จะไม่ fallback ไปใช้ `ADO_PAT` กลางและจะไม่ปิดใบงานในรอบนั้น |
 | `ADO_TARGET_BRANCH` | No | default `refs/heads/staging` |
 | `ADO_REVIEWER_GROUP` | No | default `IT Support Approve` |
 | `ADO_EXTERNAL_LOG_SYNC` | No | set `false` เพื่อปิด external vote sync log |

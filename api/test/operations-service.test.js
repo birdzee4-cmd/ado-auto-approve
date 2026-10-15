@@ -424,7 +424,7 @@ test('scheduled reconciliation can synchronize related work items without rewrit
   assert.equal(relatedUpdates[0].id, 44);
 });
 
-test('resolved reconciliation closes Tier 1 only after every related work item is closed', async () => {
+test('resolved reconciliation closes Tier 1 only after every related work item is closed', async () => withFlags({ ADO_RESOLVED_COMMENT_PAT: 'it-support-test-token' }, async () => {
   const writes = [];
   const audits = [];
   const resolvedIncident = {
@@ -446,10 +446,11 @@ test('resolved reconciliation closes Tier 1 only after every related work item i
   };
   let updateCalls = 0;
   const ado = {
-    async updateWorkItem(id, patches) {
+    async updateWorkItem(id, patches, options) {
       updateCalls += 1;
       assert.equal(id, 9101);
       if (updateCalls === 1) {
+        assert.equal(options.pat, 'it-support-test-token');
         const resolvedComment = patches.find(item => item.path === '/fields/System.History').value;
         assert.ok(resolvedComment.includes('MONITORING ALERT RESOLVED'));
         assert.ok(resolvedComment.includes('Case ID:'));
@@ -457,6 +458,7 @@ test('resolved reconciliation closes Tier 1 only after every related work item i
         assert.ok(resolvedComment.includes('AzureAppServiceHigh5xxRateCritical') || resolvedComment.includes('Checkout failure'));
         assert.equal(patches.some(item => item.path === '/fields/System.State'), false);
       } else {
+        assert.equal(options, undefined);
         assert.ok(patches.some(item => item.path === '/fields/System.State' && item.value === 'Closed'));
         assert.equal(patches.some(item => item.path === '/fields/System.History'), false);
       }
@@ -471,9 +473,9 @@ test('resolved reconciliation closes Tier 1 only after every related work item i
   assert.equal(updateCalls, 2);
   assert.equal(writes[0].fields.AdoState, 'Closed');
   assert.deepEqual(audits.map(item => item.Action), ['ADD_RESOLVED_COMMENT_TO_TIER1', 'AUTO_CLOSE_TIER1_AFTER_RESOLVED']);
-});
+}));
 
-test('resolved reconciliation keeps Tier 1 open while a related work item remains open', async () => {
+test('resolved reconciliation keeps Tier 1 open while a related work item remains open', async () => withFlags({ ADO_RESOLVED_COMMENT_PAT: 'it-support-test-token' }, async () => {
   const resolvedIncident = {
     ...incident,
     status: 'RESOLVED',
@@ -490,8 +492,8 @@ test('resolved reconciliation keeps Tier 1 open while a related work item remain
   };
   const writes = [];
   const ado = {
-    async updateWorkItem(id, patches) {
-      writes.push({ id, patches });
+    async updateWorkItem(id, patches, options) {
+      writes.push({ id, patches, options });
       return { ok: true, body: { id, fields: { 'System.State': 'New' } } };
     }
   };
@@ -503,10 +505,11 @@ test('resolved reconciliation keeps Tier 1 open while a related work item remain
   assert.equal(result.reason, 'related-work-open');
   assert.deepEqual(result.blockingWorkItems, [9102]);
   assert.equal(writes.length, 1);
+  assert.equal(writes[0].options.pat, 'it-support-test-token');
   assert.ok(writes[0].patches.some(item => item.path === '/fields/System.History'));
   assert.equal(writes[0].patches.some(item => item.path === '/fields/System.State'), false);
   assert.equal(audits[0].Action, 'ADD_RESOLVED_COMMENT_TO_TIER1');
-});
+}));
 
 test('resolved reconciliation does not add the Tier 1 comment more than once', async () => {
   const resolvedIncident = {
@@ -528,6 +531,30 @@ test('resolved reconciliation does not add the Tier 1 comment more than once', a
   assert.equal(result.closed, false);
   assert.equal(result.commented, false);
   assert.equal(result.reason, 'related-work-open');
+});
+
+test('resolved reconciliation does not post as the default PAT when the IT Support credential is missing', async () => {
+  const previous = process.env.ADO_RESOLVED_COMMENT_PAT;
+  delete process.env.ADO_RESOLVED_COMMENT_PAT;
+  try {
+    const resolvedIncident = {
+      ...incident,
+      status: 'RESOLVED',
+      workItems: [{ workItemId: 9101, role: 'PRIMARY', state: 'New' }]
+    };
+    const sharePoint = {
+      async getIncident() { return resolvedIncident; },
+      async listAudit() { return []; }
+    };
+    const ado = { async updateWorkItem() { assert.fail('The default PAT must not write the comment'); } };
+    await assert.rejects(
+      service.closeResolvedPrimaryIfReady({ incidentId: incident.incidentId }, actionContext, { sharePoint, ado }),
+      error => error.code === 'RESOLVED_COMMENT_CREDENTIAL_MISSING' && error.status === 503
+    );
+  } finally {
+    if (previous == null) delete process.env.ADO_RESOLVED_COMMENT_PAT;
+    else process.env.ADO_RESOLVED_COMMENT_PAT = previous;
+  }
 });
 
 test('close synchronizes current ADO state and succeeds without the standalone sync flag', async () => {

@@ -57,12 +57,13 @@ function adoHostRequest(hostname, method, path, body, options) {
 
 function makeSingleAdoHostRequest(hostname, method, path, body, options) {
   const { pat } = getConfig();
-  if (!(options && options.accessToken) && !pat) {
+  const selectedPat = options && options.pat || pat;
+  if (!(options && options.accessToken) && !selectedPat) {
     throw new Error('Missing ADO_PAT');
   }
   const auth = options && options.accessToken
     ? 'Bearer ' + options.accessToken
-    : 'Basic ' + Buffer.from(':' + pat).toString('base64');
+    : 'Basic ' + Buffer.from(':' + selectedPat).toString('base64');
   const data = body ? JSON.stringify(body) : null;
   const contentType = options && options.contentType || 'application/json';
 
