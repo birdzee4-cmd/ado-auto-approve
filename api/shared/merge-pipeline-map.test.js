@@ -85,18 +85,18 @@ test('legacy pipelines without an explicit country are treated as Thailand only'
   assert.equal(mapping.getPipelineCountry({ ciName: 'MY_Stg_Worker-CI' }).code, 'MY');
 });
 
-test('VN campaign management overseas PR selects overseas CD for candidate and detected CI', () => {
+test('VN campaign management PR selects the standard CD for candidate and detected CI', () => {
   const pr = {
     title: '#372961 Node_Product_Campaign_Management_Web',
     repository: { name: 'Node_Product_Campaign_Management_Web' },
     sourceRefName: 'refs/heads/Merge/M-VN-887586',
     targetRefName: 'refs/heads/MergeCodeProduction/Overseas/VN/20261014_1755_OP_Product_Campaign_Management_Website_VN_FromVC4.00'
   };
-  const expectedCd = 'VN stg web product campaignmanagement docker overseas CD';
+  const expectedCd = 'VN stg web product campaignmanagement docker CD';
   const candidate = mapping.findPossibleStagingPipelineMapping(pr);
   const detected = mapping.findStagingPipelineMappingByCi('VN_STG_Node_Product_Campaign_Management_Web_docker-CI', pr);
   assert.equal(candidate.cdName, expectedCd);
-  assert.equal(candidate.cdId, '6792');
+  assert.equal(candidate.cdId, '5206');
   assert.equal(detected.cdName, expectedCd);
-  assert.equal(detected.cdId, '6792');
+  assert.equal(detected.cdId, '5206');
 });
