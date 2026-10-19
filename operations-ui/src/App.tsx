@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { loadCurrentUser } from './api';
+import { Reports } from './modules/Reports';
 import { Dashboard } from './modules/Dashboard';
 import { Incidents } from './modules/Incidents';
 import { AlertEvents } from './modules/AlertEvents';
@@ -10,6 +11,7 @@ const routes: Array<{ id: RouteId; label: string; short: string; adminOnly?: boo
   { id: 'dashboard', label: 'Dashboard', short: 'DB' },
   { id: 'incidents', label: 'Incidents', short: 'IN' },
   { id: 'alert-events', label: 'Alert Events', short: 'AE' },
+  { id: 'reports', label: 'Report', short: 'RP' },
   { id: 'mappings', label: 'Service Mapping', short: 'MP', adminOnly: true }
 ];
 
@@ -33,7 +35,7 @@ export function App() {
   }, []);
 
   const visibleRoutes = routes.filter(item => !item.adminOnly || user.isAdmin);
-  const content = route === 'incidents' ? <Incidents /> : route === 'alert-events' ? <AlertEvents /> : route === 'mappings' && user.isAdmin ? <Mappings /> : <Dashboard />;
+  const content = route === 'reports' ? <Reports /> : route === 'incidents' ? <Incidents /> : route === 'alert-events' ? <AlertEvents /> : route === 'mappings' && user.isAdmin ? <Mappings /> : <Dashboard />;
 
   return <div className="ops-app">
     <header className="ops-topbar">

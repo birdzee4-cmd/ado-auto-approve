@@ -30,6 +30,10 @@ module.exports = async function (context, req) {
       return await handleWrite(context, req, path, roleCheck.principal);
     }
 
+    if (path === 'reports') {
+      const data = require('../shared/operations-report').buildReport(await sharePoint.listReportIncidents(), req.query || {});
+      return jsonResponse(context, 200, { ok: true, data });
+    }
     if (path === 'dashboard') {
       const incidents = await sharePoint.listIncidents(1000);
       return jsonResponse(context, 200, { ok: true, data: dashboardSummary(incidents, req.query || {}) });

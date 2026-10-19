@@ -1,4 +1,4 @@
-export type RouteId = 'dashboard' | 'incidents' | 'alert-events' | 'mappings';
+export type RouteId = 'reports' | 'dashboard' | 'incidents' | 'alert-events' | 'mappings';
 
 export type IncidentStatus = 'FIRING' | 'RESOLVED';
 export type TrackingStatus = 'OPEN' | 'CLOSED' | 'PENDING' | 'FAILED' | 'CANCELLED' | 'NOT_CREATED';
@@ -211,4 +211,12 @@ export interface AlertEvent {
   errorDetail?: string;
   attemptCount: number;
   processedAt?: string;
+}
+
+export interface IncidentReport {
+  period: 'week' | 'month'; start: string; end: string; generatedAt: string;
+  total: number; recovered: number; active: number; unknownDates: number;
+  resources: Array<{ key: string; resource: string; resourceGroup: string; subscription: string; total: number; recovered: number; active: number }>;
+  daily: Array<{ date: string; count: number }>;
+  incidents: Incident[];
 }

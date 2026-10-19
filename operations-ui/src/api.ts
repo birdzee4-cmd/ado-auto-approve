@@ -78,6 +78,7 @@ export async function disconnectAdo(): Promise<void> {
 }
 
 export const operationsApi = {
+  report: (period: string, date: string) => request<import('./types').IncidentReport>(`/api/operations/reports?period=${period}&date=${encodeURIComponent(date)}`),
   capabilities: () => request<OperationsCapabilities>('/api/operations/capabilities'),
   dashboard: (date = '') => request<DashboardData>(`/api/operations/dashboard${date ? `?date=${encodeURIComponent(date)}` : ''}`),
   incidents: (status = '', search = '') => {

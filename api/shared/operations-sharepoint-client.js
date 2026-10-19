@@ -117,7 +117,7 @@ async function getListId(listName) {
 }
 
 async function listItems(maxItems, listName, filter) {
-  const maximum = Math.max(1, Math.min(Number(maxItems) || 500, 1000));
+  const maximum = maxItems === Infinity ? Infinity : Math.max(1, Math.min(Number(maxItems) || 500, 1000));
   const siteId = await getSiteId();
   const listId = await getListId(listName);
   const token = await getAccessToken();
@@ -636,6 +636,7 @@ function compareNewest(left, right) {
 module.exports = {
   formatIncidentDisplayId,
   getIncident,
+  listReportIncidents: async () => (await listItems(Infinity, getConfig().listName)).map(mapSharePointIncident),
   listIncidents,
   listWorkItems,
   listConfiguredWorkItems,

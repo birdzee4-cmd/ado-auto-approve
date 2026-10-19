@@ -557,3 +557,15 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 @media (max-width: 680px) {
   .ops-target-selector { grid-template-columns: 1fr; }
 }
+.ops-report-panel { margin-top: 20px; overflow: hidden; }
+.ops-report-table { overflow-x: auto; }
+.ops-report-table table { width: 100%; border-collapse: collapse; text-align: left; }
+.ops-report-table th, .ops-report-table td { padding: 15px 20px; border-bottom: 1px solid var(--ops-line); }
+.ops-report-table th { color: var(--ops-muted); font-size: .75rem; white-space: nowrap; }
+.ops-report-table td small { display: block; color: var(--ops-muted); margin-top: 5px; overflow-wrap: anywhere; }
+.ops-report-link { border: 0; padding: 0; background: transparent; color: #946000; font: inherit; font-weight: 700; text-align: left; cursor: pointer; text-decoration: underline; }
+.ops-report-chart { display: flex; gap: 8px; padding: 24px; height: 230px; overflow-x: auto; align-items: end; }
+.ops-report-chart > div { min-width: 20px; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: .7rem; }
+.ops-report-chart i { display: block; width: 75%; min-height: 2px; background: var(--ops-yellow, #f5a400); border-radius: 4px 4px 0 0; }
+.ops-report-pagination { display: flex; justify-content: end; align-items: center; gap: 15px; padding: 18px; }
+.ops-date-control select { padding: 10px; border: 1px solid var(--ops-line); border-radius: 6px; background: white; font: inherit; }
