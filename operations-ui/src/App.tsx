@@ -7,10 +7,10 @@ import { AlertEvents } from './modules/AlertEvents';
 import { Mappings } from './modules/Mappings';
 import type { CurrentUser, RouteId } from './types';
 
-const routes: Array<{ id: RouteId; label: string; short: string; adminOnly?: boolean }> = [
+const routes: Array<{ id: RouteId; label: string; short: string; adminOnly?: boolean; hidden?: boolean }> = [
   { id: 'dashboard', label: 'Dashboard', short: 'DB' },
   { id: 'incidents', label: 'Incidents', short: 'IN' },
-  { id: 'alert-events', label: 'Alert Events', short: 'AE' },
+  { id: 'alert-events', label: 'Alert Events', short: 'AE', hidden: true },
   { id: 'reports', label: 'Report', short: 'RP' },
   { id: 'mappings', label: 'Service Mapping', short: 'MP', adminOnly: true }
 ];
@@ -34,7 +34,7 @@ export function App() {
     return () => window.removeEventListener('hashchange', changeRoute);
   }, []);
 
-  const visibleRoutes = routes.filter(item => !item.adminOnly || user.isAdmin);
+  const visibleRoutes = routes.filter(item => !item.hidden && (!item.adminOnly || user.isAdmin));
   const content = route === 'reports' ? <Reports /> : route === 'incidents' ? <Incidents /> : route === 'alert-events' ? <AlertEvents /> : route === 'mappings' && user.isAdmin ? <Mappings /> : <Dashboard />;
 
   return <div className="ops-app">
