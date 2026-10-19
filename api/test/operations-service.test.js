@@ -938,6 +938,90 @@ test('ready-to-close notification uses its dedicated Teams webhook and audit key
   }
 });
 
+test('resolved open reminder starts after 24 hours and stops when incident closes', () => {
+  const now = Date.parse('2026-10-19T03:00:00.000Z');
+  const resolved = { ...incident, status: 'RESOLVED', operationsStatus: 'IN_PROGRESS', lastAlertAt: new Date(now - 24 * 60 * 60 * 1000).toISOString() };
+  const reminder = reconcile.resolvedOpen24hReminderCandidate(resolved, now);
+  assert.equal(reminder.type, 'RESOLVED_OPEN_24H');
+  assert.match(reminder.message, /24 hours/);
+  assert.equal(reconcile.resolvedOpen24hReminderCandidate({ ...resolved, lastAlertAt: new Date(now - 24 * 60 * 60 * 1000 + 1).toISOString() }, now), null);
+  assert.equal(reconcile.resolvedOpen24hReminderCandidate({ ...resolved, operationsStatus: 'CLOSED' }, now), null);
+  assert.equal(reconcile.resolvedOpen24hReminderCandidate({ ...resolved, status: 'FIRING' }, now), null);
+  assert.equal(reconcile.resolvedOpen24hReminderCandidate({ ...resolved, lastAlertAt: '' }, now), null);
+});
+
+test('resolved open reminder follows ready notification once and uses dedicated room', async () => {
+  const ready = {
+    ...incident,
+    status: 'RESOLVED',
+    operationsStatus: 'IN_PROGRESS',
+    lastAlertAt: '2026-10-01T00:00:00.000Z',
+    workItems: [{ workItemId: 9101, role: 'PRIMARY', state: 'Closed' }]
+  };
+  const originalSend = teamsNotifier.sendTeamsMessage;
+  const originalListAudit = operationsSharePoint.listAudit;
+  const originalAppendAudit = operationsSharePoint.appendAudit;
+  const sent = [];
+  const audits = [];
+  teamsNotifier.sendTeamsMessage = async (card, options) => { sent.push({ card, options }); return { ok: true, status: 204 }; };
+  operationsSharePoint.listAudit = async () => audits.map(event => ({ eventKey: event.EventKey }));
+  operationsSharePoint.appendAudit = async event => { audits.push(event); return event; };
+  try {
+    await withFlags({
+      OPERATIONS_READY_TO_CLOSE_NOTIFICATION_ENABLED: 'true',
+      TEAMS_READY_TO_CLOSE_WEBHOOK_URL: 'https://example.test/ready-room'
+    }, async () => {
+      const first = await reconcile.notifyIfNeeded(ready, 0, {});
+      const second = await reconcile.notifyIfNeeded(ready, 0, {});
+      const third = await reconcile.notifyIfNeeded(ready, 0, {});
+      assert.equal(first.type, 'READY_TO_CLOSE');
+      assert.equal(second.type, 'RESOLVED_OPEN_24H');
+      assert.equal(third.reason, 'duplicate');
+      assert.equal(sent.length, 2);
+      assert.equal(sent[1].options.webhookUrl, 'https://example.test/ready-room');
+      assert.match(sent[1].card.body[0].text, /still open after 24 hours/);
+      assert.notEqual(audits[0].EventKey, audits[1].EventKey);
+    });
+  } finally {
+    teamsNotifier.sendTeamsMessage = originalSend;
+    operationsSharePoint.listAudit = originalListAudit;
+    operationsSharePoint.appendAudit = originalAppendAudit;
+  }
+});
+
+test('resolved open reminder is not blocked by disabled related-work notifications', async () => {
+  const open = {
+    ...incident,
+    status: 'RESOLVED',
+    operationsStatus: 'IN_PROGRESS',
+    lastAlertAt: '2026-10-01T00:00:00.000Z',
+    workItems: [
+      { workItemId: 9101, role: 'PRIMARY', state: 'Processing' },
+      { workItemId: 9102, role: 'RELATED', state: 'Active' }
+    ]
+  };
+  const originalSend = teamsNotifier.sendTeamsMessage;
+  const originalListAudit = operationsSharePoint.listAudit;
+  const originalAppendAudit = operationsSharePoint.appendAudit;
+  teamsNotifier.sendTeamsMessage = async () => ({ ok: true, status: 204 });
+  operationsSharePoint.listAudit = async () => [];
+  operationsSharePoint.appendAudit = async event => event;
+  try {
+    await withFlags({
+      OPERATIONS_NOTIFICATION_ENABLED: 'false',
+      OPERATIONS_READY_TO_CLOSE_NOTIFICATION_ENABLED: 'true',
+      TEAMS_READY_TO_CLOSE_WEBHOOK_URL: 'https://example.test/ready-room'
+    }, async () => {
+      const result = await reconcile.notifyIfNeeded(open, 0, {});
+      assert.equal(result.type, 'RESOLVED_OPEN_24H');
+    });
+  } finally {
+    teamsNotifier.sendTeamsMessage = originalSend;
+    operationsSharePoint.listAudit = originalListAudit;
+    operationsSharePoint.appendAudit = originalAppendAudit;
+  }
+});
+
 test('reconciliation dry-run previews notification and checks audit without sending', async () => {
   const originalListAudit = operationsSharePoint.listAudit;
   const relatedOpen = {

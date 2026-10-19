@@ -115,10 +115,11 @@ function reconciliationOrder(left, right) {
 
 async function notificationDryRunCandidate(incident) {
   const candidate = dryRunCandidate(incident);
-  const notification = notificationCandidate(incident, 0);
-  if (!notification) return { ...candidate, notification: { required: false } };
+  const notifications = notificationCandidates(incident, 0);
+  if (notifications.length === 0) return { ...candidate, notification: { required: false } };
 
   const existing = await sharePoint.listAudit(incident.incidentId);
+  const notification = notifications.find(item => !existing.some(event => event.eventKey === item.eventKey)) || notifications[0];
   const duplicate = existing.some(event => event.eventKey === notification.eventKey);
   return {
     ...candidate,
@@ -134,23 +135,33 @@ async function notificationDryRunCandidate(incident) {
 
 async function notifyIfNeeded(incident, failedCount, actionContext) {
   if (!incident) return { sent: false, reason: 'not-required' };
-  const candidate = notificationCandidate(incident, failedCount);
-  if (!candidate) return { sent: false, reason: 'not-required' };
-  const flag = candidate.type === 'READY_TO_CLOSE'
+  const candidates = notificationCandidates(incident, failedCount);
+  if (candidates.length === 0) return { sent: false, reason: 'not-required' };
+  const existing = candidates.length > 1 ? await sharePoint.listAudit(incident.incidentId) : null;
+  const candidate = existing
+    ? candidates.find(item => !existing.some(event => event.eventKey === item.eventKey)
+      && (item.type !== 'RELATED_WORK_REMAINS' && item.type !== 'SYNC_FAILED'
+        || service.featureEnabled('OPERATIONS_NOTIFICATION_ENABLED')))
+    : candidates[0];
+  if (!candidate) return { sent: false, reason: 'duplicate', eventKey: candidates[0].eventKey };
+  const dedicatedRoom = candidate.type === 'READY_TO_CLOSE' || candidate.type === 'RESOLVED_OPEN_24H';
+  const flag = dedicatedRoom
     ? 'OPERATIONS_READY_TO_CLOSE_NOTIFICATION_ENABLED'
     : 'OPERATIONS_NOTIFICATION_ENABLED';
   if (!service.featureEnabled(flag)) return { sent: false, reason: 'disabled' };
-  const readyWebhookUrl = candidate.type === 'READY_TO_CLOSE'
+  const readyWebhookUrl = dedicatedRoom
     ? String(process.env.TEAMS_READY_TO_CLOSE_WEBHOOK_URL || '').trim()
     : '';
-  if (candidate.type === 'READY_TO_CLOSE' && !readyWebhookUrl) {
+  if (dedicatedRoom && !readyWebhookUrl) {
     return { sent: false, reason: 'destination-not-configured' };
   }
   if (readyWebhookUrl && readyWebhookUrl === String(process.env.TEAMS_WEBHOOK_URL || '').trim()) {
     return { sent: false, reason: 'destination-matches-default' };
   }
-  const existing = await sharePoint.listAudit(incident.incidentId);
-  if (existing.some(event => event.eventKey === candidate.eventKey)) return { sent: false, reason: 'duplicate', eventKey: candidate.eventKey };
+  const audit = existing || await sharePoint.listAudit(incident.incidentId);
+  if (audit.some(event => event.eventKey === candidate.eventKey)) {
+    return { sent: false, reason: 'duplicate', eventKey: candidate.eventKey };
+  }
   const notifier = require('../shared/teams-notifier');
   const result = readyWebhookUrl
     ? await notifier.sendTeamsMessage(candidate.card, { webhookUrl: readyWebhookUrl })
@@ -164,6 +175,40 @@ async function notifyIfNeeded(incident, failedCount, actionContext) {
     eventKey: candidate.eventKey
   });
   return { sent: true, type: candidate.type, eventKey: candidate.eventKey };
+}
+
+function notificationCandidates(incident, failedCount, nowMs = Date.now()) {
+  if (!incident) return [];
+  return [notificationCandidate(incident, failedCount), resolvedOpen24hReminderCandidate(incident, nowMs)].filter(Boolean);
+}
+
+function resolvedOpen24hReminderCandidate(incident, nowMs = Date.now()) {
+  if (String(incident.status || '').toUpperCase() !== 'RESOLVED'
+    || String(incident.operationsStatus || '').toUpperCase() === 'CLOSED') return null;
+
+  // LastAlertAt is written when RESOLVED is received. ResolvedAt in older
+  // incidents can have a timezone offset, so it is unsafe for this deadline.
+  const recordedAt = Date.parse(incident.lastAlertAt || '');
+  if (!Number.isFinite(recordedAt) || nowMs - recordedAt < 24 * 60 * 60 * 1000) return null;
+
+  const displayId = incident.displayId || incident.incidentId;
+  const hubUrl = String(process.env.OPERATIONS_HUB_URL || 'https://mango-wave-09cff3700.7.azurestaticapps.net/operations.html');
+  const incidentUrl = `${hubUrl}#/incidents?id=${encodeURIComponent(incident.incidentId)}`;
+  const detail = `Incident: ${displayId}\nMonitoring: Resolved\nThis incident has remained open in Operations Hub for at least 24 hours after RESOLVED was recorded. Please review and close it when the work is complete.`;
+  return {
+    type: 'RESOLVED_OPEN_24H',
+    eventKey: `operations-notification:${incident.incidentId}:resolved-open-24h`,
+    message: `⏰ **Operations Hub: Resolved incident still open after 24 hours**\n\n${detail}\n${incidentUrl}`,
+    card: {
+      type: 'AdaptiveCard',
+      version: '1.4',
+      body: [
+        { type: 'TextBlock', text: '⏰ Operations Hub: Resolved incident still open after 24 hours', weight: 'Bolder', size: 'Medium', wrap: true },
+        { type: 'TextBlock', text: detail, wrap: true }
+      ],
+      actions: [{ type: 'Action.OpenUrl', title: 'Open Incident', url: incidentUrl }]
+    }
+  };
 }
 
 function notificationCandidate(incident, failedCount) {
@@ -238,5 +283,6 @@ module.exports.authorized = authorized;
 module.exports.dryRunCandidate = dryRunCandidate;
 module.exports.notificationDryRunCandidate = notificationDryRunCandidate;
 module.exports.notificationCandidate = notificationCandidate;
+module.exports.resolvedOpen24hReminderCandidate = resolvedOpen24hReminderCandidate;
 module.exports.notifyIfNeeded = notifyIfNeeded;
 module.exports.reconciliationOrder = reconciliationOrder;
