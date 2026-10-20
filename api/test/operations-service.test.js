@@ -120,6 +120,7 @@ test('App Support profile matches the required Production Service Form fields', 
   assert.ok(!field('System.Description').includes('Application Availability'));
   assert.ok(field('System.Description').includes('<strong>Application Status:</strong> Normal / Degraded / Unavailable'));
   assert.equal(field('Custom.RequestType'), 'Incident/Issue');
+  assert.equal(field('System.State'), 'Assigned');
   assert.equal(field('Custom.SeverityIncidentIssue'), 'Severity-2');
   assert.equal(field('Custom.Deadline'), '2026-09-26T17:00:00.000Z');
   assert.equal(field('Custom.ServicePriority'), '2-High');
@@ -158,6 +159,7 @@ test('Tier 2 profile clones the verified IT Support Case fields from Tier 1', ()
     assert.equal(patches.find(item => item.path === `/fields/${name}`)?.value, value);
   }
   assert.equal(patches.find(item => item.path === '/fields/Custom.Owner'), undefined);
+  assert.equal(patches.find(item => item.path === '/fields/System.State'), undefined);
   assert.equal(patches.find(item => item.path === '/fields/System.AssignedTo')?.value, '');
 });
 
@@ -195,6 +197,33 @@ test('create related work item uses delegated identity, persists mapping output,
     assert.equal(writes.records[0].WorkItemUrl, 'https://dev.azure.com/Buzzebees/_workitems/edit/9102');
     assert.equal(writes.audits[0].OperationsUserEmail, 'tier1@example.com');
     assert.equal(writes.audits[0].AdoIdentityEmail, 'tier1.ado@example.com');
+  });
+});
+
+test('App Support creation requests Assigned and persists the returned ADO state', async () => {
+  await withFlags({ OPERATIONS_CREATE_ENABLED: 'true' }, async () => {
+    const records = [];
+    const sharePoint = {
+      async getIncident() { return incident; },
+      async listMappings() { return [{ ...mapping, workItemType: 'Service Form', assignedTeam: '' }]; },
+      async listConfiguredWorkItems() { return []; },
+      async createWorkItemRecord(fields) { records.push(fields); },
+      async appendAudit() {}
+    };
+    const ado = {
+      getConfig() { return { org: 'Buzzebees' }; },
+      async getWorkItem() { return { ok: true, body: { id: 9101, fields: {} } }; },
+      async createWorkItem(project, type, patches) {
+        assert.equal(type, 'Service Form');
+        assert.equal(patches.find(item => item.path === '/fields/System.State')?.value, 'Assigned');
+        assert.equal(patches.find(item => item.path === '/fields/System.AssignedTo'), undefined);
+        return { ok: true, body: { id: 9104, fields: { 'System.State': 'Assigned' } } };
+      }
+    };
+    const result = await service.createRelated({ incidentId: incident.incidentId, supportTeam: 'APP_SUPPORT', idempotencyKey: 'assigned-app-request' }, actionContext, { sharePoint, ado });
+    assert.equal(result.workItem.state, 'Assigned');
+    assert.equal(records[0].State, 'Assigned');
+    assert.equal(records[0].AssignedTo, '');
   });
 });
 
