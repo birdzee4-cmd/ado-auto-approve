@@ -71,7 +71,10 @@ test('mapping resolution is deterministic and mapping-only', () => {
   assert.equal(service.resolveMapping([lowerPriority, mapping], incident, 'APP_SUPPORT').mappingId, 'checkout-app');
   assert.throws(() => service.resolveMapping([mapping], incident, 'TIER2'), error => error.code === 'MAPPING_NOT_FOUND');
   assert.doesNotThrow(() => service.resolveMapping([{ ...mapping, assignedTeam: '' }], incident, 'APP_SUPPORT'));
-  assert.throws(() => service.resolveMapping([{ ...mapping, supportTeam: 'TIER2', assignedTeam: '' }], incident, 'TIER2'), error => error.code === 'MAPPING_INCOMPLETE');
+  assert.doesNotThrow(() => service.resolveMapping([{ ...mapping, supportTeam: 'TIER2', assignedTeam: '' }], incident, 'TIER2'));
+  const legacyMapping = { ...mapping, supportTeam: 'TIER2', assignedTeam: 'itsupportadmin@buzzebees.com' };
+  assert.equal(service.resolveMapping([legacyMapping], incident, 'TIER2').assignedTeam, '');
+  assert.equal(legacyMapping.assignedTeam, 'itsupportadmin@buzzebees.com');
 });
 
 test('work-item patch uses mapped fields and a Related relation', () => {
@@ -155,7 +158,7 @@ test('Tier 2 profile clones the verified IT Support Case fields from Tier 1', ()
     assert.equal(patches.find(item => item.path === `/fields/${name}`)?.value, value);
   }
   assert.equal(patches.find(item => item.path === '/fields/Custom.Owner'), undefined);
-  assert.equal(patches.find(item => item.path === '/fields/System.AssignedTo')?.value, 'ITSupport Admin');
+  assert.equal(patches.find(item => item.path === '/fields/System.AssignedTo')?.value, '');
 });
 
 test('create related work item uses delegated identity, persists mapping output, and audits both identities', async () => {
@@ -195,7 +198,7 @@ test('create related work item uses delegated identity, persists mapping output,
   });
 });
 
-test('create persists the mapped assignee when the ADO create response omits identity fields', async () => {
+test('Tier 2 creation clears the legacy mapped assignee and persists Unassigned when ADO omits identity fields', async () => {
   await withFlags({ OPERATIONS_CREATE_ENABLED: 'true' }, async () => {
     const records = [];
     const tier2Mapping = { ...mapping, supportTeam: 'TIER2', assignedTeam: 'ITSupport Admin' };
@@ -209,12 +212,15 @@ test('create persists the mapped assignee when the ADO create response omits ide
     const ado = {
       getConfig() { return { org: 'Buzzebees' }; },
       async getWorkItem() { return { ok: true, status: 200, body: { id: 9101, fields: {} } }; },
-      async createWorkItem() { return { ok: true, status: 200, body: { id: 9103, fields: { 'System.Title': 'Tier 2 task', 'System.State': 'New' } } }; }
+      async createWorkItem(project, type, patches) {
+        assert.equal(patches.find(item => item.path === '/fields/System.AssignedTo')?.value, '');
+        return { ok: true, status: 200, body: { id: 9103, fields: { 'System.Title': 'Tier 2 task', 'System.State': 'New' } } };
+      }
     };
 
     await service.createRelated({ incidentId: incident.incidentId, supportTeam: 'TIER2', idempotencyKey: 'tier2-request' }, actionContext, { sharePoint, ado });
 
-    assert.equal(records[0].AssignedTo, 'ITSupport Admin');
+    assert.equal(records[0].AssignedTo, '');
     assert.equal(records[0].WorkItemUrl, 'https://dev.azure.com/Buzzebees/Buzzebees/_workitems/edit/9103');
   });
 });

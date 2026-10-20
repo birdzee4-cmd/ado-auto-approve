@@ -91,10 +91,10 @@ function resolveMapping(mappings, incident, supportTeam) {
   const mapping = candidates[0];
   if (!mapping) throw operationalError(422, 'MAPPING_NOT_FOUND', `No enabled mapping was found for ${team}`);
   const required = ['adoProject', 'workItemType', 'areaPath'];
-  if (team !== 'APP_SUPPORT') required.push('assignedTeam');
   const missing = required.filter(field => !mapping[field]);
   if (missing.length) throw operationalError(422, 'MAPPING_INCOMPLETE', 'Mapping is missing: ' + missing.join(', '));
-  return mapping;
+  // Tier 2 starts unassigned, including when an older mapping names an admin.
+  return team === 'TIER2' ? { ...mapping, assignedTeam: '' } : mapping;
 }
 
 function buildCreatePatches(incident, mapping, input, primaryWorkItemId, organization, primaryWorkItem) {
@@ -138,7 +138,11 @@ function buildCreatePatches(incident, mapping, input, primaryWorkItemId, organiz
     patch('/fields/System.AreaPath', mapping.areaPath)
   ];
   if (tags) patches.push(patch('/fields/System.Tags', tags));
-  if (mapping.assignedTeam) patches.push(patch('/fields/System.AssignedTo', mapping.assignedTeam));
+  if (normalizeTeam(mapping.supportTeam) === 'TIER2') {
+    patches.push(patch('/fields/System.AssignedTo', ''));
+  } else if (mapping.assignedTeam) {
+    patches.push(patch('/fields/System.AssignedTo', mapping.assignedTeam));
+  }
   if (mapping.iterationPath) patches.push(patch('/fields/System.IterationPath', mapping.iterationPath));
   for (const [field, value] of Object.entries(profileFields(mapping.supportTeam, incident, primaryWorkItem))) {
     if (value != null && String(value).trim() !== '') patches.push(patch(`/fields/${field}`, value));
