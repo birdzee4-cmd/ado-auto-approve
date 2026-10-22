@@ -98,3 +98,11 @@ runner ตรวจ JWT claims ใน memory ก่อนสร้าง SQL exe
 ตาม trailing-slash resource identifier ของ Azure SQL runner ขอ scope เป็น `https://database.windows.net//.default` โดยคง audience acceptance แบบ exact เป็น `https://database.windows.net/` เท่านั้น การเปลี่ยนนี้ไม่เพิ่ม allowlist, ไม่ normalize audience และไม่เปลี่ยน tenant/client/authentication method/permissions
 
 ผล pagination จะรายงานผ่านก็ต่อเมื่อ key `(TargetDate, ID)` ของสองหน้าลำดับถูกต้องและไม่ซ้ำกัน ไม่ตั้งค่า `cursorStable` เป็น true โดยอัตโนมัติอีกต่อไป
+
+## Offline ELOGIN evidence comparison
+
+จาก source ที่ตรวจได้ Node runner ใช้ server/database ที่รับจากคำสั่งรัน, explicit tenant และ public client ID เดิมที่ระบุใน runbook; ค่าเหล่านี้ไม่ถูกอ่านจาก credential cache. Node ใช้ `InteractiveBrowserCredential.getToken` แล้วส่ง `AccessToken.token` ให้ mssql เป็น `authentication.type = azure-active-directory-access-token` ใน `authentication.options.token` ส่วน JDBC probe ใช้ TLS, `encrypt=true`, `trustServerCertificate=false`, `ApplicationIntent=ReadOnly` และรับ `spn`/`stsurl` จาก SQL callback ก่อนสร้าง scope ด้วย `spn.endsWith('/') ? spn + '.default' : spn + '/.default'`; จึงมีหลักฐานว่าแนวทาง scope double-slash ของ Node ตรงกับกรณี JDBC ที่ SQL ส่ง resource identifier แบบมี slash แต่ไม่มีหลักฐานว่าบัญชี interactive ของสองรอบเป็นบัญชีเดียวกัน
+
+รุ่น dependency ที่ตรวจจากการติดตั้งจริง: `mssql 12.7.10`, `tedious 20.3.8`, `@azure/identity 4.13.1`, `@azure/msal-node 5.3.0`. Diagnostics ของ executor เดิน nested `originalError`/`cause` สูงสุด 5 ชั้นและส่งเฉพาะ code ที่ allowlist กับ SQL number/state/class ที่ allowlist; ผล ELOGIN ล่าสุดไม่มี number/state/class ที่เปิดเผยได้ จึงบันทึกเป็น `unavailable` ไม่แต่งค่าและไม่พิมพ์ raw message/stack
+
+หลักฐานสำหรับ DBA/Entra admin: รอบล่าสุดตามเวลาการทำงานของผู้ใช้ในวันที่ 22 ตุลาคม 2026 (Asia/Bangkok; runner ไม่ได้บันทึก timestamp ลง output), stage `SIGN_IN_COMPLETE → LIST_AND_PERMISSION_CHECK_STARTED → CONNECT_FAILED`, safe code `ELOGIN`, token preflight ผ่านก่อน connect และไม่พบ nested SQL number/state/class ที่ปลอดภัย. โปรด correlate เวลาใน Entra sign-in log และ SQL authentication/audit log เพื่อยืนยัน identity ที่ SQL ได้รับและเหตุผลปฏิเสธ โดยตรวจ server/database, tenant/client, audience/resource, authentication policy และ database principal ตามช่องทางภายใน ห้ามส่ง token/password/raw exception
