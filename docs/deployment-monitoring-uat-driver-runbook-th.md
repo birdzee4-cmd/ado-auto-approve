@@ -80,3 +80,11 @@ Tests `api/test/deployment-monitoring-uat-runner.test.js` ผ่าน 5/5: defa
 **ผ่านเฉพาะ live read integration ของ driver → executor → repository → service ใน scope นี้** unknown=0 หมายถึง label ครอบคลุมรหัสที่พบตาม provisional mapping ไม่ได้ยืนยัน business outcomes หรือ owner approval ผล prepared=0 มาจาก aggregate ของช่วงที่ตรวจ ไม่ใช่ fallback แทน error
 
 ยังไม่ทดสอบ cursor หน้าถัดไป/empty/not-found/error/cancellation/pool recovery กับ DB จริง, HTTP hosting/direct-host trust, role/row visibility, runtime Node 22 หรือ load/performance; timezoneConfirmed=false/mappingProvisional=true/releaseApproved=false ตามผล runner ไม่มี UAT signoff และ G0 ยัง pending ส่วนยืนยัน semantics/visibility/hosting การใช้ explicit tenant สำเร็จในรอบนี้สนับสนุนประเด็น tenant configuration ของรอบก่อน แต่ไม่ใช่หลักฐานว่าทุก ELOGIN เกิดจากสาเหตุเดียวกัน
+
+## ผลรอบ cursor pagination ที่อนุมัติล่าสุด
+
+เพิ่มโหมด `--pagination-approved` เพื่อเรียกหน้าที่สองด้วย signed cursor โดยคงวันและตัวกรองเดิม หน้าแรก/หน้าถัดไปยังจำกัดที่ pageSize=1 และไม่พิมพ์แถวข้อมูลหรือ cursor ออกผลลัพธ์
+
+ผู้ใช้อนุมัติรอบนี้แล้วและทำ sign-in สำเร็จ แต่การเชื่อมต่อหยุดที่ `CONNECT_FAILED / ELOGIN` ก่อน permission check ดังนั้นยังไม่มีการอ่าน list, cursor, detail หรือ summary ในรอบนี้ ไม่มีการ retry และไม่มีการเปลี่ยน TLS/สิทธิ์/ข้อมูล ฐานข้อมูลยังไม่มีหลักฐานยืนยัน pagination จาก UAT
+
+สิ่งที่ต้องให้ DBA/ผู้ดูแลตรวจสำหรับรอบถัดไปคือสาเหตุ authentication ของ client application/tenant ที่ยืนยันแล้ว, audience และสิทธิ์ database principal ของ token รวมถึง policy ที่ทำให้ login ถูกปฏิเสธ โดยไม่ส่ง password, token, raw SQL error หรือ secret ในแชต หลังแก้ configuration แล้วต้องขออนุมัติรอบเชื่อมต่อใหม่อีกครั้ง

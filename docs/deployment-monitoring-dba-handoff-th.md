@@ -1,6 +1,10 @@
 # ข้อมูลที่ต้องยืนยันเพื่อเปิด G0: Deployment Monitoring
 
-สถานะ 22 ตุลาคม 2026: **ยังไม่ผ่าน G0** เอกสารนี้เป็นแบบฟอร์มรอข้อมูล ไม่ใช่หลักฐานว่าตรวจ DB แล้ว ไม่ต้องส่ง password, connection string หรือแถวข้อมูลจริงในแชต/commit และยังไม่มีการส่งเอกสารนี้ให้บุคคลอื่นโดยอัตโนมัติ
+สถานะ 22 ตุลาคม 2026: **ยังไม่ผ่าน G0** ตรวจ UAT metadata ตามการอนุมัติของผู้ใช้แล้ว: พบ 57 คอลัมน์และ ID เป็น unique clustered PK แบบ active/unfiltered; permission probe ยืนยัน SELECT และไม่พบสิทธิ์เขียนตาม flags ที่ตรวจ รายละเอียดและข้อจำกัดอยู่ใน [สถานะล่าสุด](deployment-monitoring-progress-th.md) ตารางด้านล่างเป็นแบบฟอร์มให้ DBA/owner ยืนยันอย่างเป็นทางการ ไม่ต้องส่ง password, connection string หรือแถวข้อมูลจริงในแชต/commit และยังไม่มีการส่งเอกสารนี้ให้บุคคลอื่นโดยอัตโนมัติ
+
+**ข้อมูลที่ยังต้องขอ:** path/repository ของ source app ที่บันทึก Project Planning หรือ mapping Status/DeployType/GetType/Priority ที่ owner ยืนยัน, timezone/stage semantics, role/row scope และ field allowlist, และ configuration/network/authentication ของ API hosting จริง ไม่ต้องตรวจจำนวนคอลัมน์หรือ ID uniqueness ใหม่ เว้นแต่ schema เปลี่ยนหรือ DBA ต้องการรับรองเพิ่มเติม
+
+การทดสอบ cursor pagination ล่าสุดทำ sign-in สำเร็จแต่ถูกปฏิเสธที่ SQL authentication (`ELOGIN`) ก่อน permission check จึงต้องขอให้ DBA ตรวจ client application/tenant/audience และ database principal mapping ของ UAT โดยส่งกลับเฉพาะ evidence reference หรือข้อสรุปที่ปกปิด secrets; ห้ามส่ง token/password หรือ raw exception และยังไม่ถือเป็น integration failure ของ query/pagination
 
 ## 1. ผู้อนุญาตและ UAT
 
