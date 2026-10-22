@@ -70,3 +70,14 @@ SQL ที่คัดลอกมี STOP ก่อน queries ข้อมู�
 ผลตรวจรอบนี้: tests ใหม่ HTTP security 8/8 และ UI state 5/5 ผ่าน รวมกับ contract/legacy tests รอบก่อนเป็น 22/22 ผ่าน รัน Report Summary, Monthly Summary, LINE Monthly Summary, Deployment Model/Excel/Summary ซ้ำรวม 25/25 ผ่าน; syntax checks ผ่าน ไม่มีการรัน full baseline ใหม่หลังผล 138/142 ด้านบน เพราะไฟล์ที่เพิ่มไม่เปลี่ยน Operations/Portal เดิม
 
 G0, SQL integration, parameterization/driver, trusted-host deployment checks, UAT/load และ release ยังไม่ผ่านและไม่ได้ดำเนินการเชื่อมต่อ ไม่มี push/PR/merge/deploy ตรวจ status ก่อนส่งงานและไม่สร้าง temporary build artifacts
+
+## งานต่อรอบที่สาม: หน้าต้นแบบที่เปิดตรวจได้
+
+- เพิ่ม HTML/CSS/browser entry/fixtures นอก public ใน `docs/prototypes/` พร้อม server `scripts/preview-deployment-monitoring.cjs` ที่ bind 127.0.0.1 และเสิร์ฟเฉพาะ allowlist ปิด network fetch ผ่าน CSP
+- UI ใช้ state controller เดิม: วันที่ Bangkok, project/raw status/keyword filters, readiness/unknown cards, table และ dialog แบบอ่านอย่างเดียว แสดง banner ว่า synthetic ตลอด ไม่เดา code outcome หรือ timezone จริง
+- เพิ่ม scenario controls สำหรับ success/empty/stale/error/503/401/403 และ HTML/XSS text เพื่อทบทวนพฤติกรรมโดยไม่ต้อง DB
+- ตรวจจริงใน Chrome: filter 0, dialog/Escape/focus, stale คง timestamp/rows, auth ล้างข้อมูล, empty/disabled/unavailable/forbidden, hostile text ไม่สร้าง image/link หรือ alert; desktop และ mobile viewport 390×844 ผ่านการตรวจภาพ/DOM ไม่มี page overflow แนวนอน ตารางเลื่อนในพื้นที่ตัวเองได้ คืน viewport override แล้ว
+- เพิ่ม tests 2 กรณีสำหรับ synthetic filters/Bangkok boundaries และ preview server allowlist/traversal/API/credential-path rejection พร้อม CSP/method checks
+- รวม Monitoring/History/preview unit tests ผ่าน 24/24; syntax checks ของไฟล์ใหม่ผ่าน; ไม่รัน baseline เดิมซ้ำโดยไม่มีการแก้ไฟล์ระบบเดิม
+- วิธีเปิดและข้อจำกัดอยู่ใน `docs/prototypes/README.md`; server local เป็นเครื่องมือทบทวน ไม่ใช่ UAT deployment หรือ public hosting
+- ยังไม่แทนหน้า production, ไม่เพิ่ม endpoint/SQL adapter/cursor/summary integration และไม่มี push/PR/merge/deploy; G0 ยังรอข้อมูล DBA/owner รายการเดิม ไม่สร้าง artifact ZIP/build/temp และรักษางานค้างผู้ใช้
