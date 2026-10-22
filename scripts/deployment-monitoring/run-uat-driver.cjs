@@ -9,7 +9,7 @@ const { validateFilters } = require('../../api/shared/deployment-monitoring-vali
 const apiRequire = createRequire(require.resolve('../../api/package.json'));
 
 function parseArgs(args) {
-  const values = {}; const approved = new Set(['--connect-approved', '--read-approved']);
+  const values = {}; const approved = new Set(['--connect-approved', '--read-approved', '--pagination-approved']);
   const names = new Set(['--server', '--database', '--day', '--storage-timezone', '--client-id', '--tenant-id']);
   for (let i = 0; i < args.length; i++) {
     const key = args[i];
@@ -20,6 +20,7 @@ function parseArgs(args) {
   }
   const connectApproved = values['--connect-approved'] === true;
   const readApproved = values['--read-approved'] === true;
+  const paginationApproved = values['--pagination-approved'] === true;
   if (connectApproved !== readApproved) throw new Error('Both approvals required');
   const storageTimezone = values['--storage-timezone'];
   const day = values['--day'];
@@ -30,7 +31,7 @@ function parseArgs(args) {
       !/^[a-zA-Z0-9_-]{1,128}$/.test(values['--database'] || '') ||
       !/^[a-fA-F0-9-]{36}$/.test(values['--client-id'] || '') ||
       !/^[a-zA-Z0-9.-]+$/.test(values['--tenant-id'] || ''))) throw new Error('Explicit UAT configuration required');
-  return { connectApproved, readApproved, day, storageTimezone,
+  return { connectApproved, readApproved, paginationApproved, day, storageTimezone,
     server: values['--server'], database: values['--database'],
     clientId: values['--client-id'], tenantId: values['--tenant-id'] };
 }
@@ -67,7 +68,8 @@ async function runUat(config, { emit = () => {}, getToken = getInteractiveToken,
   // Re-validate typed config before any authentication/network operation.
   parseArgs(['--connect-approved', '--read-approved', '--server', config.server,
     '--database', config.database, '--client-id', config.clientId, '--tenant-id', config.tenantId,
-    '--day', config.day, '--storage-timezone', config.storageTimezone]);
+    '--day', config.day, '--storage-timezone', config.storageTimezone,
+    ...(config.paginationApproved ? ['--pagination-approved'] : [])]);
   let executor;
   try {
     const token = await getToken(config, emit);
@@ -83,6 +85,13 @@ async function runUat(config, { emit = () => {}, getToken = getInteractiveToken,
     emit({ stage: 'LIST_AND_PERMISSION_CHECK_STARTED' });
     const list = await service.list(filters);
     emit({ stage: 'LIST_COMPLETE', returnedRows: list.items.length });
+    let secondPageRows = 0; let cursorStable = null;
+    if (config.paginationApproved && list.page.nextCursor) {
+      const second = await service.list({ ...filters, cursor: list.page.nextCursor });
+      secondPageRows = second.items.length;
+      cursorStable = true;
+      emit({ stage: 'PAGINATION_COMPLETE', returnedRows: secondPageRows });
+    }
     let detail = 'not-tested-empty-list';
     if (list.items.length) {
       const found = await service.detail(list.items[0].ID);
@@ -92,6 +101,7 @@ async function runUat(config, { emit = () => {}, getToken = getInteractiveToken,
     const summary = await service.summary(filters);
     return { mode: 'approved-uat-read', completed: true, permissionGatePassed: true,
       returnedRows: list.items.length, hasMore: list.page.hasMore, cursorGenerated: list.page.nextCursor !== null,
+      ...(config.paginationApproved ? { secondPageRows, cursorStable } : {}),
       detail, summary: { total: summary.total, prepared: summary.prepared, unknown: summary.unknown,
         rawStatusGroups: summary.counts.length },
       storageTimezoneAssumption: config.storageTimezone, timezoneConfirmed: false,
