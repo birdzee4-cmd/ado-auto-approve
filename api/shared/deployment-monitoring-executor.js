@@ -30,12 +30,16 @@ function createExecutor({ getConfig, authorizeConnection, enabled = () => false,
       'ECONNREFUSED', 'EHOSTUNREACH', 'ERR_TLS_CERT_ALTNAME_INVALID', 'CERT_HAS_EXPIRED',
       'DEPTH_ZERO_SELF_SIGNED_CERT', 'SELF_SIGNED_CERT_IN_CHAIN', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE']);
     const codes = []; const seen = new Set(); let cause = error;
+    const sql = {};
     for (let depth = 0; cause && depth < 5 && !seen.has(cause); depth++) {
       seen.add(cause);
       if (allowed.has(cause.code) && !codes.includes(cause.code)) codes.push(cause.code);
+      if (Number.isInteger(cause.number) && [20, 64, 233, 4060, 4014, 18456, 10928, 10929].includes(cause.number)) sql.number = cause.number;
+      if (Number.isInteger(cause.state) && cause.state >= 0 && cause.state <= 255) sql.state = cause.state;
+      if (Number.isInteger(cause.class) && cause.class >= 0 && cause.class <= 255) sql.class = cause.class;
       cause = cause.originalError || cause.cause;
     }
-    try { onDiagnostic?.({ stage, ...(error ? { codes: codes.length ? codes : ['UNCLASSIFIED'] } : {}) }); }
+    try { onDiagnostic?.({ stage, ...(error ? { codes: codes.length ? codes : ['UNCLASSIFIED'], ...(Object.keys(sql).length ? { sql } : {}) } : {}) }); }
     catch { /* diagnostic failure must not change authorization/query behavior */ }
   }
   async function discard(state) {

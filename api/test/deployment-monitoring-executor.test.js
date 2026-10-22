@@ -128,11 +128,11 @@ test('installed pinned driver can construct a request and typed inputs without c
 
 test('diagnostics identify fixed failure stage and allowlisted cause codes without error text or secrets', async () => {
   const events = [];
-  const failure = Object.assign(new Error('secret server password token'), { code: 'ESOCKET',
-    originalError: Object.assign(new Error('private TLS hostname'), { code: 'ERR_TLS_CERT_ALTNAME_INVALID' }) });
+  const failure = Object.assign(new Error('secret server password token'), { code: 'ESOCKET', number: 18456, state: 5,
+    originalError: Object.assign(new Error('private TLS hostname'), { code: 'ERR_TLS_CERT_ALTNAME_INVALID', class: 14 }) });
   const f = fake({ connect: async () => { throw failure; }, factory: { onDiagnostic: event => events.push(event) } });
   await assert.rejects(f.executor.execute(query), { code: 'MONITORING_UNAVAILABLE' });
-  assert.deepEqual(events, [{ stage: 'CONNECT_FAILED', codes: ['ESOCKET', 'ERR_TLS_CERT_ALTNAME_INVALID'] }]);
+  assert.deepEqual(events, [{ stage: 'CONNECT_FAILED', codes: ['ESOCKET', 'ERR_TLS_CERT_ALTNAME_INVALID'], sql: { number: 18456, state: 5, class: 14 } }]);
   assert.doesNotMatch(JSON.stringify(events), /secret|password|token|hostname/);
   const deniedEvents = [];
   const denied = fake({ permissions: { ...permissions, canUpdate: 1 }, factory: { onDiagnostic: event => deniedEvents.push(event) } });

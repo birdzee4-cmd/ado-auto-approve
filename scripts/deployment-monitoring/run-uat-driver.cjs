@@ -8,6 +8,23 @@ const { createService } = require('../../api/shared/deployment-monitoring-servic
 const { validateFilters } = require('../../api/shared/deployment-monitoring-validation');
 const apiRequire = createRequire(require.resolve('../../api/package.json'));
 
+function tokenPreflight(token, expectedTenant, now = () => new Date()) {
+  const fail = code => { throw Object.assign(new Error('Token preflight failed'), { code }); };
+  if (typeof token !== 'string' || !token) fail('TOKEN_INVALID');
+  const parts = token.split('.');
+  if (parts.length !== 3 || !/^[A-Za-z0-9_-]+$/.test(parts[1])) fail('TOKEN_INVALID');
+  let claims;
+  try { claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')); } catch { fail('TOKEN_INVALID'); }
+  if (!claims || typeof claims !== 'object') fail('TOKEN_INVALID');
+  if (claims.tid !== expectedTenant) fail('TOKEN_TENANT_MISMATCH');
+  const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+  if (!audiences.includes('https://database.windows.net/')) fail('TOKEN_AUDIENCE_MISMATCH');
+  const nowSeconds = Math.floor(now().getTime() / 1000);
+  if (!Number.isInteger(claims.exp) || claims.exp <= nowSeconds) fail('TOKEN_EXPIRED');
+  if (claims.nbf !== undefined && (!Number.isInteger(claims.nbf) || claims.nbf > nowSeconds + 60)) fail('TOKEN_NOT_YET_VALID');
+  return { tenantMatches: true, azureSqlAudience: true, expiresInSeconds: claims.exp - nowSeconds };
+}
+
 function parseArgs(args) {
   const values = {}; const approved = new Set(['--connect-approved', '--read-approved', '--pagination-approved']);
   const names = new Set(['--server', '--database', '--day', '--storage-timezone', '--client-id', '--tenant-id']);
@@ -73,6 +90,7 @@ async function runUat(config, { emit = () => {}, getToken = getInteractiveToken,
   let executor;
   try {
     const token = await getToken(config, emit);
+    const tokenCheck = tokenPreflight(token, config.tenantId, now);
     executor = executorFactory({ enabled: () => true, authorizeConnection: async () => true,
       onDiagnostic: diagnostic => emit(diagnostic),
       getConfig: async () => ({ server: config.server, database: config.database,
@@ -89,7 +107,15 @@ async function runUat(config, { emit = () => {}, getToken = getInteractiveToken,
     if (config.paginationApproved && list.page.nextCursor) {
       const second = await service.list({ ...filters, cursor: list.page.nextCursor });
       secondPageRows = second.items.length;
-      cursorStable = true;
+      const combined = [...list.items, ...second.items];
+      const keys = combined.map(item => `${item.TargetDate}|${item.ID}`);
+      const unique = new Set(keys).size === keys.length;
+      const ordered = combined.every((item, index) => index === 0 ||
+        combined[index - 1].TargetDate > item.TargetDate ||
+        (combined[index - 1].TargetDate === item.TargetDate &&
+          Number.isInteger(combined[index - 1].ID) && Number.isInteger(item.ID) &&
+          combined[index - 1].ID > item.ID));
+      cursorStable = unique && ordered;
       emit({ stage: 'PAGINATION_COMPLETE', returnedRows: secondPageRows });
     }
     let detail = 'not-tested-empty-list';
@@ -102,6 +128,7 @@ async function runUat(config, { emit = () => {}, getToken = getInteractiveToken,
     return { mode: 'approved-uat-read', completed: true, permissionGatePassed: true,
       returnedRows: list.items.length, hasMore: list.page.hasMore, cursorGenerated: list.page.nextCursor !== null,
       ...(config.paginationApproved ? { secondPageRows, cursorStable } : {}),
+      tokenPreflight: tokenCheck,
       detail, summary: { total: summary.total, prepared: summary.prepared, unknown: summary.unknown,
         rawStatusGroups: summary.counts.length },
       storageTimezoneAssumption: config.storageTimezone, timezoneConfirmed: false,
@@ -125,3 +152,4 @@ if (require.main === module) {
     });
 }
 module.exports = { parseArgs, runUat };
+module.exports.tokenPreflight = tokenPreflight;
