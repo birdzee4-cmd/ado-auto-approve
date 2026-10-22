@@ -48,3 +48,15 @@ Tests `api/test/deployment-monitoring-uat-runner.test.js` ผ่าน 5/5: defa
 ผู้ใช้อนุมัติ scope ตามข้อ 1–5 แล้วและทำ sign-in เอง ตัวรันรายงาน SIGN_IN_COMPLETE ตามด้วย LIST_AND_PERMISSION_CHECK_STARTED และหยุดด้วย MONITORING_UNAVAILABLE / exit 1 ไม่มี LIST_COMPLETE จึงยังไม่มีผล list/detail/summary ที่ยืนยันว่าผ่าน และจากข้อความรอบนี้ยังแยกไม่ได้ว่า connection, permission หรือ query ขั้นใดล้มเหลว ไม่อ้างว่าไม่มีการอ่าน source จาก error code เพียงอย่างเดียว ไม่มี automatic retry, push/PR/deploy หรือ write operation
 
 เตรียม diagnostics เพิ่มเฉพาะ fixed stage เช่น CONNECT_FAILED/PERMISSION_QUERY_FAILED/PERMISSION_CHECK_FAILED/DATA_QUERY_FAILED และ error code ที่อยู่ใน allowlist รวม cause code ที่ปลอดภัย ไม่แสดง exception message/stack, SQL/config, identity, token หรือ row; observer ที่ล้มไม่เปลี่ยน permission/query behavior ทดสอบด้วย fake errors ก่อนใช้จริง รอบเชื่อมซ้ำยังต้องขออนุมัติใหม่ตามคำสั่งผู้ใช้
+
+## ผล live ครั้งที่สองและขั้นวิเคราะห์ถัดไป
+
+ผู้ใช้อนุมัติรอบซ้ำหนึ่งครั้งและทำ sign-in แล้ว ผลคือ SIGN_IN_COMPLETE → CONNECT_FAILED / ELOGIN → MONITORING_UNAVAILABLE / exit 1 ดังนั้นรอบนี้ยังไม่ถึง permission SELECT และไม่ได้อ่าน source rows ไม่ลด TLS/เปลี่ยนสิทธิ์/retry อัตโนมัติ
+
+พบความต่างใน code: Node runner ขอ token ด้วย tenant common ขณะที่ JDBC callback เดิมใช้ stsurl ที่ SQL ส่งมา ยังเป็นเพียงประเด็นที่ต้องตรวจ ไม่ใช่ข้อสรุปว่าสาเหตุ ELOGIN คือ tenant ผิด
+
+เตรียม `scripts/deployment-monitoring/UatAuthorityDiscovery.java` แยกจาก JDBC probe เดิม เพื่อรับเฉพาะ authentication authority metadata ผ่าน TLS โดยไม่ขอ/ส่ง access tokenและไม่มี SQL statements ค่าเริ่มต้น plan-only และ live ต้องมี `--handshake-approved` + server/database ที่ได้รับอนุญาต callback ยอมรับเฉพาะ SQL resource scope, HTTPS login.windows.net/login.microsoftonline.com และ tenant UUID แล้วหยุด login โดยตั้งใจ ไม่อ่าน DBeaver config/cache หรือ token ข้อมูล tenant UUID เป็น authentication configuration ไม่เก็บค่าจริงใน source control
+
+ตัวตรวจนี้ต้องขออนุมัติก่อนรัน network เช่นเดียวกับ connection รอบอื่น หากยืนยัน authority ได้ ค่อยเสนอรอบ Node ที่ใช้ explicit tenant นั้น ไม่มีการเปิด/เพิ่ม role หรือเปลี่ยน database users เพื่อแก้ ELOGIN
+
+ทดสอบ authority validator แบบ offline ผ่าน 9/9 รวมการปฏิเสธ host/scope/HTTP/port/userinfo/query และ common tenant; plan-only รายงาน connected=false/tokenRequested=false/sqlExecuted=false ไม่มี live authority discovery ในขั้นเตรียมนี้
