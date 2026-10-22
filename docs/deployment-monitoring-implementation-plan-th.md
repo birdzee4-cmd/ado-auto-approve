@@ -1,8 +1,11 @@
 # Implementation Plan: เปลี่ยน Deployment Archive เป็น Deployment Monitoring
 
-วันที่ตรวจสอบ: 22 ตุลาคม 2026 (Asia/Bangkok)  
-Repository: `birdzee4-cmd/ado-auto-approve`  
-ฐานอ้างอิงล่าสุดที่ตรวจ: `main` commit `d1b6f19e06befb244d8025df5515f6000935ca94` (20 ตุลาคม 2026)  
+วันที่ตรวจสอบ: 22 ตุลาคม 2026 (Asia/Bangkok)
+
+Repository: `birdzee4-cmd/ado-auto-approve`
+
+ฐานอ้างอิงล่าสุดที่ตรวจ: `main` commit `d1b6f19e06befb244d8025df5515f6000935ca94` (20 ตุลาคม 2026)
+
 สถานะ: จัดทำแผนและ SQL discovery แล้ว; ยังไม่แก้หน้า production / ไม่เชื่อมฐานข้อมูล / ไม่ deploy
 
 ## 1. เป้าหมายและขอบเขตที่อนุมัติ

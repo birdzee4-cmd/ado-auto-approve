@@ -89,3 +89,9 @@ G0, SQL integration, parameterization/driver, trusted-host deployment checks, UA
 - เพิ่ม regression tests สองกรณี ชุด Monitoring/History/preview ผ่าน 26/26; ยังเป็น synthetic/unit และ loopback preview tests ไม่ใช่ MSSQL integration
 - เตรียม `docs/deployment-monitoring-dba-handoff-th.md` เป็นแบบฟอร์มที่กรอกส่งกลับได้สำหรับ UAT authorization/config reference, schema/key/timezone, mapping/scope/field visibility และหลักฐาน G0 ไม่มี credential/ข้อมูลจริง และยังไม่ได้ส่งข้อความให้ DBA หรือบุคคลอื่น
 - ขอเฉพาะข้อมูลที่ยังขาดจากผู้ใช้แล้ว ยังไม่มีหลักฐาน G0 เพิ่ม จึงยังไม่ต่อ DB/ลงทะเบียน API/เปลี่ยน public UI หรืออ้าง UAT ผ่าน; ไม่เพิ่ม placeholder endpoint หรือ SQL ที่เดา schema เพื่อเดินข้าม gate
+
+## สรุปตามคำสั่งผู้ใช้: หยุดรอข้อมูล DBA
+
+ผู้ใช้ยืนยันว่าไม่มี UAT/discovery และให้คง G0 pending ไม่เชื่อม production ทดแทน จึงขยายแบบฟอร์ม DBA ให้มี UAT server/database และรูปแบบผล CSV/สรุปรายชุดโดยไม่ใส่ password ทวน diff และทดสอบแยกไฟล์รอบสุดท้าย 23 ไฟล์ 159 tests ผ่าน 155 ล้มเหลวเดิม 4; Monitoring/History/preview ผ่าน 26/26 และ reporting regression ผ่าน 25/25 รายละเอียดไฟล์/commits/หลักฐานและข้อจำกัดอยู่ใน `docs/deployment-monitoring-review-th.md`
+
+งานเตรียมที่ไม่ต้องใช้ DB ในรอบนี้ครบและหยุดรอข้อมูล ไม่มี push/PR/deploy; ปิด preview server ของงานนี้แล้ว เก็บงานค้างเดิมผู้ใช้ทั้งหมด ตรวจ status ก่อนส่งมอบ และไม่มี temporary artifacts ที่ต้องลบ
