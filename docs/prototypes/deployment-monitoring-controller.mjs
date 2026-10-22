@@ -26,7 +26,10 @@ export function createMonitoringController({ load, render }) {
     try {
       const result = await load(structuredClone(selected), { signal });
       if (disposed || token !== sequence) return;
-      if (!result || result.ok !== true || !Array.isArray(result.items) || typeof result.fetchedAt !== 'string') {
+      if (!result || result.ok !== true || !Array.isArray(result.items) ||
+          typeof result.fetchedAt !== 'string' ||
+          !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(result.fetchedAt) ||
+          !Number.isFinite(Date.parse(result.fetchedAt))) {
         throw new Error('INVALID_RESPONSE');
       }
       // fetchedAt comes from the response, never from a local refresh timestamp.

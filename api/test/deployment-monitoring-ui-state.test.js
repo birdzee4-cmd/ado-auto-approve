@@ -107,3 +107,17 @@ test('disposing aborts in-flight requests and prevents subsequent rendering or l
   assert.equal(renders, 1);
   assert.equal(controller.getState().data, null);
 });
+
+test('invalid or offset-less fetchedAt never replaces the last successful dataset', async () => {
+  const { createMonitoringController } = await controllerModule;
+  let response = sample();
+  const controller = createMonitoringController({ load: async () => response, render() {} });
+  await controller.refresh(filters);
+  for (const fetchedAt of ['', 'not-a-date', '2026-10-22T12:00:00', '2026-13-99T12:00:00Z']) {
+    response = { ...sample([{ ID: 999 }]), fetchedAt };
+    await controller.refresh(filters);
+    assert.equal(controller.getState().phase, 'stale');
+    assert.equal(controller.getState().data.items[0].ID, 17);
+    assert.equal(controller.getState().data.fetchedAt, sample().fetchedAt);
+  }
+});
