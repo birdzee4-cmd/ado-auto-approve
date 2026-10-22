@@ -7,6 +7,22 @@ const { randomBytes } = require('node:crypto');
 // must never load the driver or open a SQL connection.
 let cached;
 function truthy(value) { return value === 'true' || value === '1'; }
+function resolveAuthConfig(env = process.env) {
+  const mode = env.MONITORING_SQL_AUTH_MODE;
+  if (mode !== 'sql' && mode !== 'entra') return null;
+  const server = env.MONITORING_SQL_SERVER;
+  const database = env.MONITORING_SQL_DATABASE;
+  if (!server || !database) return null;
+  if (mode === 'sql') {
+    if (!env.MONITORING_SQL_USERNAME || !env.MONITORING_SQL_PASSWORD) return null;
+    return { authMode: 'sql', server, database, user: env.MONITORING_SQL_USERNAME, password: env.MONITORING_SQL_PASSWORD };
+  }
+  if (!env.MONITORING_SQL_TENANT_ID || !env.MONITORING_SQL_CLIENT_ID) return null;
+  return { authMode: 'entra', server, database,
+    authentication: { type: 'azure-active-directory-default', options: {
+      tenantId: env.MONITORING_SQL_TENANT_ID, clientId: env.MONITORING_SQL_CLIENT_ID
+    } } };
+}
 
 function createRuntime() {
   if (cached) return cached;
@@ -20,17 +36,7 @@ function createRuntime() {
   const executor = createExecutor({
     enabled,
     authorizeConnection: () => truthy(process.env.MONITORING_SQL_CONNECTION_APPROVED),
-    getConfig: async () => {
-      const server = process.env.MONITORING_SQL_SERVER;
-      const database = process.env.MONITORING_SQL_DATABASE;
-      const tenantId = process.env.MONITORING_SQL_TENANT_ID;
-      const clientId = process.env.MONITORING_SQL_CLIENT_ID;
-      if (!server || !database || !tenantId || !clientId) return null;
-      return {
-        server, database,
-        authentication: { type: 'azure-active-directory-default', options: { tenantId, clientId } }
-      };
-    }
+    getConfig: async () => resolveAuthConfig()
   });
   const repository = createRepository({
     enabled,
@@ -51,4 +57,4 @@ function createRuntime() {
   return cached;
 }
 
-module.exports = { createRuntime };
+module.exports = { createRuntime, resolveAuthConfig };

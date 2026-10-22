@@ -65,7 +65,10 @@ function createExecutor({ getConfig, authorizeConnection, enabled = () => false,
     const supplied = await getConfig();
     // Provider is trusted server-side configuration, never caller query/header.
     // Do not permit caller-provided TLS/timeout/pool overrides.
-    if (!supplied || typeof supplied.server !== 'string' || !supplied.server ||
+    if (!supplied || (supplied.authMode !== undefined && supplied.authMode !== 'sql' && supplied.authMode !== 'entra') ||
+        (supplied.authMode === 'sql' && (supplied.authentication || !supplied.user || !supplied.password)) ||
+        (supplied.authMode === 'entra' && (!supplied.authentication || supplied.user || supplied.password)) ||
+        typeof supplied.server !== 'string' || !supplied.server ||
         typeof supplied.database !== 'string' || !supplied.database || supplied.database.length > 128 ||
         (supplied.port !== undefined && (!Number.isInteger(supplied.port) || supplied.port < 1 || supplied.port > 65535)) ||
         (!supplied.authentication && !(supplied.user && supplied.password))) throw safeError();

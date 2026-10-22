@@ -93,6 +93,14 @@ CSV ใช้ blank field เป็น SQL NULL พร้อมระบุ conv
 
 ## 6. สรุป gate
 
+## 7. แนวทาง authentication ระยะแรก: SQL Authentication
+
+ระยะแรกให้เลือก `MONITORING_SQL_AUTH_MODE=sql` แบบ explicit เท่านั้นเมื่อ DBA เตรียม UAT principal และ secret store แล้ว ตัว runtime จะรับ `MONITORING_SQL_USERNAME` และ `MONITORING_SQL_PASSWORD` จาก server-side secret settings เท่านั้น ไม่อ่านจาก query/header/local file และไม่ fallback ไป Entra เมื่อ login ล้มเหลว ค่า connection ยังคง `encrypt=true`, `trustServerCertificate=false`, `useUTC=true`, `readOnlyIntent=true` และผ่าน permission gate เดิมก่อน SELECT ทุกครั้ง
+
+ขั้นตอนที่ DBA ต้องทำใน UAT: ยืนยันว่า SQL Authentication อนุญาตที่ server, สร้างหรือเลือก principal ตาม policy ขององค์กร, ให้ `CONNECT` และ `SELECT` เฉพาะ `dbo.Internal_ProjectPlanning` หรือ view ที่อนุมัติ, ตรวจว่าไม่มีสิทธิ์ INSERT/UPDATE/DELETE/DDL/CONTROL หรือ role กว้าง, เก็บ username/password ใน secret store ที่ API hosting ใช้ได้ และส่งกลับเฉพาะชื่อ secret/evidence reference ไม่ส่งค่า secretในแชต ห้าม agent สร้างบัญชี แก้ role หรือปิด Entra-only authentication เอง
+
+ก่อนเปิด feature ให้ DBA ทดสอบ effective permissions และ SQL audit/login log ด้วย principal นี้ใน UAT และยืนยัน network route/TLS hostname สำหรับ API hosting การเลือก SQL Authentication นี้เป็นระยะแรกเท่านั้น มีแผนย้ายไป Managed Identity ภายหลังเมื่อ infrastructure/RBAC พร้อม
+
 - [ ] UAT identity/network/SELECT-only และ trusted-host boundary ยืนยันแล้ว
 - [ ] schema 49/57, key/uniqueness, datetime timezone และ deployment scope ยืนยันแล้ว
 - [ ] field/row visibility ได้รับอนุมัติ
