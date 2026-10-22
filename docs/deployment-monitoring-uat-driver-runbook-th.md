@@ -1,6 +1,6 @@
 # รอบทดสอบ driver บน UAT แบบ SELECT-only
 
-วันที่ 22 ตุลาคม 2026 — **รอบ live ครั้งแรก sign-in สำเร็จ แต่ driver check ยังไม่สำเร็จ** เอกสารนี้ไม่ปิด G0 และไม่ใช่ UAT signoff
+วันที่ 22 ตุลาคม 2026 — **รอบล่าสุดอ่าน list/detail/summary ผ่าน Node driver บน UAT สำเร็จหลังใช้ tenant ที่ SQL ยืนยัน** ผลรอบก่อนเก็บเป็นประวัติด้านล่าง เอกสารนี้ไม่ปิด G0 และไม่ใช่ UAT signoff
 
 ใช้ `scripts/deployment-monitoring/run-uat-driver.cjs` เพื่อทดสอบ executor → repository → service ที่พัฒนาไว้ โดยไม่เปิด API server หรือเปลี่ยน public UI
 
@@ -66,3 +66,17 @@ Tests `api/test/deployment-monitoring-uat-runner.test.js` ผ่าน 5/5: defa
 ผู้ใช้อนุมัติ authentication handshake ของ UAT หนึ่งครั้งแล้ว ตัวตรวจคืน AUTHORITY_CONFIRMED / exit 0 และ tenant UUID ที่เจาะจงจาก SQL ไม่ใช่ common พร้อม tokenRequested=false/sqlExecuted=false ตามขอบเขต ไม่บันทึกค่า tenant จริงใน source control ไม่มี MFA/token request หรือ SQL statement ในรอบนี้
 
 ขั้นถัดไปที่เตรียมพร้อมคือใช้ runner เดิมพร้อม `--tenant-id` ที่ SQL ยืนยันแทน common โดยคง server/database/client application/TLS/permission checks และขอบเขต list/detail/summary วันเดียวเดิมทั้งหมด ต้องขออนุมัติรอบเชื่อมใหม่ก่อนรัน การยืนยัน authority ยังไม่พิสูจน์ว่าแก้ ELOGIN ได้หรือว่า integration ผ่าน
+
+## ผล Node driver รอบล่าสุดด้วย explicit tenant จาก SQL
+
+ผู้ใช้อนุมัติรอบนี้แยกแล้ว ใช้ UAT/บัญชี/client application และ TLS เดิม เปลี่ยนเฉพาะ tenant configuration จาก common เป็น tenant UUID ที่ SQL ยืนยัน ไม่เปลี่ยนสิทธิ์หรือ database users ผล process exit 0:
+
+- SIGN_IN_COMPLETE → CONNECT_COMPLETE → PERMISSION_CHECK_COMPLETE
+- List สำเร็จ คืน 1 รายการตาม pageSize=1 และมี lookahead (TOP 2); hasMore=true และสร้าง signed cursor ได้ ไม่พิมพ์ชื่อบุคคล/รายละเอียดงาน/ID/cursor/token
+- Detail ของ ID จาก list สำเร็จและ matched-id
+- Summary ในช่วง TargetDate วันที่ 2026-10-22 ตามสมมติฐานเวลาไทย: total=40, prepared=0, unknown=0, จำนวนกลุ่ม raw Status/IsPrepared=6 ณ เวลารันทดสอบ เป็นข้อมูล live ไม่ใช่ baseline คงที่หรือผลทุกวัน
+- Source data queries ครบสามครั้งตาม scope แล้วปิด pool ไม่มี retry/write/DDL, push/PR/deploy
+
+**ผ่านเฉพาะ live read integration ของ driver → executor → repository → service ใน scope นี้** unknown=0 หมายถึง label ครอบคลุมรหัสที่พบตาม provisional mapping ไม่ได้ยืนยัน business outcomes หรือ owner approval ผล prepared=0 มาจาก aggregate ของช่วงที่ตรวจ ไม่ใช่ fallback แทน error
+
+ยังไม่ทดสอบ cursor หน้าถัดไป/empty/not-found/error/cancellation/pool recovery กับ DB จริง, HTTP hosting/direct-host trust, role/row visibility, runtime Node 22 หรือ load/performance; timezoneConfirmed=false/mappingProvisional=true/releaseApproved=false ตามผล runner ไม่มี UAT signoff และ G0 ยัง pending ส่วนยืนยัน semantics/visibility/hosting การใช้ explicit tenant สำเร็จในรอบนี้สนับสนุนประเด็น tenant configuration ของรอบก่อน แต่ไม่ใช่หลักฐานว่าทุก ELOGIN เกิดจากสาเหตุเดียวกัน
