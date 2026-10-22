@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deployment Monitoring · Synthetic preview</title>
+  <link rel="stylesheet" href="./deployment-monitoring.css">
+  <script type="module" src="./deployment-monitoring-preview.mjs"></script>
+</head>
+<body>
+  <header class="topbar"><strong>BUZZEBEES <span>/ Operations</span></strong><span class="preview-tag">LOCAL PREVIEW</span></header>
+  <main>
+    <aside class="notice"><strong>ข้อมูลสังเคราะห์สำหรับทบทวนหน้าจอ</strong> — ไม่ได้เชื่อม MSSQL และยังไม่ยืนยัน schema, timezone หรือความหมายรหัสสถานะ</aside>
+    <div class="heading"><div><p class="eyebrow">DEPLOYMENT / MONITORING</p><h1>Deployment Monitoring</h1><p class="muted">ติดตามรายการและความพร้อมในการ Deploy · แหล่งข้อมูลจริงที่วางแผนไว้: dbo.Internal_ProjectPlanning</p></div><button id="refresh" class="primary" type="button">รีเฟรช</button></div>
+    <section class="cards" aria-label="สรุปรายการสังเคราะห์">
+      <div class="card"><span>รายการตามตัวกรอง</span><strong id="total">—</strong><small>ทุกแถวในชุดตัวอย่างที่กรองแล้ว</small></div>
+      <div class="card"><span>เตรียมพร้อมแล้ว</span><strong id="prepared">—</strong><small>IsPrepared = true · ไม่ใช่ผลสำเร็จ</small></div>
+      <div class="card"><span>ยังไม่พร้อม</span><strong id="unprepared">—</strong><small>IsPrepared = false · ไม่ใช่ failure</small></div>
+      <div class="card"><span>ไม่ทราบสถานะ</span><strong id="unknown">—</strong><small>เก็บรหัสดิบ · รอ mapping จาก owner</small></div>
+    </section>
+    <section class="panel">
+      <form id="filters">
+        <label class="search" for="keyword">ค้นหาโครงการหรือเวอร์ชัน<input id="keyword" type="search" maxlength="100" placeholder="ชื่อโครงการ / version" autocomplete="off"></label>
+        <label for="from">วันที่เริ่ม<input id="from" type="date" required></label>
+        <label for="to">วันที่สิ้นสุด<input id="to" type="date" required></label>
+        <label for="project">โครงการ<select id="project"><option value="">ทุกโครงการ</option></select></label>
+        <label for="status">รหัสสถานะ<select id="status"><option value="">ทุกรหัส</option><option value="unknown">ไม่ทราบสถานะทั้งหมด</option><option value="0">รหัส 0</option><option value="7">รหัส 7</option><option value="-1">รหัส -1</option></select></label>
+        <button class="primary" type="submit">ค้นหา</button>
+      </form>
+      <div class="toolbar"><div class="quick" aria-label="ช่วงวันที่ตัวอย่าง Bangkok"><button type="button" data-days="1">วันนี้</button><button type="button" data-days="7">7 วัน</button><button type="button" data-days="30">30 วัน</button></div><span class="muted">วันปฏิทิน Asia/Bangkok · เวลา DB ยังไม่ยืนยัน</span></div>
+    </section>
+    <section class="panel results" aria-labelledby="table-title">
+      <div class="result-heading"><h2 id="table-title">รายการ Deployment</h2><span id="fetched" class="muted">ยังไม่ได้อ่านข้อมูลตัวอย่าง</span></div>
+      <div id="message" role="status" aria-live="polite">กำลังเริ่มต้น…</div>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="ตาราง Deployment เลื่อนแนวนอนได้">
+        <table><thead><tr><th scope="col">ID</th><th scope="col">โครงการ / ผู้รับผิดชอบ</th><th scope="col">TargetDate (ตัวอย่าง)</th><th scope="col">เวอร์ชัน</th><th scope="col">สถานะ</th><th scope="col">ความพร้อม</th><th scope="col">CompletedDate</th><th scope="col">รายละเอียด</th></tr></thead><tbody id="rows"></tbody></table>
+      </div>
+      <p class="muted footnote">แสดงทั้งชุดข้อมูลสังเคราะห์ ไม่มี success rate หรือการอนุมาน environment/stage จากรหัส · pagination รอ unique key ที่ยืนยันแล้ว</p>
+    </section>
+    <details class="scenario panel"><summary>ทดสอบสถานะหน้าจอด้วยข้อมูลสังเคราะห์</summary><div class="scenario-controls"><label for="scenario">สถานการณ์<select id="scenario"><option value="success">สำเร็จ</option><option value="hostile">ข้อความ HTML/XSS ที่ต้องแสดงเป็นตัวอักษร</option><option value="empty">ไม่พบรายการ</option><option value="error">โหลดล้มเหลว / stale ถ้ามีข้อมูลเดิม</option><option value="unavailable">Service unavailable (503)</option><option value="disabled">ปิด feature (503)</option><option value="unauthorized">ไม่ได้เข้าสู่ระบบ (401)</option><option value="forbidden">ไม่มีสิทธิ์ (403)</option></select></label><button id="simulate" type="button">จำลองการรีเฟรช</button></div></details>
+  </main>
+  <dialog id="detail" aria-labelledby="detail-title"><div class="dialog-heading"><h2 id="detail-title">รายละเอียดตัวอย่าง</h2><button id="close-detail" type="button" aria-label="ปิดรายละเอียด">ปิด ×</button></div><p class="muted">ตัวอย่างเท่านั้น · field visibility จริงรอ owner อนุมัติ</p><dl id="detail-fields"></dl></dialog>
+</body>
+</html>
