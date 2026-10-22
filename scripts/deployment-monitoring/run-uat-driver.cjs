@@ -72,6 +72,7 @@ async function runUat(config, { emit = () => {}, getToken = getInteractiveToken,
   try {
     const token = await getToken(config, emit);
     executor = executorFactory({ enabled: () => true, authorizeConnection: async () => true,
+      onDiagnostic: diagnostic => emit(diagnostic),
       getConfig: async () => ({ server: config.server, database: config.database,
         authentication: { type: 'azure-active-directory-access-token', options: { token } } }) });
     const repository = createRepository({ execute: query => executor.execute(query),

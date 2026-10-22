@@ -19,9 +19,25 @@ function safeError(error) {
   });
 }
 function createExecutor({ getConfig, authorizeConnection, enabled = () => false,
-  loadDriver = () => require('mssql') } = {}) {
+  loadDriver = () => require('mssql'), onDiagnostic } = {}) {
   let current = null;
   let disposed = false;
+  function diagnostic(stage, error) {
+    // Fixed stage names and code allowlist only. Never serialize an exception,
+    // message, config, SQL, identity, token or row into diagnostics.
+    const allowed = new Set(['ELOGIN', 'ETIMEOUT', 'ESOCKET', 'EREQUEST', 'ENOTOPEN',
+      'ECONNCLOSED', 'ECANCEL', 'ECONNRESET', 'ENOTFOUND', 'EAI_AGAIN', 'EACCES',
+      'ECONNREFUSED', 'EHOSTUNREACH', 'ERR_TLS_CERT_ALTNAME_INVALID', 'CERT_HAS_EXPIRED',
+      'DEPTH_ZERO_SELF_SIGNED_CERT', 'SELF_SIGNED_CERT_IN_CHAIN', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE']);
+    const codes = []; const seen = new Set(); let cause = error;
+    for (let depth = 0; cause && depth < 5 && !seen.has(cause); depth++) {
+      seen.add(cause);
+      if (allowed.has(cause.code) && !codes.includes(cause.code)) codes.push(cause.code);
+      cause = cause.originalError || cause.cause;
+    }
+    try { onDiagnostic?.({ stage, ...(error ? { codes: codes.length ? codes : ['UNCLASSIFIED'] } : {}) }); }
+    catch { /* diagnostic failure must not change authorization/query behavior */ }
+  }
   async function discard(state) {
     if (current === state) current = null;
     if (!state.closePromise) {
@@ -64,19 +80,24 @@ function createExecutor({ getConfig, authorizeConnection, enabled = () => false,
     state.pool.on('error', () => { void discard(state); });
     state.connection = Promise.resolve().then(() => state.pool.connect());
     state.ready = (async () => {
+      let phase = 'CONNECT';
       try {
         await state.connection;
+        diagnostic('CONNECT_COMPLETE');
         if (state.closing || disposed) throw safeError();
+        phase = 'PERMISSION_QUERY';
         const request = new driver.Request(state.pool, { requestTimeout: 10000 });
         request.input('expectedDatabase', driver.NVarChar(128), config.database);
         const result = await request.query(permissionsSql);
+        phase = 'PERMISSION_CHECK';
         const row = result.recordset && result.recordset[0];
         if (state.closing || disposed || !row || result.recordset.length !== 1 ||
             row.expectedDatabase !== 1 || row.canSelect !== 1 ||
             ['canInsert', 'canUpdate', 'canDelete', 'canAlter', 'objectControl',
               'databaseControl', 'isOwner', 'isWriter', 'isAdmin'].some(key => row[key] !== 0)) throw safeError();
+        diagnostic('PERMISSION_CHECK_COMPLETE');
         return state;
-      } catch (error) { await discard(state); throw safeError(error); }
+      } catch (error) { diagnostic(`${phase}_FAILED`, error); await discard(state); throw safeError(error); }
     })();
     return state.ready;
   }
@@ -91,6 +112,7 @@ function createExecutor({ getConfig, authorizeConnection, enabled = () => false,
   return {
     async execute({ text, parameters, timeoutMs = 10000, signal } = {}) {
       let timer; let onAbort; let request;
+      let phase = 'PREPARE';
       try {
         // Query text is internal repository code, never caller input. SELECT
         // prefix is a guard against accidental misuse, not a SQL parser/security boundary.
@@ -102,6 +124,7 @@ function createExecutor({ getConfig, authorizeConnection, enabled = () => false,
         if (new Set(bindings.map(p => p[0])).size !== bindings.length) throw safeError();
         request = new state.driver.Request(state.pool, { requestTimeout: timeoutMs });
         for (const [name, type, value] of bindings) request.input(name, type, value);
+        phase = 'DATA_QUERY';
         const result = await new Promise((resolve, reject) => {
           const cancel = code => {
             try { request.cancel(); } catch { /* preserve safe classification */ }
@@ -113,8 +136,9 @@ function createExecutor({ getConfig, authorizeConnection, enabled = () => false,
           Promise.resolve(request.query(text)).then(resolve, reject);
         });
         if (!result || !Array.isArray(result.recordset)) throw safeError();
+        diagnostic('DATA_QUERY_COMPLETE');
         return result.recordset;
-      } catch (error) { throw safeError(error); }
+      } catch (error) { if (phase === 'DATA_QUERY') diagnostic('DATA_QUERY_FAILED', error); throw safeError(error); }
       finally { clearTimeout(timer); if (onAbort) signal?.removeEventListener('abort', onAbort); }
     },
     async close() { disposed = true; if (current) await discard(current); }
