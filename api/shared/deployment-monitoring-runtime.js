@@ -9,13 +9,17 @@ let cached;
 function truthy(value) { return value === 'true' || value === '1'; }
 function resolveAuthConfig(env = process.env) {
   const mode = env.MONITORING_SQL_AUTH_MODE;
-  if (mode !== 'sql' && mode !== 'entra') return null;
+  if (mode !== 'sql' && mode !== 'entra' && mode !== 'entra-managed-identity') return null;
   const server = env.MONITORING_SQL_SERVER;
   const database = env.MONITORING_SQL_DATABASE;
   if (!server || !database) return null;
   if (mode === 'sql') {
     if (!env.MONITORING_SQL_USERNAME || !env.MONITORING_SQL_PASSWORD) return null;
     return { authMode: 'sql', server, database, user: env.MONITORING_SQL_USERNAME, password: env.MONITORING_SQL_PASSWORD };
+  }
+  if (mode === 'entra-managed-identity') {
+    return { authMode: 'entra-managed-identity', server, database,
+      authentication: { type: 'azure-active-directory-default', options: {} } };
   }
   if (!env.MONITORING_SQL_TENANT_ID || !env.MONITORING_SQL_CLIENT_ID) return null;
   return { authMode: 'entra', server, database,

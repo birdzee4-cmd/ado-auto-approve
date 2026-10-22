@@ -19,6 +19,13 @@ test('explicit Entra mode requires tenant/client and never falls back to SQL sec
   assert.equal(config.authentication.type, 'azure-active-directory-default');
 });
 
+test('managed identity mode uses server identity without email/password or client secret', () => {
+  const config = resolveAuthConfig({ ...base, MONITORING_SQL_AUTH_MODE: 'entra-managed-identity' });
+  assert.equal(config.authMode, 'entra-managed-identity');
+  assert.deepEqual(config.authentication, { type: 'azure-active-directory-default', options: {} });
+  assert.equal(config.user, undefined); assert.equal(config.password, undefined);
+});
+
 test('unsupported mode fails closed and credentials are never serialized into errors', () => {
   assert.equal(resolveAuthConfig({ ...base, MONITORING_SQL_AUTH_MODE: 'auto', MONITORING_SQL_USERNAME: 'u', MONITORING_SQL_PASSWORD: 'p' }), null);
 });
