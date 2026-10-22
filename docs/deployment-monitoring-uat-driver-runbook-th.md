@@ -1,6 +1,6 @@
 # รอบทดสอบ driver บน UAT แบบ SELECT-only
 
-วันที่ 22 ตุลาคม 2026 — **เตรียมตัวรันและทดสอบ offline แล้ว ยังไม่มีผล live ของรอบนี้** เอกสารนี้ไม่ปิด G0 และไม่ใช่ UAT signoff
+วันที่ 22 ตุลาคม 2026 — **รอบ live ครั้งแรก sign-in สำเร็จ แต่ driver check ยังไม่สำเร็จ** เอกสารนี้ไม่ปิด G0 และไม่ใช่ UAT signoff
 
 ใช้ `scripts/deployment-monitoring/run-uat-driver.cjs` เพื่อทดสอบ executor → repository → service ที่พัฒนาไว้ โดยไม่เปิด API server หรือเปลี่ยน public UI
 
@@ -42,3 +42,9 @@ Interactive flow ใช้ [InteractiveBrowserCredential ของ Azure Identit
 ## ผล offline
 
 Tests `api/test/deployment-monitoring-uat-runner.test.js` ผ่าน 5/5: default-off, dual approval/config validation, query scope/bounds, token/PII output redaction, empty list และ fail-stop/close; ใช้ synthetic executor/token ทั้งหมด Plan-only CLI และ syntax check ผ่าน ไม่เชื่อม DB
+
+## ผล live ครั้งแรกหลังผู้ใช้อนุมัติขอบเขต
+
+ผู้ใช้อนุมัติ scope ตามข้อ 1–5 แล้วและทำ sign-in เอง ตัวรันรายงาน SIGN_IN_COMPLETE ตามด้วย LIST_AND_PERMISSION_CHECK_STARTED และหยุดด้วย MONITORING_UNAVAILABLE / exit 1 ไม่มี LIST_COMPLETE จึงยังไม่มีผล list/detail/summary ที่ยืนยันว่าผ่าน และจากข้อความรอบนี้ยังแยกไม่ได้ว่า connection, permission หรือ query ขั้นใดล้มเหลว ไม่อ้างว่าไม่มีการอ่าน source จาก error code เพียงอย่างเดียว ไม่มี automatic retry, push/PR/deploy หรือ write operation
+
+เตรียม diagnostics เพิ่มเฉพาะ fixed stage เช่น CONNECT_FAILED/PERMISSION_QUERY_FAILED/PERMISSION_CHECK_FAILED/DATA_QUERY_FAILED และ error code ที่อยู่ใน allowlist รวม cause code ที่ปลอดภัย ไม่แสดง exception message/stack, SQL/config, identity, token หรือ row; observer ที่ล้มไม่เปลี่ยน permission/query behavior ทดสอบด้วย fake errors ก่อนใช้จริง รอบเชื่อมซ้ำยังต้องขออนุมัติใหม่ตามคำสั่งผู้ใช้
