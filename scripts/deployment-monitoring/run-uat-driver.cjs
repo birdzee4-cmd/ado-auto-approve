@@ -9,12 +9,21 @@ const { validateFilters } = require('../../api/shared/deployment-monitoring-vali
 const apiRequire = createRequire(require.resolve('../../api/package.json'));
 const SAFE_FAILURE_CODES = new Set(['AUTH_FAILED', 'MONITORING_TIMEOUT', 'MONITORING_UNAVAILABLE', 'INVALID_QUERY',
   'TOKEN_INVALID', 'TOKEN_TENANT_MISMATCH', 'TOKEN_AUDIENCE_MISMATCH', 'TOKEN_EXPIRED', 'TOKEN_NOT_YET_VALID']);
+const AUDIENCE_TYPES = new Set(['SQL_RESOURCE_WITH_SLASH', 'SQL_RESOURCE_WITHOUT_SLASH', 'AUDIENCE_EQUALS_REQUESTING_CLIENT', 'OTHER_RESOURCE', 'INVALID_AUDIENCE_TYPE']);
 function formatCliFailure(error) {
-  return { completed: false, code: SAFE_FAILURE_CODES.has(error?.code) ? error.code : 'UAT_CHECK_FAILED', automaticRetry: false };
+  return { completed: false, code: SAFE_FAILURE_CODES.has(error?.code) ? error.code : 'UAT_CHECK_FAILED',
+    ...(AUDIENCE_TYPES.has(error?.audienceType) ? { audienceType: error.audienceType } : {}), automaticRetry: false };
 }
 
+function classifyAudience(audience, requestingClientId) {
+  if (typeof audience !== 'string') return 'INVALID_AUDIENCE_TYPE';
+  if (audience === 'https://database.windows.net/') return 'SQL_RESOURCE_WITH_SLASH';
+  if (audience === 'https://database.windows.net') return 'SQL_RESOURCE_WITHOUT_SLASH';
+  if (audience === requestingClientId) return 'AUDIENCE_EQUALS_REQUESTING_CLIENT';
+  return 'OTHER_RESOURCE';
+}
 function tokenPreflight(token, expectedTenant, now = () => new Date()) {
-  const fail = code => { throw Object.assign(new Error('Token preflight failed'), { code }); };
+  const fail = (code, audienceType) => { throw Object.assign(new Error('Token preflight failed'), { code, ...(audienceType ? { audienceType } : {}) }); };
   if (typeof token !== 'string' || !token) fail('TOKEN_INVALID');
   const parts = token.split('.');
   if (parts.length !== 3 || !/^[A-Za-z0-9_-]+$/.test(parts[1])) fail('TOKEN_INVALID');
@@ -22,12 +31,12 @@ function tokenPreflight(token, expectedTenant, now = () => new Date()) {
   try { claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')); } catch { fail('TOKEN_INVALID'); }
   if (!claims || typeof claims !== 'object') fail('TOKEN_INVALID');
   if (claims.tid !== expectedTenant) fail('TOKEN_TENANT_MISMATCH');
-  const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
-  if (!audiences.includes('https://database.windows.net/')) fail('TOKEN_AUDIENCE_MISMATCH');
+  const audienceType = classifyAudience(claims.aud, claims.azp || claims.appid);
+  if (audienceType !== 'SQL_RESOURCE_WITH_SLASH') fail('TOKEN_AUDIENCE_MISMATCH', audienceType);
   const nowSeconds = Math.floor(now().getTime() / 1000);
   if (!Number.isInteger(claims.exp) || claims.exp <= nowSeconds) fail('TOKEN_EXPIRED');
   if (claims.nbf !== undefined && (!Number.isInteger(claims.nbf) || claims.nbf > nowSeconds + 60)) fail('TOKEN_NOT_YET_VALID');
-  return { tenantMatches: true, azureSqlAudience: true, expiresInSeconds: claims.exp - nowSeconds };
+  return { tenantMatches: true, azureSqlAudience: true, audienceType, expiresInSeconds: claims.exp - nowSeconds };
 }
 
 function parseArgs(args) {
@@ -165,4 +174,4 @@ if (require.main === module) {
       finish(formatCliFailure(error), 1);
     });
 }
-module.exports = { parseArgs, runUat, tokenPreflight, formatCliFailure };
+module.exports = { parseArgs, runUat, tokenPreflight, formatCliFailure, classifyAudience };

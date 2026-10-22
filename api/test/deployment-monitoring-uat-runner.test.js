@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseArgs, runUat, tokenPreflight, formatCliFailure } = require('../../scripts/deployment-monitoring/run-uat-driver.cjs');
+const { parseArgs, runUat, tokenPreflight, formatCliFailure, classifyAudience } = require('../../scripts/deployment-monitoring/run-uat-driver.cjs');
 const config = { connectApproved: true, readApproved: true, server: 'synthetic.invalid', database: 'synthetic',
   day: '2026-10-22', storageTimezone: 'Asia/Bangkok', clientId: '00000000-0000-0000-0000-000000000000', tenantId: 'common' };
 function token(overrides = {}) {
@@ -89,6 +89,23 @@ test('CLI formatter preserves every safe token code without leaking token or cla
     assert.doesNotMatch(JSON.stringify(output), /secret|email|claims/i);
   }
   assert.equal(formatCliFailure(Object.assign(new Error('secret'), { code: 'OTHER' })).code, 'UAT_CHECK_FAILED');
+});
+
+test('audience diagnostics classify exact forms without normalization or secret output', () => {
+  const client = 'client-id';
+  assert.equal(classifyAudience('https://database.windows.net/', client), 'SQL_RESOURCE_WITH_SLASH');
+  assert.equal(classifyAudience('https://database.windows.net', client), 'SQL_RESOURCE_WITHOUT_SLASH');
+  assert.equal(classifyAudience(client, client), 'AUDIENCE_EQUALS_REQUESTING_CLIENT');
+  assert.equal(classifyAudience('https://graph.microsoft.com/', client), 'OTHER_RESOURCE');
+  assert.equal(classifyAudience(['https://database.windows.net/'], client), 'INVALID_AUDIENCE_TYPE');
+  assert.equal(classifyAudience(undefined, client), 'INVALID_AUDIENCE_TYPE');
+  for (const aud of ['https://database.windows.net', 'https://graph.microsoft.com/']) {
+    assert.throws(() => tokenPreflight(token({ aud }), 'common'), error =>
+      error.code === 'TOKEN_AUDIENCE_MISMATCH' && ['SQL_RESOURCE_WITHOUT_SLASH', 'OTHER_RESOURCE'].includes(error.audienceType));
+  }
+  assert.throws(() => tokenPreflight(token({ aud: ['https://database.windows.net/'] }), 'common'), error =>
+    error.code === 'TOKEN_AUDIENCE_MISMATCH' && error.audienceType === 'INVALID_AUDIENCE_TYPE');
+  assert.doesNotMatch(JSON.stringify(formatCliFailure(Object.assign(new Error(), { code: 'TOKEN_AUDIENCE_MISMATCH', audienceType: 'OTHER_RESOURCE' }))), /https|graph|client|claims/i);
 });
 
 test('preflight-only signs in, emits pass stage and never creates SQL executor', async () => {
