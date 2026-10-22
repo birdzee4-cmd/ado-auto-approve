@@ -95,4 +95,6 @@ runner ตรวจ JWT claims ใน memory ก่อนสร้าง SQL exe
 
 ไม่มีหลักฐาน identity ของรอบที่สำเร็จถูกเก็บไว้ จึงยังเปรียบเทียบ account identity ระหว่างรอบสำเร็จกับรอบ ELOGIN ไม่ได้ และไม่บันทึก/แสดง `oid`, `sub`, email หรือ claims จริง diagnostics ของ executor เพิ่มได้เฉพาะ SQL error number/state/class ที่อยู่ใน allowlist และยังไม่เปิดเผยข้อความหรือ stack
 
+ตาม trailing-slash resource identifier ของ Azure SQL runner ขอ scope เป็น `https://database.windows.net//.default` โดยคง audience acceptance แบบ exact เป็น `https://database.windows.net/` เท่านั้น การเปลี่ยนนี้ไม่เพิ่ม allowlist, ไม่ normalize audience และไม่เปลี่ยน tenant/client/authentication method/permissions
+
 ผล pagination จะรายงานผ่านก็ต่อเมื่อ key `(TargetDate, ID)` ของสองหน้าลำดับถูกต้องและไม่ซ้ำกัน ไม่ตั้งค่า `cursorStable` เป็น true โดยอัตโนมัติอีกต่อไป

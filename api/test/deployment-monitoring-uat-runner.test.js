@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseArgs, runUat, tokenPreflight, formatCliFailure, classifyAudience } = require('../../scripts/deployment-monitoring/run-uat-driver.cjs');
+const { parseArgs, runUat, getInteractiveToken, tokenPreflight, formatCliFailure, classifyAudience } = require('../../scripts/deployment-monitoring/run-uat-driver.cjs');
 const config = { connectApproved: true, readApproved: true, server: 'synthetic.invalid', database: 'synthetic',
   day: '2026-10-22', storageTimezone: 'Asia/Bangkok', clientId: '00000000-0000-0000-0000-000000000000', tenantId: 'common' };
 function token(overrides = {}) {
@@ -114,4 +114,11 @@ test('preflight-only signs in, emits pass stage and never creates SQL executor',
   const result = await runUat(preflight, { emit: value => emitted.push(value), getToken: async () => token(), executorFactory: () => { created++; } });
   assert.equal(result.mode, 'preflight-only'); assert.equal(result.sqlExecutorCreated, false);
   assert.deepEqual(emitted, [{ stage: 'TOKEN_PREFLIGHT_PASSED' }]); assert.equal(created, 0);
+});
+
+test('interactive credential requests the documented double-slash Azure SQL scope', async () => {
+  let requested;
+  const tokenValue = `e.${Buffer.from(JSON.stringify({ tid: config.tenantId, aud: 'https://database.windows.net/', exp: 2000000000 })).toString('base64url')}.s`;
+  const result = await getInteractiveToken(config, () => {}, options => ({ getToken: async scope => { requested = scope; return { token: tokenValue }; } }));
+  assert.equal(requested, 'https://database.windows.net//.default'); assert.equal(result, tokenValue);
 });

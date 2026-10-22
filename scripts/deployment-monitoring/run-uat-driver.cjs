@@ -71,11 +71,11 @@ function parseArgs(args) {
     clientId: values['--client-id'], tenantId: values['--tenant-id'] };
 }
 
-async function getInteractiveToken(config, emit) {
+async function getInteractiveToken(config, emit, credentialFactory) {
   // SDK's documented interactive browser flow; same explicit public application
   // as operator-approved JDBC flow, no client secret or persistent token cache.
   const { InteractiveBrowserCredential } = apiRequire('@azure/identity');
-  const credential = new InteractiveBrowserCredential({
+  const credential = (credentialFactory || (options => new InteractiveBrowserCredential(options)))({
     clientId: config.clientId, tenantId: config.tenantId,
     tokenCachePersistenceOptions: { enabled: false },
     loggingOptions: { allowLoggingAccountIdentifiers: false }
@@ -84,7 +84,7 @@ async function getInteractiveToken(config, emit) {
   let timer;
   try {
     const token = await Promise.race([
-      credential.getToken('https://database.windows.net/.default'),
+      credential.getToken('https://database.windows.net//.default'),
       new Promise((_, reject) => { timer = setTimeout(() => reject(new Error()), 240000); })
     ]);
     if (!token || typeof token.token !== 'string' || !token.token) throw new Error();
@@ -174,4 +174,4 @@ if (require.main === module) {
       finish(formatCliFailure(error), 1);
     });
 }
-module.exports = { parseArgs, runUat, tokenPreflight, formatCliFailure, classifyAudience };
+module.exports = { parseArgs, runUat, getInteractiveToken, tokenPreflight, formatCliFailure, classifyAudience };
