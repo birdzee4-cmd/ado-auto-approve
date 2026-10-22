@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseArgs, runUat, getInteractiveToken, tokenPreflight, formatCliFailure, classifyAudience } = require('../../scripts/deployment-monitoring/run-uat-driver.cjs');
+const { parseArgs, runUat, getInteractiveToken, tokenPreflight, formatCliFailure, classifyAudience, jdbcScopeForResource, createDiagnosticEmitter } = require('../../scripts/deployment-monitoring/run-uat-driver.cjs');
 const config = { connectApproved: true, readApproved: true, server: 'synthetic.invalid', database: 'synthetic',
   day: '2026-10-22', storageTimezone: 'Asia/Bangkok', clientId: '00000000-0000-0000-0000-000000000000', tenantId: 'common' };
 function token(overrides = {}) {
@@ -121,4 +121,19 @@ test('interactive credential requests the documented double-slash Azure SQL scop
   const tokenValue = `e.${Buffer.from(JSON.stringify({ tid: config.tenantId, aud: 'https://database.windows.net/', exp: 2000000000 })).toString('base64url')}.s`;
   const result = await getInteractiveToken(config, () => {}, options => ({ getToken: async scope => { requested = scope; return { token: tokenValue }; } }));
   assert.equal(requested, 'https://database.windows.net//.default'); assert.equal(result, tokenValue);
+});
+
+test('JDBC scope composition distinguishes resource slash cases from received audience', () => {
+  assert.equal(jdbcScopeForResource('https://database.windows.net/'), 'https://database.windows.net/.default');
+  assert.equal(jdbcScopeForResource('https://database.windows.net'), 'https://database.windows.net/.default');
+});
+
+test('diagnostic emitter adds only runId and UTC ISO timestamp to every stage', () => {
+  const values = []; const emit = createDiagnosticEmitter({ write: value => values.push(value), runId: 'run-test', now: () => new Date('2026-10-22T12:34:56.000Z') });
+  emit({ stage: 'SIGN_IN_COMPLETE' }); emit({ stage: 'CONNECT_FAILED', codes: ['ELOGIN'] });
+  assert.deepEqual(values, [
+    { runId: 'run-test', timestampUtc: '2026-10-22T12:34:56.000Z', stage: 'SIGN_IN_COMPLETE' },
+    { runId: 'run-test', timestampUtc: '2026-10-22T12:34:56.000Z', stage: 'CONNECT_FAILED', codes: ['ELOGIN'] }
+  ]);
+  assert.doesNotMatch(JSON.stringify(values), /token|claims|email|account/i);
 });

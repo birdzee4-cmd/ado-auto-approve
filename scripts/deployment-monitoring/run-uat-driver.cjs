@@ -2,6 +2,7 @@
 // No DBeaver secure-store reads, token files, raw rows, or SQL error output.
 const { createRequire } = require('node:module');
 const { randomBytes } = require('node:crypto');
+const { randomUUID } = require('node:crypto');
 const { createExecutor } = require('../../api/shared/deployment-monitoring-executor');
 const { createRepository } = require('../../api/shared/deployment-monitoring-sql');
 const { createService } = require('../../api/shared/deployment-monitoring-service');
@@ -13,6 +14,12 @@ const AUDIENCE_TYPES = new Set(['SQL_RESOURCE_WITH_SLASH', 'SQL_RESOURCE_WITHOUT
 function formatCliFailure(error) {
   return { completed: false, code: SAFE_FAILURE_CODES.has(error?.code) ? error.code : 'UAT_CHECK_FAILED',
     ...(AUDIENCE_TYPES.has(error?.audienceType) ? { audienceType: error.audienceType } : {}), automaticRetry: false };
+}
+function jdbcScopeForResource(spn) {
+  return typeof spn === 'string' && spn.endsWith('/') ? `${spn}.default` : `${spn}/.default`;
+}
+function createDiagnosticEmitter({ write = value => process.stdout.write(`${JSON.stringify(value)}\n`), now = () => new Date(), runId = randomUUID() } = {}) {
+  return value => write({ runId, timestampUtc: now().toISOString(), ...value });
 }
 
 function classifyAudience(audience, requestingClientId) {
@@ -165,7 +172,7 @@ if (require.main === module) {
   // they can contain auth URLs or identity details. Do not print exceptions.
   delete process.env.AZURE_LOG_LEVEL;
   delete process.env.DEBUG;
-  const emit = value => process.stdout.write(`${JSON.stringify(value)}\n`);
+  const emit = createDiagnosticEmitter();
   const finish = (value, code) => process.stdout.write(`${JSON.stringify(value)}\n`, () => process.exit(code));
   Promise.resolve().then(() => parseArgs(process.argv.slice(2))).then(config => runUat(config, { emit }))
     .then(result => finish(result, 0))
@@ -174,4 +181,4 @@ if (require.main === module) {
       finish(formatCliFailure(error), 1);
     });
 }
-module.exports = { parseArgs, runUat, getInteractiveToken, tokenPreflight, formatCliFailure, classifyAudience };
+module.exports = { parseArgs, runUat, getInteractiveToken, tokenPreflight, formatCliFailure, classifyAudience, jdbcScopeForResource, createDiagnosticEmitter };
