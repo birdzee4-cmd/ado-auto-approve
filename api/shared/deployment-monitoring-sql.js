@@ -4,6 +4,7 @@
 // executor MUST use options.useUTC=true. Returned dates are SQL wall-clock strings.
 const { validateFilters, validateId } = require('./deployment-monitoring-validation');
 const { codeLabel, mappingVersion, statusLabels } = require('./deployment-monitoring-provisional');
+const { validBoundary } = require('./deployment-monitoring-cursor');
 
 const source = 'Internal_ProjectPlanning';
 const fields = Object.freeze(['ID', 'ProjectName', 'Owner', 'Status', 'IsPrepared',
@@ -89,10 +90,18 @@ function createRepository({ execute, authorizeSource, developmentEnabled = false
       ...(filters ? { range: { from: filters.from, to: filters.to, timezone: 'Asia/Bangkok' } } : {}) };
   }
   return {
-    // Raw validated-query interface, intentionally not wired to createHandlers.
-    // Cursor support is still pending; an incomplete page is marked explicitly.
-    async list(query = {}) {
+    // Service verifies signed cursors. Repository only accepts a typed boundary.
+    async list(query = {}, after = null) {
       const filters = validateFilters(query, now()); const predicate = where(filters, storageTimezone);
+      if (filters.cursor) throw new (require('./deployment-monitoring-validation').ValidationError)();
+      if (after !== null) {
+        if (!validBoundary(after)) throw new (require('./deployment-monitoring-validation').ValidationError)();
+        const date = new Date(`${after.targetDate}Z`);
+        const range = boundaries(filters, storageTimezone);
+        if (date < range.from || date >= range.toExclusive) throw new (require('./deployment-monitoring-validation').ValidationError)();
+        predicate.text += ' AND ([TargetDate] < @afterDate OR ([TargetDate] = @afterDate AND [ID] < @afterId))';
+        predicate.parameters.push(parameter('afterDate', 'DateTime', date), parameter('afterId', 'Int', after.id));
+      }
       const rows = await run(`SELECT TOP (@take) ${projection} FROM dbo.Internal_ProjectPlanning WHERE ${predicate.text} ORDER BY [TargetDate] DESC, [ID] DESC`,
         [...predicate.parameters, parameter('take', 'Int', filters.pageSize + 1)]);
       return { ...envelope(filters), items: rows.slice(0, filters.pageSize).map(r => projectRow(r, storageTimezone)),
@@ -106,6 +115,7 @@ function createRepository({ execute, authorizeSource, developmentEnabled = false
     },
     async summary(query = {}) {
       const filters = validateFilters(query, now()); const predicate = where(filters, storageTimezone);
+      if (filters.cursor) throw new (require('./deployment-monitoring-validation').ValidationError)();
       const rows = await run(`SELECT [Status], [IsPrepared], COUNT_BIG(*) AS [recordCount] FROM dbo.Internal_ProjectPlanning WHERE ${predicate.text} GROUP BY [Status], [IsPrepared]`, predicate.parameters);
       let total = 0; let prepared = 0; let unknown = 0;
       const counts = rows.map(row => {

@@ -1,5 +1,4 @@
-// Pure contract preparation only: no SQL, credentials, HTTP routes or DB timezone
-// conversion. Cursor semantics remain gated on a confirmed unique ordering key.
+// Pure input validation. Cursor signature/filter binding belongs to the service.
 const DAY = 86400000;
 const timezone = 'Asia/Bangkok';
 
@@ -35,7 +34,7 @@ function text(value, max) {
 
 function validateFilters(query = {}, now = new Date()) {
   if (!query || typeof query !== 'object' || Array.isArray(query)) invalid();
-  const allowed = new Set(['from', 'to', 'pageSize', 'q', 'project', 'status']);
+  const allowed = new Set(['from', 'to', 'pageSize', 'q', 'project', 'status', 'cursor']);
   if (Object.keys(query).some(key => !allowed.has(key))) invalid();
   // Bangkok calendar day independent of the execution host/browser timezone.
   const today = new Date(now.getTime() + 7 * 3600000).toISOString().slice(0, 10);
@@ -46,11 +45,13 @@ function validateFilters(query = {}, now = new Date()) {
   if (end < start || (end - start) / DAY + 1 > 31 || to === '9999-12-31') invalid();
   const status = query.status === undefined ? null : query.status === 'unknown'
     ? 'unknown' : integer(query.status, -2147483648, 2147483647);
+  const cursor = query.cursor === undefined ? null : text(query.cursor, 2048);
+  if (cursor !== null && !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/.test(cursor)) invalid();
   return {
     from, to, timezone,
     toExclusiveDay: new Date(end + DAY).toISOString().slice(0, 10),
     pageSize: query.pageSize === undefined ? 50 : integer(query.pageSize, 1, 100),
-    q: text(query.q, 100), project: text(query.project, 100), status
+    q: text(query.q, 100), project: text(query.project, 100), status, cursor
   };
 }
 
