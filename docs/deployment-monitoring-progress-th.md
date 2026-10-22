@@ -81,3 +81,11 @@ G0, SQL integration, parameterization/driver, trusted-host deployment checks, UA
 - รวม Monitoring/History/preview unit tests ผ่าน 24/24; syntax checks ของไฟล์ใหม่ผ่าน; ไม่รัน baseline เดิมซ้ำโดยไม่มีการแก้ไฟล์ระบบเดิม
 - วิธีเปิดและข้อจำกัดอยู่ใน `docs/prototypes/README.md`; server local เป็นเครื่องมือทบทวน ไม่ใช่ UAT deployment หรือ public hosting
 - ยังไม่แทนหน้า production, ไม่เพิ่ม endpoint/SQL adapter/cursor/summary integration และไม่มี push/PR/merge/deploy; G0 ยังรอข้อมูล DBA/owner รายการเดิม ไม่สร้าง artifact ZIP/build/temp และรักษางานค้างผู้ใช้
+
+## งานต่อรอบที่สี่: ตรวจข้อผิดพลาดก่อน integration
+
+- แก้ handler factory ไม่ให้ service envelope ที่มี ok:false หรือ error ถูกเปลี่ยนเป็น HTTP 200 และไม่ส่ง error payload กลับผู้ใช้
+- แก้ UI state controller ปฏิเสธ fetchedAt ที่ parse ไม่ได้หรือไม่มี offset ก่อนแทนข้อมูลเดิม; คง stale dataset และ timestamp ที่เคยอ่านสำเร็จ
+- เพิ่ม regression tests สองกรณี ชุด Monitoring/History/preview ผ่าน 26/26; ยังเป็น synthetic/unit และ loopback preview tests ไม่ใช่ MSSQL integration
+- เตรียม `docs/deployment-monitoring-dba-handoff-th.md` เป็นแบบฟอร์มที่กรอกส่งกลับได้สำหรับ UAT authorization/config reference, schema/key/timezone, mapping/scope/field visibility และหลักฐาน G0 ไม่มี credential/ข้อมูลจริง และยังไม่ได้ส่งข้อความให้ DBA หรือบุคคลอื่น
+- ขอเฉพาะข้อมูลที่ยังขาดจากผู้ใช้แล้ว ยังไม่มีหลักฐาน G0 เพิ่ม จึงยังไม่ต่อ DB/ลงทะเบียน API/เปลี่ยน public UI หรืออ้าง UAT ผ่าน; ไม่เพิ่ม placeholder endpoint หรือ SQL ที่เดา schema เพื่อเดินข้าม gate
