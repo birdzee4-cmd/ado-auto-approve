@@ -55,7 +55,8 @@ function createHandlers({ service, enabled = () => false, now = () => new Date()
         // The future service must return approved DTOs, never raw SQL records.
         const result = await service[operation](input);
         if (operation === 'detail' && result === null) return fail('NOT_FOUND');
-        if (!result || typeof result !== 'object' || Array.isArray(result)) throw new Error();
+        if (!result || typeof result !== 'object' || Array.isArray(result) ||
+            result.ok === false || Object.hasOwn(result, 'error')) throw new Error();
         reply(200, { ...result, ok: true, requestId });
       } catch (error) {
         // Only known classifications may cross this boundary. Never log the

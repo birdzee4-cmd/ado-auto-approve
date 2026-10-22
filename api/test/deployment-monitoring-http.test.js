@@ -136,3 +136,19 @@ test('server assigns request IDs instead of trusting request headers', async () 
   assert.notEqual(first.body.requestId, second.body.requestId);
   assert.doesNotMatch(JSON.stringify(first), /untrusted secret/);
 });
+
+test('a failed service envelope cannot become HTTP 200 or leak its error payload', async () => {
+  for (const payload of [
+    { ok: false, detail: 'SELECT secret FROM private_server' },
+    { error: { message: 'password=do-not-expose' } },
+    { ok: true, error: 'SELECT secret' }
+  ]) {
+    const result = await invoke(createHandlers({ enabled: () => true, service: {
+      list: async () => payload
+    } }).list, request());
+    assert.equal(result.status, 500);
+    assert.equal(result.body.ok, false);
+    assert.equal(result.body.error.code, 'INTERNAL_ERROR');
+    assert.doesNotMatch(JSON.stringify(result), /SELECT|secret|private_server|password|do-not-expose/);
+  }
+});
