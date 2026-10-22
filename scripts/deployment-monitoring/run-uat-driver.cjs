@@ -147,7 +147,8 @@ if (require.main === module) {
     .then(result => finish(result, 0))
     .catch(error => {
       // Also ends an unfinished interactive loopback listener after auth timeout.
-      finish({ completed: false, code: ['AUTH_FAILED', 'MONITORING_TIMEOUT', 'MONITORING_UNAVAILABLE', 'INVALID_QUERY'].includes(error?.code)
+      finish({ completed: false, code: ['AUTH_FAILED', 'MONITORING_TIMEOUT', 'MONITORING_UNAVAILABLE', 'INVALID_QUERY',
+        'TOKEN_INVALID', 'TOKEN_TENANT_MISMATCH', 'TOKEN_AUDIENCE_MISMATCH', 'TOKEN_EXPIRED', 'TOKEN_NOT_YET_VALID'].includes(error?.code)
         ? error.code : 'UAT_CHECK_FAILED', automaticRetry: false }, 1);
     });
 }
