@@ -60,3 +60,9 @@ Tests `api/test/deployment-monitoring-uat-runner.test.js` ผ่าน 5/5: defa
 ตัวตรวจนี้ต้องขออนุมัติก่อนรัน network เช่นเดียวกับ connection รอบอื่น หากยืนยัน authority ได้ ค่อยเสนอรอบ Node ที่ใช้ explicit tenant นั้น ไม่มีการเปิด/เพิ่ม role หรือเปลี่ยน database users เพื่อแก้ ELOGIN
 
 ทดสอบ authority validator แบบ offline ผ่าน 9/9 รวมการปฏิเสธ host/scope/HTTP/port/userinfo/query และ common tenant; plan-only รายงาน connected=false/tokenRequested=false/sqlExecuted=false ไม่มี live authority discovery ในขั้นเตรียมนี้
+
+## ผล authority handshake หลังอนุมัติแยก
+
+ผู้ใช้อนุมัติ authentication handshake ของ UAT หนึ่งครั้งแล้ว ตัวตรวจคืน AUTHORITY_CONFIRMED / exit 0 และ tenant UUID ที่เจาะจงจาก SQL ไม่ใช่ common พร้อม tokenRequested=false/sqlExecuted=false ตามขอบเขต ไม่บันทึกค่า tenant จริงใน source control ไม่มี MFA/token request หรือ SQL statement ในรอบนี้
+
+ขั้นถัดไปที่เตรียมพร้อมคือใช้ runner เดิมพร้อม `--tenant-id` ที่ SQL ยืนยันแทน common โดยคง server/database/client application/TLS/permission checks และขอบเขต list/detail/summary วันเดียวเดิมทั้งหมด ต้องขออนุมัติรอบเชื่อมใหม่ก่อนรัน การยืนยัน authority ยังไม่พิสูจน์ว่าแก้ ELOGIN ได้หรือว่า integration ผ่าน
