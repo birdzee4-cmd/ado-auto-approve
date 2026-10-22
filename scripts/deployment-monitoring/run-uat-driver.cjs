@@ -7,6 +7,11 @@ const { createRepository } = require('../../api/shared/deployment-monitoring-sql
 const { createService } = require('../../api/shared/deployment-monitoring-service');
 const { validateFilters } = require('../../api/shared/deployment-monitoring-validation');
 const apiRequire = createRequire(require.resolve('../../api/package.json'));
+const SAFE_FAILURE_CODES = new Set(['AUTH_FAILED', 'MONITORING_TIMEOUT', 'MONITORING_UNAVAILABLE', 'INVALID_QUERY',
+  'TOKEN_INVALID', 'TOKEN_TENANT_MISMATCH', 'TOKEN_AUDIENCE_MISMATCH', 'TOKEN_EXPIRED', 'TOKEN_NOT_YET_VALID']);
+function formatCliFailure(error) {
+  return { completed: false, code: SAFE_FAILURE_CODES.has(error?.code) ? error.code : 'UAT_CHECK_FAILED', automaticRetry: false };
+}
 
 function tokenPreflight(token, expectedTenant, now = () => new Date()) {
   const fail = code => { throw Object.assign(new Error('Token preflight failed'), { code }); };
@@ -26,7 +31,7 @@ function tokenPreflight(token, expectedTenant, now = () => new Date()) {
 }
 
 function parseArgs(args) {
-  const values = {}; const approved = new Set(['--connect-approved', '--read-approved', '--pagination-approved']);
+  const values = {}; const approved = new Set(['--connect-approved', '--read-approved', '--pagination-approved', '--preflight-only']);
   const names = new Set(['--server', '--database', '--day', '--storage-timezone', '--client-id', '--tenant-id']);
   for (let i = 0; i < args.length; i++) {
     const key = args[i];
@@ -38,17 +43,21 @@ function parseArgs(args) {
   const connectApproved = values['--connect-approved'] === true;
   const readApproved = values['--read-approved'] === true;
   const paginationApproved = values['--pagination-approved'] === true;
+  const preflightOnly = values['--preflight-only'] === true;
   if (connectApproved !== readApproved) throw new Error('Both approvals required');
   const storageTimezone = values['--storage-timezone'];
   const day = values['--day'];
   if (day !== undefined) validateFilters({ from: day, to: day });
   if (storageTimezone !== undefined && !['UTC', 'Asia/Bangkok'].includes(storageTimezone)) throw new Error('Invalid timezone');
+  if (preflightOnly && (connectApproved || readApproved || paginationApproved ||
+      !/^[a-fA-F0-9-]{36}$/.test(values['--client-id'] || '') ||
+      !/^[a-zA-Z0-9.-]+$/.test(values['--tenant-id'] || ''))) throw new Error('Invalid preflight options');
   if (connectApproved && (!day || !storageTimezone ||
       !/^[a-zA-Z0-9][a-zA-Z0-9.-]*$/.test(values['--server'] || '') ||
       !/^[a-zA-Z0-9_-]{1,128}$/.test(values['--database'] || '') ||
       !/^[a-fA-F0-9-]{36}$/.test(values['--client-id'] || '') ||
       !/^[a-zA-Z0-9.-]+$/.test(values['--tenant-id'] || ''))) throw new Error('Explicit UAT configuration required');
-  return { connectApproved, readApproved, paginationApproved, day, storageTimezone,
+  return { connectApproved, readApproved, paginationApproved, preflightOnly, day, storageTimezone,
     server: values['--server'], database: values['--database'],
     clientId: values['--client-id'], tenantId: values['--tenant-id'] };
 }
@@ -78,19 +87,25 @@ async function getInteractiveToken(config, emit) {
 
 async function runUat(config, { emit = () => {}, getToken = getInteractiveToken,
   executorFactory = createExecutor, now = () => new Date() } = {}) {
-  if (config.connectApproved !== true || config.readApproved !== true) {
+  if (config.preflightOnly !== true && (config.connectApproved !== true || config.readApproved !== true)) {
     return { mode: 'plan-only', connected: false, sourceRead: false,
       scope: ['permissions', 'list TOP 2 (pageSize 1 plus lookahead)', 'detail for one returned ID', 'single-day status/readiness counts'] };
   }
   // Re-validate typed config before any authentication/network operation.
-  parseArgs(['--connect-approved', '--read-approved', '--server', config.server,
-    '--database', config.database, '--client-id', config.clientId, '--tenant-id', config.tenantId,
-    '--day', config.day, '--storage-timezone', config.storageTimezone,
-    ...(config.paginationApproved ? ['--pagination-approved'] : [])]);
+  parseArgs(config.preflightOnly ? ['--preflight-only', '--client-id', config.clientId, '--tenant-id', config.tenantId]
+    : ['--connect-approved', '--read-approved', '--server', config.server,
+      '--database', config.database, '--client-id', config.clientId, '--tenant-id', config.tenantId,
+      '--day', config.day, '--storage-timezone', config.storageTimezone,
+      ...(config.paginationApproved ? ['--pagination-approved'] : [])]);
   let executor;
   try {
     const token = await getToken(config, emit);
     const tokenCheck = tokenPreflight(token, config.tenantId, now);
+    if (config.preflightOnly) {
+      emit({ stage: 'TOKEN_PREFLIGHT_PASSED' });
+      return { mode: 'preflight-only', completed: true, tokenPreflight: tokenCheck,
+        sqlExecutorCreated: false, sqlLoginChecked: false };
+    }
     executor = executorFactory({ enabled: () => true, authorizeConnection: async () => true,
       onDiagnostic: diagnostic => emit(diagnostic),
       getConfig: async () => ({ server: config.server, database: config.database,
@@ -147,10 +162,7 @@ if (require.main === module) {
     .then(result => finish(result, 0))
     .catch(error => {
       // Also ends an unfinished interactive loopback listener after auth timeout.
-      finish({ completed: false, code: ['AUTH_FAILED', 'MONITORING_TIMEOUT', 'MONITORING_UNAVAILABLE', 'INVALID_QUERY',
-        'TOKEN_INVALID', 'TOKEN_TENANT_MISMATCH', 'TOKEN_AUDIENCE_MISMATCH', 'TOKEN_EXPIRED', 'TOKEN_NOT_YET_VALID'].includes(error?.code)
-        ? error.code : 'UAT_CHECK_FAILED', automaticRetry: false }, 1);
+      finish(formatCliFailure(error), 1);
     });
 }
-module.exports = { parseArgs, runUat };
-module.exports.tokenPreflight = tokenPreflight;
+module.exports = { parseArgs, runUat, tokenPreflight, formatCliFailure };

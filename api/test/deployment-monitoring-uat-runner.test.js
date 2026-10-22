@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseArgs, runUat, tokenPreflight } = require('../../scripts/deployment-monitoring/run-uat-driver.cjs');
+const { parseArgs, runUat, tokenPreflight, formatCliFailure } = require('../../scripts/deployment-monitoring/run-uat-driver.cjs');
 const config = { connectApproved: true, readApproved: true, server: 'synthetic.invalid', database: 'synthetic',
   day: '2026-10-22', storageTimezone: 'Asia/Bangkok', clientId: '00000000-0000-0000-0000-000000000000', tenantId: 'common' };
 function token(overrides = {}) {
@@ -79,4 +79,22 @@ test('token preflight runs before executor creation', async () => {
   let created = 0;
   await assert.rejects(runUat(config, { getToken: async () => token({ aud: 'wrong' }), executorFactory: () => { created++; } }), { code: 'TOKEN_AUDIENCE_MISMATCH' });
   assert.equal(created, 0);
+});
+
+test('CLI formatter preserves every safe token code without leaking token or claims', () => {
+  const codes = ['TOKEN_INVALID', 'TOKEN_TENANT_MISMATCH', 'TOKEN_AUDIENCE_MISMATCH', 'TOKEN_EXPIRED', 'TOKEN_NOT_YET_VALID'];
+  for (const code of codes) {
+    const output = formatCliFailure(Object.assign(new Error('secret token email claims'), { code }));
+    assert.deepEqual(output, { completed: false, code, automaticRetry: false });
+    assert.doesNotMatch(JSON.stringify(output), /secret|email|claims/i);
+  }
+  assert.equal(formatCliFailure(Object.assign(new Error('secret'), { code: 'OTHER' })).code, 'UAT_CHECK_FAILED');
+});
+
+test('preflight-only signs in, emits pass stage and never creates SQL executor', async () => {
+  const emitted = []; let created = 0;
+  const preflight = parseArgs(['--preflight-only', '--client-id', config.clientId, '--tenant-id', config.tenantId]);
+  const result = await runUat(preflight, { emit: value => emitted.push(value), getToken: async () => token(), executorFactory: () => { created++; } });
+  assert.equal(result.mode, 'preflight-only'); assert.equal(result.sqlExecutorCreated, false);
+  assert.deepEqual(emitted, [{ stage: 'TOKEN_PREFLIGHT_PASSED' }]); assert.equal(created, 0);
 });
