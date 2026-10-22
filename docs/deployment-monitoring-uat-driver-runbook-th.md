@@ -88,3 +88,11 @@ Tests `api/test/deployment-monitoring-uat-runner.test.js` ผ่าน 5/5: defa
 ผู้ใช้อนุมัติรอบนี้แล้วและทำ sign-in สำเร็จ แต่การเชื่อมต่อหยุดที่ `CONNECT_FAILED / ELOGIN` ก่อน permission check ดังนั้นยังไม่มีการอ่าน list, cursor, detail หรือ summary ในรอบนี้ ไม่มีการ retry และไม่มีการเปลี่ยน TLS/สิทธิ์/ข้อมูล ฐานข้อมูลยังไม่มีหลักฐานยืนยัน pagination จาก UAT
 
 สิ่งที่ต้องให้ DBA/ผู้ดูแลตรวจสำหรับรอบถัดไปคือสาเหตุ authentication ของ client application/tenant ที่ยืนยันแล้ว, audience และสิทธิ์ database principal ของ token รวมถึง policy ที่ทำให้ login ถูกปฏิเสธ โดยไม่ส่ง password, token, raw SQL error หรือ secret ในแชต หลังแก้ configuration แล้วต้องขออนุมัติรอบเชื่อมต่อใหม่อีกครั้ง
+
+## การแก้ diagnostics หลังรอบ ELOGIN
+
+runner ตรวจ JWT claims ใน memory ก่อนสร้าง SQL executor โดยเปรียบเทียบ tenant กับค่าที่ระบุ, audience ต้องเป็น Azure SQL, และตรวจ `exp`/`nbf` ตามเวลาปัจจุบัน การตรวจนี้ไม่ตรวจลายเซ็นและไม่แทน SQL authentication; หากไม่ผ่านจะหยุดด้วย `TOKEN_INVALID`, `TOKEN_TENANT_MISMATCH`, `TOKEN_AUDIENCE_MISMATCH`, `TOKEN_EXPIRED` หรือ `TOKEN_NOT_YET_VALID` โดยไม่เปิด connection
+
+ไม่มีหลักฐาน identity ของรอบที่สำเร็จถูกเก็บไว้ จึงยังเปรียบเทียบ account identity ระหว่างรอบสำเร็จกับรอบ ELOGIN ไม่ได้ และไม่บันทึก/แสดง `oid`, `sub`, email หรือ claims จริง diagnostics ของ executor เพิ่มได้เฉพาะ SQL error number/state/class ที่อยู่ใน allowlist และยังไม่เปิดเผยข้อความหรือ stack
+
+ผล pagination จะรายงานผ่านก็ต่อเมื่อ key `(TargetDate, ID)` ของสองหน้าลำดับถูกต้องและไม่ซ้ำกัน ไม่ตั้งค่า `cursorStable` เป็น true โดยอัตโนมัติอีกต่อไป
