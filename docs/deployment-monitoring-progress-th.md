@@ -51,3 +51,22 @@ SQL ที่คัดลอกมี STOP ก่อน queries ข้อมู�
 - ไม่มี MSSQL integration, UI/browser, load, permission หรือ UAT signoff ผ่าน; ไม่อ้าง AC02–AC10 ว่าผ่านจาก unit tests
 
 แยก commit เอกสารแผนออกจาก API preparation/tests และเก็บงานค้างผู้ใช้ไว้; ไม่มี task-generated extraction/build/temp artifacts ที่ต้องลบ
+
+## งานต่อรอบที่สอง: security boundary และ UI state prototype
+
+เมื่อผู้ใช้สั่งให้ดำเนินการต่อ ยังไม่มีหลักฐาน DBA/G0 เพิ่ม จึงเตรียมเฉพาะส่วนที่ไม่เรียก DB และไม่เปลี่ยนหน้าจริง:
+
+- `api/shared/deployment-monitoring-http.js` เป็น handler factory ที่ยังไม่ลงทะเบียน function.json/route ใด รับ service ผ่าน dependency injection เท่านั้น ไม่มี SQL driver/adapter และไม่มี network call โดยตัว factory
+- list/detail/summary ตรวจ role ผ่าน auth helper เดิมก่อนอ่าน enabled setting หรือเข้าถึง service; enabled callback ต้องคืน boolean true เท่านั้นและค่าเริ่มต้นปิด รองรับ GET เท่านั้น ตรวจ input ก่อน service, detail ไม่พบส่ง 404 และ service ไม่มีส่ง 503
+- error response ใช้ `{ok:false,error:{code,message},requestId}` และข้อความคงที่ ไม่ส่ง exception/stack/query/config; known service classifications MONITORING_TIMEOUT/UNAVAILABLE แปลงเป็น 504/503 ส่วนข้อผิดพลาดอื่นเป็น 500 ไม่ใช้ deployment-http.fail เดิม
+- JSON responses ทุกกรณีมี private/no-store และ requestId ที่ server สร้างเอง ไม่รับค่าจาก header ผู้เรียก
+- factory ยังไม่ได้ทำ DTO projection: future service ต้องส่งเฉพาะ approved DTO ห้ามส่ง SQL row ตรง ๆ; field allowlist ยังรอ owner จึงยังไม่ใช่ API ที่พร้อมเผยแพร่
+- principal header ใช้ได้เฉพาะ trusted SWA gateway; unit tests ไม่ได้พิสูจน์ direct-host trust จึงยังไม่ลงทะเบียน endpoint หรืออ้างว่าทดสอบป้องกัน header ปลอมจาก internet ผ่าน
+- `docs/prototypes/deployment-monitoring-controller.mjs` เป็น headless UI state prototype อยู่นอก public ไม่ถูกเสิร์ฟผ่าน production workflow และไม่เรียก fetch เอง; loader/render ต้อง inject
+- prototype แยก loading/ready/empty/error/disabled/unauthorized/forbidden/stale, ยกเลิกคำขอก่อนหน้าและใช้ sequence กัน response เก่าแม้ loader ไม่สนใจ abort, เก็บข้อมูลเดิมเฉพาะ refresh filter เดิม, ล้างข้อมูลเมื่อสิทธิ์หาย และเก็บ fetchedAt จาก response จริง ไม่สร้างเวลา SQL update เอง
+- แยก MONITORING_DISABLED จาก service unavailable; ไม่แสดงความล้มเหลวเป็นจำนวน 0 และไม่เก็บข้อมูลใน localStorage
+- ยังไม่มี visual prototype/DOM rendering, drawer/keyboard/mobile/browser verification, summary UI, cursor หรือ pagination เนื่องจากยังรอ contract/G0 และ field visibility; ไม่อ้างว่าทำ T06 หรือ AC01 เสร็จ
+
+ผลตรวจรอบนี้: tests ใหม่ HTTP security 8/8 และ UI state 5/5 ผ่าน รวมกับ contract/legacy tests รอบก่อนเป็น 22/22 ผ่าน รัน Report Summary, Monthly Summary, LINE Monthly Summary, Deployment Model/Excel/Summary ซ้ำรวม 25/25 ผ่าน; syntax checks ผ่าน ไม่มีการรัน full baseline ใหม่หลังผล 138/142 ด้านบน เพราะไฟล์ที่เพิ่มไม่เปลี่ยน Operations/Portal เดิม
+
+G0, SQL integration, parameterization/driver, trusted-host deployment checks, UAT/load และ release ยังไม่ผ่านและไม่ได้ดำเนินการเชื่อมต่อ ไม่มี push/PR/merge/deploy ตรวจ status ก่อนส่งงานและไม่สร้าง temporary build artifacts
