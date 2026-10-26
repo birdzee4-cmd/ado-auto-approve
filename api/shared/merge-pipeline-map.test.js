@@ -100,3 +100,19 @@ test('VN campaign management PR selects the standard CD for candidate and detect
   assert.equal(detected.cdName, expectedCd);
   assert.equal(detected.cdId, '5206');
 });
+
+test('PR 374825 selects the ID rulebased overseas CD without overseas in the branch', () => {
+  const pr = {
+    title: 'Remove User Manual Menu - ID',
+    repository: { name: 'Node_Product_Rulebased_Web' },
+    sourceRefName: 'refs/heads/UserStory/U-894221-Remove-User-Manual-Menu-ID',
+    targetRefName: 'refs/heads/MergeCodeProduction/ID/20261022_1134_OP_Website_RuleBaseID_Docker_FromVC1.01_Git_3e50b349389335991987a8872b8f4bfb97b66b06'
+  };
+  const candidate = mapping.findPossibleStagingPipelineMapping(pr);
+  const detected = mapping.findStagingPipelineMappingByCi('ID_STG_Node_Product_Rulebased_Web_docker-CI', pr);
+  for (const result of [candidate, detected]) {
+    assert.equal(result.ciId, '6918');
+    assert.equal(result.cdName, 'Stg web product rulebased docker overseas CD');
+    assert.equal(result.cdId, '6508');
+  }
+});

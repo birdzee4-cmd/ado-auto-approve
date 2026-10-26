@@ -119,6 +119,9 @@ function isOverseasPr(pr) {
 }
 
 function mappingMatchesOverseas(item, pr) {
+  if (String(item && item.ciId) === '6918' && getPartnerCountry(pr).code === 'ID') {
+    return String(item.cdId) === '6508';
+  }
   if (String(item && item.ciId) === '6204' && getPartnerCountry(pr).code === 'VN') {
     return String(item.cdId) === '5206';
   }
