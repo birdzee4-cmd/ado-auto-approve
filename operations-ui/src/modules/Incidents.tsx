@@ -25,6 +25,33 @@ export function Incidents() {
   const [actionError, setActionError] = useState('');
   const [actionMessage, setActionMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<string[]>([]);
+  const [batchReview, setBatchReview] = useState<Incident[] | null>(null);
+  const [batchNote, setBatchNote] = useState('');
+  const [batchResults, setBatchResults] = useState<Array<{ id: string; label: string; result: string; failed: boolean }>>([]);
+  const batchRunning = useRef(false);
+  const batchDialog = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!batchReview) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const dialog = batchDialog.current;
+    dialog?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !batchRunning.current) setBatchReview(null);
+      if (event.key !== 'Tab' || !dialog) return;
+      const controls = Array.from(dialog.querySelectorAll<HTMLElement>('button:not(:disabled), textarea:not(:disabled)'));
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (!first) { event.preventDefault(); return; }
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog)) {
+        event.preventDefault(); first.focus();
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => { document.removeEventListener('keydown', handleKey); previous?.focus(); };
+  }, [batchReview]);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const refreshInFlight = useRef(false);
@@ -68,6 +95,10 @@ export function Incidents() {
   const pageCount = Math.max(1, Math.ceil(filteredItems.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visibleItems = filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const canBatchClose = capabilities.closeIncident && connection?.connected;
+  const eligibleVisible = visibleItems.filter(item => operationsStatus(item) === 'READY_TO_CLOSE' && item.status === 'RESOLVED' && !item.hasLifecycleConflict);
+  const checkedVisible = eligibleVisible.filter(item => checkedIds.includes(item.incidentId));
+  useEffect(() => { setCheckedIds([]); }, [status, search, alertStatus, adoState, lifecycle, assignee, currentPage]);
   const overview = {
     total: overviewItems.length,
     open: overviewItems.filter(item => !isOperationsClosed(item)).length,
@@ -105,7 +136,7 @@ export function Incidents() {
   useEffect(() => { void load(); }, [status]);
   useEffect(() => {
     const refreshWhenSafe = () => {
-      if (document.visibilityState === 'visible' && !busy && !selected) void load();
+      if (document.visibilityState === 'visible' && !busy && !selected && !batchReview) void load();
     };
     const intervalId = window.setInterval(refreshWhenSafe, 60_000);
     const handleVisibilityChange = () => {
@@ -116,7 +147,7 @@ export function Incidents() {
       window.clearInterval(intervalId);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [status, search, busy, selected]);
+  }, [status, search, busy, selected, batchReview]);
   useEffect(() => { loadAdoConnection().then(setConnection).catch(() => setConnection({ connected: false })); }, []);
   useEffect(() => { operationsApi.capabilities().then(setCapabilities).catch(() => setCapabilities({ createRelated: false, linkExisting: false, synchronize: false, closeIncident: false, manualCloseIncident: false, manualAlertStatus: false, restartAppService: false })); }, []);
 
@@ -236,6 +267,33 @@ export function Incidents() {
     );
   };
 
+  const closeBatch = async (targets: Incident[]) => {
+    if (batchRunning.current || !canBatchClose || targets.length === 0 || targets.length > 20) return;
+    batchRunning.current = true;
+    setBusy(true);
+    setBatchResults(current => current.filter(result => !targets.some(item => item.incidentId === result.id)));
+    const batchId = globalThis.crypto.randomUUID();
+    try {
+      for (const item of targets) {
+        let result: string;
+        let failed = false;
+        try {
+          const response = await operationsApi.closeInBatch(item.incidentId, batchId, batchNote.trim());
+          result = response.duplicate ? 'Already closed' : 'Closed';
+        } catch (err) {
+          result = (err as Error).message;
+          failed = true;
+        }
+        setBatchResults(current => [...current, { id: item.incidentId, label: item.displayId || item.incidentId, result, failed }]);
+      }
+      setCheckedIds([]);
+      await load();
+    } finally {
+      batchRunning.current = false;
+      setBusy(false);
+    }
+  };
+
   return <section className="ops-incidents-page">
     <PageHeading eyebrow="Incident command center" title="Incidents" actions={<div className={`ops-refresh-status${refreshing ? ' is-refreshing' : ''}`}><span className="ops-live-label"><i /> Live from SharePoint</span><small>{lastUpdatedAt ? `Updated ${formatClock(lastUpdatedAt)}` : 'Waiting for first update'} · Auto every 60 sec</small>{refreshing && <span className="ops-refreshing-indicator" role="status" aria-live="polite"><i className="ops-spinner" /> Updating incident list…</span>}<button className="ops-button ops-button-secondary" type="button" disabled={refreshing || busy} onClick={() => void load()}>{refreshing ? 'Refreshing…' : 'Refresh now'}</button></div>} />
     <div className="ops-incident-overview" aria-label="Incident overview">
@@ -264,6 +322,12 @@ export function Incidents() {
     {items && filteredItems.length > 0 && <div className="ops-incident-results">
       <div className="ops-results-head"><div><strong>{filteredItems.length} incidents</strong><span>Sorted by Incident number, newest first</span></div><small>Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredItems.length)} of {filteredItems.length}</small></div>
       <div className="ops-incident-columns" aria-hidden="true"><span>Incident / alert</span><span>Resource</span><span>ADO state</span><span>Operations status</span><span>Related</span><span>First seen</span><span>Owner</span><span /></div>
+      {canBatchClose && <details className="ops-bulk-panel">
+        <summary>Close multiple ready incidents · {eligibleVisible.length} eligible on this page</summary>
+        <label><input type="checkbox" disabled={busy || eligibleVisible.length === 0} checked={eligibleVisible.length > 0 && checkedVisible.length === eligibleVisible.length} onChange={e => setCheckedIds(e.target.checked ? eligibleVisible.map(item => item.incidentId) : [])} /> Select all ready incidents on this page (maximum 20)</label>
+        <div className="ops-bulk-selection">{eligibleVisible.map(item => <label key={item.incidentId}><input type="checkbox" disabled={busy} checked={checkedIds.includes(item.incidentId)} onChange={e => setCheckedIds(current => e.target.checked ? [...current, item.incidentId] : current.filter(id => id !== item.incidentId))} /><span><strong>{item.displayId || item.incidentId}</strong> · {item.resource || item.service}</span></label>)}</div>
+        <button className="ops-button" disabled={busy || checkedVisible.length === 0} onClick={() => { setBatchReview([...checkedVisible]); setBatchResults([]); setBatchNote(''); }}>Close selected incidents ({checkedVisible.length})</button>
+      </details>}
       <div className="ops-card-list">{visibleItems.map(item => <button className={`ops-incident-card is-${item.trackingStatus.toLowerCase().replace('_', '-')}${item.hasLifecycleConflict && !isOperationsClosed(item) ? ' has-lifecycle-conflict' : ''}${isOperationsClosed(item) ? ' is-operations-closed' : ''}${operationsStatus(item) === 'READY_TO_CLOSE' ? ' is-ready-to-close' : ''}`} key={item.incidentId} onClick={() => openIncident(item.incidentId)} aria-label={`Open incident ${item.displayId || item.incidentId}`}>
         <span className="ops-incident-main"><span className="ops-incident-id-row"><strong className="ops-incident-display-id">{item.displayId || item.incidentId}</strong><StatusBadge value={item.status} /></span><span className="ops-incident-alert">{humanizeAlert(item.alertName)}</span></span>
         <span className="ops-incident-service"><strong>{item.resource || item.service || 'Unknown resource'}</strong><small>{item.environment || 'Unknown environment'}</small></span>
@@ -276,6 +340,19 @@ export function Incidents() {
       </button>)}</div>
       {pageCount > 1 && <div className="ops-pagination"><button className="ops-button ops-button-secondary" disabled={currentPage === 1} onClick={() => setPage(value => Math.max(1, value - 1))}>Previous</button><span>Page {currentPage} of {pageCount}</span><button className="ops-button ops-button-secondary" disabled={currentPage === pageCount} onClick={() => setPage(value => Math.min(pageCount, value + 1))}>Next</button></div>}
     </div>}
+    {batchReview && <div className="ops-drawer-backdrop"><aside ref={batchDialog} tabIndex={-1} className="ops-detail-drawer ops-bulk-review" role="dialog" aria-modal="true" aria-labelledby="bulk-close-title">
+      <h2 id="bulk-close-title">Close {batchReview.length} incidents</h2>
+      <p>Latest Work Item and alert states will be checked before each closure. Incidents that no longer qualify will be skipped.</p>
+      <ul>{batchReview.map(item => <li key={item.incidentId}><strong>{item.displayId || item.incidentId}</strong> · {item.resource || item.service}<br /><small>Recovered: {formatBangkokTimestamp(item.resolvedAt, 'en-GB', true)} · ADO: {item.adoState || 'Unknown'}</small></li>)}</ul>
+      <label>Closure note (optional)<textarea maxLength={1000} disabled={busy || batchResults.length > 0} value={batchNote} onChange={e => setBatchNote(e.target.value)} /></label>
+      <div role="status" aria-live="polite">{busy ? `Processing ${batchResults.length} / ${batchReview.length}` : batchResults.length > 0 ? `${batchResults.filter(item => item.result === 'Closed').length} closed · ${batchResults.filter(item => item.result === 'Already closed').length} already closed · ${batchResults.filter(item => item.failed).length} failed / skipped` : ''}</div>
+      {batchResults.length > 0 && <ul>{batchResults.map(item => <li key={item.id}>{item.label}: {item.result}</li>)}</ul>}
+      <div className="ops-card-actions">
+        {batchResults.length === 0 && <button className="ops-button" disabled={busy} onClick={() => void closeBatch(batchReview)}>Confirm closure</button>}
+        {!busy && batchResults.some(item => item.failed) && <button className="ops-button" onClick={() => void closeBatch(batchReview.filter(item => batchResults.some(result => result.id === item.incidentId && result.failed)))}>Retry failed incidents only</button>}
+        <button className="ops-button ops-button-secondary" disabled={busy} onClick={() => setBatchReview(null)}>{batchResults.length ? 'Done' : 'Cancel'}</button>
+      </div>
+    </aside></div>}
     {(selected || selectedLoading) && <div className="ops-drawer-backdrop" onMouseDown={e => { if (e.currentTarget === e.target && !selectedLoading) closeIncidentDetails(); }}><aside className={`ops-detail-drawer${selectedLoading && !selected ? ' is-loading' : ''}`} aria-label="Incident details">
       {selectedLoading && !selected && <div className="ops-detail-loading" role="status" aria-live="polite"><span className="ops-spinner" /><strong>Loading incident details…</strong><small>Please wait while the latest incident data is retrieved.</small></div>}
       {selected && <>

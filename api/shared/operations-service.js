@@ -597,7 +597,7 @@ async function synchronizeWorkItems(input, context, dependencies = {}) {
 async function closeIncident(input, context, dependencies = {}) {
   requireFeature('OPERATIONS_CLOSE_ENABLED');
   const sp = dependencies.sharePoint || defaultSharePoint;
-  const synchronization = await synchronizeWorkItems(input, context, dependencies);
+  const synchronization = await synchronizeWorkItems({ ...input, roles: undefined }, context, dependencies);
   const failedItems = synchronization.items.filter(item => !item.ok);
   if (failedItems.length > 0) {
     const detail = `Could not verify the latest state of Work Items: ${failedItems.map(item => `#${item.workItemId}`).join(', ')}`;
@@ -614,6 +614,14 @@ async function closeIncident(input, context, dependencies = {}) {
     };
   }
   const eligibility = closeEligibility(incident);
+  const latestOpenItems = synchronization.items.filter(item => !defaultWorkItems.isClosedState(item.state));
+  const invalidBulkTimeline = Date.parse(incident.resolvedAt || '') <= Date.parse(incident.firstSeen || '')
+    || Date.parse(incident.lastAlertAt || '') < Date.parse(incident.receivedAt || '');
+  if (input.batchClose === true && (eligibility.readinessStatus !== 'READY_TO_CLOSE' || incident.hasLifecycleConflict || latestOpenItems.length > 0 || invalidBulkTimeline)) {
+    const detail = 'Bulk closure requires a recovered alert, closed Work Items and no lifecycle conflict';
+    await audit(sp, context, { incidentId: incident.incidentId, action: 'INCIDENT_CLOSE_BLOCKED', result: 'BLOCKED', detail });
+    throw operationalError(409, 'BULK_CLOSE_NOT_READY', detail);
+  }
   if (!eligibility.allowed) {
     await audit(sp, context, { incidentId: incident.incidentId, action: 'INCIDENT_CLOSE_BLOCKED', result: 'BLOCKED', detail: eligibility.reasons.join('; ') });
     const error = operationalError(409, 'INCIDENT_CLOSE_BLOCKED', 'Incident closure requirements are not complete');
@@ -628,7 +636,7 @@ async function closeIncident(input, context, dependencies = {}) {
     incidentId: incident.incidentId,
     action: 'INCIDENT_CLOSED',
     result: 'SUCCEEDED',
-    detail: `Closed at ${now}; monitoring status: ${incident.status || 'UNKNOWN'}${eligibility.warnings?.length ? '; manual monitoring override applied' : ''}`
+    detail: `Closed at ${now}; monitoring status: ${incident.status || 'UNKNOWN'}${eligibility.warnings?.length ? '; manual monitoring override applied' : ''}${input.batchClose === true ? `; batch: ${String(input.batchId || '').slice(0, 100)}; note: ${String(input.note || '').slice(0, 1000)}` : ''}`
   });
   return { incidentId: incident.incidentId, closed: true, closedAt: now };
 }
