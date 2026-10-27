@@ -931,14 +931,17 @@ test('ready-to-close notification uses its dedicated Teams webhook and audit key
     sent.push({ card, options });
     return { ok: true, status: 204 };
   };
-  operationsSharePoint.listAudit = async () => audits.map(event => ({ eventKey: event.EventKey }));
+  operationsSharePoint.listAudit = async () => audits.map(event => ({ eventKey: event.EventKey, timestamp: event.OccurredAt }));
   operationsSharePoint.appendAudit = async event => { audits.push(event); return event; };
   try {
     await withFlags({
       OPERATIONS_READY_TO_CLOSE_NOTIFICATION_ENABLED: 'true',
       TEAMS_READY_TO_CLOSE_WEBHOOK_URL: 'https://example.test/ready-room'
     }, async () => {
-      const first = await reconcile.notifyIfNeeded(ready, 0, {});
+      const scheduled = await reconcile.notifyIfNeeded(ready, 0, {});
+      assert.equal(scheduled.reason, 'waiting-first-reminder');
+      const dueMs = Date.parse(audits[0].OccurredAt) + 60 * 60 * 1000;
+      const first = await reconcile.notifyIfNeeded(ready, 0, {}, dueMs);
       const second = await reconcile.notifyIfNeeded(ready, 0, {});
       assert.equal(first.sent, true);
       assert.equal(second.reason, 'duplicate');
@@ -946,7 +949,7 @@ test('ready-to-close notification uses its dedicated Teams webhook and audit key
       assert.equal(sent[0].options.webhookUrl, 'https://example.test/ready-room');
       assert.match(sent[0].card.body[0].text, /^🔔 /u);
       assert.match(sent[0].card.actions[0].url, /#\/incidents\?id=/);
-      assert.equal(audits[0].EventKey, first.eventKey);
+      assert.equal(audits[1].EventKey, first.eventKey);
     });
     await withFlags({
       OPERATIONS_READY_TO_CLOSE_NOTIFICATION_ENABLED: 'true',
@@ -968,6 +971,40 @@ test('ready-to-close notification uses its dedicated Teams webhook and audit key
   } finally {
     teamsNotifier.sendTeamsText = originalSend;
     teamsNotifier.sendTeamsMessage = originalSendMessage;
+    operationsSharePoint.listAudit = originalListAudit;
+    operationsSharePoint.appendAudit = originalAppendAudit;
+  }
+});
+
+test('ready reminder persists a one-hour deadline and suppresses closed incidents', async () => {
+  const ready = { ...incident, status: 'RESOLVED', operationsStatus: 'IN_PROGRESS',
+    workItems: [{ workItemId: 9101, role: 'PRIMARY', state: 'Closed' }] };
+  const originalSend = teamsNotifier.sendTeamsMessage;
+  const originalListAudit = operationsSharePoint.listAudit;
+  const originalAppendAudit = operationsSharePoint.appendAudit;
+  const audits = [];
+  let sends = 0;
+  teamsNotifier.sendTeamsMessage = async () => { sends++; return { ok: true, status: 204 }; };
+  operationsSharePoint.listAudit = async () => audits.map(event => ({ eventKey: event.EventKey, timestamp: event.OccurredAt }));
+  operationsSharePoint.appendAudit = async event => { audits.push(event); return event; };
+  try {
+    await withFlags({ OPERATIONS_READY_TO_CLOSE_NOTIFICATION_ENABLED: 'true',
+      TEAMS_READY_TO_CLOSE_WEBHOOK_URL: 'https://example.test/ready-room' }, async () => {
+      assert.equal((await reconcile.notifyIfNeeded(ready, 0, {})).reason, 'waiting-first-reminder');
+      const due = Date.parse(audits[0].OccurredAt) + 3600000;
+      assert.equal((await reconcile.notifyIfNeeded(ready, 0, {}, due - 1)).reason, 'waiting-first-reminder');
+      assert.equal(audits.length, 1);
+      assert.equal(sends, 0);
+      const preview = await reconcile.notificationDryRunCandidate(ready);
+      assert.equal(preview.notification.dueAt, new Date(due).toISOString());
+      assert.equal((await reconcile.notifyIfNeeded({ ...ready, operationsStatus: 'CLOSED' }, 0, {}, due)).sent, false);
+      assert.equal(sends, 0);
+      assert.equal((await reconcile.notifyIfNeeded(ready, 0, {}, due)).sent, true);
+      assert.equal((await reconcile.notifyIfNeeded(ready, 0, {}, due + 1)).reason, 'duplicate');
+      assert.equal(sends, 1);
+    });
+  } finally {
+    teamsNotifier.sendTeamsMessage = originalSend;
     operationsSharePoint.listAudit = originalListAudit;
     operationsSharePoint.appendAudit = originalAppendAudit;
   }
@@ -997,9 +1034,9 @@ test('resolved open reminder follows ready notification once and uses dedicated 
   const originalListAudit = operationsSharePoint.listAudit;
   const originalAppendAudit = operationsSharePoint.appendAudit;
   const sent = [];
-  const audits = [];
+  const audits = [{ EventKey: `${reconcile.notificationCandidate(ready, 0).eventKey}:scheduled`, OccurredAt: '2026-10-01T00:00:00.000Z' }];
   teamsNotifier.sendTeamsMessage = async (card, options) => { sent.push({ card, options }); return { ok: true, status: 204 }; };
-  operationsSharePoint.listAudit = async () => audits.map(event => ({ eventKey: event.EventKey }));
+  operationsSharePoint.listAudit = async () => audits.map(event => ({ eventKey: event.EventKey, timestamp: event.OccurredAt }));
   operationsSharePoint.appendAudit = async event => { audits.push(event); return event; };
   try {
     await withFlags({
@@ -1015,7 +1052,7 @@ test('resolved open reminder follows ready notification once and uses dedicated 
       assert.equal(sent.length, 2);
       assert.equal(sent[1].options.webhookUrl, 'https://example.test/ready-room');
       assert.match(sent[1].card.body[0].text, /still open after 24 hours/);
-      assert.notEqual(audits[0].EventKey, audits[1].EventKey);
+      assert.notEqual(audits[1].EventKey, audits[2].EventKey);
     });
   } finally {
     teamsNotifier.sendTeamsMessage = originalSend;
