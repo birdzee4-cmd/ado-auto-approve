@@ -341,12 +341,14 @@ export function Incidents() {
       {pageCount > 1 && <div className="ops-pagination"><button className="ops-button ops-button-secondary" disabled={currentPage === 1} onClick={() => setPage(value => Math.max(1, value - 1))}>Previous</button><span>Page {currentPage} of {pageCount}</span><button className="ops-button ops-button-secondary" disabled={currentPage === pageCount} onClick={() => setPage(value => Math.min(pageCount, value + 1))}>Next</button></div>}
     </div>}
     {batchReview && <div className="ops-drawer-backdrop"><aside ref={batchDialog} tabIndex={-1} className="ops-detail-drawer ops-bulk-review" role="dialog" aria-modal="true" aria-labelledby="bulk-close-title">
+      <div className="ops-bulk-review-content">
       <h2 id="bulk-close-title">Close {batchReview.length} incidents</h2>
       <p>Latest Work Item and alert states will be checked before each closure. Incidents that no longer qualify will be skipped.</p>
       <ul>{batchReview.map(item => <li key={item.incidentId}><strong>{item.displayId || item.incidentId}</strong> · {item.resource || item.service}<br /><small>Recovered: {formatBangkokTimestamp(item.resolvedAt, 'en-GB', true)} · ADO: {item.adoState || 'Unknown'}</small></li>)}</ul>
       <label>Closure note (optional)<textarea maxLength={1000} disabled={busy || batchResults.length > 0} value={batchNote} onChange={e => setBatchNote(e.target.value)} /></label>
       <div role="status" aria-live="polite">{busy ? `Processing ${batchResults.length} / ${batchReview.length}` : batchResults.length > 0 ? `${batchResults.filter(item => item.result === 'Closed').length} closed · ${batchResults.filter(item => item.result === 'Already closed').length} already closed · ${batchResults.filter(item => item.failed).length} failed / skipped` : ''}</div>
       {batchResults.length > 0 && <ul>{batchResults.map(item => <li key={item.id}>{item.label}: {item.result}</li>)}</ul>}
+      </div>
       <div className="ops-card-actions">
         {batchResults.length === 0 && <button className="ops-button" disabled={busy} onClick={() => void closeBatch(batchReview)}>Confirm closure</button>}
         {!busy && batchResults.some(item => item.failed) && <button className="ops-button" onClick={() => void closeBatch(batchReview.filter(item => batchResults.some(result => result.id === item.incidentId && result.failed)))}>Retry failed incidents only</button>}
