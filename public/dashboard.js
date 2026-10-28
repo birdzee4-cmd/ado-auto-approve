@@ -13,6 +13,40 @@ import {
 
 let currentPrForAction = null;
 let _allPrs = [];
+let _mergeWaitingFilter = false;
+let _lastMergeWaiting = new Set();
+function isMergeWaitingForMe(pr) {
+  return isMergeCodePr(pr) && pr.myApproval && pr.myApproval.waitingForMe === true;
+}
+window.filterMergeWaiting = function(enabled) {
+  _mergeWaitingFilter = enabled;
+  window.switchTab('pr');
+  renderPrTable(_allPrs);
+  document.getElementById('prTableContainer')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+function updateMergeWaitingNotice(prs) {
+  const waiting = (prs || []).filter(isMergeWaitingForMe);
+  const next = new Set(waiting.map(pr => String(pr.repositoryId || pr.repository) + ':' + pr.id));
+  const added = waiting.filter(pr => !_lastMergeWaiting.has(String(pr.repositoryId || pr.repository) + ':' + pr.id));
+  const changed = next.size !== _lastMergeWaiting.size || [...next].some(key => !_lastMergeWaiting.has(key));
+  _lastMergeWaiting = next;
+  let notice = document.getElementById('mergeWaitingNotice');
+  if (!notice) {
+    notice = document.createElement('div');
+    notice.id = 'mergeWaitingNotice';
+    notice.className = 'merge-waiting-notice';
+    notice.setAttribute('role', 'status');
+    document.getElementById('prResult').after(notice);
+  }
+  if (!waiting.length) { notice.hidden = true; return; }
+  if (changed && !added.length) notice.hidden = true;
+  if (added.length) {
+    notice.hidden = false;
+    notice.innerHTML = '<strong>มี PR ใหม่ ' + added.length + ' รายการรอคุณเป็นคนสุดท้าย</strong> ' +
+      '<button type="button" onclick="filterMergeWaiting(true)">ดูรายการ</button> ' +
+      '<button type="button" onclick="this.parentElement.hidden=true" aria-label="ปิดแจ้งเตือน">×</button>';
+  }
+}
 let _checkPrsInFlight = false;
 let _autoScanConsecutiveFailures = 0;
 const AUTO_CONSOLE_MAX_ENTRIES = 100;
@@ -302,6 +336,7 @@ async function checkPrs(isSilent) {
     const attention = d.attentionSummary || {};
     showBox('prResult', renderPrSummaryBanner(d, attention, mergeCodeCount));
     renderPrTable(d.prs);
+    updateMergeWaitingNotice(d.prs);
     
     // Evaluate and execute auto-approvals if settings are active
     if (window._autoMode && window._autoMode !== 'normal') {
@@ -450,6 +485,9 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
     '<span class="card-icon">🔗</span>' +
     '<div class="card-body">' +
       '<span class="card-label">MergeCode Manual</span>' +
+      '<div class="merge-waiting-summary">' + (d.prs || []).filter(isMergeWaitingForMe).length + ' จาก ' + mergeCodeCount + ' PR รอคุณเป็นคนสุดท้าย</div>' +
+      '<small>ตาม Required reviewers · ตรวจ Build / Policy แยก</small>' +
+      '<div><button type="button" onclick="filterMergeWaiting(true)">ดู PR ที่รอคุณ</button> <button type="button" onclick="filterMergeWaiting(false)">ดูทั้งหมด</button></div>' +
       '<div class="mergecode-card-value">' +
         '<strong class="card-value text-amber">' + mergeCodeCount + ' PR</strong>' +
         (hasMergeCodeWork ? '<span class="mergecode-action-label">Action required</span>' : '') +
@@ -488,7 +526,7 @@ function renderPrTable(prs) {
   }
 
   // Split PRs into PR Queue and Release Queue
-  const prQueue = _allPrs.filter(pr => !(pr.releaseApproval && pr.releaseApproval.status === 'pending'));
+  const prQueue = _allPrs.filter(pr => (_mergeWaitingFilter ? isMergeWaitingForMe(pr) : !(pr.releaseApproval && pr.releaseApproval.status === 'pending')));
   const releaseQueue = _allPrs.filter(pr => pr.releaseApproval && pr.releaseApproval.status === 'pending');
 
   // Update Badges
@@ -546,7 +584,7 @@ function updateTabVisibility() {
 }
 
 function renderPrQueueTable(prs) {
-  document.getElementById('prMeta').textContent = prs.length + ' items';
+  document.getElementById('prMeta').textContent = prs.length + ' items' + (_mergeWaitingFilter ? ' · รอคุณเป็นคนสุดท้าย (กดดูทั้งหมดบนการ์ดเพื่อยกเลิก)' : '');
   const tbody = document.getElementById('prTableBody');
   tbody.innerHTML = '';
 
@@ -559,6 +597,7 @@ function renderPrQueueTable(prs) {
     const tr = document.createElement('tr');
     if (pr.isDraft) tr.classList.add('pr-draft');
     if (isMergeCodePr(pr)) tr.classList.add('pr-mergecode');
+    if (isMergeWaitingForMe(pr)) tr.classList.add('pr-merge-waiting');
 
     const mergeCodeBadge = isMergeCodePr(pr) ? ' <span class="pr-badge pr-badge-manual">MERGECODE MANUAL</span>' : '';
     const draftBadge = pr.isDraft ? ' <span class="pr-badge">DRAFT</span>' : '';
@@ -801,7 +840,7 @@ function renderActions(pr) {
     return '<div class="action-cell">' +
       '<span class="manual-action-note">Manual in Azure DevOps</span>' +
       '<button class="btn-mini btn-history" onclick="openHistoryModal(\'' + pr.id + '\')">📜</button>' +
-      '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>🔗 Open ADO</a>' +
+      '<a class="' + openClass + '" href="' + openUrl + '"' + openAttrs + '>' + (isMergeWaitingForMe(pr) ? '🔗 เปิด ADO เพื่ออนุมัติ' : '🔗 Open ADO') + '</a>' +
       '</div>';
   }
 
@@ -860,6 +899,10 @@ function renderMyApprovalBadge(pr) {
   let cls = 'my-approval my-approval-pending';
   let icon = '⭕';
   let label = my.label || 'Not approved';
+  if (isMergeWaitingForMe(pr)) {
+    return '<span class="my-approval merge-waiting-badge"><strong>🔔 รอคุณเป็นคนสุดท้าย</strong><span class="my-approval-detail">' +
+      escapeHtml((pr.approval?.approvedCount || 0) + '/' + (pr.approval?.requiredCount || 0) + ' Required reviewers อนุมัติแล้ว') + '</span></span>';
+  }
 
   if (my.status === 'approved') {
     cls = 'my-approval my-approval-approved';
