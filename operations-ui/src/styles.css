@@ -583,3 +583,7 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 }
 .ops-bulk-review li { margin: 12px 0; overflow-wrap: anywhere; }
 .ops-bulk-review textarea { display: block; width: 100%; min-height: 80px; margin: 8px 0 20px; }
+.ops-refresh-status > .ops-sync-controls { grid-column: 2; grid-row: 1 / span 2; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.ops-sync-controls select { max-width: 230px; padding: 10px; border: 1px solid var(--ops-border); border-radius: 6px; background: #fff; color: inherit; }
+.ops-sync-summary { margin: 12px 0; padding: 12px; border: 1px solid var(--ops-border); border-radius: 8px; }
+@media (max-width: 760px) { .ops-refresh-status > .ops-sync-controls { grid-column: 1; grid-row: auto; justify-content: flex-end; } }

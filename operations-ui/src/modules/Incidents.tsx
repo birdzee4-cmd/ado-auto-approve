@@ -52,6 +52,10 @@ export function Incidents() {
     document.addEventListener('keydown', handleKey);
     return () => { document.removeEventListener('keydown', handleKey); previous?.focus(); };
   }, [batchReview]);
+  const [syncScope, setSyncScope] = useState('open');
+  const [syncProgress, setSyncProgress] = useState('');
+  const [syncResults, setSyncResults] = useState<Array<{ incidentId: string; ok: boolean; skipped?: boolean; detail?: string }>>([]);
+  const syncRunning = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const refreshInFlight = useRef(false);
@@ -99,6 +103,24 @@ export function Incidents() {
   const eligibleVisible = visibleItems.filter(item => operationsStatus(item) === 'READY_TO_CLOSE' && item.status === 'RESOLVED' && !item.hasLifecycleConflict);
   const checkedVisible = eligibleVisible.filter(item => checkedIds.includes(item.incidentId));
   useEffect(() => { setCheckedIds([]); }, [status, search, alertStatus, adoState, lifecycle, assignee, currentPage]);
+  const syncCandidates = (syncScope === 'open' ? overviewItems.filter(item => !isOperationsClosed(item)) : filteredItems).filter(item => item.workItemSummary.total > 0);
+  const synchronizeIncidents = async (retryIds?: string[]) => {
+    if (syncRunning.current || busy || refreshing) return;
+    const ids = retryIds || syncCandidates.map(item => item.incidentId);
+    if (!ids.length) return;
+    syncRunning.current = true; setBusy(true); setSyncResults([]);
+    const results: typeof syncResults = [];
+    try {
+      for (let offset = 0; offset < ids.length; offset += 5) {
+        setSyncProgress('Synchronizing… ' + offset + '/' + ids.length);
+        const batch = ids.slice(offset, offset + 5);
+        try { results.push(...(await operationsApi.synchronizeBatch(batch, syncScope === 'results')).results); }
+        catch (err) { results.push(...batch.map(incidentId => ({ incidentId, ok: false, detail: (err as Error).message }))); }
+      }
+      setSyncResults(results);
+      await load(true);
+    } finally { syncRunning.current = false; setSyncProgress(''); setBusy(false); }
+  };
   const overview = {
     total: overviewItems.length,
     open: overviewItems.filter(item => !isOperationsClosed(item)).length,
@@ -109,22 +131,22 @@ export function Incidents() {
     closed: overviewItems.filter(isOperationsClosed).length
   };
 
-  const load = async () => {
+  const load = async (preservePage = false) => {
     if (refreshInFlight.current) return;
     refreshInFlight.current = true;
     setRefreshing(true);
     setError('');
-    const allRequest = operationsApi.incidents('', search);
+    const allRequest = Promise.all([operationsApi.incidents('', search), operationsApi.incidents()]);
     try {
-      const all = await allRequest;
+      const [all, inventory] = await allRequest;
       setItems(all.items.filter(item => {
         if (status === 'OPEN_INCIDENTS') return !isOperationsClosed(item);
         if (status === 'ATTENTION') return isFollowUpItem(item);
         if (status === 'ACTION_REQUIRED') return isActionRequired(item);
         return !status || operationsStatus(item) === status;
       }));
-      setOverviewItems(all.items);
-      setPage(1);
+      setOverviewItems(inventory.items);
+      if (!preservePage) setPage(1);
       setLastUpdatedAt(new Date());
     } catch (err) {
       setError((err as Error).message);
@@ -295,7 +317,10 @@ export function Incidents() {
   };
 
   return <section className="ops-incidents-page">
-    <PageHeading eyebrow="Incident command center" title="Incidents" actions={<div className={`ops-refresh-status${refreshing ? ' is-refreshing' : ''}`}><span className="ops-live-label"><i /> Live from SharePoint</span><small>{lastUpdatedAt ? `Updated ${formatClock(lastUpdatedAt)}` : 'Waiting for first update'} · Auto every 60 sec</small>{refreshing && <span className="ops-refreshing-indicator" role="status" aria-live="polite"><i className="ops-spinner" /> Updating incident list…</span>}<button className="ops-button ops-button-secondary" type="button" disabled={refreshing || busy} onClick={() => void load()}>{refreshing ? 'Refreshing…' : 'Refresh now'}</button></div>} />
+    <PageHeading eyebrow="Incident command center" title="Incidents" actions={<div className={`ops-refresh-status${refreshing ? ' is-refreshing' : ''}`}><span className="ops-live-label"><i /> Live from SharePoint</span><small>{lastUpdatedAt ? `Updated ${formatClock(lastUpdatedAt)}` : 'Waiting for first update'} · Auto every 60 sec</small>{refreshing && <span className="ops-refreshing-indicator" role="status" aria-live="polite"><i className="ops-spinner" /> Updating incident list…</span>}<div className="ops-sync-controls"><select aria-label="Synchronization scope" value={syncScope} disabled={busy || refreshing} onChange={event => { setSyncScope(event.target.value); setSyncResults([]); }}><option value="open">Open incidents (all pages)</option><option value="results">Current results (include closed)</option></select><button className="ops-button ops-button-secondary" type="button" disabled={busy || refreshing || !connection?.connected || !capabilities.synchronize || !syncCandidates.length} title="Synchronize Primary and Related work items from Azure DevOps" onClick={() => void synchronizeIncidents()}>{syncProgress || 'Synchronize (' + syncCandidates.length + ')'}</button><button className="ops-button ops-button-secondary" type="button" disabled={refreshing || busy} onClick={() => void load()}>{refreshing ? 'Refreshing…' : 'Refresh now'}</button></div></div>} />
+    <div role="status" aria-live="polite">{syncProgress || (syncScope === 'open' && !syncCandidates.length && items ? 'No open incidents to synchronize.' : '')}</div>
+    {syncResults.length > 0 && <div className="ops-sync-summary"><p role="status">Synchronization complete: {syncResults.filter(item => item.ok && !item.skipped).length} succeeded · {syncResults.filter(item => item.skipped).length} skipped · {syncResults.filter(item => !item.ok).length} failed.</p>{syncResults.some(item => !item.ok) && <><button className="ops-button ops-button-secondary" disabled={busy || refreshing || !connection?.connected || !capabilities.synchronize} onClick={() => void synchronizeIncidents(syncResults.filter(item => !item.ok).map(item => item.incidentId))}>Retry failed incidents</button><ul>{syncResults.filter(item => !item.ok).map(item => <li key={item.incidentId}>{item.incidentId}: {item.detail}</li>)}</ul></>}</div>}
+
     <div className="ops-incident-overview" aria-label="Incident overview">
       <button className={status === 'OPEN_INCIDENTS' ? 'is-active' : ''} onClick={() => setStatus('OPEN_INCIDENTS')}><span>Open incidents</span><strong>{overview.open}</strong><small>Remaining to close</small></button>
       <button className={status === 'ACTION_REQUIRED' ? 'is-active is-warning' : 'is-warning'} onClick={() => setStatus('ACTION_REQUIRED')}><span>Needs action</span><strong>{overview.actionRequired}</strong><small>Review or take action</small></button>
