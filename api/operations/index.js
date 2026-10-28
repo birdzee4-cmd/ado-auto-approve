@@ -402,7 +402,10 @@ function isActionRequired(item) {
 }
 
 function isBacklogItem(item) {
-  return isActionRequired(item) || isWaitingForSupport(item) || isWaitingForResolved(item) || isReadyToClose(item);
+  return !isOperationsClosed(item) && (
+    ['NEW', 'OPEN', 'IN_PROGRESS'].includes(String(item.trackingStatus || '').toUpperCase())
+    || isActionRequired(item) || isWaitingForSupport(item) || isWaitingForResolved(item) || isReadyToClose(item)
+  );
 }
 
 function isClosedWorkItemState(value) {

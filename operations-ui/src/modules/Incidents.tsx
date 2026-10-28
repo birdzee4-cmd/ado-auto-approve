@@ -530,7 +530,7 @@ function isActionRequired(item: Incident) {
 }
 
 function isFollowUpItem(item: Incident) {
-  return isActionRequired(item) || ['WAITING_SUPPORT', 'WAITING_RESOLVED', 'READY_TO_CLOSE'].includes(operationsStatus(item));
+  return isActionRequired(item) || ['NEW', 'OPEN', 'IN_PROGRESS', 'WAITING_SUPPORT', 'WAITING_RESOLVED', 'READY_TO_CLOSE'].includes(operationsStatus(item));
 }
 
 function timelineForDisplay(events: AuditEvent[], showTechnical: boolean) {
