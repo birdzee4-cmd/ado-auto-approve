@@ -287,15 +287,15 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-row-arrow { color: #a7a095; font-size: 1.15rem; transition: transform .16s ease, color .16s ease; }
 .ops-incident-card:hover .ops-row-arrow { color: var(--ops-yellow-deep); transform: translateX(3px); }
 .ops-status { display: inline-flex; width: max-content; max-width: 100%; min-height: 25px; align-items: center; padding: 4px 8px; border: 1px solid #c8c2b5; border-radius: 999px; background: #f4f1e9; color: #57534c; font-size: .68rem; font-weight: 800; letter-spacing: .035em; white-space: nowrap; }
-.ops-status-firing, .ops-status-failed, .ops-status-action-required, .ops-status-needs-review, .ops-status-degraded, .ops-status-open { color: #9d2929; background: #fff0f0; border-color: #e9abab; }
+.ops-status-firing, .ops-status-failed, .ops-status-action-required, .ops-status-needs-review, .ops-status-degraded { color: #9d2929; background: #fff0f0; border-color: #e9abab; }
 .ops-status-resolved, .ops-status-succeeded, .ops-status-connected, .ops-status-enabled, .ops-status-closed { color: #096847; background: #ecfaf4; border-color: #9cd8c3; }
 .ops-status-approved, .ops-status-app-support-created, .ops-status-tier2-created, .ops-status-both-teams-created, .ops-status-incident-closed { color: #096847; background: #ecfaf4; border-color: #9cd8c3; }
 .ops-status-rejected { color: #9d2929; background: #fff0f0; border-color: #e9abab; }
 .ops-status-awaiting-approval, .ops-status-primary-created { color: #7b5607; background: #fff8e5; border-color: #e8cc7f; }
-.ops-status-queued, .ops-status-processing, .ops-status-pending { color: #7b5607; background: #fff8e5; border-color: #e8cc7f; }
+.ops-status-queued, .ops-status-processing, .ops-status-pending, .ops-status-open, .ops-status-in-progress { color: #7b5607; background: #fff8e5; border-color: #e8cc7f; }
 .ops-status-waiting-resolved { color: #7b5607; background: #fff8e5; border-color: #e8cc7f; }
-.ops-status-waiting-support { color: #175b91; background: #edf6ff; border-color: #93c5e8; }
-.ops-status-ready-to-close { color: #096847; background: #ecfaf4; border-color: #9cd8c3; }
+.ops-status-waiting-support, .ops-status-new { color: #175b91; background: #edf6ff; border-color: #93c5e8; }
+.ops-status-ready-to-close { color: #175b91; background: #f0f7ff; border-color: #93c5e8; }
 .ops-status-cancelled { color: #67510c; background: #fff8df; border-color: #d9bd65; }
 .ops-status-not-created { color: #57534c; background: #f4f1e9; border-color: #c8c2b5; }
 .ops-ado-state { min-width: 70px; justify-content: center; text-transform: none; }

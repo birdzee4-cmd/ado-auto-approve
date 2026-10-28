@@ -19,7 +19,7 @@ export function formatBangkokTimestamp(value?: string, locale = 'en-GB', legacyB
 }
 
 export function StatusBadge({ value }: { value: string }) {
-  const className = value.toLowerCase().replace(/_/g, '-');
+  const className = value.trim().toLowerCase().replace(/[_\s]+/g, '-');
   return <span className={`ops-status ops-status-${className}`}>{displayStatus(value)}</span>;
 }
 
@@ -29,7 +29,7 @@ export function displayStatus(value?: string) {
     FIRING: 'Active', RESOLVED: 'Recovered',
     RECEIVED: 'Received', AWAITING_APPROVAL: 'Awaiting approval', CREATED: 'Work item created',
     REJECTED: 'Rejected', FAILED: 'Automation failed', CANCELLED: 'Cancelled',
-    OPEN: 'In progress', CLOSED: 'Closed', PENDING: 'Awaiting action', NOT_CREATED: 'Work item not created',
+    NEW: 'New', OPEN: 'In progress', IN_PROGRESS: 'In progress', CLOSED: 'Closed', PENDING: 'Awaiting action', NOT_CREATED: 'Work item not created',
     WAITING_RESOLVED: 'Waiting for alert recovery', WAITING_SUPPORT: 'Waiting for support',
     READY_TO_CLOSE: 'Ready to close', NEEDS_REVIEW: 'Needs review',
     APPROVED: 'Approved', NOT_REQUESTED: 'Not requested', COMPLETED: 'Completed',
