@@ -569,3 +569,7 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-report-chart i { display: block; width: 75%; min-height: 2px; background: var(--ops-yellow, #f5a400); border-radius: 4px 4px 0 0; }
 .ops-report-pagination { display: flex; justify-content: end; align-items: center; gap: 15px; padding: 18px; }
 .ops-date-control select { padding: 10px; border: 1px solid var(--ops-line); border-radius: 6px; background: white; font: inherit; }
+.ops-refresh-status > .ops-sync-controls { grid-column: 2; grid-row: 1 / span 2; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.ops-sync-controls select { max-width: 230px; padding: 10px; border: 1px solid var(--ops-border); border-radius: 6px; background: #fff; color: inherit; }
+.ops-sync-summary { margin: 12px 0; padding: 12px; border: 1px solid var(--ops-border); border-radius: 8px; }
+@media (max-width: 760px) { .ops-refresh-status > .ops-sync-controls { grid-column: 1; grid-row: auto; justify-content: flex-end; } }

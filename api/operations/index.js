@@ -206,9 +206,9 @@ async function handleWrite(context, req, path, principal) {
     }, token.setCookie);
   }
   const match = /^incidents\/([A-Za-z0-9._:-]+)\/(.+)$/.exec(path);
-  if (!match) return jsonResponse(context, 404, { ok: false, error: 'Operations write route not found' }, token.setCookie);
-  const incidentId = match[1];
-  const action = match[2];
+  if (!match && path !== 'incidents/synchronize') return jsonResponse(context, 404, { ok: false, error: 'Operations write route not found' }, token.setCookie);
+  const incidentId = match?.[1];
+  const action = match?.[2];
   const adoActionContext = {
     accessToken: token.accessToken,
     correlationId: String(req.headers && (req.headers['x-correlation-id'] || req.headers['x-ms-request-id']) || require('crypto').randomUUID()),
@@ -220,6 +220,22 @@ async function handleWrite(context, req, path, principal) {
     adoIdentity: verified.identity,
     principalHeader: req.headers && (req.headers['x-ms-client-principal'] || req.headers['X-MS-CLIENT-PRINCIPAL'] || '')
   };
+  if (path === 'incidents/synchronize') {
+    if (!operationsService.featureEnabled('OPERATIONS_SYNC_ENABLED')) return jsonResponse(context, 503, { ok: false, error: 'FEATURE_DISABLED' }, token.setCookie);
+    if (!Array.isArray(body.incidentIds) || !body.incidentIds.length || body.incidentIds.length > 5 || body.incidentIds.some(id => typeof id !== 'string' || !/^[A-Za-z0-9._:-]+$/.test(id))) return jsonResponse(context, 400, { ok: false, error: 'Provide 1 to 5 incident IDs' }, token.setCookie);
+    const results = [];
+    for (const id of new Set(body.incidentIds)) {
+      try {
+        const incident = await sharePoint.getIncident(id);
+        if (!incident) throw new Error('Incident not found');
+        if (String(incident.operationsStatus || '').toUpperCase() === 'CLOSED' && body.includeClosed !== true) { results.push({ incidentId: id, ok: true, skipped: true }); continue; }
+        const result = await operationsService.synchronize({ incidentId: id }, adoActionContext);
+        const failed = result.items.filter(item => !item.ok).length;
+        results.push({ incidentId: id, ok: failed === 0, detail: failed ? failed + ' work item(s) failed' : '' });
+      } catch (err) { results.push({ incidentId: id, ok: false, detail: err.message || 'Synchronization failed' }); }
+    }
+    return jsonResponse(context, 200, { ok: true, data: { results } }, token.setCookie);
+  }
   let data;
   if (action === 'work-items/related/preview') data = await operationsService.previewRelatedBatch({ ...body, incidentId }, adoActionContext);
   else if (action === 'work-items/related') data = await operationsService.createRelated({ ...body, incidentId }, adoActionContext);
