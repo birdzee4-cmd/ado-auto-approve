@@ -2990,3 +2990,9 @@ h1, h2, h3, h4, h5, h6 {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.merge-waiting-summary { color: #075985; font-weight: 700; margin: 4px 0; }
+.merge-waiting-badge { background: #e0f2fe; border: 1px solid #0284c7; color: #075985; }
+.pr-merge-waiting { box-shadow: inset 4px 0 #0284c7; background: #f0f9ff; }
+.merge-waiting-notice { margin: 12px 0; padding: 14px; background: #e0f2fe; border: 1px solid #0284c7; border-radius: 10px; color: #075985; }
+.merge-waiting-notice[hidden] { display: none; }
+.mergecode-card button, .merge-waiting-notice button { cursor: pointer; border: 1px solid #7dd3fc; border-radius: 6px; padding: 5px 8px; margin-top: 5px; color: #075985; background: white; }

@@ -16,6 +16,7 @@
  */
 
 const https = require('https');
+const mergeManualReadiness = require('../shared/merge-manual-readiness');
 const ado = require('../shared/ado-client');
 const attentionUtil = require('../shared/attention');
 const mergePipelineMap = require('../shared/merge-pipeline-map');
@@ -1102,6 +1103,15 @@ async function buildPrRow(context, pr, currentUser, org, project, branchBuildCac
   const isMergeCodeTarget = isMergeCodeBranch(pr.targetRefName);
   const approval = buildApprovalSummary(reviewers);
   const myApproval = buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTarget, reviewerGroup);
+  if (isMergeCodeTarget) {
+    Object.assign(myApproval, mergeManualReadiness(reviewers, findCurrentUserReviewer(reviewers, currentUser), pr));
+    if (myApproval.waitingForMe) {
+      myApproval.label = 'รอคุณเป็นคนสุดท้าย';
+      myApproval.detail = 'Required reviewers อื่นครบแล้ว · เปิด ADO เพื่ออนุมัติ';
+    } else if (myApproval.readiness === 'unknown') {
+      myApproval.detail = 'ตรวจสอบลำดับผู้อนุมัติไม่ได้ · เปิด ADO';
+    }
+  }
   const statusSnapshot = await getStatusSnapshot(context, ado, pr, repositoryId, isMergeCodeTarget, branchBuildCache, includeBuildDetails);
   const releaseApproval = skipRelease
     ? { status: 'skipped', label: 'Release skipped' }
