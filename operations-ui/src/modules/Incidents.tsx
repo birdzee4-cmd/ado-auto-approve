@@ -25,7 +25,7 @@ export function Incidents() {
   const [actionError, setActionError] = useState('');
   const [actionMessage, setActionMessage] = useState('');
   const [busy, setBusy] = useState(false);
-  const [syncScope, setSyncScope] = useState('results');
+  const [syncScope, setSyncScope] = useState('page');
   const [syncProgress, setSyncProgress] = useState('');
   const [syncResults, setSyncResults] = useState<Array<{ incidentId: string; ok: boolean; skipped?: boolean; detail?: string }>>([]);
   const syncRunning = useRef(false);
@@ -72,7 +72,7 @@ export function Incidents() {
   const pageCount = Math.max(1, Math.ceil(filteredItems.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visibleItems = filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const syncCandidates = (syncScope === 'open' ? overviewItems.filter(item => !isOperationsClosed(item)) : filteredItems).filter(item => item.workItemSummary.total > 0);
+  const syncCandidates = (syncScope === 'page' ? visibleItems : filteredItems).filter(item => item.workItemSummary.total > 0);
   const synchronizeIncidents = async (retryIds?: string[]) => {
     if (syncRunning.current || busy || refreshing) return;
     const ids = retryIds || syncCandidates.map(item => item.incidentId);
@@ -83,7 +83,7 @@ export function Incidents() {
       for (let offset = 0; offset < ids.length; offset += 5) {
         setSyncProgress('Synchronizing… ' + offset + '/' + ids.length);
         const batch = ids.slice(offset, offset + 5);
-        try { results.push(...(await operationsApi.synchronizeBatch(batch, syncScope === 'results')).results); }
+        try { results.push(...(await operationsApi.synchronizeBatch(batch, true)).results); }
         catch (err) { results.push(...batch.map(incidentId => ({ incidentId, ok: false, detail: (err as Error).message }))); }
       }
       setSyncResults(results);
@@ -259,8 +259,8 @@ export function Incidents() {
   };
 
   return <section className="ops-incidents-page">
-    <PageHeading eyebrow="Incident command center" title="Incidents" actions={<div className={`ops-refresh-status${refreshing ? ' is-refreshing' : ''}`}><span className="ops-live-label"><i /> Live from SharePoint</span><small>{lastUpdatedAt ? `Updated ${formatClock(lastUpdatedAt)}` : 'Waiting for first update'} · Auto every 60 sec</small>{refreshing && <span className="ops-refreshing-indicator" role="status" aria-live="polite"><i className="ops-spinner" /> Updating incident list…</span>}<div className="ops-sync-controls"><select aria-label="Synchronization scope" value={syncScope} disabled={busy || refreshing} onChange={event => { setSyncScope(event.target.value); setSyncResults([]); }}><option value="results">Current results (all pages, include closed)</option><option value="open">Open incidents only (all pages)</option></select><button className="ops-button ops-button-secondary" type="button" disabled={busy || refreshing || !connection?.connected || !capabilities.synchronize || !syncCandidates.length} title="Same synchronization as each incident detail, applied to every matching incident across all pages" onClick={() => void synchronizeIncidents()}>{syncProgress || 'Synchronize (' + syncCandidates.length + ')'}</button><button className="ops-button ops-button-secondary" type="button" disabled={refreshing || busy} onClick={() => void load()}>{refreshing ? 'Refreshing…' : 'Refresh now'}</button></div></div>} />
-    <div role="status" aria-live="polite">{syncProgress || (syncScope === 'open' && !syncCandidates.length && items ? 'No open incidents to synchronize. Choose Current results to include closed incidents.' : '')}</div>
+    <PageHeading eyebrow="Incident command center" title="Incidents" actions={<div className={`ops-refresh-status${refreshing ? ' is-refreshing' : ''}`}><span className="ops-live-label"><i /> Live from SharePoint</span><small>{lastUpdatedAt ? `Updated ${formatClock(lastUpdatedAt)}` : 'Waiting for first update'} · Auto every 60 sec</small>{refreshing && <span className="ops-refreshing-indicator" role="status" aria-live="polite"><i className="ops-spinner" /> Updating incident list…</span>}<div className="ops-sync-controls"><select aria-label="Synchronization scope" value={syncScope} disabled={busy || refreshing} onChange={event => { setSyncScope(event.target.value); setSyncResults([]); }}><option value="page">Current page (include closed)</option><option value="results">Current results (all pages, include closed)</option></select><button className="ops-button ops-button-secondary" type="button" disabled={busy || refreshing || !connection?.connected || !capabilities.synchronize || !syncCandidates.length} title="Same synchronization as each incident detail, applied to incidents in the selected scope" onClick={() => void synchronizeIncidents()}>{syncProgress || 'Synchronize (' + syncCandidates.length + ')'}</button><button className="ops-button ops-button-secondary" type="button" disabled={refreshing || busy} onClick={() => void load()}>{refreshing ? 'Refreshing…' : 'Refresh now'}</button></div></div>} />
+    <div role="status" aria-live="polite">{syncProgress || (!syncCandidates.length && items ? 'No work items to synchronize in the selected scope.' : '')}</div>
     {syncResults.length > 0 && <div className="ops-sync-summary"><p role="status">Synchronization complete: {syncResults.filter(item => item.ok && !item.skipped).length} succeeded · {syncResults.filter(item => item.skipped).length} skipped · {syncResults.filter(item => !item.ok).length} failed.</p>{syncResults.some(item => !item.ok) && <><button className="ops-button ops-button-secondary" disabled={busy || refreshing || !connection?.connected || !capabilities.synchronize} onClick={() => void synchronizeIncidents(syncResults.filter(item => !item.ok).map(item => item.incidentId))}>Retry failed incidents</button><ul>{syncResults.filter(item => !item.ok).map(item => <li key={item.incidentId}>{item.incidentId}: {item.detail}</li>)}</ul></>}</div>}
 
     <div className="ops-incident-overview" aria-label="Incident overview">
