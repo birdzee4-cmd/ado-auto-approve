@@ -106,7 +106,7 @@ export function Incidents() {
     closed: overviewItems.filter(isOperationsClosed).length
   };
 
-  const load = async (preservePage = false) => {
+  const load = async (preservePage = true) => {
     if (refreshInFlight.current) return;
     refreshInFlight.current = true;
     setRefreshing(true);
@@ -130,7 +130,7 @@ export function Incidents() {
       setRefreshing(false);
     }
   };
-  useEffect(() => { void load(); }, [status]);
+  useEffect(() => { void load(false); }, [status]);
   useEffect(() => {
     const refreshWhenSafe = () => {
       if (document.visibilityState === 'visible' && !busy && !selected) void load();
@@ -279,7 +279,7 @@ export function Incidents() {
       <button className={status === '' ? 'is-active' : ''} onClick={() => setStatus('')}><span>All incidents</span><strong>{overview.total}</strong><small>Full history</small></button>
     </div>
     <div className="ops-incident-controls">
-      <form className="ops-incident-search" onSubmit={e => { e.preventDefault(); load(); }}><span aria-hidden="true">⌕</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search incidents…" aria-label="Search incidents" /><button className="ops-button" type="submit">Search</button></form>
+      <form className="ops-incident-search" onSubmit={e => { e.preventDefault(); void load(false); }}><span aria-hidden="true">⌕</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search incidents…" aria-label="Search incidents" /><button className="ops-button" type="submit">Search</button></form>
       <div className="ops-filter-grid">
         <label className={`ops-filter-control${status ? ' is-selected' : ''}`}><span>QUEUE</span><select value={status} onChange={e => setStatus(e.target.value)} aria-label="Filter by queue">{queueOptions.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
         <label className={`ops-filter-control${alertStatus ? ' is-selected' : ''}`}><span>ALERT</span><select value={alertStatus} onChange={e => { setAlertStatus(e.target.value); setPage(1); }}><option value="">All</option>{alertOptions.map(value => <option value={value} key={value}>{displayStatus(value)}</option>)}</select></label>
