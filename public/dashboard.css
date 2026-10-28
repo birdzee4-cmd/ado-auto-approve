@@ -3000,3 +3000,7 @@ h1, h2, h3, h4, h5, h6 {
 .merge-waiting-notice[hidden] { display: none; }
 .mergecode-card button, .merge-waiting-notice button { cursor: pointer; border: 1px solid #7dd3fc; border-radius: 6px; padding: 5px 8px; margin-top: 5px; color: #075985; background: white; }
 .mergecode-card .mergecode-card-controls button { font: inherit; font-size: 11px; line-height: 1.2; padding: 3px 8px; margin: 0; }
+.mergecode-card.mergecode-card-waiting { background: linear-gradient(135deg, #ffedd5 0%, #fecaca 100%); border-color: #ea580c; animation: none; box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.18), 0 5px 14px rgba(194, 65, 12, 0.12); }
+.mergecode-card-waiting .merge-waiting-summary, .mergecode-card-waiting .card-label { color: #9a3412; }
+.mergecode-card-waiting .card-icon { background: #fed7aa; }
+.mergecode-card-waiting .mergecode-card-controls button:first-child { background: #c2410c; border-color: #c2410c; color: #fff; }

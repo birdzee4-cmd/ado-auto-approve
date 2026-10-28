@@ -481,12 +481,13 @@ function renderPrSummaryBanner(d, attention, mergeCodeCount) {
     '</div>' +
   '</div>';
 
-  cardsHtml += '<div class="summary-card mergecode-card' + (hasMergeCodeWork ? ' mergecode-card-active' : '') + '">' +
+  const mergeWaitingCount = prs.filter(isMergeWaitingForMe).length;
+  cardsHtml += '<div class="summary-card mergecode-card' + (hasMergeCodeWork ? ' mergecode-card-active' : '') + (mergeWaitingCount > 0 ? ' mergecode-card-waiting' : '') + '">' +
     '<span class="card-icon">🔗</span>' +
     '<div class="card-body">' +
       '<span class="card-label">MergeCode Manual</span>' +
-      '<div class="merge-waiting-summary">' + (d.prs || []).filter(isMergeWaitingForMe).length + ' จาก ' + mergeCodeCount + ' PR waiting</div>' +
-      '<div class="mergecode-card-controls"><button type="button" onclick="filterMergeWaiting(true)">See more</button><button type="button" onclick="filterMergeWaiting(false)">All</button></div>' +
+      '<div class="merge-waiting-summary">' + mergeWaitingCount + ' จาก ' + mergeCodeCount + ' PR Waiting action</div>' +
+      '<div class="mergecode-card-controls"><button type="button" onclick="filterMergeWaiting(true)">View</button><button type="button" onclick="filterMergeWaiting(false)">All</button></div>' +
     '</div>' +
   '</div>';
 
