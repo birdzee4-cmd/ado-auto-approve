@@ -281,6 +281,17 @@ function showAdoAuthNotice(type, title, detail) {
 
 
 // ===== Check PRs =====
+function renderPrSummaryLoading() {
+  const cards = [['📊', 'Status'], ['⚠️', 'Attention'], ['🔗', 'MergeCode Manual']];
+  return '<div class="test-result result-info pr-summary-banner" role="status" aria-label="Loading PR data">' +
+    '<div class="summary-cards-container">' + cards.map(([icon, label]) =>
+      '<div class="summary-card summary-card-loading"><span class="card-icon">' + icon + '</span>' +
+      '<div class="card-body"><span class="card-label">' + label + '</span>' +
+      '<span class="summary-loading-line" aria-hidden="true"></span>' +
+      '<span class="summary-loading-caption">Loading...</span></div></div>'
+    ).join('') + '</div></div>';
+}
+
 async function checkPrs(isSilent) {
   if (!document.getElementById('prTableContainer')) return false;
   if (_checkPrsInFlight) {
@@ -303,7 +314,7 @@ async function checkPrs(isSilent) {
     if (document.getElementById('releaseTableContainer')) document.getElementById('releaseTableContainer').hidden = false;
     if (document.getElementById('dashboardTabs')) document.getElementById('dashboardTabs').hidden = false;
     
-    showBox('prResult', '<div class="test-result result-info">⏳ Calling ADO API...</div>');
+    showBox('prResult', renderPrSummaryLoading());
   }
 
   try {
