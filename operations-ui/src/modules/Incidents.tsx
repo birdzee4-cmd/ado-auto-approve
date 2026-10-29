@@ -547,9 +547,12 @@ function timelineForDisplay(events: AuditEvent[], showTechnical: boolean) {
 function approvalStatus(item: Incident) {
   const outcome = String(item.approvalOutcome || '').trim().toUpperCase();
   const workflow = String(item.workflowStatus || '').trim().toUpperCase();
+  if (outcome.startsWith('HISTORICAL:')) return 'HISTORICAL_RESPONSE';
   if (['APPROVE', 'APPROVED'].includes(outcome) || workflow.includes('APPROVED')) return 'APPROVED';
   if (['REJECT', 'REJECTED'].includes(outcome) || workflow.includes('REJECTED')) return 'REJECTED';
   if (item.approvalCompletedAt) return outcome || 'COMPLETED';
+  if (workflow === 'CANCELLED' || workflow === 'CANCELED') return 'CANCELLED';
+  if (item.status === 'RESOLVED' && (item.approvalRequestedAt || item.approvalId)) return 'NO_LONGER_REQUIRED';
   if (item.approvalRequestedAt || item.approvalId || workflow.includes('APPROVAL')) return 'AWAITING_APPROVAL';
   return 'NOT_REQUESTED';
 }
@@ -578,4 +581,3 @@ function compareIncidentNumberDescending(left: Incident, right: Incident) {
 function formatDuration(value?: number) {
   return Number.isFinite(value) ? `${value} min` : '-';
 }
-

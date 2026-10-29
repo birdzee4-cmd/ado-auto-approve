@@ -33,6 +33,7 @@ export function displayStatus(value?: string) {
     WAITING_RESOLVED: 'Waiting for alert recovery', WAITING_SUPPORT: 'Waiting for support',
     READY_TO_CLOSE: 'Ready to close', NEEDS_REVIEW: 'Needs review',
     APPROVED: 'Approved', NOT_REQUESTED: 'Not requested', COMPLETED: 'Completed',
+    HISTORICAL_RESPONSE: 'Historical response', NO_LONGER_REQUIRED: 'No longer required',
     ACTIVE: 'Active', PROCESSED: 'Processed', MATCHED: 'Matched', UNMATCHED: 'Unmatched',
     AMBIGUOUS: 'Needs review', DUPLICATE: 'Duplicate'
   };
@@ -83,3 +84,4 @@ export function PageHeading({ eyebrow, title, actions }: { eyebrow: string; titl
     </header>
   );
 }
+
