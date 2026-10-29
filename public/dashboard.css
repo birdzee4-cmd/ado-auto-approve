@@ -855,31 +855,55 @@
 
 /* Custom widths for PR Queue Table */
 .pr-queue-table {
-  min-width: 1440px;
+  min-width: 1050px;
 }
 
 .pr-queue-table th:nth-child(1),
 .pr-queue-table td:nth-child(1) {
-  width: 350px;
+  width: 25%;
 }
 
 .pr-queue-table th:nth-child(2),
-.pr-queue-table td:nth-child(2) { width: 310px; }
+.pr-queue-table td:nth-child(2) { width: 21%; }
 
 .pr-queue-table th:nth-child(3),
-.pr-queue-table td:nth-child(3) { width: 140px; }
+.pr-queue-table td:nth-child(3) { width: 10%; }
 
 .pr-queue-table th:nth-child(4),
-.pr-queue-table td:nth-child(4) { width: 160px; }
+.pr-queue-table td:nth-child(4) { width: 11%; }
 
 .pr-queue-table th:nth-child(5),
-.pr-queue-table td:nth-child(5) { width: 160px; }
+.pr-queue-table td:nth-child(5) { width: 11%; }
 
 .pr-queue-table th:nth-child(6),
-.pr-queue-table td:nth-child(6) { width: 150px; }
+.pr-queue-table td:nth-child(6) { width: 11%; }
 
 .pr-queue-table th:nth-child(7),
-.pr-queue-table td:nth-child(7) { width: 170px; }
+.pr-queue-table td:nth-child(7) { width: 11%; }
+
+/* Keep badges and actions within their fluid PR columns. */
+.pr-queue-table .approval-badge,
+.pr-queue-table .status-snapshot,
+.pr-queue-table .attention-badge,
+.pr-queue-table .my-approval,
+.pr-queue-table .hold-status {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 6px;
+}
+.pr-queue-table .approval-badge { flex-wrap: wrap; line-height: 1.2; }
+.pr-queue-table .status-main,
+.pr-queue-table .attention-label,
+.pr-queue-table .my-approval-label,
+.pr-queue-table .hold-label { white-space: normal; overflow-wrap: anywhere; }
+.pr-queue-table .action-cell { min-width: 0; gap: 5px; }
+.pr-queue-table .action-cell > * { max-width: 100%; box-sizing: border-box; white-space: normal; overflow-wrap: anywhere; }
+.pr-queue-table .manual-action-note,
+.pr-queue-table .action-note,
+.pr-queue-table .btn-mini { padding: 5px 7px; }
+.pr-queue-table th { white-space: normal; letter-spacing: 0.2px; }
 
 /* Custom widths for Release Queue Table */
 .release-queue-table {
