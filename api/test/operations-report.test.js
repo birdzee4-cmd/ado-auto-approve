@@ -47,3 +47,19 @@ test('report endpoint uses existing role authorization and returns the report en
     assert.equal(body.data.total, 1);
   } finally { sp.listReportIncidents = original; }
 });
+
+test('investigation report preserves primary and related ticket evidence without counting tickets as incidents', () => {
+  const { attachWorkItems } = require('../shared/operations-work-items');
+  const items = attachWorkItems([
+    incident('case-a', '2026-10-19T01:00:00Z', { status: 'RESOLVED', resolvedAt: '2026-10-19T01:30:00Z', workItemId: 101, workItemUrl: 'https://dev.azure.com/example/project/_workitems/edit/101', adoState: 'Closed' }),
+    incident('case-b', '2026-10-20T01:00:00Z')
+  ], [{ incidentId: 'case-a', workItemId: 102, role: 'RELATED', state: 'Active', assignedTo: 'Support' }]);
+  const report = buildReport(items, { date: '2026-10-21', period: 'week' });
+  assert.equal(report.total, 2);
+  assert.equal(report.resources[0].total, 2);
+  const recovered = report.incidents.find(item => item.incidentId === 'case-a');
+  assert.equal(recovered.resolvedAt, '2026-10-19T01:30:00Z');
+  assert.deepEqual(recovered.workItems.map(item => item.workItemId).sort(), [101, 102]);
+  assert.equal(recovered.workItems.find(item => item.workItemId === 102).assignedTo, 'Support');
+  assert.equal(report.incidents.find(item => item.incidentId === 'case-b').workItems.length, 0);
+});

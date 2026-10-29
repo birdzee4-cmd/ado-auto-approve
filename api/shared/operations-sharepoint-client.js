@@ -636,7 +636,12 @@ function compareNewest(left, right) {
 module.exports = {
   formatIncidentDisplayId,
   getIncident,
-  listReportIncidents: async () => (await listItems(Infinity, getConfig().listName)).map(mapSharePointIncident),
+  listReportIncidents: async () => {
+    const config = getConfig();
+    const incidents = (await listItems(Infinity, config.listName)).map(mapSharePointIncident);
+    const related = config.workItemsListName ? await listWorkItems(Infinity, config.workItemsListName) : [];
+    return workItems.attachWorkItems(incidents, related);
+  },
   listIncidents,
   listWorkItems,
   listConfiguredWorkItems,
