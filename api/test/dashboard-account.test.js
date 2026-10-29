@@ -48,3 +48,28 @@ test('connection keeps account details in Manage and exposes reconnect only when
   assert.equal(get('btnDisconnectAdo').hidden, true);
   assert.equal(get('adoConnectionStatus').textContent, 'Azure DevOps status unavailable');
 });
+
+test('account menus stay open inside, close outside, and support Escape with focus restoration', () => {
+  const handlers = {};
+  let focused = false;
+  const inside = {};
+  const outside = {};
+  const details = { open: true, contains: target => target === inside,
+    querySelector: () => ({ focus: () => { focused = true; } }) };
+  const document = { addEventListener: (name, handler) => { handlers[name] = handler; },
+    querySelectorAll: () => details.open ? [details] : [], activeElement: inside };
+  const context = vm.createContext({ document });
+  vm.runInContext(source.slice(source.indexOf('function initAccountDismissal'), source.indexOf('function startAdoConnect')), context);
+  vm.runInContext('initAccountDismissal()', context);
+  handlers.click({ target: inside });
+  assert.equal(details.open, true);
+  handlers.click({ target: outside });
+  assert.equal(details.open, false);
+  assert.equal(focused, false);
+  details.open = true;
+  handlers.keydown({ key: 'Enter' });
+  assert.equal(details.open, true);
+  handlers.keydown({ key: 'Escape' });
+  assert.equal(details.open, false);
+  assert.equal(focused, true);
+});

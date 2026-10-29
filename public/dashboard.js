@@ -120,6 +120,22 @@ function renderAccountOverview() {
   document.getElementById('accountRolesDetails').hidden = roles.length < 2;
 }
 
+function initAccountDismissal() {
+  document.addEventListener('click', event => {
+    document.querySelectorAll('.account-details[open]').forEach(details => {
+      if (!details.contains(event.target)) details.open = false;
+    });
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    document.querySelectorAll('.account-details[open]').forEach(details => {
+      const restoreFocus = details.contains(document.activeElement);
+      details.open = false;
+      if (restoreFocus) details.querySelector('summary')?.focus();
+    });
+  });
+}
+
 function startAdoConnect() {
   const returnTo = window.location.pathname + window.location.search;
   window.location.href = '/api/ado-auth-start?returnTo=' + encodeURIComponent(returnTo || '/dashboard.html');
@@ -2175,6 +2191,7 @@ async function evaluateAutoApprovals(prs) {
 (async function init() {
   await initPage();
   renderAccountOverview();
+  initAccountDismissal();
   
   // Dashboard-specific event bindings
   bind('btnCheckPrs', async () => {
