@@ -3006,6 +3006,10 @@ h1, h2, h3, h4, h5, h6 {
 .mergecode-card-waiting .mergecode-card-controls button:first-child { background: #c2410c; border-color: #c2410c; color: #fff; }
 
 /* Match the refresh control to the adjacent summary cards' row height. */
+.summary-cards-container .summary-card { min-height: 82px; box-sizing: border-box; }
+.summary-card-loading .card-body { flex: 1; min-width: 0; }
+.summary-loading-line { display: block; width: 70%; max-width: 160px; height: 10px; margin: 5px 0; border-radius: 4px; background: #e5e7eb; }
+.summary-loading-caption { display: block; font-size: 11px; line-height: 14px; color: #6b7280; }
 @media (min-width: 901px) {
   .pr-section { column-gap: 12px; }
   .pr-header { align-self: stretch; align-items: stretch; }
