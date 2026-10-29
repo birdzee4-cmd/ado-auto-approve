@@ -3004,3 +3004,10 @@ h1, h2, h3, h4, h5, h6 {
 .mergecode-card-waiting .merge-waiting-summary, .mergecode-card-waiting .card-label { color: #9a3412; }
 .mergecode-card-waiting .card-icon { background: #fed7aa; }
 .mergecode-card-waiting .mergecode-card-controls button:first-child { background: #c2410c; border-color: #c2410c; color: #fff; }
+
+/* Match the refresh control to the adjacent summary cards' row height. */
+@media (min-width: 901px) {
+  .pr-section { column-gap: 12px; }
+  .pr-header { align-self: stretch; align-items: stretch; }
+  .pr-header .primary-button { align-self: stretch; height: auto; border-radius: 10px; box-sizing: border-box; }
+}
