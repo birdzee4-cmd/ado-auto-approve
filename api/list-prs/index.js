@@ -1104,9 +1104,12 @@ async function buildPrRow(context, pr, currentUser, org, project, branchBuildCac
   const approval = buildApprovalSummary(reviewers);
   const myApproval = buildMyApprovalSummary(reviewers, currentUser, approval, isMergeCodeTarget, reviewerGroup);
   if (isMergeCodeTarget) {
-    Object.assign(myApproval, mergeManualReadiness(reviewers, findCurrentUserReviewer(reviewers, currentUser), pr));
+    // Apply the same configured-group/approval-role eligibility as normal PRs.
+    // Do not treat an arbitrary remaining group as the current user's group.
+    const eligibleGroup = hasApprovalRole(currentUser) ? findReviewerGroup(reviewers, reviewerGroup) : null;
+    Object.assign(myApproval, mergeManualReadiness(reviewers, findCurrentUserReviewer(reviewers, currentUser), pr, eligibleGroup));
     if (myApproval.waitingForMe) {
-      myApproval.label = 'รอคุณเป็นคนสุดท้าย';
+      myApproval.label = myApproval.waitingAsGroup ? 'รอกลุ่มของคุณเป็นลำดับสุดท้าย' : 'รอคุณเป็นคนสุดท้าย';
       myApproval.detail = 'Required reviewers อื่นครบแล้ว · เปิด ADO เพื่ออนุมัติ';
     } else if (myApproval.readiness === 'unknown') {
       myApproval.detail = 'ตรวจสอบลำดับผู้อนุมัติไม่ได้ · เปิด ADO';

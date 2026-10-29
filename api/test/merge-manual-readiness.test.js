@@ -31,3 +31,15 @@ test('cannot infer group membership or readiness without required reviewers', ()
   assert.equal(readiness([approved(), group], group, active).waitingForMe, false);
   assert.equal(readiness([{ vote: 10 }], null, active).readiness, 'unknown');
 });
+
+test('counts configured eligible approval group as last required reviewer', () => {
+  const group = { isRequired: true, isContainer: true, vote: 0 };
+  const rows = [approved(), group];
+  const result = readiness(rows, null, active, group);
+  assert.equal(result.waitingForMe, true);
+  assert.equal(result.waitingAsGroup, true);
+  assert.equal(readiness(rows, null, active, { ...group }).waitingForMe, false);
+  assert.equal(readiness([...rows, me()], null, active, group).waitingForMe, false);
+  group.vote = 10;
+  assert.equal(readiness(rows, null, active, group).waitingForMe, false);
+});

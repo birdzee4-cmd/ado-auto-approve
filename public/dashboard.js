@@ -896,7 +896,7 @@ function renderMyApprovalBadge(pr) {
   let icon = '⭕';
   let label = my.label || 'Not approved';
   if (isMergeWaitingForMe(pr)) {
-    return '<span class="my-approval merge-waiting-badge"><strong>🔔 รอคุณเป็นคนสุดท้าย</strong><span class="my-approval-detail">' +
+    return '<span class="my-approval merge-waiting-badge"><strong>🔔 ' + escapeHtml(my.waitingAsGroup ? 'รอกลุ่มของคุณเป็นลำดับสุดท้าย' : 'รอคุณเป็นคนสุดท้าย') + '</strong><span class="my-approval-detail">' +
       escapeHtml((pr.approval?.approvedCount || 0) + '/' + (pr.approval?.requiredCount || 0) + ' Required reviewers อนุมัติแล้ว') + '</span></span>';
   }
 
