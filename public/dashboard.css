@@ -3018,7 +3018,7 @@ h1, h2, h3, h4, h5, h6 {
 .dashboard-intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 320px); gap: 32px; align-items: start; }
 .welcome-card > .dashboard-intro { z-index: 3; }
 .dashboard-intro-copy p { margin: 0; max-width: 760px; font-size: 14px; line-height: 1.8; color: #5f4b32; }
-.account-overview { padding-top: 2px; min-width: 0; }
+.account-overview { padding: 12px 14px; min-width: 0; border: 1px solid #ecd9ae; border-radius: 12px; background: rgba(255, 255, 255, 0.78); box-shadow: 0 3px 12px rgba(130, 90, 0, 0.05); }
 .account-identity { display: flex; align-items: flex-start; gap: 10px; }
 .account-avatar { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; background: #fef3c7; color: #855800; font-size: 12px; font-weight: 700; }
 .account-text { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
