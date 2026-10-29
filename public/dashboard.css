@@ -1367,6 +1367,10 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }
+.pr-queue-table .branch-into code {
+  max-height: 7.25em;
+  -webkit-line-clamp: 5;
+}
 .branch-copy-wrap {
   align-items: flex-start;
   display: grid;
