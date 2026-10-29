@@ -3015,3 +3015,31 @@ h1, h2, h3, h4, h5, h6 {
   .pr-header { align-self: stretch; align-items: stretch; }
   .pr-header .primary-button { align-self: stretch; height: auto; border-radius: 10px; box-sizing: border-box; }
 }
+.dashboard-intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 320px); gap: 32px; align-items: start; }
+.welcome-card > .dashboard-intro { z-index: 3; }
+.dashboard-intro-copy p { margin: 0; max-width: 760px; font-size: 14px; line-height: 1.8; color: #5f4b32; }
+.account-overview { padding-top: 2px; min-width: 0; }
+.account-identity { display: flex; align-items: flex-start; gap: 10px; }
+.account-avatar { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; background: #fef3c7; color: #855800; font-size: 12px; font-weight: 700; }
+.account-text { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.account-text > strong { font-size: 14px; color: #332b20; }
+.account-email { font-size: 12px; color: #6b6255; overflow-wrap: anywhere; }
+.account-role-row { display: flex; align-items: baseline; gap: 6px; font-size: 11px; color: #70624d; flex-wrap: wrap; }
+.account-details { position: relative; }
+.account-details[hidden], .account-text-button[hidden] { display: none; }
+.account-details > summary { cursor: pointer; list-style: none; color: #855800; font-size: 11px; border-radius: 3px; }
+.account-details > summary::-webkit-details-marker { display: none; }
+.account-details > summary:hover, .account-text-button:hover { text-decoration: underline; }
+.account-details > summary:focus-visible, .account-text-button:focus-visible { outline: 2px solid #b45309; outline-offset: 3px; }
+.account-popover { position: absolute; right: 0; top: calc(100% + 8px); width: 270px; max-width: 75vw; padding: 14px; background: #fff; border: 1px solid #eddab3; border-radius: 10px; box-shadow: 0 8px 24px #55330020; z-index: 10; color: #554936; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.account-popover > strong { display: block; margin-bottom: 6px; }
+.account-connection { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 8px 0 0 44px; font-size: 11px; }
+.account-connection-status::before { content: '●'; margin-right: 5px; }
+.account-connection-status { font-size: 11px; }
+.account-text-button { padding: 0; border: 0; background: none; font: inherit; color: #b45309; cursor: pointer; }
+@media (max-width: 900px) {
+  .dashboard-intro { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .account-overview { max-width: 100%; position: relative; }
+  .account-details { position: static; }
+  .account-popover { right: auto; left: 0; max-width: 100%; box-sizing: border-box; }
+}

@@ -8,7 +8,7 @@ import {
   isPrCompletedForReleaseSummary, getStatusSummaryText,
   renderRecentlyApprovedStatusBadge, renderRecentlyApprovedRows,
   renderCompletedPrTable, initPage, checkHealthStatus,
-  openModal, closeModal
+  openModal, closeModal, formatDisplayRoles
 } from './core.js';
 
 let currentPrForAction = null;
@@ -78,11 +78,11 @@ async function loadAdoAuthStatus() {
       expiresAt: d.expiresAt || ''
     };
     if (statusEl) {
-      statusEl.textContent = connected
-        ? 'Connected as ' + (d.user || 'Azure DevOps user')
-        : 'Not connected';
-      statusEl.className = 'info-value ' + (connected ? 'ado-connected' : 'ado-not-connected');
+      statusEl.textContent = connected ? 'Azure DevOps connected' : 'Azure DevOps disconnected';
+      statusEl.className = 'account-connection-status ' + (connected ? 'ado-connected' : 'ado-not-connected');
     }
+    setText('adoConnectionIdentity', connected ? 'Connected as ' + (d.user || 'Azure DevOps user') : 'Connect your Azure DevOps account to continue.');
+    document.getElementById('btnQuickConnectAdo').hidden = connected;
     if (connectBtn) {
       connectBtn.hidden = false;
       connectBtn.textContent = connected ? 'Reconnect' : 'Connect';
@@ -95,9 +95,11 @@ async function loadAdoAuthStatus() {
   } catch (e) {
     window._adoAuthStatus = { connected: false, checked: true, reason: e.message };
     if (statusEl) {
-      statusEl.textContent = 'Unable to check';
-      statusEl.className = 'info-value ado-not-connected';
+      statusEl.textContent = 'Azure DevOps status unavailable';
+      statusEl.className = 'account-connection-status ado-not-connected';
     }
+    setText('adoConnectionIdentity', 'Unable to check connection. Try reconnecting.');
+    document.getElementById('btnQuickConnectAdo').hidden = false;
     if (connectBtn) {
       connectBtn.hidden = false;
       connectBtn.textContent = 'Connect';
@@ -105,6 +107,17 @@ async function loadAdoAuthStatus() {
     }
     if (disconnectBtn) disconnectBtn.hidden = true;
   }
+}
+
+function renderAccountOverview() {
+  const name = document.getElementById('displayName')?.textContent || '';
+  setText('accountAvatar', name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase() || '•');
+  const roles = [...new Set((window._currentUser?.roles || []).filter(role => !['anonymous', 'authenticated'].includes(String(role).toLowerCase())))];
+  roles.sort((a, b) => (a === 'it_support_approve' ? -1 : b === 'it_support_approve' ? 1 : 0));
+  setText('accountPrimaryRole', roles.length ? formatDisplayRoles([roles[0]]) : 'No approval role');
+  setText('userRole', formatDisplayRoles(roles));
+  setText('accountMoreRoles', roles.length > 1 ? '+' + (roles.length - 1) + ' ▾' : 'Details ▾');
+  document.getElementById('accountRolesDetails').hidden = roles.length < 2;
 }
 
 function startAdoConnect() {
@@ -2161,6 +2174,7 @@ async function evaluateAutoApprovals(prs) {
 // Page initialization
 (async function init() {
   await initPage();
+  renderAccountOverview();
   
   // Dashboard-specific event bindings
   bind('btnCheckPrs', async () => {
@@ -2179,6 +2193,7 @@ async function evaluateAutoApprovals(prs) {
   bind('btnConfirmReject', doReject);
   bind('btnConfirmHold', doHold);
   bind('btnConnectAdo', startAdoConnect);
+  bind('btnQuickConnectAdo', startAdoConnect);
   bind('btnDisconnectAdo', disconnectAdo);
   await loadAdoAuthStatus();
   consumeAdoAuthCallbackResult();

@@ -6,7 +6,7 @@
   <link rel="icon" type="image/png" href="/assets/buzzebees-icon.png" />
   <title>Dashboard - ADO Auto-Approve</title>
   <link rel="stylesheet" href="/core.css" />
-  <link rel="stylesheet" href="/dashboard.css?v=refresh-card-2" />
+  <link rel="stylesheet" href="/dashboard.css?v=account-header-1" />
 </head>
 <body>
   <nav class="navbar">
@@ -31,44 +31,43 @@
 
   <main class="dashboard halftone-bg">
     <div class="welcome-card">
-      <h1>Auto Approve — Staging</h1>
-      <p>Monitor staging pull requests and release queues in one place. IT Support Approve can approve, reject, or hold work, review build and branch policy status, inspect reviewers and PR history, and control Guarded Auto Approve with clear audit coverage.</p>
-
-      <div class="info-grid">
-        <div class="info-item">
-          <div class="info-icon">👤</div>
-          <div class="info-content">
-            <div class="info-label">Name</div>
-            <div class="info-value" id="displayName">-</div>
-          </div>
+      <header class="dashboard-intro">
+        <div class="dashboard-intro-copy">
+          <h1>Auto Approve — Staging</h1>
+          <p>Review staging pull requests and releases, track approvals, builds and policies, and manage Guarded Auto Approve.</p>
         </div>
-        <div class="info-item">
-          <div class="info-icon">📧</div>
-          <div class="info-content">
-            <div class="info-label">Email</div>
-            <div class="info-value" id="userEmail">-</div>
-          </div>
-        </div>
-        <div class="info-item">
-          <div class="info-icon">🛡️</div>
-          <div class="info-content">
-            <div class="info-label">Role</div>
-            <div class="info-value" id="userRole">-</div>
-          </div>
-        </div>
-        <div class="info-item ado-connect-item">
-          <div class="info-icon">🔐</div>
-          <div class="info-content">
-            <div class="info-label">Azure DevOps</div>
-            <div class="info-value" id="adoConnectionStatus">Checking...</div>
-            <div class="ado-connect-actions">
-              <button type="button" id="btnConnectAdo" class="btn-ado-connect">Connect</button>
-              <button type="button" id="btnDisconnectAdo" class="btn-ado-disconnect" hidden>Disconnect</button>
+        <section class="account-overview" aria-label="Your account">
+          <div class="account-identity">
+            <span id="accountAvatar" class="account-avatar" aria-hidden="true">•</span>
+            <div class="account-text">
+              <strong id="displayName">Loading...</strong>
+              <span id="userEmail" class="account-email">—</span>
+              <div class="account-role-row">
+                <span id="accountPrimaryRole">Loading role...</span>
+                <details class="account-details" id="accountRolesDetails" hidden>
+                  <summary id="accountMoreRoles" aria-label="View all roles">Roles</summary>
+                  <div class="account-popover"><strong>Your roles</strong><div id="userRole">—</div></div>
+                </details>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-
+          <div class="account-connection">
+            <span id="adoConnectionStatus" class="account-connection-status" role="status">Checking Azure DevOps...</span>
+            <button type="button" id="btnQuickConnectAdo" class="account-text-button" hidden>Reconnect</button>
+            <details class="account-details account-manage">
+              <summary>Manage</summary>
+              <div class="account-popover">
+                <strong>Azure DevOps connection</strong>
+                <div id="adoConnectionIdentity">Checking...</div>
+                <div class="ado-connect-actions">
+                  <button type="button" id="btnConnectAdo" class="btn-ado-connect">Connect</button>
+                  <button type="button" id="btnDisconnectAdo" class="btn-ado-disconnect" hidden>Disconnect</button>
+                </div>
+              </div>
+            </details>
+          </div>
+        </section>
+      </header>
       <!-- ===== PR Approval Section ===== -->
       <div class="pr-section">
         <div class="pr-header">
@@ -303,7 +302,7 @@
     </div>
   </div>
 
-  <script type="module" src="/dashboard.js?v=refresh-card-2"></script>
+  <script type="module" src="/dashboard.js?v=account-header-1"></script>
 
 </body>
 </html>
