@@ -214,7 +214,7 @@ export interface AlertEvent {
 }
 
 export interface IncidentReport {
-  period: 'week' | 'month'; start: string; end: string; generatedAt: string;
+  period: 'today' | 'week' | 'month'; start: string; end: string; generatedAt: string;
   total: number; recovered: number; active: number; unknownDates: number;
   resources: Array<{ key: string; resource: string; resourceGroup: string; subscription: string; total: number; recovered: number; active: number }>;
   daily: Array<{ date: string; count: number }>;

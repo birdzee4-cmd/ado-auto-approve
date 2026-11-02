@@ -3,9 +3,11 @@ import { operationsApi } from '../api';
 import { EmptyState, ErrorState, formatBangkokTimestamp, LoadingState, PageHeading, StatusBadge } from '../components';
 import type { IncidentReport } from '../types';
 
+const bangkokToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+
 export function Reports() {
   const [period, setPeriod] = useState('week');
-  const [date, setDate] = useState(() => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()));
+  const [date, setDate] = useState(bangkokToday);
   const [data, setData] = useState<IncidentReport | null>(null);
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
@@ -20,6 +22,12 @@ export function Reports() {
     operationsApi.report(period, date).then(result => { if (!cancelled) setData(result); }).catch(err => { if (!cancelled) setError(err.message); });
     return () => { cancelled = true; };
   }, [period, date, refresh]);
+  useEffect(() => {
+    if (period !== 'today') return;
+    setDate(bangkokToday());
+    const timer = window.setInterval(() => setDate(bangkokToday()), 30000);
+    return () => window.clearInterval(timer);
+  }, [period]);
   const resourceKey = (item: IncidentReport['incidents'][number]) => JSON.stringify([item.subscription || '', item.resourceGroup || '', item.resource?.trim() || 'Unknown resource'].map(value => value.trim().toLowerCase()));
   const resourceIncidents = data?.incidents.filter(item => !resource || resourceKey(item) === resource) || [];
   const started = (item: IncidentReport['incidents'][number]) => item.firstSeen || item.receivedAt || item.createdAt;
@@ -46,14 +54,14 @@ export function Reports() {
     const link = document.createElement('a'); link.href = url; link.download = `Incident-report-${data.start}-${data.end}.csv`; link.click(); URL.revokeObjectURL(url);
   }
   return <section>
-    <PageHeading eyebrow="Weekly & monthly insights" title="Incident Report" actions={<>
-      <label className="ops-date-control"><span>Period</span><select value={period} onChange={event => setPeriod(event.target.value)}><option value="week">Weekly</option><option value="month">Monthly</option></select></label>
-      <label className="ops-date-control"><span>Date within period</span><input type="date" required value={date} onChange={event => { if (event.target.value) setDate(event.target.value); }} /></label>
+    <PageHeading eyebrow="Daily, weekly & monthly insights" title="Incident Report" actions={<>
+      <label className="ops-date-control"><span>Period</span><select value={period} onChange={event => setPeriod(event.target.value)}><option value="today">Today</option><option value="week">Weekly</option><option value="month">Monthly</option></select></label>
+      <label className="ops-date-control"><span>{period === 'today' ? 'Today · Bangkok' : 'Date within period'}</span><input type="date" disabled={period === 'today'} required value={date} onChange={event => { if (event.target.value) setDate(event.target.value); }} /></label>
       <button className="ops-button" onClick={() => setRefresh(value => value + 1)}>Refresh</button>
       <button className="ops-button ops-button-secondary" disabled={!data} onClick={exportCsv}>Export CSV</button>
     </>} />
     {error ? <ErrorState message={error} onRetry={() => setRefresh(value => value + 1)} /> : !data ? <LoadingState label="Preparing incident report…" /> : <>
-      <div className="ops-day-banner"><div><span>{period === 'week' ? 'WEEKLY REPORT · MON–SUN' : 'MONTHLY REPORT'} · ASIA/BANGKOK</span><strong>{data.start} — {data.end}</strong><small>Incidents first seen in this period · Updated {formatBangkokTimestamp(data.generatedAt)}</small></div></div>
+      <div className="ops-day-banner"><div><span>{data.period === 'today' ? 'TODAY REPORT' : data.period === 'week' ? 'WEEKLY REPORT · MON–SUN' : 'MONTHLY REPORT'} · ASIA/BANGKOK</span><strong>{data.start} — {data.end}</strong><small>Incidents first seen in this period · Updated {formatBangkokTimestamp(data.generatedAt)}</small></div></div>
       <p className="ops-muted">Counts represent incident records, not repeated alert notifications. Recovery and active counts reflect the latest monitoring status. Resources are grouped by subscription, resource group and name.</p>
       {data.unknownDates > 0 && <p role="status">{data.unknownDates} records have no valid start date and are excluded from period totals.</p>}
       <div className="ops-kpi-grid ops-kpi-grid-daily">{[
@@ -64,7 +72,7 @@ export function Reports() {
         <div className="ops-report-chart" role="group" aria-label={daily.map(day => `${day.date}: ${day.count} incidents`).join('; ')}>{daily.map(day => <div key={day.date} title={`${day.date}: ${day.count} incidents`}><strong>{day.count}</strong><button type="button" className="ops-report-bar" aria-label={`${day.date}: ${day.count} incidents. Show incidents for this date`} onClick={() => { setDay(day.date); setPage(1); detailRef.current?.scrollIntoView({ behavior: 'smooth' }); }}><i style={{ height: `${day.count / max * 140}px` }} /></button><small>{day.date.slice(8)}</small></div>)}</div>
       </article>
       <article className="ops-panel ops-report-panel"><div className="ops-panel-heading"><div><p>RESOURCE RELIABILITY</p><h2>Incidents by App Service / resource</h2></div><label><input type="checkbox" checked={repeatsOnly} onChange={event => setRepeatsOnly(event.target.checked)} /> Recurring only (&gt;1)</label></div>
-        {rows.length ? <div className="ops-report-table"><table><thead><tr><th>App Service / resource</th><th>Incidents</th><th>Active</th><th>Recovered</th><th>Days affected</th><th>Latest incident · Bangkok</th><th>Share</th></tr></thead><tbody>{rows.map(row => <tr key={row.key}><td><button className="ops-report-link" onClick={() => selectResource(row.key)}>{row.resource}</button><small>{row.resourceGroup || 'Unknown resource group'} · {row.subscription || 'Unknown subscription'}</small></td><td><strong>{row.total}</strong>{row.total > 1 && <small>Recurring</small>}</td><td>{row.active}</td><td>{row.recovered}</td><td>{new Set(data.incidents.filter(item => resourceKey(item) === row.key).map(item => dateKey(started(item)))).size}</td><td>{formatBangkokTimestamp(started(data.incidents.find(item => resourceKey(item) === row.key)!))}</td><td>{Math.round(row.total / data.total * 100)}%</td></tr>)}</tbody></table></div> : <EmptyState title={repeatsOnly ? 'No recurring resources' : 'No incidents in this period'} detail="Select another week or month to explore incident history." />}
+        {rows.length ? <div className="ops-report-table"><table><thead><tr><th>App Service / resource</th><th>Incidents</th><th>Active</th><th>Recovered</th><th>Days affected</th><th>Latest incident · Bangkok</th><th>Share</th></tr></thead><tbody>{rows.map(row => <tr key={row.key}><td><button className="ops-report-link" onClick={() => selectResource(row.key)}>{row.resource}</button><small>{row.resourceGroup || 'Unknown resource group'} · {row.subscription || 'Unknown subscription'}</small></td><td><strong>{row.total}</strong>{row.total > 1 && <small>Recurring</small>}</td><td>{row.active}</td><td>{row.recovered}</td><td>{new Set(data.incidents.filter(item => resourceKey(item) === row.key).map(item => dateKey(started(item)))).size}</td><td>{formatBangkokTimestamp(started(data.incidents.find(item => resourceKey(item) === row.key)!))}</td><td>{Math.round(row.total / data.total * 100)}%</td></tr>)}</tbody></table></div> : <EmptyState title={repeatsOnly ? 'No recurring resources' : 'No incidents in this period'} detail="Select Today, another week or month to explore incident history." />}
       </article>
       <article ref={detailRef} tabIndex={-1} className="ops-panel ops-report-panel ops-investigation"><div className="ops-panel-heading"><div><p>RESOURCE INVESTIGATION / PERIOD INCIDENT LOG</p><h2>{resource ? data.resources.find(row => row.key === resource)?.resource : 'All incidents'} · {incidents.length}</h2></div>{resource && <button className="ops-button ops-button-secondary" onClick={() => selectResource('')}>Show all resources</button>}</div>
         <div className="ops-investigation-summary">

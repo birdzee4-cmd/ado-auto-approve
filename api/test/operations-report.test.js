@@ -63,3 +63,25 @@ test('investigation report preserves primary and related ticket evidence without
   assert.equal(recovered.workItems.find(item => item.workItemId === 102).assignedTo, 'Support');
   assert.equal(report.incidents.find(item => item.incidentId === 'case-b').workItems.length, 0);
 });
+
+test('Today uses the current Bangkok day regardless of supplied date, including midnight and year rollover', () => {
+  const items = [
+    incident('before', '2026-12-31T16:59:59Z'),
+    incident('start', '2026-12-31T17:00:00Z'),
+    incident('end', '2027-01-01T16:59:59Z', { status: 'RESOLVED' }),
+    incident('after', '2027-01-01T17:00:00Z')
+  ];
+  const report = buildReport(items, { period: 'today', date: '2020-01-01' }, new Date('2026-12-31T17:00:00Z'));
+  assert.equal(report.period, 'today');
+  assert.equal(report.start, '2027-01-01');
+  assert.equal(report.end, '2027-01-01');
+  assert.deepEqual(report.incidents.map(item => item.incidentId), ['end', 'start']);
+  assert.deepEqual(report.daily, [{ date: '2027-01-01', count: 2 }]);
+  assert.equal(report.total, 2);
+  assert.equal(report.active, 1);
+  assert.equal(report.recovered, 1);
+  assert.equal(report.resources[0].total, 2);
+  const previousDay = buildReport([], { period: 'today' }, new Date('2026-12-31T16:59:59Z'));
+  assert.equal(previousDay.start, '2026-12-31');
+  assert.deepEqual(previousDay.daily, [{ date: '2026-12-31', count: 0 }]);
+});

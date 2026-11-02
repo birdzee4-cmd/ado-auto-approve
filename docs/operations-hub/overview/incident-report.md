@@ -22,3 +22,9 @@ Deployment: the existing Azure Static Web Apps workflow builds operations-ui and
 - The report reader loads all configured related-work-item pages as well as incident pages. If either read fails, the endpoint fails instead of presenting an incomplete report. Related work items require the existing work-items list configuration and read permissions.
 - CSV exports all records matching resource/date filters, beyond pagination, with recovery, environment, plan, metric/value/threshold, severity, work item roles, URLs, states and assignees. It retains formula-prefix escaping.
 - Scope remains incidents first seen during the week/month. No cross-period backlog, historical status snapshot, deployment correlation, or confirmed downtime is inferred.
+
+## Today period
+
+- Select Today in the Period selector to report incidents first seen on the current Asia/Bangkok calendar date. API `period=today` derives the date on the server and ignores a supplied date, avoiding stale client dates. Weekly/monthly behavior is unchanged.
+- Today applies to totals, resources, chart, investigation log and CSV. The date picker is disabled in Today mode; the UI checks for a Bangkok day rollover every 30 seconds while mounted and refreshes the report when the date changes. Refresh always asks the server for the current day.
+- This is an incident-start report, not a count of ADO work items created today or a queue of older unresolved incidents.

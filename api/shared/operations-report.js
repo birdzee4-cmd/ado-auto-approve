@@ -7,17 +7,18 @@ const dateKey = value => {
 const iso = date => date.toISOString().slice(0, 10);
 function buildReport(items, query = {}, now = new Date()) {
   const period = query.period || 'week';
-  const selected = query.date || dateKey(now.toISOString());
+  const selected = period === 'today' ? dateKey(now.toISOString()) : query.date || dateKey(now.toISOString());
   const anchor = new Date(`${selected}T00:00:00Z`);
-  if (!['week', 'month'].includes(period) || !/^\d{4}-\d{2}-\d{2}$/.test(selected) || !Number.isFinite(anchor.getTime()) || iso(anchor) !== selected) {
-    throw Object.assign(new Error('Select a valid date and week or month period'), { status: 400, code: 'INVALID_REPORT_PERIOD' });
+  if (!['today', 'week', 'month'].includes(period) || !/^\d{4}-\d{2}-\d{2}$/.test(selected) || !Number.isFinite(anchor.getTime()) || iso(anchor) !== selected) {
+    throw Object.assign(new Error('Select a valid date and today, week or month period'), { status: 400, code: 'INVALID_REPORT_PERIOD' });
   }
   const start = new Date(anchor);
   if (period === 'week') start.setUTCDate(start.getUTCDate() - (start.getUTCDay() + 6) % 7);
-  else start.setUTCDate(1);
+  else if (period === 'month') start.setUTCDate(1);
   const next = new Date(start);
   if (period === 'week') next.setUTCDate(next.getUTCDate() + 7);
-  else next.setUTCMonth(next.getUTCMonth() + 1);
+  else if (period === 'month') next.setUTCMonth(next.getUTCMonth() + 1);
+  else next.setUTCDate(next.getUTCDate() + 1);
   const startKey = iso(start), nextKey = iso(next);
   const dated = items.map(item => ({ item, date: dateKey(item.firstSeen || item.receivedAt || item.createdAt) }));
   const incidents = dated.filter(row => row.date >= startKey && row.date < nextKey).map(row => row.item)
