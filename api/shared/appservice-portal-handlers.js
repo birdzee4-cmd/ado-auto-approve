@@ -248,6 +248,17 @@ async function handleLogs(context, req) {
 
 function getPublicErrorDetail(err) {
   if (err && err.expose) return err.message;
+  const code = String(err && err.code || '');
+  const status = Number(err && err.statusCode);
+  if (code === 'AuthorizationFailed' || status === 403) {
+    return 'Azure denied this request. Check the backend Azure identity permissions on the target App Service (Microsoft.Web/sites/read and Microsoft.Web/sites/restart/action).';
+  }
+  if (['ResourceNotFound', 'ResourceGroupNotFound', 'SubscriptionNotFound'].includes(code) || status === 404) {
+    return 'App Service was not found in the selected Azure subscription and resource group. Check the incident resource name, resource group, and backend subscription configuration.';
+  }
+  if (status === 401 || ['AuthenticationFailed', 'InvalidAuthenticationToken'].includes(code)) {
+    return 'Azure authentication failed. Check the backend Azure credential for the selected subscription.';
+  }
   return 'Azure App Service request failed. Check Managed Identity, RBAC, and environment variables.';
 }
 

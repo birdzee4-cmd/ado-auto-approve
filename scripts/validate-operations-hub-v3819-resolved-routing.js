@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const root = path.resolve(process.argv[2] || 'tmp-v3819-build');
+const root = path.resolve(process.argv[2] || 'artifacts/power-automate/_work/tmp-v3819-build');
 const flowManifest = readJson(path.join(root, 'Microsoft.Flow', 'flows', 'manifest.json'));
 const assetId = flowManifest.flowAssets.assetPaths[0];
 const wrapper = readJson(path.join(root, 'Microsoft.Flow', 'flows', assetId, 'definition.json'));

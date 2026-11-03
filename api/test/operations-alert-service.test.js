@@ -28,6 +28,16 @@ test('different First Seen remains unmatched without fuzzy matching', () => {
   assert.equal(result.errorCode, 'NO_EXACT_MATCH');
 });
 
+test('explicit Incident ID cannot bypass a different First Seen', () => {
+  const result = service.correlate({ ...event, incidentId: incident.incidentId, firstSeenAt: '2026-10-02T17:15:00.000Z' }, [incident]);
+  assert.equal(result.status, 'UNMATCHED');
+});
+
+test('invalid timestamps cannot pass the resolution sequence guard', () => {
+  assert.equal(service.validateCandidate(event, { ...incident, firstSeen: 'invalid' }, false).errorCode, 'INVALID_TIME_SEQUENCE');
+  assert.equal(service.validateCandidate({ ...event, resolvedAt: 'invalid' }, incident, false).errorCode, 'INVALID_TIME_SEQUENCE');
+});
+
 test('multiple exact incidents are ambiguous', () => {
   const result = service.correlate(event, [incident, { ...incident, sharePointId: 23, incidentId: 'inc-2' }]);
   assert.equal(result.status, 'AMBIGUOUS');

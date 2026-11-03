@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const root = path.resolve(process.argv[2] || 'tmp-v3811-episode-dedup');
+const root = path.resolve(process.argv[2] || 'artifacts/power-automate/_work/tmp-v3811-episode-dedup');
 const fm = JSON.parse(fs.readFileSync(path.join(root, 'Microsoft.Flow', 'flows', 'manifest.json'), 'utf8'));
 const id = fm.flowAssets.assetPaths[0];
 const w = JSON.parse(fs.readFileSync(path.join(root, 'Microsoft.Flow', 'flows', id, 'definition.json'), 'utf8'));

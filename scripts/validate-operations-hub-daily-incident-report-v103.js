@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const root = path.resolve(process.argv[2] || 'tmp-daily-incident-report-v103');
+const root = path.resolve(process.argv[2] || 'artifacts/power-automate/_work/tmp-daily-incident-report-v103');
 const fm = JSON.parse(fs.readFileSync(path.join(root, 'Microsoft.Flow', 'flows', 'manifest.json'), 'utf8'));
 const id = fm.flowAssets.assetPaths[0];
 const w = JSON.parse(fs.readFileSync(path.join(root, 'Microsoft.Flow', 'flows', id, 'definition.json'), 'utf8'));
@@ -15,7 +15,10 @@ const checks = [
   ['legacy workflow closed count removed', !text.includes('Filter_Today_Closed')],
   ['period event metrics', text.includes('Filter_Resolved_In_Period') && text.includes('Filter_Closed_In_Period')],
   ['no cumulative totals in message', !w.properties.definition.actions.Compose_Report_Message.inputs.includes('All incidents:') && !w.properties.definition.actions.Compose_Report_Message.inputs.includes('<br>Closed:')],
-  ['open backlog total', w.properties.definition.actions.Compose_Report_Message.inputs.includes('Total open backlog:')],
+  ['open backlog total removed', !w.properties.definition.actions.Compose_Report_Message.inputs.includes('Total open backlog:')],
+  ['report queue wording', w.properties.definition.actions.Compose_Report_Message.inputs.includes('งานที่ยังค้างไม่ถูกปิด') && w.properties.definition.actions.Compose_Report_Message.inputs.includes('งานที่ยังต้องดำเนินการ')],
+  ['intake lifecycle wording', w.properties.definition.actions.Compose_Report_Message.inputs.includes('Incident ที่เกิดขึ้นระหว่างช่วงเวลา') && !text.includes('Tracking / lifecycle:')],
+  ['backlog progress wording', !text.includes('Progress / VSTS:') && text.includes('App Support:') && text.includes('IT Tier2:')],
   ['bounded manual run end', text.includes('Compose_Effective_End_UTC') && text.includes('ticks(utcNow())')],
   ['both Teams destinations retained', text.includes('Post_Daily_Report_to_AzureAppServiceHigh5xxRateCritical') && text.includes('Post_Daily_Report_to_IT_Support_Team_2025')]
 ];

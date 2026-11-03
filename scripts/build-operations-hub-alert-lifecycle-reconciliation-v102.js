@@ -19,21 +19,13 @@ const manifest = readJson(packagePath);
 const workflow = wrapper.properties.definition;
 const eligible = workflow.actions.For_Each_RESOLVED_Email.actions.Condition_Is_Eligible_RESOLVED;
 
-eligible.expression.and.push({ contains: ["@outputs('Compose_Email_Body')", 'First Seen:</b>'] });
 const actions = eligible.actions;
-actions.Compose_First_Seen_Raw = {
-  type: 'Compose',
-  inputs: "@if(contains(outputs('Compose_Email_Body'),'First Seen:</b>'),trim(first(split(last(split(outputs('Compose_Email_Body'),'First Seen:</b>')),'<br>'))),'')",
-  runAfter: { Compose_Resource: ['Succeeded'] }
-};
-actions.Compose_First_Seen_At = {
-  type: 'Compose',
-  inputs: "@concat(substring(outputs('Compose_First_Seen_Raw'),6,4),'-',substring(outputs('Compose_First_Seen_Raw'),3,2),'-',substring(outputs('Compose_First_Seen_Raw'),0,2),'T',substring(outputs('Compose_First_Seen_Raw'),11,5),':00+07:00')",
-  runAfter: { Compose_First_Seen_Raw: ['Succeeded'] }
-};
-actions.Compose_Resolved_At_Raw.runAfter = { Compose_First_Seen_At: ['Succeeded'] };
 const match = actions.Condition_Message_Not_Processed.actions.Get_Matching_Open_FIRING.inputs.parameters;
-match['$filter'] = "@concat('Title eq ''',replace(outputs('Compose_Alert_Name'),'''',''''''),''' and Resource eq ''',replace(outputs('Compose_Resource'),'''',''''''),''' and FirstSeenAt eq ''',outputs('Compose_First_Seen_At'),''' and AlertStatus eq ''FIRING'' and ResolvedAt eq null')";
+// Do not require an exact FirstSeenAt match. The incident flow and the
+// monitoring email can serialize the same Bangkok wall-clock time with
+// different UTC offsets (and older incidents were stored with a connector
+// timezone conversion). Correlate the open episode by identity and ordering.
+match['$filter'] = "@concat('Title eq ''',replace(outputs('Compose_Alert_Name'),'''',''''''),''' and Resource eq ''',replace(outputs('Compose_Resource'),'''',''''''),''' and AlertStatus eq ''FIRING'' and ResolvedAt eq null and FirstSeenAt lt ''',outputs('Compose_Resolved_At'),'''')";
 match['$orderby'] = 'FirstSeenAt desc';
 match['$top'] = 2;
 
@@ -41,7 +33,7 @@ workflow.contentVersion = '1.0.2.0';
 workflow.metadata.clientLastModifiedTime = new Date().toISOString();
 wrapper.properties.displayName = 'Operations Hub - Alert Lifecycle Reconciliation v1.0.2';
 manifest.details.displayName = 'OperationsHub-AlertLifecycleReconciliation-v1.0.2';
-manifest.details.description = 'Episode-aware RESOLVED reconciliation: correlate CRITICAL/P1 mail by Alert, Resource, and exact First Seen; suppress NO MATCH and warn only for ambiguous matches.';
+manifest.details.description = 'Episode-aware RESOLVED reconciliation: correlate CRITICAL/P1 mail by Alert, Resource, and FirstSeenAt before ResolvedAt; tolerate serialization/timezone differences, suppress NO MATCH, and warn only for ambiguous matches.';
 manifest.details.createdTime = new Date().toISOString();
 manifest.resources[assetId].details.displayName = wrapper.properties.displayName;
 

@@ -457,6 +457,7 @@ async function closeResolvedPrimaryIfReady(input, context, dependencies = {}) {
   const ado = dependencies.ado || defaultAdo;
   const incident = await requireIncident(sp, input.incidentId);
   if (String(incident.status || '').toUpperCase() !== 'RESOLVED') return { closed: false, reason: 'alert-not-resolved' };
+  if (hasInvalidResolutionTimeline(incident)) return { closed: false, reason: 'invalid-resolution-timeline' };
   const primary = (incident.workItems || []).find(item => item.role === 'PRIMARY');
   if (!primary) return { closed: false, reason: 'primary-missing' };
   if (defaultWorkItems.isClosedState(primary.state)) return { closed: false, reason: 'primary-already-closed' };
@@ -674,10 +675,22 @@ async function manualAlertStatus(input, context, dependencies = {}) {
   return { incidentId: incident.incidentId, status, previousStatus: previous, overriddenAt: now };
 }
 
+function hasInvalidResolutionTimeline(incident) {
+  // Preserve legacy records without timestamps, but never act on a recovery
+  // known to predate this episode or received before this incident was created.
+  const firstSeen = Date.parse(incident?.firstSeen || '');
+  const resolved = Date.parse(incident?.resolvedAt || '');
+  const received = Date.parse(incident?.receivedAt || '');
+  const lastAlert = Date.parse(incident?.lastAlertAt || '');
+  return (Number.isFinite(firstSeen) && Number.isFinite(resolved) && resolved <= firstSeen)
+    || (Number.isFinite(received) && Number.isFinite(lastAlert) && lastAlert < received);
+}
+
 function closeEligibility(incident) {
   const items = incident && incident.workItems || [];
   const reasons = [];
   const warnings = [];
+  if (String(incident?.status || '').toUpperCase() === 'RESOLVED' && hasInvalidResolutionTimeline(incident)) reasons.push('Resolved event predates this incident episode; verify First Seen and recovery correlation');
   const primary = items.find(item => item.role === 'PRIMARY');
   if (!primary) reasons.push('Primary work item is missing');
   const blockingItems = items.filter(item => !defaultWorkItems.isClosedState(item.state));
@@ -807,6 +820,7 @@ module.exports = {
   audit,
   buildCreatePatches,
   closeEligibility,
+  hasInvalidResolutionTimeline,
   closeIncident,
   manualCloseIncident,
   manualAlertStatus,

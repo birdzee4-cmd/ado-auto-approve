@@ -209,6 +209,7 @@ function notificationCandidates(incident, failedCount, nowMs = Date.now()) {
 
 function resolvedOpen24hReminderCandidate(incident, nowMs = Date.now()) {
   if (String(incident.status || '').toUpperCase() !== 'RESOLVED'
+    || service.hasInvalidResolutionTimeline(incident)
     || String(incident.operationsStatus || '').toUpperCase() === 'CLOSED') return null;
 
   // LastAlertAt is written when RESOLVED is received. ResolvedAt in older
@@ -250,6 +251,7 @@ function notificationCandidate(incident, failedCount) {
   const workItems = require('../shared/operations-work-items');
   if (String(incident.operationsStatus || '').toUpperCase() !== 'CLOSED'
     && String(incident.status || '').toUpperCase() === 'RESOLVED'
+    && !service.hasInvalidResolutionTimeline(incident)
     && items.some(item => item.role === 'PRIMARY')
     && items.every(item => workItems.isClosedState(item.state))) {
     const incidentUrl = `${hubUrl}#/incidents?id=${encodeURIComponent(incident.incidentId)}`;
