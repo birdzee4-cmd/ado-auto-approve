@@ -29,7 +29,9 @@ module.exports = async function (context, req) {
     const webhookUser = process.env.WEBHOOK_USERNAME;
     const webhookPass = process.env.WEBHOOK_PASSWORD;
 
-    if (webhookUser && webhookPass) {
+    const customWebhookToken = req.headers['x-ado-webhook-token'] || '';
+    const customTokenMatches = webhookPass && credentialsMatch(customWebhookToken, webhookPass);
+    if (webhookUser && webhookPass && !customTokenMatches) {
         const authHeader = req.headers['authorization'] || '';
         const expected = 'Basic ' + Buffer.from(`${webhookUser}:${webhookPass}`).toString('base64');
         if (!credentialsMatch(authHeader, expected)) {
