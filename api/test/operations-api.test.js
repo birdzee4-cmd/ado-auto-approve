@@ -425,6 +425,23 @@ test('Operations dashboard summarizes ADO tracking states', () => {
   assert.equal(summary.failedItems, 1);
 });
 
+test('Operations dashboard includes new, in-progress and ready-to-close incidents in follow-up queue', () => {
+  const base = { firstSeen: '2026-10-28T13:08:00Z', workflowStatus: 'PROCESSING' };
+  const items = [
+    { ...base, incidentId: 'INC-2026-000482', status: 'FIRING', trackingStatus: 'OPEN', workItemId: 897051, adoState: 'Processing' },
+    { ...base, incidentId: 'new', status: 'FIRING', trackingStatus: 'NEW' },
+    { ...base, incidentId: 'resolved-open-ticket', status: 'RESOLVED', trackingStatus: 'OPEN', workItemId: 2 },
+    { ...base, incidentId: 'ready', status: 'RESOLVED', trackingStatus: 'CLOSED', workItemId: 3 },
+    { ...base, incidentId: 'closed', status: 'RESOLVED', trackingStatus: 'OPEN', operationsStatus: 'CLOSED', workItemId: 4 },
+    { ...base, incidentId: 'cancelled', trackingStatus: 'CANCELLED' }
+  ];
+  const summary = operations.dashboardSummary(items, { date: '2026-10-28' });
+  assert.equal(summary.daily.openBacklog, 4);
+  assert.deepEqual(summary.needsAttention.map(item => item.incidentId), [
+    'INC-2026-000482', 'new', 'resolved-open-ticket', 'ready'
+  ]);
+});
+
 test('Operations dashboard surfaces lifecycle conflicts as attention backlog', () => {
   const conflict = { incidentId: 'conflict', firstSeen: '2026-09-25T01:00:00Z', trackingStatus: 'CLOSED', workflowStatus: 'REJECTED', hasLifecycleConflict: true };
   const summary = operations.dashboardSummary([conflict], { date: '2026-09-25' }, new Date('2026-09-25T05:00:00Z'));

@@ -47,3 +47,81 @@ test('report endpoint uses existing role authorization and returns the report en
     assert.equal(body.data.total, 1);
   } finally { sp.listReportIncidents = original; }
 });
+
+test('investigation report preserves primary and related ticket evidence without counting tickets as incidents', () => {
+  const { attachWorkItems } = require('../shared/operations-work-items');
+  const items = attachWorkItems([
+    incident('case-a', '2026-10-19T01:00:00Z', { status: 'RESOLVED', resolvedAt: '2026-10-19T01:30:00Z', workItemId: 101, workItemUrl: 'https://dev.azure.com/example/project/_workitems/edit/101', adoState: 'Closed' }),
+    incident('case-b', '2026-10-20T01:00:00Z')
+  ], [{ incidentId: 'case-a', workItemId: 102, role: 'RELATED', state: 'Active', assignedTo: 'Support' }]);
+  const report = buildReport(items, { date: '2026-10-21', period: 'week' });
+  assert.equal(report.total, 2);
+  assert.equal(report.resources[0].total, 2);
+  const recovered = report.incidents.find(item => item.incidentId === 'case-a');
+  assert.equal(recovered.resolvedAt, '2026-10-19T01:30:00Z');
+  assert.deepEqual(recovered.workItems.map(item => item.workItemId).sort(), [101, 102]);
+  assert.equal(recovered.workItems.find(item => item.workItemId === 102).assignedTo, 'Support');
+  assert.equal(report.incidents.find(item => item.incidentId === 'case-b').workItems.length, 0);
+});
+
+test('Today uses the current Bangkok day regardless of supplied date, including midnight and year rollover', () => {
+  const items = [
+    incident('before', '2026-12-31T16:59:59Z'),
+    incident('start', '2026-12-31T17:00:00Z'),
+    incident('end', '2027-01-01T16:59:59Z', { status: 'RESOLVED' }),
+    incident('after', '2027-01-01T17:00:00Z')
+  ];
+  const report = buildReport(items, { period: 'today', date: '2020-01-01' }, new Date('2026-12-31T17:00:00Z'));
+  assert.equal(report.period, 'today');
+  assert.equal(report.start, '2027-01-01');
+  assert.equal(report.end, '2027-01-01');
+  assert.deepEqual(report.incidents.map(item => item.incidentId), ['end', 'start']);
+  assert.deepEqual(report.daily, [{ date: '2027-01-01', count: 2 }]);
+  assert.equal(report.total, 2);
+  assert.equal(report.active, 1);
+  assert.equal(report.recovered, 1);
+  assert.equal(report.resources[0].total, 2);
+  const previousDay = buildReport([], { period: 'today' }, new Date('2026-12-31T16:59:59Z'));
+  assert.equal(previousDay.start, '2026-12-31');
+  assert.deepEqual(previousDay.daily, [{ date: '2026-12-31', count: 0 }]);
+});
+
+test('handoffs count distinct related tickets by creation date, including older incidents and both teams', () => {
+  const ticket = (workItemId, supportTeam, createdAt, extra = {}) => ({ workItemId, supportTeam, createdAt, role: 'RELATED', ...extra });
+  const report = buildReport([
+    incident('older', '2026-09-01T00:00:00Z', { workItems: [
+      ticket(201, 'APP_SUPPORT', '2026-10-18T17:00:00Z'),
+      ticket(202, 'TIER2', '2026-10-25T16:59:59Z'),
+      ticket(201, 'APP_SUPPORT', '2026-10-18T17:00:00Z'),
+      ticket(203, 'TIER2', '2026-10-25T17:00:00Z'),
+      ticket(204, 'APP_SUPPORT', 'invalid'),
+      ticket(205, 'TIER1', '2026-10-19T00:00:00Z', { role: 'PRIMARY' }),
+      ticket(206, undefined, '2026-10-19T00:00:00Z'),
+      ticket(208, 'APP_SUPPORT', '2026-10-18T16:59:59Z')
+    ] }),
+    incident('current', '2026-10-20T00:00:00Z', { workItems: [ticket(207, 'APP_SUPPORT', '2026-10-20T01:00:00Z', { state: 'Closed' })] })
+  ], { period: 'week', date: '2026-10-21' });
+  assert.equal(report.total, 1);
+  assert.equal(report.handoffs.total, 3);
+  assert.equal(report.handoffs.incidentCount, 2);
+  assert.equal(report.handoffs.appSupport, 2);
+  assert.equal(report.handoffs.tier2, 1);
+  assert.equal(report.handoffs.unknownDates, 1);
+  assert.deepEqual(report.handoffs.tickets.map(row => row.workItemId), [202, 207, 201]);
+  assert.equal(report.handoffs.tickets[0].incidentId, 'older');
+  assert.equal(report.handoffs.tickets[1].state, 'Closed');
+});
+
+test('handoffs respect Today and monthly Bangkok boundaries and return empty totals', () => {
+  const items = [incident('older', '2025-01-01T00:00:00Z', { workItems: [
+    { workItemId: 1, role: 'RELATED', supportTeam: 'TIER2', createdAt: '2026-10-31T17:00:00Z' },
+    { workItemId: 2, role: 'RELATED', supportTeam: 'APP_SUPPORT', createdAt: '2026-11-01T17:00:00Z' }
+  ] })];
+  const today = buildReport(items, { period: 'today' }, new Date('2026-11-01T00:00:00Z'));
+  assert.equal(today.handoffs.total, 1);
+  assert.equal(today.handoffs.tier2, 1);
+  assert.equal(buildReport(items, { period: 'month', date: '2026-11-15' }).handoffs.total, 2);
+  assert.deepEqual(buildReport([], { period: 'month', date: '2026-11-15' }).handoffs, {
+    total: 0, incidentCount: 0, appSupport: 0, tier2: 0, unknownDates: 0, tickets: []
+  });
+});

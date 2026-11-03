@@ -118,8 +118,10 @@ function validateCandidate(event, incident, requireFirstSeen) {
   if (String(incident.status || '').toUpperCase() !== 'FIRING' || incident.resolvedAt) return invalid('INCIDENT_NOT_OPEN', 'Incident must be FIRING with no ResolvedAt');
   if (normalize(incident.alertName) !== normalize(event.alertName)) return invalid('ALERT_MISMATCH', 'Alert name does not match');
   if (normalize(incident.resource) !== normalize(event.resource)) return invalid('RESOURCE_MISMATCH', 'Resource does not match');
-  if (requireFirstSeen && event.incidentId === '' && !sameInstant(incident.firstSeen, event.firstSeenAt)) return invalid('FIRST_SEEN_MISMATCH', 'First Seen does not match');
-  if (!event.resolvedAt || Date.parse(event.resolvedAt) <= Date.parse(incident.firstSeen || '')) return invalid('INVALID_TIME_SEQUENCE', 'ResolvedAt must be after Incident FirstSeenAt');
+  if (requireFirstSeen && !sameInstant(incident.firstSeen, event.firstSeenAt)) return invalid('FIRST_SEEN_MISMATCH', 'First Seen does not match');
+  const firstSeen = Date.parse(incident.firstSeen || '');
+  const resolvedAt = Date.parse(event.resolvedAt || '');
+  if (!Number.isFinite(firstSeen) || !Number.isFinite(resolvedAt) || resolvedAt <= firstSeen) return invalid('INVALID_TIME_SEQUENCE', 'ResolvedAt must be after Incident FirstSeenAt');
   return { ok: true };
 }
 

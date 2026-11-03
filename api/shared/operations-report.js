@@ -7,21 +7,47 @@ const dateKey = value => {
 const iso = date => date.toISOString().slice(0, 10);
 function buildReport(items, query = {}, now = new Date()) {
   const period = query.period || 'week';
-  const selected = query.date || dateKey(now.toISOString());
+  const selected = period === 'today' ? dateKey(now.toISOString()) : query.date || dateKey(now.toISOString());
   const anchor = new Date(`${selected}T00:00:00Z`);
-  if (!['week', 'month'].includes(period) || !/^\d{4}-\d{2}-\d{2}$/.test(selected) || !Number.isFinite(anchor.getTime()) || iso(anchor) !== selected) {
-    throw Object.assign(new Error('Select a valid date and week or month period'), { status: 400, code: 'INVALID_REPORT_PERIOD' });
+  if (!['today', 'week', 'month'].includes(period) || !/^\d{4}-\d{2}-\d{2}$/.test(selected) || !Number.isFinite(anchor.getTime()) || iso(anchor) !== selected) {
+    throw Object.assign(new Error('Select a valid date and today, week or month period'), { status: 400, code: 'INVALID_REPORT_PERIOD' });
   }
   const start = new Date(anchor);
   if (period === 'week') start.setUTCDate(start.getUTCDate() - (start.getUTCDay() + 6) % 7);
-  else start.setUTCDate(1);
+  else if (period === 'month') start.setUTCDate(1);
   const next = new Date(start);
   if (period === 'week') next.setUTCDate(next.getUTCDate() + 7);
-  else next.setUTCMonth(next.getUTCMonth() + 1);
+  else if (period === 'month') next.setUTCMonth(next.getUTCMonth() + 1);
+  else next.setUTCDate(next.getUTCDate() + 1);
   const startKey = iso(start), nextKey = iso(next);
   const dated = items.map(item => ({ item, date: dateKey(item.firstSeen || item.receivedAt || item.createdAt) }));
   const incidents = dated.filter(row => row.date >= startKey && row.date < nextKey).map(row => row.item)
     .sort((a, b) => Date.parse(b.firstSeen || b.receivedAt || b.createdAt) - Date.parse(a.firstSeen || a.receivedAt || a.createdAt));
+  // Handoffs use the related ticket creation date, independently of incident start.
+  const seenTickets = new Set();
+  const handoffTickets = [];
+  let unknownHandoffDates = 0;
+  for (const item of items) {
+    for (const ticket of item.workItems || []) {
+      if (ticket.role !== 'RELATED' || !['APP_SUPPORT', 'TIER2'].includes(ticket.supportTeam) || !ticket.workItemId) continue;
+      const key = String(ticket.workItemId);
+      if (seenTickets.has(key)) continue;
+      seenTickets.add(key);
+      const created = dateKey(ticket.createdAt);
+      if (!created) { unknownHandoffDates++; continue; }
+      if (created < startKey || created >= nextKey) continue;
+      handoffTickets.push({ ...ticket, incidentId: item.incidentId, displayId: item.displayId || item.incidentId, resource: item.resource || '', alertName: item.alertName || '' });
+    }
+  }
+  handoffTickets.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt) || Number(a.workItemId) - Number(b.workItemId));
+  const handoffs = {
+    total: handoffTickets.length,
+    incidentCount: new Set(handoffTickets.map(ticket => ticket.incidentId)).size,
+    appSupport: handoffTickets.filter(ticket => ticket.supportTeam === 'APP_SUPPORT').length,
+    tier2: handoffTickets.filter(ticket => ticket.supportTeam === 'TIER2').length,
+    unknownDates: unknownHandoffDates,
+    tickets: handoffTickets
+  };
   const resources = new Map();
   for (const item of incidents) {
     const resource = String(item.resource || '').trim() || 'Unknown resource';
@@ -36,7 +62,7 @@ function buildReport(items, query = {}, now = new Date()) {
     const date = iso(day); daily.push({ date, count: dated.filter(row => row.date === date).length });
   }
   const end = new Date(next); end.setUTCDate(end.getUTCDate() - 1);
-  return { period, start: startKey, end: iso(end), generatedAt: now.toISOString(), total: incidents.length,
+  return { handoffs, period, start: startKey, end: iso(end), generatedAt: now.toISOString(), total: incidents.length,
     recovered: incidents.filter(item => item.status === 'RESOLVED').length,
     active: incidents.filter(item => item.status === 'FIRING').length,
     unknownDates: dated.filter(row => !row.date).length,

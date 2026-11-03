@@ -89,6 +89,7 @@
     { "route": "/api/auto-complete-reconcile", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/log-retention-cleanup", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/table-retention-cleanup", "methods": ["POST"], "allowedRoles": ["anonymous"] },
+    { "route": "/api/ado-deployment-status", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/webhook", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/.auth/login/github", "statusCode": 404 },
     { "route": "/.auth/login/twitter", "statusCode": 404 }

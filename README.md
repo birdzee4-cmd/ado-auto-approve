@@ -1075,6 +1075,9 @@ api/shared/attention.js
 |---|---:|---|
 | `WEBHOOK_USERNAME` | For webhook | basic auth username |
 | `WEBHOOK_PASSWORD` | For webhook | basic auth password |
+| `ADO_DEPLOYMENT_EVENTS_ENABLED` | No | set `true` to persist supported deployment events; disabled by default |
+| `ADO_DEPLOYMENT_EVENT_STORAGE_CONNECTION_STRING` | For deployment events | Azure Table Storage connection string; falls back to `AzureWebJobsStorage` |
+| `ADO_DEPLOYMENT_EVENT_TABLE` | No | deployment event table name; default `AdoDeploymentEvents` |
 | `STAGING_BRANCH_REF` | No | default `refs/heads/staging` |
 
 ### Dashboard Options

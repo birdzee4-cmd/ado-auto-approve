@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { operationsApi } from '../api';
 import { AdoConnection } from '../AdoConnection';
 import { AdoStateBadge, EmptyState, ErrorState, formatBangkokTimestamp, LoadingState, PageHeading, StatusBadge } from '../components';
-import type { DashboardData, Incident } from '../types';
+import type { DashboardData } from '../types';
 import { operationsStatus } from '../incidentStatus';
 
 const emptyDashboard: DashboardData = { totalIncidents: 0, adoWorkItems: 0, openWorkItems: 0, closedWorkItems: 0, awaitingApproval: 0, cancelledItems: 0, failedItems: 0, lifecycleConflicts: 0, recentIncidents: [], selectedDate: '', daily: { newIncidents: 0, resolvedIncidents: 0, adoCreated: 0, failedIncidents: 0, pendingApproval: 0, openBacklog: 0, lifecycleConflicts: 0, incidents: [] }, dailySeries: [], needsAttention: [] };
@@ -38,7 +38,7 @@ export function Dashboard() {
         </div>
         <div className="ops-dashboard-grid">
           <TrendChart series={data.dailySeries} />
-          <article className="ops-panel ops-attention-panel"><div className="ops-panel-heading"><div><span>ITEMS REQUIRING ATTENTION</span><h2>Incident Follow-up Queue</h2><small>{data.needsAttention.length ? `Showing ${data.needsAttention.length} of ${data.daily.openBacklog}` : 'No outstanding work'}</small></div><strong>{data.daily.openBacklog}</strong></div>{data.needsAttention.length === 0 ? <EmptyState title="Queue is clear" detail="No open, pending, failed, waiting, or lifecycle-conflict incidents." /> : <><div className="ops-attention-list">{data.needsAttention.map(item => <a href={`#/incidents?id=${encodeURIComponent(item.incidentId)}`} key={item.incidentId}><div><strong>{item.displayId}</strong><small>{item.service || item.resource || item.alertName}</small></div><StatusBadge value={dashboardQueueStatus(item)} /></a>)}</div><div className="ops-panel-footer"><a href="#/incidents?status=ATTENTION">View all follow-up items →</a></div></>}</article>
+          <article className="ops-panel ops-attention-panel"><div className="ops-panel-heading"><div><span>ITEMS REQUIRING ATTENTION</span><h2>Incident Follow-up Queue</h2><small>{data.needsAttention.length ? `Showing ${data.needsAttention.length} of ${data.daily.openBacklog}` : 'No outstanding work'}</small></div><strong>{data.daily.openBacklog}</strong></div>{data.needsAttention.length === 0 ? <EmptyState title="Queue is clear" detail="No open, pending, failed, waiting, or lifecycle-conflict incidents." /> : <><div className="ops-attention-list">{data.needsAttention.map(item => <a href={`#/incidents?id=${encodeURIComponent(item.incidentId)}`} key={item.incidentId}><div><strong>{item.displayId}</strong><small>{item.service || item.resource || item.alertName}</small></div><StatusBadge value={operationsStatus(item)} /></a>)}</div><div className="ops-panel-footer"><a href="#/incidents?status=ATTENTION">View all follow-up items →</a></div></>}</article>
         </div>
         <article className="ops-panel ops-daily-table">
           <div className="ops-panel-heading"><div><span>DAILY INCIDENT LOG</span><h2>Incidents first seen on {formatDay(data.selectedDate)}</h2><small>{data.daily.totalIncidents && data.daily.totalIncidents > data.daily.incidents.length ? `Showing latest ${data.daily.incidents.length} of ${data.daily.totalIncidents} incidents` : `${data.daily.incidents.length} incident${data.daily.incidents.length === 1 ? '' : 's'}`}</small></div><small>{data.generatedAt ? `Updated ${formatTime(data.generatedAt)}` : 'Current status'}</small></div>
@@ -77,6 +77,3 @@ function formatTime(value?: string) {
     : '-';
 }
 
-function dashboardQueueStatus(item: Incident) {
-  return operationsStatus(item);
-}

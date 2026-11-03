@@ -457,6 +457,7 @@ async function closeResolvedPrimaryIfReady(input, context, dependencies = {}) {
   const ado = dependencies.ado || defaultAdo;
   const incident = await requireIncident(sp, input.incidentId);
   if (String(incident.status || '').toUpperCase() !== 'RESOLVED') return { closed: false, reason: 'alert-not-resolved' };
+  if (hasInvalidResolutionTimeline(incident)) return { closed: false, reason: 'invalid-resolution-timeline' };
   const primary = (incident.workItems || []).find(item => item.role === 'PRIMARY');
   if (!primary) return { closed: false, reason: 'primary-missing' };
   if (defaultWorkItems.isClosedState(primary.state)) return { closed: false, reason: 'primary-already-closed' };
@@ -597,7 +598,7 @@ async function synchronizeWorkItems(input, context, dependencies = {}) {
 async function closeIncident(input, context, dependencies = {}) {
   requireFeature('OPERATIONS_CLOSE_ENABLED');
   const sp = dependencies.sharePoint || defaultSharePoint;
-  const synchronization = await synchronizeWorkItems(input, context, dependencies);
+  const synchronization = await synchronizeWorkItems({ ...input, roles: undefined }, context, dependencies);
   const failedItems = synchronization.items.filter(item => !item.ok);
   if (failedItems.length > 0) {
     const detail = `Could not verify the latest state of Work Items: ${failedItems.map(item => `#${item.workItemId}`).join(', ')}`;
@@ -614,6 +615,14 @@ async function closeIncident(input, context, dependencies = {}) {
     };
   }
   const eligibility = closeEligibility(incident);
+  const latestOpenItems = synchronization.items.filter(item => !defaultWorkItems.isClosedState(item.state));
+  const invalidBulkTimeline = Date.parse(incident.resolvedAt || '') <= Date.parse(incident.firstSeen || '')
+    || Date.parse(incident.lastAlertAt || '') < Date.parse(incident.receivedAt || '');
+  if (input.batchClose === true && (eligibility.readinessStatus !== 'READY_TO_CLOSE' || incident.hasLifecycleConflict || latestOpenItems.length > 0 || invalidBulkTimeline)) {
+    const detail = 'Bulk closure requires a recovered alert, closed Work Items and no lifecycle conflict';
+    await audit(sp, context, { incidentId: incident.incidentId, action: 'INCIDENT_CLOSE_BLOCKED', result: 'BLOCKED', detail });
+    throw operationalError(409, 'BULK_CLOSE_NOT_READY', detail);
+  }
   if (!eligibility.allowed) {
     await audit(sp, context, { incidentId: incident.incidentId, action: 'INCIDENT_CLOSE_BLOCKED', result: 'BLOCKED', detail: eligibility.reasons.join('; ') });
     const error = operationalError(409, 'INCIDENT_CLOSE_BLOCKED', 'Incident closure requirements are not complete');
@@ -628,7 +637,7 @@ async function closeIncident(input, context, dependencies = {}) {
     incidentId: incident.incidentId,
     action: 'INCIDENT_CLOSED',
     result: 'SUCCEEDED',
-    detail: `Closed at ${now}; monitoring status: ${incident.status || 'UNKNOWN'}${eligibility.warnings?.length ? '; manual monitoring override applied' : ''}`
+    detail: `Closed at ${now}; monitoring status: ${incident.status || 'UNKNOWN'}${eligibility.warnings?.length ? '; manual monitoring override applied' : ''}${input.batchClose === true ? `; batch: ${String(input.batchId || '').slice(0, 100)}; note: ${String(input.note || '').slice(0, 1000)}` : ''}`
   });
   return { incidentId: incident.incidentId, closed: true, closedAt: now };
 }
@@ -666,10 +675,22 @@ async function manualAlertStatus(input, context, dependencies = {}) {
   return { incidentId: incident.incidentId, status, previousStatus: previous, overriddenAt: now };
 }
 
+function hasInvalidResolutionTimeline(incident) {
+  // Preserve legacy records without timestamps, but never act on a recovery
+  // known to predate this episode or received before this incident was created.
+  const firstSeen = Date.parse(incident?.firstSeen || '');
+  const resolved = Date.parse(incident?.resolvedAt || '');
+  const received = Date.parse(incident?.receivedAt || '');
+  const lastAlert = Date.parse(incident?.lastAlertAt || '');
+  return (Number.isFinite(firstSeen) && Number.isFinite(resolved) && resolved <= firstSeen)
+    || (Number.isFinite(received) && Number.isFinite(lastAlert) && lastAlert < received);
+}
+
 function closeEligibility(incident) {
   const items = incident && incident.workItems || [];
   const reasons = [];
   const warnings = [];
+  if (String(incident?.status || '').toUpperCase() === 'RESOLVED' && hasInvalidResolutionTimeline(incident)) reasons.push('Resolved event predates this incident episode; verify First Seen and recovery correlation');
   const primary = items.find(item => item.role === 'PRIMARY');
   if (!primary) reasons.push('Primary work item is missing');
   const blockingItems = items.filter(item => !defaultWorkItems.isClosedState(item.state));
@@ -799,6 +820,7 @@ module.exports = {
   audit,
   buildCreatePatches,
   closeEligibility,
+  hasInvalidResolutionTimeline,
   closeIncident,
   manualCloseIncident,
   manualAlertStatus,

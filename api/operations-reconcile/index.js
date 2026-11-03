@@ -121,11 +121,13 @@ async function notificationDryRunCandidate(incident) {
   const existing = await sharePoint.listAudit(incident.incidentId);
   const notification = notifications.find(item => !existing.some(event => event.eventKey === item.eventKey)) || notifications[0];
   const duplicate = existing.some(event => event.eventKey === notification.eventKey);
+  const timing = readyNotificationTiming(notification, existing);
   return {
     ...candidate,
     notification: {
       required: true,
       duplicate,
+      ...timing,
       type: notification.type,
       eventKey: notification.eventKey,
       message: notification.message
@@ -133,7 +135,7 @@ async function notificationDryRunCandidate(incident) {
   };
 }
 
-async function notifyIfNeeded(incident, failedCount, actionContext) {
+async function notifyIfNeeded(incident, failedCount, actionContext, nowMs = Date.now()) {
   if (!incident) return { sent: false, reason: 'not-required' };
   const candidates = notificationCandidates(incident, failedCount);
   if (candidates.length === 0) return { sent: false, reason: 'not-required' };
@@ -162,6 +164,20 @@ async function notifyIfNeeded(incident, failedCount, actionContext) {
   if (audit.some(event => event.eventKey === candidate.eventKey)) {
     return { sent: false, reason: 'duplicate', eventKey: candidate.eventKey };
   }
+  if (candidate.type === 'READY_TO_CLOSE') {
+    const timing = readyNotificationTiming(candidate, audit, nowMs);
+    if (!timing.scheduledAt) {
+      await service.audit(sharePoint, actionContext, {
+        incidentId: incident.incidentId,
+        action: 'RECONCILIATION_NOTIFICATION_SCHEDULED',
+        result: 'SUCCEEDED',
+        detail: candidate.type,
+        eventKey: `${candidate.eventKey}:scheduled`
+      });
+      return { sent: false, reason: 'waiting-first-reminder', dueAt: new Date(nowMs + 60 * 60 * 1000).toISOString() };
+    }
+    if (!timing.due) return { sent: false, reason: 'waiting-first-reminder', dueAt: timing.dueAt };
+  }
   const notifier = require('../shared/teams-notifier');
   const result = readyWebhookUrl
     ? await notifier.sendTeamsMessage(candidate.card, { webhookUrl: readyWebhookUrl })
@@ -177,6 +193,15 @@ async function notifyIfNeeded(incident, failedCount, actionContext) {
   return { sent: true, type: candidate.type, eventKey: candidate.eventKey };
 }
 
+function readyNotificationTiming(candidate, audit, nowMs = Date.now()) {
+  if (candidate.type !== 'READY_TO_CLOSE') return {};
+  const scheduled = audit.find(event => event.eventKey === `${candidate.eventKey}:scheduled`);
+  const scheduledMs = Date.parse(scheduled?.timestamp || '');
+  if (!Number.isFinite(scheduledMs)) return { scheduledAt: null, dueAt: null, due: false };
+  const dueMs = scheduledMs + 60 * 60 * 1000;
+  return { scheduledAt: new Date(scheduledMs).toISOString(), dueAt: new Date(dueMs).toISOString(), due: nowMs >= dueMs };
+}
+
 function notificationCandidates(incident, failedCount, nowMs = Date.now()) {
   if (!incident) return [];
   return [notificationCandidate(incident, failedCount), resolvedOpen24hReminderCandidate(incident, nowMs)].filter(Boolean);
@@ -184,6 +209,7 @@ function notificationCandidates(incident, failedCount, nowMs = Date.now()) {
 
 function resolvedOpen24hReminderCandidate(incident, nowMs = Date.now()) {
   if (String(incident.status || '').toUpperCase() !== 'RESOLVED'
+    || service.hasInvalidResolutionTimeline(incident)
     || String(incident.operationsStatus || '').toUpperCase() === 'CLOSED') return null;
 
   // LastAlertAt is written when RESOLVED is received. ResolvedAt in older
@@ -225,6 +251,7 @@ function notificationCandidate(incident, failedCount) {
   const workItems = require('../shared/operations-work-items');
   if (String(incident.operationsStatus || '').toUpperCase() !== 'CLOSED'
     && String(incident.status || '').toUpperCase() === 'RESOLVED'
+    && !service.hasInvalidResolutionTimeline(incident)
     && items.some(item => item.role === 'PRIMARY')
     && items.every(item => workItems.isClosedState(item.state))) {
     const incidentUrl = `${hubUrl}#/incidents?id=${encodeURIComponent(incident.incidentId)}`;

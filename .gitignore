@@ -32,6 +32,11 @@ _inspect_*/
 OperationsHub-*.zip
 patch_flow_package.js
 
+# Operations Hub artifacts must live in the canonical artifact directory.
+# Keep the directory available locally while ignoring generated packages.
+artifacts/power-automate/*
+!artifacts/power-automate/.gitkeep
+
 # Ignore local settings
 api/local.settings.json
 

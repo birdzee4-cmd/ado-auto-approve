@@ -2,6 +2,23 @@
 
 วันที่ 22 ตุลาคม 2026 (Asia/Bangkok)
 
+## สถานะล่าสุดหลังตรวจ UAT และ source แบบอ่านอย่างเดียว
+
+ส่วนนี้แทนสถานะ G0 ในบันทึกรอบก่อนด้านล่าง ซึ่งเก็บไว้เป็นประวัติ **G0 ยัง pending** แต่เชื่อม UAT และตรวจ metadata ได้แล้วตามการอนุมัติแยกของผู้ใช้ ไม่ได้อ่านแถวข้อมูลจาก source table และไม่ใช่ผล API integration/UAT signoff
+
+- ผู้ใช้ยืนยันปลายทาง UAT; เชื่อมด้วย Microsoft Entra interactive/MFA และ TLS ที่ตรวจ certificate โดยไม่เก็บ token/password ในเอกสารหรือ repository
+- ผล permission probe ของ identity ที่ใช้: SELECT=1; INSERT/UPDATE/DELETE/ALTER และ CONTROL ของ source=0, CONTROL database=0 และ flags db_owner/db_datawriter/sysadmin=0 เป็นผล ณ เวลาตรวจ ไม่ใช่การรับรองสิทธิ์ทุก object หรือ identity ของ API ในอนาคต
+- Live metadata มี **57 คอลัมน์**; column_id มีช่องว่างจึงห้ามใช้ค่าสูงสุดเป็นจำนวนคอลัมน์ ID เป็น int NOT NULL IDENTITY และอยู่ใน unique clustered primary key ที่ active/unfiltered ยืนยัน uniqueness ผ่าน constraint โดยไม่ได้ scan หา duplicate
+- พบ indexes บน Status และ TargetDate; ยังไม่ได้ตรวจ execution plan/performance ของ monitoring queries
+- Extended properties และ foreign keys ไม่คืนรายการที่มองเห็น; database/target VIEW DEFINITION=0 และ module discovery ไม่คืน reference ที่มองเห็น จึงยังสรุปไม่ได้ว่าไม่มี lookup/mapping หรือ source modules
+- พบชื่อตาราง/คอลัมน์ที่อาจเป็น lookup หลายรายการ แต่ยังไม่มีหลักฐาน mapping ที่ยืนยันว่าเป็นของ source นี้ และไม่ได้อ่าน lookup data
+- หน้า Monitor Deployment Status ที่ผู้ใช้เปิดอยู่แสดง pipeline และส่ง item.Status มาแสดงโดยตรง ไม่พบ Internal_ProjectPlanning/DeployType/GetType/Priority ใน inline scripts ที่ตรวจ มีทั้ง UTC และการบวก 7 ชั่วโมง จึงยืนยัน timezone ของ SQL table จากหน้านี้ไม่ได้ ไม่ refresh/กด action/เรียก API เพิ่มในการตรวจนี้
+- ค้น source ใน workspace ไม่พบโค้ดที่บันทึก Internal_ProjectPlanning; deployType ในระบบ Excel/Report เดิมเป็นข้อมูลอีกแหล่ง ใช้แทน SQL mapping ไม่ได้
+
+ยังต้องมีหลักฐานจาก source app หรือ DBA/owner: mapping ของ Status/DeployType/GetType/Priority พร้อม version/evidence, timezone แต่ละ datetime และ stage semantics, scope/role visibility/field allowlist และ SQL connectivity/authentication จาก API hosting จริง จึงยังไม่ลงทะเบียน endpoint/สร้าง production SQL adapter/เปลี่ยน public UI หรืออ้าง integration ผ่าน
+
+ขอเพียง path/repository ของระบบที่สร้าง Project Planning หรือเอกสารยืนยันจากเจ้าของระบบ ไม่ต้องส่ง password/token/ข้อมูลบุคคล ไม่มี push/PR/deploy
+
 ## Phase 0 / T00
 
 - อ่าน AGENTS.md ใน workspace แล้ว; ข้อกำหนดปัจจุบันมีผลเหนือข้อความอ้างอิง AGENTS ในแผน
