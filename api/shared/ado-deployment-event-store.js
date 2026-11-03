@@ -1,0 +1,58 @@
+const { TableClient } = require('@azure/data-tables');
+
+let cachedClient;
+
+function config() {
+  const connectionString = process.env.ADO_DEPLOYMENT_EVENT_STORAGE_CONNECTION_STRING || process.env.AzureWebJobsStorage;
+  if (!connectionString) throw new Error('Missing ADO_DEPLOYMENT_EVENT_STORAGE_CONNECTION_STRING or AzureWebJobsStorage');
+  return {
+    connectionString,
+    tableName: process.env.ADO_DEPLOYMENT_EVENT_TABLE || 'AdoDeploymentEvents'
+  };
+}
+
+function client() {
+  if (!cachedClient) {
+    const cfg = config();
+    cachedClient = TableClient.fromConnectionString(cfg.connectionString, cfg.tableName);
+  }
+  return cachedClient;
+}
+
+function safeKey(value) {
+  return String(value || 'unknown').replace(/[\\/#?\u0000-\u001f\u007f-\u009f]/g, '_').slice(0, 512);
+}
+
+async function save(event) {
+  const entity = Object.assign({}, event, {
+    partitionKey: safeKey(event.projectId || event.projectName || 'unknown-project'),
+    rowKey: safeKey(event.eventId),
+    receivedAt: new Date().toISOString()
+  });
+  await client().upsertEntity(entity, 'Merge');
+  return entity;
+}
+
+async function list(options) {
+  const limit = Math.min(Math.max(Number(options && options.limit) || 100, 1), 500);
+  const projectId = options && options.projectId ? safeKey(options.projectId) : '';
+  const queryOptions = projectId ? { queryOptions: { filter: `PartitionKey eq '${projectId.replace(/'/g, "''")}'` } } : {};
+  const items = [];
+  for await (const entity of client().listEntities(queryOptions)) {
+    const item = Object.assign({}, entity);
+    delete item.partitionKey;
+    delete item.rowKey;
+    delete item.etag;
+    items.push(item);
+    if (items.length >= limit) break;
+  }
+  items.sort((a, b) => String(b.eventCreatedAt || b.receivedAt).localeCompare(String(a.eventCreatedAt || a.receivedAt)));
+  return items;
+}
+
+function resetForTests() {
+  cachedClient = undefined;
+}
+
+module.exports = { save, list, resetForTests };
+
