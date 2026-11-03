@@ -490,10 +490,14 @@ async function buildRecentlyApprovedRows(context, options) {
     status: options.statusFilter || '',
     source: options.sourceFilter || ''
   };
-  // Filter invalid/inaccessible PRs before slicing so every page is contiguous.
-  meta.requiresFullEnrich = true;
+  // Enrich only as far as the requested page. A full enrichment can fan out to
+  // hundreds of ADO/build requests and exceed the Static Web Apps API timeout.
+  // We still scan from the beginning so invalid/inaccessible PRs do not create
+  // gaps in the requested page.
+  meta.requiresFullEnrich = false;
   const pageStart = meta.page * meta.pageSize;
   const pageApprovals = approvals;
+  const requiredRows = pageStart + meta.pageSize;
 
   const prObjectsMap = new Map();
   const rows = [];
@@ -547,10 +551,14 @@ async function buildRecentlyApprovedRows(context, options) {
     for (const r of batchResults) {
       if (r) rows.push(r);
     }
+    if (rows.length >= requiredRows) break;
   }
 
   rows.sort(compareApprovedRows);
-  meta.uniquePrs = rows.length;
+  meta.fullyScanned = rows.length < requiredRows;
+  meta.uniquePrs = meta.fullyScanned
+    ? rows.length
+    : Math.max(rows.length, approvals.length - meta.skipped);
   meta.totalPages = Math.max(1, Math.ceil(meta.uniquePrs / meta.pageSize));
   const pageRows = rows.slice(pageStart, pageStart + meta.pageSize);
 
