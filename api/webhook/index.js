@@ -5,12 +5,21 @@ const { notifyTeams } = require('../shared/teams-notifier');
 const sp = require('../shared/sharepoint-client');
 const ado = require('../shared/ado-client');
 const diagnosticsService = require('../shared/build-diagnostics-service');
+const crypto = require('crypto');
+const deploymentEvents = require('../shared/ado-deployment-event-service');
+const deploymentEventStore = require('../shared/ado-deployment-event-store');
 
 function escapeMarkdown(value) {
     return String(value == null ? '-' : value)
         .replace(/\|/g, '\\|')
         .replace(/`/g, '\\`')
         .replace(/\r?\n/g, ' ');
+}
+
+function credentialsMatch(actual, expected) {
+    const actualBuffer = Buffer.from(String(actual || ''), 'utf8');
+    const expectedBuffer = Buffer.from(String(expected || ''), 'utf8');
+    return actualBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(actualBuffer, expectedBuffer);
 }
 
 module.exports = async function (context, req) {
@@ -20,10 +29,12 @@ module.exports = async function (context, req) {
     const webhookUser = process.env.WEBHOOK_USERNAME;
     const webhookPass = process.env.WEBHOOK_PASSWORD;
 
-    if (webhookUser && webhookPass) {
+    const customWebhookToken = req.headers['x-ado-webhook-token'] || '';
+    const customTokenMatches = webhookPass && credentialsMatch(customWebhookToken, webhookPass);
+    if (webhookUser && webhookPass && !customTokenMatches) {
         const authHeader = req.headers['authorization'] || '';
         const expected = 'Basic ' + Buffer.from(`${webhookUser}:${webhookPass}`).toString('base64');
-        if (authHeader !== expected) {
+        if (!credentialsMatch(authHeader, expected)) {
             context.log.warn('webhook: 401 - Basic Auth ไม่ถูกต้อง');
             context.res = { status: 401, body: 'Unauthorized' };
             return;
@@ -34,6 +45,24 @@ module.exports = async function (context, req) {
     const body = req.body || {};
     const eventType   = body.eventType || '';
     const resourceData = body.resource || {};
+
+    if (deploymentEvents.isDeploymentEvent(eventType)) {
+        if (process.env.ADO_DEPLOYMENT_EVENTS_ENABLED !== 'true') {
+            context.log(`webhook: deployment event ${eventType} accepted but persistence is disabled`);
+            context.res = { status: 200, body: 'OK (deployment event persistence disabled)' };
+            return;
+        }
+        const normalized = deploymentEvents.normalizeDeploymentEvent(body);
+        try {
+            await deploymentEventStore.save(normalized);
+            context.log(`webhook: deployment event saved eventId=${normalized.eventId}`);
+            context.res = { status: 200, body: 'OK (deployment event saved)' };
+        } catch (error) {
+            context.log.error('webhook: deployment event storage failed:', error.message);
+            context.res = { status: 503, body: 'Deployment event storage unavailable' };
+        }
+        return;
+    }
 
     if (eventType === 'build.complete') {
         const buildStatus = resourceData.status || '';
