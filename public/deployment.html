@@ -24,19 +24,21 @@
 
   <main class="deployment-page halftone-bg">
     <aside class="deployment-sidebar" aria-label="Deployment navigation">
-      <button class="deployment-nav active" data-view="dashboard">Dashboard</button>
-      <button class="deployment-nav" data-view="form">New Deployment</button>
-      <button class="deployment-nav" data-view="records">Deployment Records</button>
-      <button class="deployment-nav" data-view="export">Export Excel</button>
+      <button class="deployment-nav active" data-view="events">Deployment Events</button>
       <button class="deployment-nav admin-only" data-view="master" hidden>Master Data</button>
       <button class="deployment-nav admin-only" data-view="import" hidden>Import Excel</button>
-      <button class="deployment-nav" data-view="audit">Audit History</button>
     </aside>
 
     <section class="deployment-content">
       <div id="pageNotice" class="deployment-notice" hidden></div>
 
-      <section class="deployment-view active" id="view-dashboard">
+      <section class="deployment-view active" id="view-events">
+        <div class="deployment-heading"><div><p class="deployment-kicker">Azure DevOps Service Hooks</p><h1>Deployment Events</h1><p id="eventsUpdated" class="heading-help">Loading hook events...</p></div><button class="primary-button" id="refreshEvents" type="button">Refresh</button></div>
+        <div class="deployment-card dashboard-filters event-filters"><label>History<select id="eventRange"><option value="all">All history</option><option value="30">Last 30 days</option><option value="7">Last 7 days</option></select></label><label>Result<select id="eventResult"><option value="">All results</option><option value="succeeded">Succeeded</option><option value="failed">Failed</option><option value="canceled">Canceled</option></select></label></div>
+        <div class="deployment-card table-wrap"><table class="records-table event-table"><thead><tr><th>Received</th><th>Pipeline / Run</th><th>Stage</th><th>Status</th><th>Result</th><th>Hook Subscription</th><th>Repair PR</th></tr></thead><tbody id="eventBody"><tr><td colspan="7">Loading...</td></tr></tbody></table></div>
+      </section>
+
+      <section class="deployment-view" id="view-dashboard" hidden>
         <div class="deployment-heading">
           <div><p class="deployment-kicker">Operations overview</p><h1>Deployment Dashboard</h1><p id="dashboardUpdated" class="heading-help">Loading dashboard...</p></div>
           <button class="primary-button" data-open-form>+ New Deployment</button>
@@ -79,7 +81,7 @@
         </div>
       </section>
 
-      <section class="deployment-view" id="view-form">
+      <section class="deployment-view" id="view-form" hidden>
         <div class="deployment-heading">
           <div><p class="deployment-kicker">Plan and update</p><h1 id="formTitle">New Deployment</h1></div>
           <span id="jobNoBadge" class="job-badge">Job No. will be generated</span>
@@ -124,7 +126,7 @@
         </form>
       </section>
 
-      <section class="deployment-view" id="view-records">
+      <section class="deployment-view" id="view-records" hidden>
         <div class="deployment-heading"><div><p class="deployment-kicker">Search and update</p><h1>Deployment Records</h1></div></div>
         <form id="recordFilters" class="deployment-card record-filter-panel">
           <div class="record-search-row">
@@ -173,7 +175,7 @@
         </div>
       </section>
 
-      <section class="deployment-view" id="view-export">
+      <section class="deployment-view" id="view-export" hidden>
         <div class="deployment-heading"><div><p class="deployment-kicker">Excel compatible</p><h1>Export Deployment Report</h1></div></div>
         <form id="exportForm" class="deployment-card export-panel">
           <label>Category<select id="exportCategory"><option value="">Web/Service + Mobile</option><option value="web-service">Web / Service</option><option value="mobile">Mobile</option></select></label>

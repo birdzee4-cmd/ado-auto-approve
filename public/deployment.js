@@ -18,9 +18,8 @@ async function api(url, options) {
 }
 
 async function init() {
-  enhanceSearchableSelects();
   bindNavigation();
-  bindForms();
+  bindEventMonitor();
   const auth = await api('/.auth/me');
   if (!auth.clientPrincipal) {
     window.location.href = '/.auth/login/aad?post_login_redirect_uri=/deployment.html';
@@ -30,8 +29,48 @@ async function init() {
   setText('userName', getUserEmailForDisplay(state.user));
   const isAdmin = (state.user.userRoles || []).some(role => String(role).toLowerCase() === 'admin');
   document.querySelectorAll('.admin-only').forEach(el => { el.hidden = !isAdmin; });
-  await Promise.all([loadMaster(), loadDashboard()]);
-  setDefaultDate();
+  await loadEventMonitor();
+}
+
+let eventItems = [];
+
+function bindEventMonitor() {
+  $('refreshEvents')?.addEventListener('click', loadEventMonitor);
+  $('eventRange')?.addEventListener('change', renderEventMonitor);
+  $('eventResult')?.addEventListener('change', renderEventMonitor);
+}
+
+async function loadEventMonitor() {
+  try {
+    const data = await api('/api/ado-deployment-status?limit=500');
+    eventItems = Array.isArray(data.items) ? data.items : [];
+    renderEventMonitor();
+    setText('eventsUpdated', `${eventItems.length} hook events loaded · Updated ${new Date().toLocaleString()}`);
+  } catch (error) {
+    $('eventBody').innerHTML = `<tr><td colspan="7" class="history-error">${escapeHtml(error.message)}</td></tr>`;
+    setText('eventsUpdated', 'Unable to load hook events');
+  }
+}
+
+function renderEventMonitor() {
+  const days = Number($('eventRange')?.value || 0);
+  const result = String($('eventResult')?.value || '').toLowerCase();
+  const cutoff = days ? Date.now() - days * 86400000 : 0;
+  const rows = eventItems.filter(item => {
+    const time = Date.parse(item.eventCreatedAt || item.receivedAt || '');
+    return (!cutoff || (time && time >= cutoff)) && (!result || String(item.result || '').toLowerCase() === result);
+  });
+  $('eventBody').innerHTML = rows.length ? rows.map(item => {
+    const status = String(item.status || 'unknown');
+    const resultValue = String(item.result || 'unknown');
+    const repair = item.repairPrUrl ? `<a href="${escapeHtml(item.repairPrUrl)}" target="_blank" rel="noreferrer">${escapeHtml(item.repairPrStatus || 'ตรวจสอบ PR')}</a>` : '<span class="muted">ยังไม่มีข้อมูล PR</span>';
+    return `<tr><td>${escapeHtml(formatDate(item.receivedAt || item.eventCreatedAt))}</td><td><strong>${escapeHtml(item.pipelineName || '-')}</strong><br><span class="muted">Run ${escapeHtml(item.runName || item.runId || '-')}</span></td><td>${escapeHtml(item.stageName || '-')}</td><td><span class="status-pill">${escapeHtml(status)}</span></td><td><span class="result-pill result-${escapeHtml(resultValue)}">${escapeHtml(resultValue)}</span></td><td>${escapeHtml(item.subscriptionId || 'Legacy event')}</td><td>${repair}</td></tr>`;
+  }).join('') : '<tr><td colspan="7">No Service Hook events found for this filter.</td></tr>';
+}
+
+function formatDate(value) {
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime()) ? date.toLocaleString('th-TH') : '-';
 }
 
 function bindNavigation() {
