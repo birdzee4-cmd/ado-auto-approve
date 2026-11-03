@@ -23,6 +23,31 @@ function buildReport(items, query = {}, now = new Date()) {
   const dated = items.map(item => ({ item, date: dateKey(item.firstSeen || item.receivedAt || item.createdAt) }));
   const incidents = dated.filter(row => row.date >= startKey && row.date < nextKey).map(row => row.item)
     .sort((a, b) => Date.parse(b.firstSeen || b.receivedAt || b.createdAt) - Date.parse(a.firstSeen || a.receivedAt || a.createdAt));
+  // Handoffs use the related ticket creation date, independently of incident start.
+  const seenTickets = new Set();
+  const handoffTickets = [];
+  let unknownHandoffDates = 0;
+  for (const item of items) {
+    for (const ticket of item.workItems || []) {
+      if (ticket.role !== 'RELATED' || !['APP_SUPPORT', 'TIER2'].includes(ticket.supportTeam) || !ticket.workItemId) continue;
+      const key = String(ticket.workItemId);
+      if (seenTickets.has(key)) continue;
+      seenTickets.add(key);
+      const created = dateKey(ticket.createdAt);
+      if (!created) { unknownHandoffDates++; continue; }
+      if (created < startKey || created >= nextKey) continue;
+      handoffTickets.push({ ...ticket, incidentId: item.incidentId, displayId: item.displayId || item.incidentId, resource: item.resource || '', alertName: item.alertName || '' });
+    }
+  }
+  handoffTickets.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt) || Number(a.workItemId) - Number(b.workItemId));
+  const handoffs = {
+    total: handoffTickets.length,
+    incidentCount: new Set(handoffTickets.map(ticket => ticket.incidentId)).size,
+    appSupport: handoffTickets.filter(ticket => ticket.supportTeam === 'APP_SUPPORT').length,
+    tier2: handoffTickets.filter(ticket => ticket.supportTeam === 'TIER2').length,
+    unknownDates: unknownHandoffDates,
+    tickets: handoffTickets
+  };
   const resources = new Map();
   for (const item of incidents) {
     const resource = String(item.resource || '').trim() || 'Unknown resource';
@@ -37,7 +62,7 @@ function buildReport(items, query = {}, now = new Date()) {
     const date = iso(day); daily.push({ date, count: dated.filter(row => row.date === date).length });
   }
   const end = new Date(next); end.setUTCDate(end.getUTCDate() - 1);
-  return { period, start: startKey, end: iso(end), generatedAt: now.toISOString(), total: incidents.length,
+  return { handoffs, period, start: startKey, end: iso(end), generatedAt: now.toISOString(), total: incidents.length,
     recovered: incidents.filter(item => item.status === 'RESOLVED').length,
     active: incidents.filter(item => item.status === 'FIRING').length,
     unknownDates: dated.filter(row => !row.date).length,

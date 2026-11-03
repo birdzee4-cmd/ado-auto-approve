@@ -214,6 +214,10 @@ export interface AlertEvent {
 }
 
 export interface IncidentReport {
+  handoffs?: {
+    total: number; incidentCount: number; appSupport: number; tier2: number; unknownDates: number;
+    tickets: Array<IncidentWorkItem & { displayId: string; resource: string; alertName: string }>;
+  };
   period: 'today' | 'week' | 'month'; start: string; end: string; generatedAt: string;
   total: number; recovered: number; active: number; unknownDates: number;
   resources: Array<{ key: string; resource: string; resourceGroup: string; subscription: string; total: number; recovered: number; active: number }>;

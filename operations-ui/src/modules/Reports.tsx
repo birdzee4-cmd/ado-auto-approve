@@ -15,10 +15,13 @@ export function Reports() {
   const [repeatsOnly, setRepeatsOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [day, setDay] = useState('');
+  const [handoffTeam, setHandoffTeam] = useState('');
+  const [handoffPage, setHandoffPage] = useState(1);
+  const handoffTickets = (data?.handoffs?.tickets || []).filter(ticket => !handoffTeam || ticket.supportTeam === handoffTeam);
   const detailRef = useRef<HTMLElement>(null);
   useEffect(() => {
     let cancelled = false;
-    setData(null); setError(''); setResource(''); setDay(''); setPage(1);
+    setData(null); setError(''); setHandoffPage(1); setResource(''); setDay(''); setPage(1);
     operationsApi.report(period, date).then(result => { if (!cancelled) setData(result); }).catch(err => { if (!cancelled) setError(err.message); });
     return () => { cancelled = true; };
   }, [period, date, refresh]);
@@ -53,6 +56,13 @@ export function Reports() {
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a'); link.href = url; link.download = `Incident-report-${data.start}-${data.end}.csv`; link.click(); URL.revokeObjectURL(url);
   }
+  function exportHandoffs() {
+    if (!data?.handoffs) return;
+    const cells = [['Work item', 'Team', 'Created (Asia/Bangkok)', 'Incident', 'Resource', 'Alert', 'State', 'Assignee', 'URL'], ...handoffTickets.map(ticket => [ticket.workItemId, ticket.supportTeam === 'APP_SUPPORT' ? 'App Support' : 'IT Tier2', formatBangkokTimestamp(ticket.createdAt), ticket.displayId, ticket.resource, ticket.alertName, ticket.state, ticket.assignedTo || '', ticket.url || ''])];
+    const csv = '\uFEFF' + cells.map(row => row.map(value => '"' + String(value).replace(/^[=+@-]/, "'$&").replace(/"/g, '""') + '"').join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a'); link.href = url; link.download = 'Team-handoffs-' + data.start + '-' + data.end + '.csv'; link.click(); URL.revokeObjectURL(url);
+  }
   return <section>
     <PageHeading eyebrow="Daily, weekly & monthly insights" title="Incident Report" actions={<>
       <label className="ops-date-control"><span>Period</span><select value={period} onChange={event => setPeriod(event.target.value)}><option value="today">Today</option><option value="week">Weekly</option><option value="month">Monthly</option></select></label>
@@ -68,6 +78,17 @@ export function Reports() {
         ['Total incidents', data.total, 'Started during this period'], ['Affected resources', data.resources.length, 'Distinct resources'],
         ['Recurring resources', data.resources.filter(item => item.total > 1).length, 'More than one incident'], ['Active incidents', data.active, `${data.recovered} recovered`]
       ].map(([label, value, detail]) => <article className="ops-kpi" key={label}><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>)}</div>
+      <article className="ops-panel ops-report-panel"><div className="ops-panel-heading"><div><p>TEAM HANDOFFS</p><h2>Tickets opened for App Support / IT Tier2</h2></div></div>
+        <p className="ops-muted">Related tickets created during this period · Asia/Bangkok. Includes incidents started before this period. Counts are distinct work items; one incident can have tickets for both teams. States reflect the latest stored sync.</p>
+        {data.handoffs ? <>
+          <div className="ops-kpi-grid ops-kpi-grid-daily">{[
+            ['Total handoff tickets', data.handoffs.total], ['App Support', data.handoffs.appSupport], ['IT Tier2 / Infra', data.handoffs.tier2], ['Incidents handed off', data.handoffs.incidentCount]
+          ].map(([label, value]) => <article className="ops-kpi" key={label}><span>{label}</span><strong>{value}</strong></article>)}</div>
+          {data.handoffs.unknownDates > 0 && <p role="status">{data.handoffs.unknownDates} related tickets have no valid creation date and are excluded from handoff totals across all periods.</p>}
+          <div className="ops-panel-heading"><label>Destination team <select value={handoffTeam} onChange={event => { setHandoffTeam(event.target.value); setHandoffPage(1); }}><option value="">All teams</option><option value="APP_SUPPORT">App Support</option><option value="TIER2">IT Tier2 / Infra</option></select></label><button className="ops-button ops-button-secondary" disabled={!handoffTickets.length} onClick={exportHandoffs}>Export handoffs CSV ({handoffTickets.length})</button></div>
+          {handoffTickets.length ? <><div className="ops-report-table"><table><thead><tr><th>Work item</th><th>Destination team</th><th>Created · Bangkok</th><th>Source incident</th><th>Resource / alert</th><th>State / assignee</th></tr></thead><tbody>{handoffTickets.slice((handoffPage - 1) * 20, handoffPage * 20).map(ticket => <tr key={ticket.workItemId}><td>{ticket.url ? <a href={ticket.url} target="_blank" rel="noreferrer">#{ticket.workItemId}</a> : <strong>#{ticket.workItemId}</strong>}</td><td>{ticket.supportTeam === 'APP_SUPPORT' ? 'App Support' : 'IT Tier2 / Infra'}</td><td>{formatBangkokTimestamp(ticket.createdAt)}</td><td><a href={'#/incidents?id=' + encodeURIComponent(ticket.incidentId)}>{ticket.displayId}</a></td><td>{ticket.resource || 'Unknown resource'}<small>{ticket.alertName}</small></td><td>{ticket.state || 'Unknown state'}<small>{ticket.assignedTo || 'Unassigned'}</small></td></tr>)}</tbody></table></div><div className="ops-report-pagination"><button className="ops-button ops-button-secondary" disabled={handoffPage === 1} onClick={() => setHandoffPage(value => value - 1)}>Previous</button><span>Page {handoffPage} of {Math.ceil(handoffTickets.length / 20)}</span><button className="ops-button ops-button-secondary" disabled={handoffPage * 20 >= handoffTickets.length} onClick={() => setHandoffPage(value => value + 1)}>Next</button></div></> : <EmptyState title="No handoff tickets in this period" detail="Select another period or destination team to inspect handoffs." />}
+        </> : <p role="status">Handoff report is unavailable. Update the report API and refresh.</p>}
+      </article>
       <article className="ops-panel ops-report-panel"><div className="ops-panel-heading"><div><p>INCIDENT FREQUENCY</p><h2>Daily trend</h2></div></div>
         <div className="ops-report-chart" role="group" aria-label={daily.map(day => `${day.date}: ${day.count} incidents`).join('; ')}>{daily.map(day => <div key={day.date} title={`${day.date}: ${day.count} incidents`}><strong>{day.count}</strong><button type="button" className="ops-report-bar" aria-label={`${day.date}: ${day.count} incidents. Show incidents for this date`} onClick={() => { setDay(day.date); setPage(1); detailRef.current?.scrollIntoView({ behavior: 'smooth' }); }}><i style={{ height: `${day.count / max * 140}px` }} /></button><small>{day.date.slice(8)}</small></div>)}</div>
       </article>
