@@ -47,12 +47,16 @@ function normalizeDeploymentEvent(payload) {
     100
   );
   const eventId = text(body.id || body.notificationId, 300);
+  const subscriptionId = text(body.subscriptionId, 200);
+  const publisherId = text(body.publisherId, 200);
   const runId = text(isClassic ? (release.id || resource.releaseId) : (run.id || resource.runId), 200);
   const stageId = text(isClassic ? (environment.id || resource.environmentId) : (stage.id || stage.identifier), 200);
   const naturalKey = [eventType, runId, stageId, rawStatus, rawResult, date(body.createdDate)].join('|');
 
   return {
     eventId: eventId || naturalKey,
+    subscriptionId,
+    publisherId,
     eventType,
     sourceType: isClassic ? 'classic-release' : 'yaml-pipeline',
     projectId: text(project.id || resource.projectId || containerProject.id, 200),
