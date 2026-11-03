@@ -5,6 +5,17 @@ import type { IncidentReport } from '../types';
 
 const bangkokToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
+const REPORT_PAGE_SIZE = 20;
+function ReportPagination({ page, total, onChange, label }: { page: number; total: number; onChange: (page: number) => void; label: string }) {
+  const pages = Math.ceil(total / REPORT_PAGE_SIZE);
+  if (!total) return null;
+  return <nav className="ops-report-pagination" aria-label={label}>
+    <button className="ops-button ops-button-secondary" disabled={page <= 1} onClick={() => onChange(page - 1)}>Previous</button>
+    <span aria-live="polite">{(page - 1) * REPORT_PAGE_SIZE + 1}–{Math.min(page * REPORT_PAGE_SIZE, total)} of {total} · Page {page} of {pages}</span>
+    <button className="ops-button ops-button-secondary" disabled={page >= pages} onClick={() => onChange(page + 1)}>Next</button>
+  </nav>;
+}
+
 export function Reports() {
   const [period, setPeriod] = useState('week');
   const [date, setDate] = useState(bangkokToday);
@@ -14,6 +25,7 @@ export function Reports() {
   const [resource, setResource] = useState('');
   const [repeatsOnly, setRepeatsOnly] = useState(false);
   const [page, setPage] = useState(1);
+  const [resourcePage, setResourcePage] = useState(1);
   const [day, setDay] = useState('');
   const [handoffTeam, setHandoffTeam] = useState('');
   const [handoffPage, setHandoffPage] = useState(1);
@@ -24,7 +36,7 @@ export function Reports() {
   const detailRef = useRef<HTMLElement>(null);
   useEffect(() => {
     let cancelled = false;
-    setData(null); setError(''); setHandoffPage(1); setHandoffStatus(''); setResource(''); setDay(''); setPage(1);
+    setData(null); setResourcePage(1); setError(''); setHandoffPage(1); setHandoffStatus(''); setResource(''); setDay(''); setPage(1);
     operationsApi.report(period, date).then(result => { if (!cancelled) setData(result); }).catch(err => { if (!cancelled) setError(err.message); });
     return () => { cancelled = true; };
   }, [period, date, refresh]);
@@ -95,8 +107,8 @@ export function Reports() {
       <article className="ops-panel ops-report-panel"><div className="ops-panel-heading"><div><p>INCIDENT FREQUENCY</p><h2>Daily trend</h2></div></div>
         <div className="ops-report-chart" role="group" aria-label={daily.map(day => `${day.date}: ${day.count} incidents`).join('; ')}>{daily.map(day => <div key={day.date} title={`${day.date}: ${day.count} incidents`}><strong>{day.count}</strong><button type="button" className="ops-report-bar" aria-label={`${day.date}: ${day.count} incidents. Show incidents for this date`} onClick={() => { setDay(day.date); setPage(1); detailRef.current?.scrollIntoView({ behavior: 'smooth' }); }}><i style={{ height: `${day.count / max * 140}px` }} /></button><small>{day.date.slice(8)}</small></div>)}</div>
       </article>
-      <article className="ops-panel ops-report-panel"><div className="ops-panel-heading"><div><p>RESOURCE RELIABILITY</p><h2>Incidents by App Service / resource</h2></div><label><input type="checkbox" checked={repeatsOnly} onChange={event => setRepeatsOnly(event.target.checked)} /> Recurring only (&gt;1)</label></div>
-        {rows.length ? <div className="ops-report-table"><table><thead><tr><th>App Service / resource</th><th>Incidents</th><th>Active</th><th>Recovered</th><th>Days affected</th><th>Latest incident · Bangkok</th><th>Share</th></tr></thead><tbody>{rows.map(row => <tr key={row.key}><td><button className="ops-report-link" onClick={() => selectResource(row.key)}>{row.resource}</button><small>{row.resourceGroup || 'Unknown resource group'} · {row.subscription || 'Unknown subscription'}</small></td><td><strong>{row.total}</strong>{row.total > 1 && <small>Recurring</small>}</td><td>{row.active}</td><td>{row.recovered}</td><td>{new Set(data.incidents.filter(item => resourceKey(item) === row.key).map(item => dateKey(started(item)))).size}</td><td>{formatBangkokTimestamp(started(data.incidents.find(item => resourceKey(item) === row.key)!))}</td><td>{Math.round(row.total / data.total * 100)}%</td></tr>)}</tbody></table></div> : <EmptyState title={repeatsOnly ? 'No recurring resources' : 'No incidents in this period'} detail="Select Today, another week or month to explore incident history." />}
+      <article className="ops-panel ops-report-panel"><div className="ops-panel-heading"><div><p>RESOURCE RELIABILITY</p><h2>Incidents by App Service / resource</h2></div><label><input type="checkbox" checked={repeatsOnly} onChange={event => { setRepeatsOnly(event.target.checked); setResourcePage(1); }} /> Recurring only (&gt;1)</label></div>
+        {rows.length ? <><ReportPagination page={resourcePage} total={rows.length} onChange={setResourcePage} label="Resource pages, top" /><div className="ops-report-table"><table><thead><tr><th>App Service / resource</th><th>Incidents</th><th>Active</th><th>Recovered</th><th>Days affected</th><th>Latest incident · Bangkok</th><th>Share</th></tr></thead><tbody>{rows.slice((resourcePage - 1) * REPORT_PAGE_SIZE, resourcePage * REPORT_PAGE_SIZE).map(row => <tr key={row.key}><td><button className="ops-report-link" onClick={() => selectResource(row.key)}>{row.resource}</button><small>{row.resourceGroup || 'Unknown resource group'} · {row.subscription || 'Unknown subscription'}</small></td><td><strong>{row.total}</strong>{row.total > 1 && <small>Recurring</small>}</td><td>{row.active}</td><td>{row.recovered}</td><td>{new Set(data.incidents.filter(item => resourceKey(item) === row.key).map(item => dateKey(started(item)))).size}</td><td>{formatBangkokTimestamp(started(data.incidents.find(item => resourceKey(item) === row.key)!))}</td><td>{Math.round(row.total / data.total * 100)}%</td></tr>)}</tbody></table></div><ReportPagination page={resourcePage} total={rows.length} onChange={setResourcePage} label="Resource pages, bottom" /></> : <EmptyState title={repeatsOnly ? 'No recurring resources' : 'No incidents in this period'} detail="Select Today, another week or month to explore incident history." />}
       </article>
       <article ref={detailRef} tabIndex={-1} className="ops-panel ops-report-panel ops-investigation"><div className="ops-panel-heading"><div><p>RESOURCE INVESTIGATION / PERIOD INCIDENT LOG</p><h2>{resource ? data.resources.find(row => row.key === resource)?.resource : 'All incidents'} · {incidents.length}</h2></div>{resource && <button className="ops-button ops-button-secondary" onClick={() => selectResource('')}>Show all resources</button>}</div>
         <div className="ops-investigation-summary">
@@ -105,7 +117,7 @@ export function Reports() {
           <label>Incident date · Bangkok <select value={day} onChange={event => { setDay(event.target.value); setPage(1); }}><option value="">All dates in period</option>{daily.filter(entry => entry.count > 0).map(entry => <option key={entry.date} value={entry.date}>{entry.date} ({entry.count})</option>)}</select></label>
           <button className="ops-button ops-button-secondary" disabled={!incidents.length} onClick={exportCsv}>Export matching incidents ({incidents.length})</button>
         </div>
-        {incidents.length ? <><div className="ops-report-table"><table><thead><tr><th>Incident</th><th>Resource / alert</th><th>First seen · Bangkok</th><th>Recovered · Bangkok / duration</th><th>Monitoring / Severity</th><th>ADO work items / owner</th></tr></thead><tbody>{incidents.slice((page - 1) * 20, page * 20).map(item => <tr key={item.incidentId}><td><a href={`#/incidents?id=${encodeURIComponent(item.incidentId)}`}>{item.displayId || item.incidentId}</a></td><td>{item.resource || 'Unknown resource'}<small>{item.alertName}</small></td><td>{formatBangkokTimestamp(item.firstSeen || item.receivedAt || item.createdAt)}</td><td>{item.status === 'RESOLVED' ? formatBangkokTimestamp(item.resolvedAt) : item.status === 'FIRING' ? 'Still active' : 'Unknown recovery status'}<small>{duration(item)}</small></td><td><StatusBadge value={item.status} /><small>{item.severity || item.priority || 'Unknown severity'}</small></td><td>{tickets(item).length ? tickets(item).map(ticket => <div key={ticket.workItemId}>{ticket.url ? <a href={ticket.url} target="_blank" rel="noreferrer">#{ticket.workItemId}</a> : <strong>#{ticket.workItemId}</strong>}<small>{ticket.role} · {ticket.state || 'Unknown state'} · {ticket.assignedTo || 'Unassigned'}</small></div>) : 'No work item recorded'}</td></tr>)}</tbody></table></div><div className="ops-report-pagination"><button className="ops-button ops-button-secondary" disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</button><span>Page {page} of {Math.ceil(incidents.length / 20)}</span><button className="ops-button ops-button-secondary" disabled={page * 20 >= incidents.length} onClick={() => setPage(page + 1)}>Next</button></div></> : <EmptyState title="No incidents" detail="No incident records started within this period." />}
+        {incidents.length ? <><ReportPagination page={page} total={incidents.length} onChange={setPage} label="Incident pages, top" /><div className="ops-report-table"><table><thead><tr><th>Incident</th><th>Resource / alert</th><th>First seen · Bangkok</th><th>Recovered · Bangkok / duration</th><th>Monitoring / Severity</th><th>ADO work items / owner</th></tr></thead><tbody>{incidents.slice((page - 1) * REPORT_PAGE_SIZE, page * REPORT_PAGE_SIZE).map(item => <tr key={item.incidentId}><td><a href={`#/incidents?id=${encodeURIComponent(item.incidentId)}`}>{item.displayId || item.incidentId}</a></td><td>{item.resource || 'Unknown resource'}<small>{item.alertName}</small></td><td>{formatBangkokTimestamp(item.firstSeen || item.receivedAt || item.createdAt)}</td><td>{item.status === 'RESOLVED' ? formatBangkokTimestamp(item.resolvedAt) : item.status === 'FIRING' ? 'Still active' : 'Unknown recovery status'}<small>{duration(item)}</small></td><td><StatusBadge value={item.status} /><small>{item.severity || item.priority || 'Unknown severity'}</small></td><td>{tickets(item).length ? tickets(item).map(ticket => <div key={ticket.workItemId}>{ticket.url ? <a href={ticket.url} target="_blank" rel="noreferrer">#{ticket.workItemId}</a> : <strong>#{ticket.workItemId}</strong>}<small>{ticket.role} · {ticket.state || 'Unknown state'} · {ticket.assignedTo || 'Unassigned'}</small></div>) : 'No work item recorded'}</td></tr>)}</tbody></table></div><ReportPagination page={page} total={incidents.length} onChange={setPage} label="Incident pages, bottom" /></> : <EmptyState title="No incidents" detail="No incident records started within this period." />}
       </article>
     </>}
   </section>;
