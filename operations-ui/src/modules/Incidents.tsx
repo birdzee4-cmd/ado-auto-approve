@@ -25,33 +25,6 @@ export function Incidents() {
   const [actionError, setActionError] = useState('');
   const [actionMessage, setActionMessage] = useState('');
   const [busy, setBusy] = useState(false);
-  const [checkedIds, setCheckedIds] = useState<string[]>([]);
-  const [batchReview, setBatchReview] = useState<Incident[] | null>(null);
-  const [batchNote, setBatchNote] = useState('');
-  const [batchResults, setBatchResults] = useState<Array<{ id: string; label: string; result: string; failed: boolean }>>([]);
-  const batchRunning = useRef(false);
-  const batchDialog = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    if (!batchReview) return;
-    const previous = document.activeElement as HTMLElement | null;
-    const dialog = batchDialog.current;
-    dialog?.focus();
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !batchRunning.current) setBatchReview(null);
-      if (event.key !== 'Tab' || !dialog) return;
-      const controls = Array.from(dialog.querySelectorAll<HTMLElement>('button:not(:disabled), textarea:not(:disabled)'));
-      const first = controls[0];
-      const last = controls[controls.length - 1];
-      if (!first) { event.preventDefault(); return; }
-      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
-        event.preventDefault(); last.focus();
-      } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog)) {
-        event.preventDefault(); first.focus();
-      }
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => { document.removeEventListener('keydown', handleKey); previous?.focus(); };
-  }, [batchReview]);
   const [syncScope, setSyncScope] = useState('page');
   const [syncProgress, setSyncProgress] = useState('');
   const [syncResults, setSyncResults] = useState<Array<{ incidentId: string; ok: boolean; skipped?: boolean; detail?: string }>>([]);
