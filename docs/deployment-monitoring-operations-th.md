@@ -34,3 +34,13 @@
 ## การเก็บข้อมูล
 
 Deployment Events เก็บใน Azure Table `AdoDeploymentEvents` และไม่ถูกลบอัตโนมัติ ข้อมูลเก่ายังคงตรวจสอบได้จาก Azure Table แม้หน้าเว็บจะโหลดข้อมูลเป็นชุดจำกัดต่อครั้ง
+
+## เตรียม Cursor Pagination
+
+การสร้างดัชนีเวลาสำหรับข้อมูลเก่าใช้สคริปต์ `scripts/migrate-deployment-event-index.js` ค่าเริ่มต้นเป็น dry-run:
+
+```text
+node scripts/migrate-deployment-event-index.js
+```
+
+เมื่อตรวจสอบผลแล้วจึงใช้ `--apply` เพื่อเขียนข้อมูลลง `AdoDeploymentEventIndex` และตั้งค่า `ADO_DEPLOYMENT_EVENT_INDEX_ENABLED=true` หลัง migration สำเร็จ
