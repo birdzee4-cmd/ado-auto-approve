@@ -89,7 +89,16 @@ async function list(options) {
 async function listIndexedPage(options) {
   const pageSize = Math.min(Math.max(Number(options && (options.pageSize || options.limit)) || 50, 1), 200);
   if (process.env.ADO_DEPLOYMENT_EVENT_INDEX_ENABLED !== 'true') return { items: [], nextCursor: '', enabled: false };
-  const queryOptions = {};
+  const clauses = [];
+  for (const field of ['environmentGroup', 'sourceType', 'result']) {
+    const value = options && options[field] ? String(options[field]).replace(/'/g, "''") : '';
+    if (value) clauses.push(`${field} eq '${value}'`);
+  }
+  const from = options && options.from ? new Date(options.from) : null;
+  const to = options && options.to ? new Date(options.to) : null;
+  if (from && !Number.isNaN(from.getTime())) clauses.push(`eventCreatedAt ge '${from.toISOString()}'`);
+  if (to && !Number.isNaN(to.getTime())) clauses.push(`eventCreatedAt lt '${to.toISOString()}'`);
+  const queryOptions = clauses.length ? { queryOptions: { filter: clauses.join(' and ') } } : {};
   const iterator = indexClient().listEntities(queryOptions).byPage({ continuationToken: options && options.cursor, maxPageSize: pageSize });
   const page = (await iterator.next()).value || [];
   const items = page.map(entity => {

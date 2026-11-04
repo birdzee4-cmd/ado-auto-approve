@@ -2,6 +2,9 @@ import { escapeHtml, setText } from './core.js';
 const $ = id => document.getElementById(id);
 let eventItems = [];
 let currentPage = 1;
+let cursorMode = true;
+let cursorStack = [''];
+let nextCursor = '';
 const PAGE_SIZE = 50;
 function ensureSummary() {
   let summary = $('eventSummary');
@@ -23,7 +26,7 @@ function ensureSourceFilter() {
   select.id = 'eventSource';
   select.innerHTML = '<option value="">All sources</option><option value="build">CI Build</option><option value="yaml-pipeline">YAML CD</option><option value="classic-release">Classic CD</option>';
   label.append(select); filters.append(label);
-  select.addEventListener('change', () => { currentPage = 1; loadEvents(); });
+  select.addEventListener('change', () => { resetCursor(); loadEvents(); });
   return select;
 }
 function ensurePagination() {
@@ -85,7 +88,7 @@ function renderEvents() {
     return acc;
   }, { total: 0, succeeded: 0, failed: 0, env: {}, source: {} });
   summary.innerHTML = [['Total', counts.total], ['Succeeded', counts.succeeded], ['Failed', counts.failed], ['CI Build', counts.source['CI Build'] || 0], ['CD', (counts.source['YAML CD'] || 0) + (counts.source['Classic CD'] || 0)]].map(([label, value]) => `<div><strong>${value}</strong><span>${label}</span></div>`).join('');
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const totalPages = cursorMode ? currentPage : Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   currentPage = Math.min(currentPage, totalPages);
   const pageRows = rows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   $('eventBody').innerHTML = pageRows.length ? pageRows.map(item => {
@@ -99,9 +102,9 @@ function renderEvents() {
     return `<tr><td><span class="env-badge env-${escapeHtml(env.toLowerCase())}">${escapeHtml(env)}</span><br><span class="muted">${escapeHtml(item.environment || '-')}</span></td><td>${escapeHtml(formatDate(item.receivedAt || item.eventCreatedAt))}</td><td><strong>${escapeHtml(item.pipelineName || '-')}</strong><br><span class="muted">Run ${escapeHtml(item.runName || item.runId || '-')}</span></td><td><span class="source-pill">${escapeHtml(source)}</span></td><td>${escapeHtml(item.stageName || '-')}</td><td><span class="result-pill result-${escapeHtml(resultValue)}">${escapeHtml(resultValue)}</span></td><td>${pr}<br><span class="muted">${escapeHtml(item.pullRequestTitle || '')}</span></td><td>${escapeHtml(operator)}</td><td><button class="row-button event-detail-button" data-event-id="${escapeHtml(item.eventId)}">View</button></td></tr>`;
   }).join('') : '<tr><td colspan="9">No Service Hook events found for this filter.</td></tr>';
   const pagination = ensurePagination();
-  pagination.innerHTML = `<span>แสดง ${rows.length ? ((currentPage - 1) * PAGE_SIZE) + 1 : 0}-${Math.min(currentPage * PAGE_SIZE, rows.length)} จาก ${rows.length} รายการ</span><div><button type="button" data-page="prev" ${currentPage <= 1 ? 'disabled' : ''}>ก่อนหน้า</button><strong>หน้า ${currentPage} / ${totalPages}</strong><button type="button" data-page="next" ${currentPage >= totalPages ? 'disabled' : ''}>ถัดไป</button></div>`;
-  pagination.querySelector('[data-page="prev"]')?.addEventListener('click', () => { currentPage -= 1; renderEvents(); });
-  pagination.querySelector('[data-page="next"]')?.addEventListener('click', () => { currentPage += 1; renderEvents(); });
+  pagination.innerHTML = `<span>หน้า ${currentPage} · ${rows.length} รายการในหน้านี้${cursorMode ? '' : ` จาก ${rows.length} รายการ`}</span><div><button type="button" data-page="prev" ${currentPage <= 1 ? 'disabled' : ''}>ก่อนหน้า</button><strong>หน้า ${currentPage}${cursorMode ? '' : ` / ${totalPages}`}</strong><button type="button" data-page="next" ${cursorMode ? (!nextCursor ? 'disabled' : '') : (currentPage >= totalPages ? 'disabled' : '')}>ถัดไป</button></div>`;
+  pagination.querySelector('[data-page="prev"]')?.addEventListener('click', () => { if (cursorMode) { cursorStack.pop(); currentPage -= 1; loadEvents(cursorStack[cursorStack.length - 1]); } else { currentPage -= 1; renderEvents(); } });
+  pagination.querySelector('[data-page="next"]')?.addEventListener('click', () => { if (cursorMode && nextCursor) { cursorStack.push(nextCursor); currentPage += 1; loadEvents(nextCursor); } else if (!cursorMode) { currentPage += 1; renderEvents(); } });
   document.querySelectorAll('.event-detail-button').forEach(button => button.addEventListener('click', () => openDetail(button.dataset.eventId)));
 }
 
@@ -113,13 +116,15 @@ function openDetail(eventId) {
   $('eventDetailBody').innerHTML = `<h2>${escapeHtml(item.pipelineName || 'Deployment event')}</h2><p class="detail-subtitle">${escapeHtml(displayEnvironmentGroup(item))} · ${escapeHtml(item.stageName || '-')} · ${escapeHtml(source)}</p><dl><dt>Result</dt><dd>${escapeHtml(item.result || '-')}</dd><dt>Status</dt><dd>${escapeHtml(item.status || '-')}</dd><dt>Run</dt><dd>${escapeHtml(item.runName || item.runId || '-')}</dd><dt>Repository</dt><dd>${escapeHtml(item.repositoryName || '-')}</dd><dt>Source branch</dt><dd>${escapeHtml(item.sourceBranch || '-')}</dd><dt>Target branch</dt><dd>${escapeHtml(item.targetBranch || '-')}</dd><dt>Pull Request</dt><dd>${item.pullRequestUrl ? `<a href="${escapeHtml(item.pullRequestUrl)}" target="_blank" rel="noreferrer">#${escapeHtml(item.pullRequestId)}</a>` : escapeHtml(item.pullRequestId || '-')}</dd><dt>PR title</dt><dd>${escapeHtml(item.pullRequestTitle || '-')}</dd><dt>PR author</dt><dd>${escapeHtml(item.pullRequestAuthor || '-')}</dd><dt>Operator</dt><dd>${escapeHtml(item.requestedBy || '-')}</dd><dt>Pipeline link</dt><dd>${link}</dd></dl>`;
   $('eventDetail').showModal();
 }
-async function loadEvents() {
+function resetCursor() { currentPage = 1; cursorStack = ['']; nextCursor = ''; }
+async function loadEvents(cursor = '') {
   $('eventBody').innerHTML = '<tr><td colspan="9">Loading...</td></tr>';
   try {
     const fromDate = $('eventFrom')?.value || '';
     const toDate = $('eventTo')?.value || '';
     if (fromDate && toDate && fromDate > toDate) throw new Error('From date must be before or equal to To date.');
-    const params = new URLSearchParams({ limit: '2000' });
+    const params = new URLSearchParams(cursorMode ? { useCursor: 'true', pageSize: String(PAGE_SIZE) } : { limit: '2000' });
+    if (cursorMode && cursor) params.set('cursor', cursor);
     if (fromDate) params.set('from', `${fromDate}T00:00:00Z`);
     if (toDate) { const end = new Date(`${toDate}T00:00:00Z`); end.setUTCDate(end.getUTCDate() + 1); params.set('to', end.toISOString()); }
     if ($('eventEnvironment')?.value) params.set('environmentGroup', $('eventEnvironment').value);
@@ -127,6 +132,7 @@ async function loadEvents() {
     if (ensureSourceFilter()?.value) params.set('sourceType', ensureSourceFilter().value);
     const data = await api(`/api/ado-deployment-status?${params.toString()}`);
     eventItems = Array.isArray(data.items) ? data.items : [];
+    nextCursor = data.nextCursor || '';
     renderEvents();
     const capNote = eventItems.length >= 2000 ? ' · Showing latest 2,000' : '';
     setText('eventsUpdated', `${eventItems.length} hook events loaded${capNote} · Updated ${new Date().toLocaleString('th-TH')}`);
@@ -140,11 +146,11 @@ async function init() {
   if (!auth?.clientPrincipal) { window.location.href = '/.auth/login/aad?post_login_redirect_uri=/deployment.html'; return; }
   setText('userName', auth.clientPrincipal.userDetails || 'Authenticated');
   $('refreshEvents')?.addEventListener('click', loadEvents);
-  $('eventRange')?.addEventListener('change', () => { currentPage = 1; renderEvents(); });
-  $('eventEnvironment')?.addEventListener('change', () => { currentPage = 1; loadEvents(); });
-  $('eventResult')?.addEventListener('change', () => { currentPage = 1; loadEvents(); });
-  $('eventFrom')?.addEventListener('change', () => { currentPage = 1; loadEvents(); });
-  $('eventTo')?.addEventListener('change', () => { currentPage = 1; loadEvents(); });
+  $('eventRange')?.addEventListener('change', () => { resetCursor(); renderEvents(); });
+  $('eventEnvironment')?.addEventListener('change', () => { resetCursor(); loadEvents(); });
+  $('eventResult')?.addEventListener('change', () => { resetCursor(); loadEvents(); });
+  $('eventFrom')?.addEventListener('change', () => { resetCursor(); loadEvents(); });
+  $('eventTo')?.addEventListener('change', () => { resetCursor(); loadEvents(); });
   ensureSourceFilter();
   ensureUnknownResultFilter();
   $('closeEventDetail')?.addEventListener('click', () => $('eventDetail').close());
