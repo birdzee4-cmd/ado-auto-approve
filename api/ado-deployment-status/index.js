@@ -8,7 +8,11 @@ module.exports = async function (context, req) {
       context.res = { status: authorized.status, body: authorized.body };
       return;
     }
-    const items = await store.list({
+    const indexed = req.query && (req.query.cursor || req.query.pageSize);
+    const result = indexed ? await store.listIndexedPage({
+      cursor: req.query.cursor,
+      pageSize: req.query.pageSize || req.query.limit
+    }) : { items: await store.list({
       projectId: req.query && req.query.projectId,
       limit: req.query && req.query.limit,
       from: req.query && req.query.from,
@@ -16,11 +20,11 @@ module.exports = async function (context, req) {
       environmentGroup: req.query && req.query.environmentGroup,
       sourceType: req.query && req.query.sourceType,
       result: req.query && req.query.result
-    });
+    }) };
     context.res = {
       status: 200,
       headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
-      body: { ok: true, count: items.length, items }
+      body: { ok: true, count: result.items.length, items: result.items, nextCursor: result.nextCursor || '', cursorEnabled: result.enabled !== false }
     };
   } catch (error) {
     context.log.error('ado-deployment-status failed:', error.message);

@@ -86,10 +86,24 @@ async function list(options) {
   return items.slice(0, limit);
 }
 
+async function listIndexedPage(options) {
+  const pageSize = Math.min(Math.max(Number(options && (options.pageSize || options.limit)) || 50, 1), 200);
+  if (process.env.ADO_DEPLOYMENT_EVENT_INDEX_ENABLED !== 'true') return { items: [], nextCursor: '', enabled: false };
+  const queryOptions = {};
+  const iterator = indexClient().listEntities(queryOptions).byPage({ continuationToken: options && options.cursor, maxPageSize: pageSize });
+  const page = (await iterator.next()).value || [];
+  const items = page.map(entity => {
+    const item = Object.assign({}, entity);
+    delete item.partitionKey; delete item.rowKey; delete item.etag;
+    return item;
+  });
+  return { items, nextCursor: page.continuationToken || '', enabled: true };
+}
+
 function resetForTests() {
   cachedClient = undefined;
   cachedIndexClient = undefined;
 }
 
-module.exports = { save, list, resetForTests };
+module.exports = { save, list, listIndexedPage, resetForTests };
 
