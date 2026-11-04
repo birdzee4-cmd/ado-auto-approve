@@ -101,7 +101,8 @@ async function loadEvents() {
     const data = await api('/api/ado-deployment-status?limit=2000');
     eventItems = Array.isArray(data.items) ? data.items : [];
     renderEvents();
-    setText('eventsUpdated', `${eventItems.length} hook events loaded · Updated ${new Date().toLocaleString('th-TH')}`);
+    const capNote = eventItems.length >= 2000 ? ' · Showing latest 2,000' : '';
+    setText('eventsUpdated', `${eventItems.length} hook events loaded${capNote} · Updated ${new Date().toLocaleString('th-TH')}`);
   } catch (error) {
     $('eventBody').innerHTML = `<tr><td colspan="9" class="history-error">${escapeHtml(error.message)}</td></tr>`;
     setText('eventsUpdated', 'Unable to load hook events');
