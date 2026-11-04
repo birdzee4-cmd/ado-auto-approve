@@ -10,6 +10,10 @@ if (!connectionString) throw new Error('Set ADO_DEPLOYMENT_EVENT_STORAGE_CONNECT
 function safeKey(value) {
   return String(value || 'unknown').replace(/[\\/#?\u0000-\u001f\u007f-\u009f]/g, '_').slice(0, 512);
 }
+function indexPartition(timestamp) {
+  const date = new Date(timestamp);
+  return `${String(9999 - date.getUTCFullYear()).padStart(4, '0')}${String(12 - date.getUTCMonth()).padStart(2, '0')}`;
+}
 
 async function main() {
   const source = TableClient.fromConnectionString(connectionString, sourceTable);
@@ -23,7 +27,7 @@ async function main() {
     if (!Number.isFinite(timestamp)) continue;
     const reverseTicks = String(9999999999999999999 - timestamp).padStart(20, '0');
     const indexed = Object.assign({}, entity, {
-      partitionKey: new Date(timestamp).toISOString().slice(0, 7),
+      partitionKey: indexPartition(timestamp),
       rowKey: `${reverseTicks}_${safeKey(entity.eventId || entity.rowKey)}`
     });
     delete indexed.etag;

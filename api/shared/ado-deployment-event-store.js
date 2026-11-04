@@ -38,6 +38,11 @@ function safeKey(value) {
   return String(value || 'unknown').replace(/[\\/#?\u0000-\u001f\u007f-\u009f]/g, '_').slice(0, 512);
 }
 
+function indexPartition(timestamp) {
+  const date = new Date(timestamp);
+  return `${String(9999 - date.getUTCFullYear()).padStart(4, '0')}${String(12 - date.getUTCMonth()).padStart(2, '0')}`;
+}
+
 async function save(event) {
   const entity = Object.assign({}, event, {
     partitionKey: safeKey(event.projectId || event.projectName || 'unknown-project'),
@@ -49,7 +54,7 @@ async function save(event) {
     const timestamp = Date.parse(event.eventCreatedAt || entity.receivedAt || '') || Date.now();
     const reverseTicks = String(9999999999999999999 - timestamp).padStart(20, '0');
     const indexEntity = Object.assign({}, entity, {
-      partitionKey: new Date(timestamp).toISOString().slice(0, 7),
+      partitionKey: indexPartition(timestamp),
       rowKey: `${reverseTicks}_${safeKey(event.eventId)}`
     });
     await indexClient().createTable().catch(error => {
