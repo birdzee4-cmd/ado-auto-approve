@@ -75,6 +75,14 @@ test('normalizes a completed build event for the deployment archive', () => {
   assert.equal(event.result, 'succeeded');
 });
 
+test('classifies development build events from branch names', () => {
+  const event = service.normalizeBuildEvent({
+    id: 'evt-build-dev', eventType: 'build.complete',
+    resource: { buildNumber: '20261104.2', status: 'completed', result: 'succeeded', sourceBranch: 'refs/heads/development', definition: { name: 'Portal CI' } }
+  });
+  assert.equal(event.environmentGroup, 'Development');
+});
+
 test('normalizes the different Classic Release deployment started payload shape', () => {
   const event = service.normalizeDeploymentEvent({
     id: 'evt-classic-started',
