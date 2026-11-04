@@ -114,7 +114,10 @@ function openDetail(eventId) {
 async function loadEvents() {
   $('eventBody').innerHTML = '<tr><td colspan="9">Loading...</td></tr>';
   try {
-    const data = await api('/api/ado-deployment-status?limit=2000');
+    const params = new URLSearchParams({ limit: '2000' });
+    if ($('eventFrom')?.value) params.set('from', `${$('eventFrom').value}T00:00:00Z`);
+    if ($('eventTo')?.value) { const end = new Date(`${$('eventTo').value}T00:00:00Z`); end.setUTCDate(end.getUTCDate() + 1); params.set('to', end.toISOString()); }
+    const data = await api(`/api/ado-deployment-status?${params.toString()}`);
     eventItems = Array.isArray(data.items) ? data.items : [];
     renderEvents();
     const capNote = eventItems.length >= 2000 ? ' · Showing latest 2,000' : '';
@@ -132,6 +135,8 @@ async function init() {
   $('eventRange')?.addEventListener('change', () => { currentPage = 1; renderEvents(); });
   $('eventEnvironment')?.addEventListener('change', () => { currentPage = 1; renderEvents(); });
   $('eventResult')?.addEventListener('change', () => { currentPage = 1; renderEvents(); });
+  $('eventFrom')?.addEventListener('change', () => { currentPage = 1; loadEvents(); });
+  $('eventTo')?.addEventListener('change', () => { currentPage = 1; loadEvents(); });
   ensureSourceFilter();
   ensureUnknownResultFilter();
   $('closeEventDetail')?.addEventListener('click', () => $('eventDetail').close());
