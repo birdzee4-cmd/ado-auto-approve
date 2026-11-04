@@ -50,6 +50,21 @@ module.exports = async function (context, req) {
         try {
             const normalizedBuild = deploymentEvents.normalizeBuildEvent(body);
             if (normalizedBuild) {
+                if (normalizedBuild.pullRequestId) {
+                    try {
+                        const prResult = await ado.getPullRequest(normalizedBuild.pullRequestId);
+                        if (prResult.ok && prResult.body) {
+                            const pr = prResult.body;
+                            normalizedBuild.pullRequestTitle = pr.title || '';
+                            normalizedBuild.pullRequestAuthor = (pr.createdBy || {}).displayName || (pr.createdBy || {}).uniqueName || '';
+                            normalizedBuild.pullRequestUrl = pr.url || `https://dev.azure.com/${encodeURIComponent(ado.getConfig().org)}/${encodeURIComponent(ado.getConfig().project)}/_git/${encodeURIComponent(normalizedBuild.repositoryName || (pr.repository || {}).name || '')}/pullrequest/${encodeURIComponent(normalizedBuild.pullRequestId)}`;
+                            normalizedBuild.sourceBranch = pr.sourceRefName || normalizedBuild.sourceBranch;
+                            normalizedBuild.targetBranch = pr.targetRefName || normalizedBuild.targetBranch;
+                        }
+                    } catch (error) {
+                        context.log.warn(`webhook: failed to enrich build PR #${normalizedBuild.pullRequestId}:`, error.message);
+                    }
+                }
                 await deploymentEventStore.save(normalizedBuild);
                 context.log(`webhook: build event saved eventId=${normalizedBuild.eventId}`);
             }
