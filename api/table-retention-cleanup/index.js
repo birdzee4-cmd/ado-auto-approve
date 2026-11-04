@@ -111,17 +111,14 @@ async function cleanupDeploymentEvents(opts) {
     tableName: process.env.ADO_DEPLOYMENT_EVENT_TABLE || 'AdoDeploymentEvents',
     name: 'AdoDeploymentEvents'
   };
-  return cleanupTable({
-    context: opts.context,
-    cfg,
-    cutoff: opts.cutoff,
-    dryRun: opts.dryRun,
-    maxItems: opts.maxItems,
-    isExpired: entity => {
-      const timestamp = Date.parse(entity.eventCreatedAt || entity.receivedAt || '');
-      return Number.isFinite(timestamp) && timestamp < opts.cutoff.getTime();
-    }
-  });
+  // Deployment history is audit data. Keep it available for historical review;
+  // retention currently reports the candidate scope but never deletes rows.
+  if (!cfg.connectionString) {
+    return { ok: true, skipped: true, table: cfg.name, tableName: cfg.tableName,
+      reason: 'Archive-only policy; storage connection string is not configured', matched: 0, deleted: 0 };
+  }
+  return { ok: true, skipped: true, table: cfg.name, tableName: cfg.tableName,
+    reason: 'Archive-only policy; deployment events are never deleted automatically', matched: 0, deleted: 0 };
 }
 
 async function cleanupApprovalLocks(opts) {
