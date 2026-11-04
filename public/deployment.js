@@ -1123,7 +1123,6 @@ function toLocalInput(value) {
 }
 
 function localToIso(value) { return value ? new Date(value).toISOString() : ''; }
-function formatDate(value) { return value ? new Date(value).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '-'; }
 function formatDeploymentDate(value) { return value ? new Date(value).toLocaleDateString('th-TH', { dateStyle: 'medium' }) : '-'; }
 function fileToBase64(file) { return file.arrayBuffer().then(buffer => {
   const bytes = new Uint8Array(buffer); let binary = '';
@@ -1137,3 +1136,4 @@ function changeSummary(item) {
 }
 
 init().catch(error => notice(error.message, true));
+
