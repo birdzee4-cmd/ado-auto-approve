@@ -12,7 +12,10 @@ module.exports = async function (context, req) {
       projectId: req.query && req.query.projectId,
       limit: req.query && req.query.limit,
       from: req.query && req.query.from,
-      to: req.query && req.query.to
+      to: req.query && req.query.to,
+      environmentGroup: req.query && req.query.environmentGroup,
+      sourceType: req.query && req.query.sourceType,
+      result: req.query && req.query.result
     });
     context.res = {
       status: 200,

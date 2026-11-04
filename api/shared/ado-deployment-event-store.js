@@ -42,6 +42,10 @@ async function list(options) {
   const to = options && options.to ? new Date(options.to) : null;
   if (from && !Number.isNaN(from.getTime())) clauses.push(`eventCreatedAt ge '${from.toISOString()}'`);
   if (to && !Number.isNaN(to.getTime())) clauses.push(`eventCreatedAt lt '${to.toISOString()}'`);
+  for (const field of ['environmentGroup', 'sourceType', 'result']) {
+    const value = options && options[field] ? String(options[field]).replace(/'/g, "''") : '';
+    if (value) clauses.push(`${field} eq '${value}'`);
+  }
   const queryOptions = clauses.length ? { queryOptions: { filter: clauses.join(' and ') } } : {};
   const items = [];
   for await (const entity of client().listEntities(queryOptions)) {

@@ -23,7 +23,7 @@ function ensureSourceFilter() {
   select.id = 'eventSource';
   select.innerHTML = '<option value="">All sources</option><option value="build">CI Build</option><option value="yaml-pipeline">YAML CD</option><option value="classic-release">Classic CD</option>';
   label.append(select); filters.append(label);
-  select.addEventListener('change', () => { currentPage = 1; renderEvents(); });
+  select.addEventListener('change', () => { currentPage = 1; loadEvents(); });
   return select;
 }
 function ensurePagination() {
@@ -117,6 +117,9 @@ async function loadEvents() {
     const params = new URLSearchParams({ limit: '2000' });
     if ($('eventFrom')?.value) params.set('from', `${$('eventFrom').value}T00:00:00Z`);
     if ($('eventTo')?.value) { const end = new Date(`${$('eventTo').value}T00:00:00Z`); end.setUTCDate(end.getUTCDate() + 1); params.set('to', end.toISOString()); }
+    if ($('eventEnvironment')?.value) params.set('environmentGroup', $('eventEnvironment').value);
+    if ($('eventResult')?.value) params.set('result', $('eventResult').value);
+    if (ensureSourceFilter()?.value) params.set('sourceType', ensureSourceFilter().value);
     const data = await api(`/api/ado-deployment-status?${params.toString()}`);
     eventItems = Array.isArray(data.items) ? data.items : [];
     renderEvents();
@@ -133,8 +136,8 @@ async function init() {
   setText('userName', auth.clientPrincipal.userDetails || 'Authenticated');
   $('refreshEvents')?.addEventListener('click', loadEvents);
   $('eventRange')?.addEventListener('change', () => { currentPage = 1; renderEvents(); });
-  $('eventEnvironment')?.addEventListener('change', () => { currentPage = 1; renderEvents(); });
-  $('eventResult')?.addEventListener('change', () => { currentPage = 1; renderEvents(); });
+  $('eventEnvironment')?.addEventListener('change', () => { currentPage = 1; loadEvents(); });
+  $('eventResult')?.addEventListener('change', () => { currentPage = 1; loadEvents(); });
   $('eventFrom')?.addEventListener('change', () => { currentPage = 1; loadEvents(); });
   $('eventTo')?.addEventListener('change', () => { currentPage = 1; loadEvents(); });
   ensureSourceFilter();
