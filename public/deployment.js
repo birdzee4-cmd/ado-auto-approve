@@ -144,6 +144,9 @@ async function init() {
   ensureUnknownResultFilter();
   $('closeEventDetail')?.addEventListener('click', () => $('eventDetail').close());
   await loadEvents();
+  window.setInterval(() => {
+    if (!document.hidden) loadEvents();
+  }, 60000);
 }
 init().catch(error => {
   setText('eventsUpdated', 'Unable to initialize deployment monitor');
