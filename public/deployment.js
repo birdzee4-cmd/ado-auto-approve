@@ -25,10 +25,7 @@ async function init() {
     window.location.href = '/.auth/login/aad?post_login_redirect_uri=/deployment.html';
     return;
   }
-  state.user = await api('/api/userinfo');
-  setText('userName', getUserEmailForDisplay(state.user));
-  const isAdmin = (state.user.userRoles || []).some(role => String(role).toLowerCase() === 'admin');
-  document.querySelectorAll('.admin-only').forEach(el => { el.hidden = !isAdmin; });
+  setText('userName', auth.clientPrincipal.userDetails || 'Authenticated');
   await loadEventMonitor();
 }
 
