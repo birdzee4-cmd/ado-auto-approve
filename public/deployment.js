@@ -1,6 +1,15 @@
 import { escapeHtml, setText } from './core.js';
 const $ = id => document.getElementById(id);
 let eventItems = [];
+function ensureSummary() {
+  let summary = $('eventSummary');
+  if (summary) return summary;
+  summary = document.createElement('div');
+  summary.id = 'eventSummary';
+  summary.className = 'event-summary';
+  $('eventBody')?.closest('.table-wrap')?.before(summary);
+  return summary;
+}
 async function api(url) {
   const response = await fetch(url, { credentials: 'same-origin' });
   const contentType = response.headers.get('content-type') || '';
@@ -21,6 +30,14 @@ function renderEvents() {
     const time = Date.parse(item.receivedAt || item.eventCreatedAt || '');
     return (!cutoff || (time && time >= cutoff)) && (!result || String(item.result || '').toLowerCase() === result) && (!environment || item.environmentGroup === environment);
   });
+  const summary = ensureSummary();
+  const counts = rows.reduce((acc, item) => {
+    const env = item.environmentGroup || 'Other';
+    const source = item.sourceType === 'build' ? 'CI Build' : item.sourceType === 'classic-release' ? 'Classic CD' : item.sourceType === 'yaml-pipeline' ? 'YAML CD' : 'Other';
+    acc.total += 1; acc.succeeded += String(item.result || '').toLowerCase() === 'succeeded' ? 1 : 0; acc.failed += String(item.result || '').toLowerCase() === 'failed' ? 1 : 0; acc.env[env] = (acc.env[env] || 0) + 1; acc.source[source] = (acc.source[source] || 0) + 1;
+    return acc;
+  }, { total: 0, succeeded: 0, failed: 0, env: {}, source: {} });
+  summary.innerHTML = [['Total', counts.total], ['Succeeded', counts.succeeded], ['Failed', counts.failed], ['CI Build', counts.source['CI Build'] || 0], ['CD', (counts.source['YAML CD'] || 0) + (counts.source['Classic CD'] || 0)]].map(([label, value]) => `<div><strong>${value}</strong><span>${label}</span></div>`).join('');
   $('eventBody').innerHTML = rows.length ? rows.map(item => {
     const resultValue = String(item.result || 'unknown');
     const pr = item.pullRequestUrl ? `<a href="${escapeHtml(item.pullRequestUrl)}" target="_blank" rel="noreferrer">PR #${escapeHtml(item.pullRequestId || '?')}</a>` : (item.pullRequestId ? `PR #${escapeHtml(item.pullRequestId)}` : '<span class="muted">ไม่มี PR</span>');
