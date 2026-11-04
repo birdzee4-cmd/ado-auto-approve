@@ -24,6 +24,12 @@ function ensureSourceFilter() {
   select.addEventListener('change', renderEvents);
   return select;
 }
+function ensureUnknownResultFilter() {
+  const select = $('eventResult');
+  if (select && !Array.from(select.options).some(option => option.value === 'unknown')) {
+    const option = document.createElement('option'); option.value = 'unknown'; option.textContent = 'Unknown'; select.append(option);
+  }
+}
 async function api(url) {
   const response = await fetch(url, { credentials: 'same-origin' });
   const contentType = response.headers.get('content-type') || '';
@@ -110,6 +116,7 @@ async function init() {
   $('eventEnvironment')?.addEventListener('change', renderEvents);
   $('eventResult')?.addEventListener('change', renderEvents);
   ensureSourceFilter();
+  ensureUnknownResultFilter();
   $('closeEventDetail')?.addEventListener('click', () => $('eventDetail').close());
   await loadEvents();
 }
