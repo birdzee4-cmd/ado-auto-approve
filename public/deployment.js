@@ -98,7 +98,7 @@ function openDetail(eventId) {
 async function loadEvents() {
   $('eventBody').innerHTML = '<tr><td colspan="9">Loading...</td></tr>';
   try {
-    const data = await api('/api/ado-deployment-status?limit=500');
+    const data = await api('/api/ado-deployment-status?limit=2000');
     eventItems = Array.isArray(data.items) ? data.items : [];
     renderEvents();
     setText('eventsUpdated', `${eventItems.length} hook events loaded · Updated ${new Date().toLocaleString('th-TH')}`);

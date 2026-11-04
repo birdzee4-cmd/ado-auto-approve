@@ -34,7 +34,7 @@ async function save(event) {
 }
 
 async function list(options) {
-  const limit = Math.min(Math.max(Number(options && options.limit) || 100, 1), 500);
+  const limit = Math.min(Math.max(Number(options && options.limit) || 100, 1), 2000);
   const projectId = options && options.projectId ? safeKey(options.projectId) : '';
   const queryOptions = projectId ? { queryOptions: { filter: `PartitionKey eq '${projectId.replace(/'/g, "''")}'` } } : {};
   const items = [];
@@ -44,10 +44,9 @@ async function list(options) {
     delete item.rowKey;
     delete item.etag;
     items.push(item);
-    if (items.length >= limit) break;
   }
   items.sort((a, b) => String(b.eventCreatedAt || b.receivedAt).localeCompare(String(a.eventCreatedAt || a.receivedAt)));
-  return items;
+  return items.slice(0, limit);
 }
 
 function resetForTests() {
