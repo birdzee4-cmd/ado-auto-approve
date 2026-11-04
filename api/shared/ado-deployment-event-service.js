@@ -23,6 +23,14 @@ function linkOf(resource, stage, run, release, environment) {
   return '';
 }
 
+function inferEnvironmentGroup(...values) {
+  const value = values.filter(Boolean).join(' ');
+  if (/production|prd|prod/i.test(value)) return 'Production';
+  if (/staging|stage|uat|preprod|(^|[\W_])stg([\W_]|$)/i.test(value)) return 'Staging';
+  if (/development|develop|(^|[\W_])dev([\W_]|$)|test|qa/i.test(value)) return 'Development';
+  return 'Other';
+}
+
 function normalizeDeploymentEvent(payload) {
   const body = payload || {};
   const eventType = text(body.eventType, 200);
@@ -59,7 +67,7 @@ function normalizeDeploymentEvent(payload) {
   const targetBranch = text(pullRequest.targetRefName || run.targetBranch || resource.targetBranch || deployment.targetBranch, 500);
   const pullRequestId = text(pullRequest.pullRequestId || resource.pullRequestId || ((sourceBranch.match(/refs\/pull\/(\d+)/i) || [])[1]), 100);
   const environmentName = text(environment.name || stage.name || stage.displayName || resource.environmentName || resource.stageName || targetBranch || sourceBranch, 200);
-  const environmentGroup = /prod/i.test(`${environmentName} ${targetBranch}`) ? 'Production' : /stag|uat|preprod/i.test(`${environmentName} ${targetBranch}`) ? 'Staging' : /dev|test|qa/i.test(`${environmentName} ${targetBranch}`) ? 'Development' : 'Other';
+  const environmentGroup = inferEnvironmentGroup(environmentName, targetBranch, sourceBranch, pipeline.name, run.name, release.name);
 
   return {
     eventId: eventId || naturalKey,
@@ -107,7 +115,7 @@ function normalizeBuildEvent(payload) {
   const triggerInfo = resource.triggerInfo || {};
   const pullRequestId = text(triggerInfo['pr.number'] || triggerInfo['MSTFS.PullRequestId'] || ((sourceBranch.match(/refs\/pull\/(\d+)/i) || [])[1]), 100);
   const environmentName = text(resource.environmentName || sourceBranch, 200);
-  const environmentGroup = /prod/i.test(environmentName) ? 'Production' : /stag|uat|preprod/i.test(environmentName) ? 'Staging' : /dev|test|qa/i.test(environmentName) ? 'Development' : 'Other';
+  const environmentGroup = inferEnvironmentGroup(environmentName, sourceBranch, definition.name, resource.buildNumber);
   const eventId = text(body.id || resource.id || body.notificationId, 300);
   return {
     eventId: eventId || ['build.complete', resource.id, resource.buildNumber, date(body.createdDate)].join('|'),
@@ -147,5 +155,5 @@ function isDeploymentEvent(eventType) {
   return SUPPORTED_EVENTS.has(text(eventType, 200));
 }
 
-module.exports = { SUPPORTED_EVENTS, isDeploymentEvent, normalizeDeploymentEvent, normalizeBuildEvent };
+module.exports = { SUPPORTED_EVENTS, isDeploymentEvent, normalizeDeploymentEvent, normalizeBuildEvent, inferEnvironmentGroup };
 
