@@ -73,7 +73,9 @@ function renderEvents() {
   const cutoff = days ? Date.now() - days * 86400000 : 0;
   const rows = eventItems.filter(item => {
     const time = Date.parse(item.receivedAt || item.eventCreatedAt || '');
-    return (!cutoff || (time && time >= cutoff)) && (!result || String(item.result || '').toLowerCase() === result) && (!environment || displayEnvironmentGroup(item) === environment) && (!source || item.sourceType === source);
+    const normalizedResult = String(item.result || '').toLowerCase();
+    const resultMatches = !result || (result === 'unknown' ? !normalizedResult || normalizedResult === 'unknown' : normalizedResult === result);
+    return (!cutoff || (time && time >= cutoff)) && resultMatches && (!environment || displayEnvironmentGroup(item) === environment) && (!source || item.sourceType === source);
   });
   const summary = ensureSummary();
   const counts = rows.reduce((acc, item) => {
@@ -121,7 +123,7 @@ async function loadEvents() {
     if (fromDate) params.set('from', `${fromDate}T00:00:00Z`);
     if (toDate) { const end = new Date(`${toDate}T00:00:00Z`); end.setUTCDate(end.getUTCDate() + 1); params.set('to', end.toISOString()); }
     if ($('eventEnvironment')?.value) params.set('environmentGroup', $('eventEnvironment').value);
-    if ($('eventResult')?.value) params.set('result', $('eventResult').value);
+    if ($('eventResult')?.value && $('eventResult').value !== 'unknown') params.set('result', $('eventResult').value);
     if (ensureSourceFilter()?.value) params.set('sourceType', ensureSourceFilter().value);
     const data = await api(`/api/ado-deployment-status?${params.toString()}`);
     eventItems = Array.isArray(data.items) ? data.items : [];
