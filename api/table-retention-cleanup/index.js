@@ -69,6 +69,13 @@ async function runTableRetentionCleanup(context, options) {
     maxItems: options.maxItems
   }));
 
+  results.push(await cleanupDeploymentEvents({
+    context,
+    cutoff: new Date(now.getTime() - options.deploymentEventRetentionDays * 24 * 60 * 60 * 1000),
+    dryRun: options.dryRun || !options.deploymentEventRetentionEnabled,
+    maxItems: options.maxItems
+  }));
+
   const ok = results.every(result => result.ok || result.skipped);
   const deleted = results.reduce((sum, result) => sum + Number(result.deleted || 0), 0);
   const matched = results.reduce((sum, result) => sum + Number(result.matched || 0), 0);
@@ -88,12 +95,33 @@ async function runTableRetentionCleanup(context, options) {
     dryRun: options.dryRun,
     lockRetentionDays: options.lockRetentionDays,
     tokenRetentionDays: options.tokenRetentionDays,
+    deploymentEventRetentionDays: options.deploymentEventRetentionDays,
+    deploymentEventRetentionEnabled: options.deploymentEventRetentionEnabled,
     lockCutoff: lockCutoff.toISOString(),
     tokenCutoff: tokenCutoff.toISOString(),
     matched: matched,
     deleted: deleted,
     results: results
   };
+}
+
+async function cleanupDeploymentEvents(opts) {
+  const cfg = {
+    connectionString: process.env.ADO_DEPLOYMENT_EVENT_STORAGE_CONNECTION_STRING || process.env.AzureWebJobsStorage || process.env.AZURE_STORAGE_CONNECTION_STRING || '',
+    tableName: process.env.ADO_DEPLOYMENT_EVENT_TABLE || 'AdoDeploymentEvents',
+    name: 'AdoDeploymentEvents'
+  };
+  return cleanupTable({
+    context: opts.context,
+    cfg,
+    cutoff: opts.cutoff,
+    dryRun: opts.dryRun,
+    maxItems: opts.maxItems,
+    isExpired: entity => {
+      const timestamp = Date.parse(entity.eventCreatedAt || entity.receivedAt || '');
+      return Number.isFinite(timestamp) && timestamp < opts.cutoff.getTime();
+    }
+  });
 }
 
 async function cleanupApprovalLocks(opts) {
@@ -216,7 +244,9 @@ function parseOptions(body) {
     lockRetentionDays: clampNumber(payload.lockRetentionDays || process.env.TABLE_RETENTION_LOCK_DAYS, 1, 365, 7),
     tokenRetentionDays: clampNumber(payload.tokenRetentionDays || process.env.TABLE_RETENTION_TOKEN_DAYS, 7, 3650, 90),
     maxItems: clampNumber(payload.maxItems || process.env.TABLE_RETENTION_BATCH_LIMIT, 1, 1000, 500),
-    dryRun: payload.dryRun !== false
+    dryRun: payload.dryRun !== false,
+    deploymentEventRetentionDays: clampNumber(payload.deploymentEventRetentionDays || process.env.DEPLOYMENT_EVENT_RETENTION_DAYS, 30, 3650, 365),
+    deploymentEventRetentionEnabled: String(process.env.DEPLOYMENT_EVENT_RETENTION_ENABLED || '').toLowerCase() === 'true'
   };
 }
 
