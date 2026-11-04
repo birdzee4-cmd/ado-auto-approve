@@ -18,6 +18,7 @@ Production URL:
 - Report (Staging Deployments Summary): https://mango-wave-09cff3700.7.azurestaticapps.net/report.html
 - App Service Portal: https://mango-wave-09cff3700.7.azurestaticapps.net/portal.html
 - App Service Audit Logs: https://mango-wave-09cff3700.7.azurestaticapps.net/portal-logs.html
+- Deployment Monitoring: https://mango-wave-09cff3700.7.azurestaticapps.net/deployment.html
 
 ## Current Status
 
@@ -77,6 +78,8 @@ flowchart LR
 ```
 
 ## Documentation
+
+- [Deployment Monitoring Operations Runbook](docs/deployment-monitoring-operations-th.md)
 
 | Document | Purpose |
 |---|---|
