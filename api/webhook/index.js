@@ -83,6 +83,21 @@ module.exports = async function (context, req) {
         }
         const normalized = deploymentEvents.normalizeDeploymentEvent(body);
         try {
+            if (normalized && normalized.pullRequestId) {
+                try {
+                    const prResult = await ado.getPullRequest(normalized.pullRequestId);
+                    if (prResult.ok && prResult.body) {
+                        const pr = prResult.body;
+                        normalized.pullRequestTitle = pr.title || normalized.pullRequestTitle;
+                        normalized.pullRequestAuthor = (pr.createdBy || {}).displayName || normalized.pullRequestAuthor;
+                        normalized.pullRequestUrl = pr.url || normalized.pullRequestUrl;
+                        normalized.sourceBranch = pr.sourceRefName || normalized.sourceBranch;
+                        normalized.targetBranch = pr.targetRefName || normalized.targetBranch;
+                    }
+                } catch (error) {
+                    context.log.warn(`webhook: failed to enrich deployment PR #${normalized.pullRequestId}:`, error.message);
+                }
+            }
             await deploymentEventStore.save(normalized);
             context.log(`webhook: deployment event saved eventId=${normalized.eventId}`);
             context.res = { status: 200, body: 'OK (deployment event saved)' };
