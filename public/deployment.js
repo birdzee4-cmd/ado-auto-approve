@@ -114,9 +114,12 @@ function openDetail(eventId) {
 async function loadEvents() {
   $('eventBody').innerHTML = '<tr><td colspan="9">Loading...</td></tr>';
   try {
+    const fromDate = $('eventFrom')?.value || '';
+    const toDate = $('eventTo')?.value || '';
+    if (fromDate && toDate && fromDate > toDate) throw new Error('From date must be before or equal to To date.');
     const params = new URLSearchParams({ limit: '2000' });
-    if ($('eventFrom')?.value) params.set('from', `${$('eventFrom').value}T00:00:00Z`);
-    if ($('eventTo')?.value) { const end = new Date(`${$('eventTo').value}T00:00:00Z`); end.setUTCDate(end.getUTCDate() + 1); params.set('to', end.toISOString()); }
+    if (fromDate) params.set('from', `${fromDate}T00:00:00Z`);
+    if (toDate) { const end = new Date(`${toDate}T00:00:00Z`); end.setUTCDate(end.getUTCDate() + 1); params.set('to', end.toISOString()); }
     if ($('eventEnvironment')?.value) params.set('environmentGroup', $('eventEnvironment').value);
     if ($('eventResult')?.value) params.set('result', $('eventResult').value);
     if (ensureSourceFilter()?.value) params.set('sourceType', ensureSourceFilter().value);
