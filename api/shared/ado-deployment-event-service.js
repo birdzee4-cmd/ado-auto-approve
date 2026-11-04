@@ -95,9 +95,57 @@ function normalizeDeploymentEvent(payload) {
   };
 }
 
+function normalizeBuildEvent(payload) {
+  const body = payload || {};
+  if (text(body.eventType, 200) !== 'build.complete') return null;
+  const resource = body.resource || {};
+  const definition = resource.definition || {};
+  const repository = resource.repository || {};
+  const project = resource.project || {};
+  const requestedFor = Array.isArray(resource.requests) && resource.requests[0] && resource.requests[0].requestedFor || resource.requestedFor || {};
+  const sourceBranch = text(resource.sourceBranch, 500);
+  const triggerInfo = resource.triggerInfo || {};
+  const pullRequestId = text(triggerInfo['pr.number'] || triggerInfo['MSTFS.PullRequestId'] || ((sourceBranch.match(/refs\/pull\/(\d+)/i) || [])[1]), 100);
+  const environmentName = text(resource.environmentName || sourceBranch, 200);
+  const environmentGroup = /prod/i.test(environmentName) ? 'Production' : /stag|uat|preprod/i.test(environmentName) ? 'Staging' : /dev|test|qa/i.test(environmentName) ? 'Development' : 'Other';
+  const eventId = text(body.id || resource.id || body.notificationId, 300);
+  return {
+    eventId: eventId || ['build.complete', resource.id, resource.buildNumber, date(body.createdDate)].join('|'),
+    subscriptionId: text(body.subscriptionId, 200),
+    publisherId: text(body.publisherId, 200),
+    eventType: 'build.complete',
+    sourceType: 'build',
+    projectId: text(project.id || resource.projectId, 200),
+    projectName: text(project.name || resource.projectName),
+    environment: environmentName,
+    environmentGroup,
+    repositoryName: text(repository.name || repository.id, 300),
+    sourceBranch,
+    targetBranch: '',
+    pullRequestId,
+    pullRequestTitle: '',
+    pullRequestAuthor: '',
+    requestedBy: text(requestedFor.displayName || requestedFor.uniqueName || requestedFor.id, 300),
+    pullRequestUrl: '',
+    pipelineId: text(definition.id, 200),
+    pipelineName: text(definition.name),
+    runId: text(resource.id, 200),
+    runName: text(resource.buildNumber),
+    stageId: '',
+    stageName: 'Build',
+    status: text(resource.status, 100),
+    result: text(resource.result, 100),
+    startedAt: date(resource.startTime),
+    completedAt: date(resource.finishTime),
+    eventCreatedAt: date(body.createdDate) || new Date().toISOString(),
+    url: linkOf(resource),
+    rawResourceVersion: text(body.resourceVersion, 100)
+  };
+}
+
 function isDeploymentEvent(eventType) {
   return SUPPORTED_EVENTS.has(text(eventType, 200));
 }
 
-module.exports = { SUPPORTED_EVENTS, isDeploymentEvent, normalizeDeploymentEvent };
+module.exports = { SUPPORTED_EVENTS, isDeploymentEvent, normalizeDeploymentEvent, normalizeBuildEvent };
 

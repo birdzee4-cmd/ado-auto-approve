@@ -46,6 +46,20 @@ module.exports = async function (context, req) {
     const eventType   = body.eventType || '';
     const resourceData = body.resource || {};
 
+    if (eventType === 'build.complete' && process.env.ADO_DEPLOYMENT_EVENTS_ENABLED === 'true') {
+        try {
+            const normalizedBuild = deploymentEvents.normalizeBuildEvent(body);
+            if (normalizedBuild) {
+                await deploymentEventStore.save(normalizedBuild);
+                context.log(`webhook: build event saved eventId=${normalizedBuild.eventId}`);
+            }
+        } catch (error) {
+            context.log.error('webhook: build event storage failed:', error.message);
+            context.res = { status: 503, body: 'Build event storage unavailable' };
+            return;
+        }
+    }
+
     if (deploymentEvents.isDeploymentEvent(eventType)) {
         if (process.env.ADO_DEPLOYMENT_EVENTS_ENABLED !== 'true') {
             context.log(`webhook: deployment event ${eventType} accepted but persistence is disabled`);

@@ -49,6 +49,31 @@ test('normalizes a YAML stage state change event', () => {
   assert.equal(event.result, 'succeeded');
 });
 
+test('normalizes a completed build event for the deployment archive', () => {
+  const event = service.normalizeBuildEvent({
+    id: 'evt-build-1',
+    eventType: 'build.complete',
+    createdDate: '2026-11-04T01:02:03Z',
+    resource: {
+      id: 9001,
+      buildNumber: '20261104.1',
+      status: 'completed',
+      result: 'succeeded',
+      sourceBranch: 'refs/heads/staging',
+      definition: { id: 22, name: 'Store CI' },
+      repository: { name: 'Store' },
+      project: { id: 'project-1', name: 'Buzzebees' },
+      requests: [{ requestedFor: { displayName: 'Operator One' } }]
+    }
+  });
+  assert.equal(event.sourceType, 'build');
+  assert.equal(event.pipelineName, 'Store CI');
+  assert.equal(event.runId, '9001');
+  assert.equal(event.environmentGroup, 'Staging');
+  assert.equal(event.requestedBy, 'Operator One');
+  assert.equal(event.result, 'succeeded');
+});
+
 test('normalizes the different Classic Release deployment started payload shape', () => {
   const event = service.normalizeDeploymentEvent({
     id: 'evt-classic-started',
