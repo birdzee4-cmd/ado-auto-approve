@@ -1,6 +1,8 @@
 import { escapeHtml, setText } from './core.js';
 const $ = id => document.getElementById(id);
 let eventItems = [];
+let currentPage = 1;
+const PAGE_SIZE = 50;
 function ensureSummary() {
   let summary = $('eventSummary');
   if (summary) return summary;
@@ -21,8 +23,15 @@ function ensureSourceFilter() {
   select.id = 'eventSource';
   select.innerHTML = '<option value="">All sources</option><option value="build">CI Build</option><option value="yaml-pipeline">YAML CD</option><option value="classic-release">Classic CD</option>';
   label.append(select); filters.append(label);
-  select.addEventListener('change', renderEvents);
+  select.addEventListener('change', () => { currentPage = 1; renderEvents(); });
   return select;
+}
+function ensurePagination() {
+  let nav = $('eventPagination');
+  if (nav) return nav;
+  nav = document.createElement('div'); nav.id = 'eventPagination'; nav.className = 'event-pagination';
+  $('eventBody')?.closest('.table-wrap')?.after(nav);
+  return nav;
 }
 function ensureUnknownResultFilter() {
   const select = $('eventResult');
@@ -74,7 +83,10 @@ function renderEvents() {
     return acc;
   }, { total: 0, succeeded: 0, failed: 0, env: {}, source: {} });
   summary.innerHTML = [['Total', counts.total], ['Succeeded', counts.succeeded], ['Failed', counts.failed], ['CI Build', counts.source['CI Build'] || 0], ['CD', (counts.source['YAML CD'] || 0) + (counts.source['Classic CD'] || 0)]].map(([label, value]) => `<div><strong>${value}</strong><span>${label}</span></div>`).join('');
-  $('eventBody').innerHTML = rows.length ? rows.map(item => {
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  currentPage = Math.min(currentPage, totalPages);
+  const pageRows = rows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  $('eventBody').innerHTML = pageRows.length ? pageRows.map(item => {
     const resultValue = String(item.result || 'unknown');
     const resolution = prResolutionStatus(item);
     const resolutionMarkup = resolution ? `<br><span class="pr-resolution ${resolution === 'แก้ไขแล้ว' ? 'resolved' : 'open'}">${escapeHtml(resolution)}</span>` : '';
@@ -84,6 +96,10 @@ function renderEvents() {
     const env = displayEnvironmentGroup(item);
     return `<tr><td><span class="env-badge env-${escapeHtml(env.toLowerCase())}">${escapeHtml(env)}</span><br><span class="muted">${escapeHtml(item.environment || '-')}</span></td><td>${escapeHtml(formatDate(item.receivedAt || item.eventCreatedAt))}</td><td><strong>${escapeHtml(item.pipelineName || '-')}</strong><br><span class="muted">Run ${escapeHtml(item.runName || item.runId || '-')}</span></td><td><span class="source-pill">${escapeHtml(source)}</span></td><td>${escapeHtml(item.stageName || '-')}</td><td><span class="result-pill result-${escapeHtml(resultValue)}">${escapeHtml(resultValue)}</span></td><td>${pr}<br><span class="muted">${escapeHtml(item.pullRequestTitle || '')}</span></td><td>${escapeHtml(operator)}</td><td><button class="row-button event-detail-button" data-event-id="${escapeHtml(item.eventId)}">View</button></td></tr>`;
   }).join('') : '<tr><td colspan="9">No Service Hook events found for this filter.</td></tr>';
+  const pagination = ensurePagination();
+  pagination.innerHTML = `<span>แสดง ${rows.length ? ((currentPage - 1) * PAGE_SIZE) + 1 : 0}-${Math.min(currentPage * PAGE_SIZE, rows.length)} จาก ${rows.length} รายการ</span><div><button type="button" data-page="prev" ${currentPage <= 1 ? 'disabled' : ''}>ก่อนหน้า</button><strong>หน้า ${currentPage} / ${totalPages}</strong><button type="button" data-page="next" ${currentPage >= totalPages ? 'disabled' : ''}>ถัดไป</button></div>`;
+  pagination.querySelector('[data-page="prev"]')?.addEventListener('click', () => { currentPage -= 1; renderEvents(); });
+  pagination.querySelector('[data-page="next"]')?.addEventListener('click', () => { currentPage += 1; renderEvents(); });
   document.querySelectorAll('.event-detail-button').forEach(button => button.addEventListener('click', () => openDetail(button.dataset.eventId)));
 }
 
@@ -113,9 +129,9 @@ async function init() {
   if (!auth?.clientPrincipal) { window.location.href = '/.auth/login/aad?post_login_redirect_uri=/deployment.html'; return; }
   setText('userName', auth.clientPrincipal.userDetails || 'Authenticated');
   $('refreshEvents')?.addEventListener('click', loadEvents);
-  $('eventRange')?.addEventListener('change', renderEvents);
-  $('eventEnvironment')?.addEventListener('change', renderEvents);
-  $('eventResult')?.addEventListener('change', renderEvents);
+  $('eventRange')?.addEventListener('change', () => { currentPage = 1; renderEvents(); });
+  $('eventEnvironment')?.addEventListener('change', () => { currentPage = 1; renderEvents(); });
+  $('eventResult')?.addEventListener('change', () => { currentPage = 1; renderEvents(); });
   ensureSourceFilter();
   ensureUnknownResultFilter();
   $('closeEventDetail')?.addEventListener('click', () => $('eventDetail').close());
