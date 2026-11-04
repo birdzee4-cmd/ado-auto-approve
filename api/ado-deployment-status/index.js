@@ -10,7 +10,9 @@ module.exports = async function (context, req) {
     }
     const items = await store.list({
       projectId: req.query && req.query.projectId,
-      limit: req.query && req.query.limit
+      limit: req.query && req.query.limit,
+      from: req.query && req.query.from,
+      to: req.query && req.query.to
     });
     context.res = {
       status: 200,

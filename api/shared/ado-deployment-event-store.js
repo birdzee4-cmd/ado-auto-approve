@@ -36,7 +36,13 @@ async function save(event) {
 async function list(options) {
   const limit = Math.min(Math.max(Number(options && options.limit) || 100, 1), 2000);
   const projectId = options && options.projectId ? safeKey(options.projectId) : '';
-  const queryOptions = projectId ? { queryOptions: { filter: `PartitionKey eq '${projectId.replace(/'/g, "''")}'` } } : {};
+  const clauses = [];
+  if (projectId) clauses.push(`PartitionKey eq '${projectId.replace(/'/g, "''")}'`);
+  const from = options && options.from ? new Date(options.from) : null;
+  const to = options && options.to ? new Date(options.to) : null;
+  if (from && !Number.isNaN(from.getTime())) clauses.push(`eventCreatedAt ge '${from.toISOString()}'`);
+  if (to && !Number.isNaN(to.getTime())) clauses.push(`eventCreatedAt lt '${to.toISOString()}'`);
+  const queryOptions = clauses.length ? { queryOptions: { filter: clauses.join(' and ') } } : {};
   const items = [];
   for await (const entity of client().listEntities(queryOptions)) {
     const item = Object.assign({}, entity);
