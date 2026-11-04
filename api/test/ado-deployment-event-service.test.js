@@ -153,3 +153,47 @@ test('webhook accepts a deployment event without writing when feature flag is di
   }
 });
 
+test('webhook enriches deployment events with pull request details', { concurrency: false }, async () => {
+  const previousUser = process.env.WEBHOOK_USERNAME;
+  const previousPassword = process.env.WEBHOOK_PASSWORD;
+  const previousFlag = process.env.ADO_DEPLOYMENT_EVENTS_ENABLED;
+  const ado = require('../shared/ado-client');
+  const store = require('../shared/ado-deployment-event-store');
+  const originalGetPullRequest = ado.getPullRequest;
+  const originalSave = store.save;
+  process.env.WEBHOOK_USERNAME = 'hook-user';
+  process.env.WEBHOOK_PASSWORD = 'secret';
+  process.env.ADO_DEPLOYMENT_EVENTS_ENABLED = 'true';
+  let saved;
+  ado.getPullRequest = async () => ({ ok: true, body: {
+    title: 'Fix deployment issue',
+    url: 'https://dev.azure.com/example/pr/42',
+    sourceRefName: 'refs/heads/feature/fix',
+    targetRefName: 'refs/heads/development',
+    createdBy: { displayName: 'Developer One' }
+  } });
+  store.save = async event => { saved = event; return event; };
+  try {
+    const handler = require('../webhook/index');
+    const ctx = context();
+    const authorization = 'Basic ' + Buffer.from('hook-user:secret').toString('base64');
+    await handler(ctx, { headers: { authorization }, body: {
+      id: 'evt-pr-enrich',
+      eventType: 'ms.vss-pipelines.stage-state-changed-event',
+      resource: { pullRequest: { pullRequestId: 42 }, stage: { name: 'Build', state: 'completed', result: 'succeeded' } }
+    } });
+    assert.equal(ctx.res.status, 200);
+    assert.equal(saved.pullRequestTitle, 'Fix deployment issue');
+    assert.equal(saved.pullRequestAuthor, 'Developer One');
+    assert.equal(saved.pullRequestUrl, 'https://dev.azure.com/example/pr/42');
+    assert.equal(saved.sourceBranch, 'refs/heads/feature/fix');
+    assert.equal(saved.targetBranch, 'refs/heads/development');
+  } finally {
+    ado.getPullRequest = originalGetPullRequest;
+    store.save = originalSave;
+    if (previousUser === undefined) delete process.env.WEBHOOK_USERNAME; else process.env.WEBHOOK_USERNAME = previousUser;
+    if (previousPassword === undefined) delete process.env.WEBHOOK_PASSWORD; else process.env.WEBHOOK_PASSWORD = previousPassword;
+    if (previousFlag === undefined) delete process.env.ADO_DEPLOYMENT_EVENTS_ENABLED; else process.env.ADO_DEPLOYMENT_EVENTS_ENABLED = previousFlag;
+  }
+});
+
