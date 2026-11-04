@@ -47,6 +47,7 @@ test('normalizes a YAML stage state change event', () => {
   assert.equal(event.stageId, 'prod');
   assert.equal(event.status, 'completed');
   assert.equal(event.result, 'succeeded');
+  assert.equal(event.environmentGroup, 'Production');
 });
 
 test('normalizes a completed build event for the deployment archive', () => {
