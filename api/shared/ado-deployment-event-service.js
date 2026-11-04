@@ -25,7 +25,7 @@ function linkOf(resource, stage, run, release, environment) {
 
 function inferEnvironmentGroup(...values) {
   const value = values.filter(Boolean).join(' ');
-  if (/production|prd|prod/i.test(value)) return 'Production';
+  if (/production|(^|[\W_])prd([\W_]|$)|(^|[\W_])prod([\W_]|$)/i.test(value)) return 'Production';
   if (/staging|stage|uat|preprod|(^|[\W_])stg([\W_]|$)/i.test(value)) return 'Staging';
   if (/development|develop|(^|[\W_])dev([\W_]|$)|test|qa/i.test(value)) return 'Development';
   return 'Other';
