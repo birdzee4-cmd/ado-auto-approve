@@ -1,7 +1,13 @@
 const store = require('../shared/ado-deployment-event-store');
+const auth = require('../shared/auth');
 
 module.exports = async function (context, req) {
   try {
+    const authorized = auth.requireAnyRole(context, req, ['it_support_approve', 'admin']);
+    if (!authorized.ok) {
+      context.res = { status: authorized.status, body: authorized.body };
+      return;
+    }
     const items = await store.list({
       projectId: req.query && req.query.projectId,
       limit: req.query && req.query.limit
