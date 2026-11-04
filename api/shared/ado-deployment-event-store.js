@@ -1,6 +1,7 @@
 const { TableClient } = require('@azure/data-tables');
 
 let cachedClient;
+let cachedIndexClient;
 
 function config() {
   const connectionString = process.env.ADO_DEPLOYMENT_EVENT_STORAGE_CONNECTION_STRING || process.env.AzureWebJobsStorage;
@@ -11,12 +12,26 @@ function config() {
   };
 }
 
+function indexConfig() {
+  const connectionString = process.env.ADO_DEPLOYMENT_EVENT_STORAGE_CONNECTION_STRING || process.env.AzureWebJobsStorage;
+  if (!connectionString) throw new Error('Missing deployment event storage connection string');
+  return { connectionString, tableName: process.env.ADO_DEPLOYMENT_EVENT_INDEX_TABLE || 'AdoDeploymentEventIndex' };
+}
+
 function client() {
   if (!cachedClient) {
     const cfg = config();
     cachedClient = TableClient.fromConnectionString(cfg.connectionString, cfg.tableName);
   }
   return cachedClient;
+}
+
+function indexClient() {
+  if (!cachedIndexClient) {
+    const cfg = indexConfig();
+    cachedIndexClient = TableClient.fromConnectionString(cfg.connectionString, cfg.tableName);
+  }
+  return cachedIndexClient;
 }
 
 function safeKey(value) {
@@ -30,6 +45,18 @@ async function save(event) {
     receivedAt: new Date().toISOString()
   });
   await client().upsertEntity(entity, 'Merge');
+  if (process.env.ADO_DEPLOYMENT_EVENT_INDEX_ENABLED === 'true') {
+    const timestamp = Date.parse(event.eventCreatedAt || entity.receivedAt || '') || Date.now();
+    const reverseTicks = String(9999999999999999999 - timestamp).padStart(20, '0');
+    const indexEntity = Object.assign({}, entity, {
+      partitionKey: new Date(timestamp).toISOString().slice(0, 7),
+      rowKey: `${reverseTicks}_${safeKey(event.eventId)}`
+    });
+    await indexClient().createTable().catch(error => {
+      if (error.statusCode !== 409 && error.code !== 'TableAlreadyExists') throw error;
+    });
+    await indexClient().upsertEntity(indexEntity, 'Merge');
+  }
   return entity;
 }
 
@@ -61,6 +88,7 @@ async function list(options) {
 
 function resetForTests() {
   cachedClient = undefined;
+  cachedIndexClient = undefined;
 }
 
 module.exports = { save, list, resetForTests };
