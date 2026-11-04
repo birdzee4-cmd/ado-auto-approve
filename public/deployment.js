@@ -30,6 +30,12 @@ function displayEnvironmentGroup(item) {
   if (/development|develop|(^|[\W_])dev([\W_]|$)|test|qa/i.test(value)) return 'Development';
   return current || 'Other';
 }
+function prResolutionStatus(item) {
+  if (!item.pullRequestId || String(item.result || '').toLowerCase() !== 'failed') return '';
+  const failedAt = Date.parse(item.receivedAt || item.eventCreatedAt || '') || 0;
+  const repaired = eventItems.some(candidate => candidate !== item && String(candidate.pullRequestId || '') === String(item.pullRequestId) && String(candidate.result || '').toLowerCase() === 'succeeded' && (Date.parse(candidate.receivedAt || candidate.eventCreatedAt || '') || 0) > failedAt);
+  return repaired ? 'แก้ไขแล้ว' : 'ยังไม่พบ Build สำเร็จ';
+}
 function renderEvents() {
   const days = $('eventRange')?.value === 'all' ? 0 : Number($('eventRange')?.value || 0);
   const result = String($('eventResult')?.value || '').toLowerCase();
@@ -49,7 +55,9 @@ function renderEvents() {
   summary.innerHTML = [['Total', counts.total], ['Succeeded', counts.succeeded], ['Failed', counts.failed], ['CI Build', counts.source['CI Build'] || 0], ['CD', (counts.source['YAML CD'] || 0) + (counts.source['Classic CD'] || 0)]].map(([label, value]) => `<div><strong>${value}</strong><span>${label}</span></div>`).join('');
   $('eventBody').innerHTML = rows.length ? rows.map(item => {
     const resultValue = String(item.result || 'unknown');
-    const pr = item.pullRequestUrl ? `<a href="${escapeHtml(item.pullRequestUrl)}" target="_blank" rel="noreferrer">PR #${escapeHtml(item.pullRequestId || '?')}</a>` : (item.pullRequestId ? `PR #${escapeHtml(item.pullRequestId)}` : '<span class="muted">ไม่มี PR</span>');
+    const resolution = prResolutionStatus(item);
+    const resolutionMarkup = resolution ? `<br><span class="pr-resolution ${resolution === 'แก้ไขแล้ว' ? 'resolved' : 'open'}">${escapeHtml(resolution)}</span>` : '';
+    const pr = item.pullRequestUrl ? `<a href="${escapeHtml(item.pullRequestUrl)}" target="_blank" rel="noreferrer">PR #${escapeHtml(item.pullRequestId || '?')}</a>${resolutionMarkup}` : (item.pullRequestId ? `PR #${escapeHtml(item.pullRequestId)}${resolutionMarkup}` : '<span class="muted">ไม่มี PR</span>');
     const operator = item.requestedBy || item.pullRequestAuthor || '-';
     const source = item.sourceType === 'build' ? 'CI Build' : item.sourceType === 'classic-release' ? 'Classic CD' : item.sourceType === 'yaml-pipeline' ? 'YAML CD' : item.sourceType || 'Service Hook';
     const env = displayEnvironmentGroup(item);
