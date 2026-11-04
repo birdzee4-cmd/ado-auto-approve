@@ -35,6 +35,9 @@ function normalizeDeploymentEvent(payload) {
   const stage = resource.stage || {};
   const run = resource.run || resource.pipelineRun || {};
   const pipeline = resource.pipeline || run.pipeline || resource.definition || release.releaseDefinition || {};
+  const repository = resource.repository || run.repository || pipeline.repository || {};
+  const pullRequest = resource.pullRequest || resource.pullRequestDetails || run.pullRequest || {};
+  const requestedBy = resource.requestedBy || resource.requestedFor || run.requestedBy || run.requestedFor || {};
   const project = deployment.project || release.project || resource.project || resource.projectReference || {};
   const containerProject = body.resourceContainers && body.resourceContainers.project || {};
   const isClassic = eventType.includes('release.deployment');
@@ -52,6 +55,11 @@ function normalizeDeploymentEvent(payload) {
   const runId = text(isClassic ? (release.id || resource.releaseId) : (run.id || resource.runId), 200);
   const stageId = text(isClassic ? (environment.id || resource.environmentId) : (stage.id || stage.identifier), 200);
   const naturalKey = [eventType, runId, stageId, rawStatus, rawResult, date(body.createdDate)].join('|');
+  const sourceBranch = text(pullRequest.sourceRefName || run.sourceBranch || resource.sourceBranch || deployment.sourceBranch, 500);
+  const targetBranch = text(pullRequest.targetRefName || run.targetBranch || resource.targetBranch || deployment.targetBranch, 500);
+  const pullRequestId = text(pullRequest.pullRequestId || resource.pullRequestId || ((sourceBranch.match(/refs\/pull\/(\d+)/i) || [])[1]), 100);
+  const environmentName = text(environment.name || stage.name || stage.displayName || resource.environmentName || resource.stageName || targetBranch || sourceBranch, 200);
+  const environmentGroup = /prod/i.test(`${environmentName} ${targetBranch}`) ? 'Production' : /stag|uat|preprod/i.test(`${environmentName} ${targetBranch}`) ? 'Staging' : /dev|test|qa/i.test(`${environmentName} ${targetBranch}`) ? 'Development' : 'Other';
 
   return {
     eventId: eventId || naturalKey,
@@ -61,6 +69,16 @@ function normalizeDeploymentEvent(payload) {
     sourceType: isClassic ? 'classic-release' : 'yaml-pipeline',
     projectId: text(project.id || resource.projectId || containerProject.id, 200),
     projectName: text(project.name || resource.projectName),
+    environment: environmentName,
+    environmentGroup,
+    repositoryName: text(repository.name || repository.id, 300),
+    sourceBranch,
+    targetBranch,
+    pullRequestId,
+    pullRequestTitle: text(pullRequest.title || resource.pullRequestTitle, 500),
+    pullRequestAuthor: text((pullRequest.createdBy || {}).displayName || (pullRequest.createdBy || {}).uniqueName, 300),
+    requestedBy: text(requestedBy.displayName || requestedBy.uniqueName || requestedBy.id, 300),
+    pullRequestUrl: linkOf(pullRequest),
     pipelineId: text(pipeline.id, 200),
     pipelineName: text(pipeline.name),
     runId,
