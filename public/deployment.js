@@ -10,6 +10,20 @@ function ensureSummary() {
   $('eventBody')?.closest('.table-wrap')?.before(summary);
   return summary;
 }
+function ensureSourceFilter() {
+  let select = $('eventSource');
+  if (select) return select;
+  const filters = document.querySelector('.event-filters');
+  if (!filters) return null;
+  const label = document.createElement('label');
+  label.textContent = 'Source';
+  select = document.createElement('select');
+  select.id = 'eventSource';
+  select.innerHTML = '<option value="">All sources</option><option value="build">CI Build</option><option value="yaml-pipeline">YAML CD</option><option value="classic-release">Classic CD</option>';
+  label.append(select); filters.append(label);
+  select.addEventListener('change', renderEvents);
+  return select;
+}
 async function api(url) {
   const response = await fetch(url, { credentials: 'same-origin' });
   const contentType = response.headers.get('content-type') || '';
@@ -39,11 +53,12 @@ function prResolutionStatus(item) {
 function renderEvents() {
   const days = $('eventRange')?.value === 'all' ? 0 : Number($('eventRange')?.value || 0);
   const result = String($('eventResult')?.value || '').toLowerCase();
+  const source = String(ensureSourceFilter()?.value || '');
   const environment = String($('eventEnvironment')?.value || '');
   const cutoff = days ? Date.now() - days * 86400000 : 0;
   const rows = eventItems.filter(item => {
     const time = Date.parse(item.receivedAt || item.eventCreatedAt || '');
-    return (!cutoff || (time && time >= cutoff)) && (!result || String(item.result || '').toLowerCase() === result) && (!environment || displayEnvironmentGroup(item) === environment);
+    return (!cutoff || (time && time >= cutoff)) && (!result || String(item.result || '').toLowerCase() === result) && (!environment || displayEnvironmentGroup(item) === environment) && (!source || item.sourceType === source);
   });
   const summary = ensureSummary();
   const counts = rows.reduce((acc, item) => {
@@ -94,6 +109,7 @@ async function init() {
   $('eventRange')?.addEventListener('change', renderEvents);
   $('eventEnvironment')?.addEventListener('change', renderEvents);
   $('eventResult')?.addEventListener('change', renderEvents);
+  ensureSourceFilter();
   $('closeEventDetail')?.addEventListener('click', () => $('eventDetail').close());
   await loadEvents();
 }
