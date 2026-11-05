@@ -116,9 +116,9 @@ async function summarize(options) {
   const summary = {
     total: items.length, succeeded: 0, failed: 0, canceled: 0, unknown: 0,
     successRate: 0, failureRate: 0, byEnvironment: {}, bySource: {}, byResult: {},
-    byDay: {}, byPipeline: {}, openFailures: [], averageDurationSeconds: null
+    byDay: {}, byPipeline: {}, openFailures: [], repairedFailures: 0, repeatedFailures: 0, meanTimeToFixSeconds: null, averageDurationSeconds: null
   };
-  const successRuns = new Set();
+  const byPr = new Map();
   let durationTotal = 0; let durationCount = 0;
   for (const item of items) {
     const result = String(item.result || 'unknown').toLowerCase() || 'unknown';
@@ -137,12 +137,34 @@ async function summarize(options) {
     if (day) summary.byDay[day] = (summary.byDay[day] || 0) + 1;
     const started = Date.parse(item.startedAt || ''); const completed = Date.parse(item.completedAt || '');
     if (started && completed && completed >= started) { durationTotal += completed - started; durationCount += 1; }
+    if (item.pullRequestId) { const key = String(item.pullRequestId); if (!byPr.has(key)) byPr.set(key, []); byPr.get(key).push(item); }
     if (result === 'succeeded' && item.pullRequestId) successRuns.add(String(item.pullRequestId));
   }
   summary.successRate = summary.total ? Number((summary.succeeded / summary.total * 100).toFixed(2)) : 0;
   summary.failureRate = summary.total ? Number((summary.failed / summary.total * 100).toFixed(2)) : 0;
   summary.averageDurationSeconds = durationCount ? Math.round(durationTotal / durationCount / 1000) : null;
-  summary.openFailures = items.filter(item => String(item.result || '').toLowerCase() === 'failed' && item.pullRequestId && !successRuns.has(String(item.pullRequestId))).slice(0, 100);
+  const fixDurations = [];
+  for (const [pullRequestId, events] of byPr.entries()) {
+    events.sort((a, b) => Date.parse(a.eventCreatedAt || a.receivedAt || '') - Date.parse(b.eventCreatedAt || b.receivedAt || ''));
+    let failures = 0;
+    for (let i = 0; i < events.length; i += 1) {
+      if (String(events[i].result || '').toLowerCase() !== 'failed') continue;
+      failures += 1;
+      const failedAt = Date.parse(events[i].eventCreatedAt || events[i].receivedAt || '') || 0;
+      const fixed = events.slice(i + 1).find(candidate => String(candidate.result || '').toLowerCase() === 'succeeded');
+      if (fixed) {
+        summary.repairedFailures += 1;
+        const fixedAt = Date.parse(fixed.eventCreatedAt || fixed.receivedAt || '') || 0;
+        if (fixedAt > failedAt) fixDurations.push(fixedAt - failedAt);
+      } else {
+        summary.openFailures.push(Object.assign({ remediationStatus: 'open', pullRequestId }, events[i]));
+      }
+    }
+    if (failures > 1) summary.repeatedFailures += failures - 1;
+  }
+  summary.openFailures = summary.openFailures.slice(0, 100);
+  summary.openFailureCount = summary.openFailures.length;
+  summary.meanTimeToFixSeconds = fixDurations.length ? Math.round(fixDurations.reduce((total, value) => total + value, 0) / fixDurations.length / 1000) : null;
   return summary;
 }
 
