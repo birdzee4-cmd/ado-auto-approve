@@ -116,7 +116,7 @@ async function summarize(options) {
   const summary = {
     total: items.length, succeeded: 0, failed: 0, canceled: 0, unknown: 0,
     successRate: 0, failureRate: 0, byEnvironment: {}, bySource: {}, byResult: {},
-    byDay: {}, byPipeline: {}, pipelinePerformance: {}, stageFailures: {}, failureHotspots: [], openFailures: [], repairedFailures: 0, repeatedFailures: 0, meanTimeToFixSeconds: null, averageDurationSeconds: null
+    byDay: {}, byPipeline: {}, pipelinePerformance: {}, stageFailures: {}, failureHotspots: [], openFailures: [], repairedFailures: 0, repeatedFailures: 0, meanTimeToFixSeconds: null, averageDurationSeconds: null, alerts: []
   };
   const byPr = new Map();
   let durationTotal = 0; let durationCount = 0;
@@ -172,7 +172,18 @@ async function summarize(options) {
   summary.openFailures = summary.openFailures.slice(0, 100);
   summary.openFailureCount = summary.openFailures.length;
   summary.meanTimeToFixSeconds = fixDurations.length ? Math.round(fixDurations.reduce((total, value) => total + value, 0) / fixDurations.length / 1000) : null;
+  const productionFailures = items.filter(item => item.environmentGroup === 'Production' && String(item.result || '').toLowerCase() === 'failed').length;
+  if (productionFailures) summary.alerts.push({ type: 'production-failure', severity: 'high', count: productionFailures, message: `${productionFailures} Production deployment failure(s)` });
+  if (summary.openFailureCount) summary.alerts.push({ type: 'open-failure', severity: 'medium', count: summary.openFailureCount, message: `${summary.openFailureCount} failure(s) still open` });
+  if (summary.repeatedFailures) summary.alerts.push({ type: 'repeated-failure', severity: 'medium', count: summary.repeatedFailures, message: `${summary.repeatedFailures} repeated failure(s)` });
   return summary;
+}
+
+function csvCell(value) { const text = String(value == null ? '' : value); return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text; }
+async function exportCsv(options) {
+  const items = await listAll(options);
+  const fields = ['eventCreatedAt', 'environmentGroup', 'environment', 'pipelineName', 'runName', 'sourceType', 'stageName', 'status', 'result', 'pullRequestId', 'pullRequestTitle', 'pullRequestAuthor', 'requestedBy', 'repositoryName', 'sourceBranch', 'targetBranch', 'url'];
+  return '\ufeff' + [fields.join(','), ...items.map(item => fields.map(field => csvCell(item[field])).join(','))].join('\r\n');
 }
 
 async function listIndexedPage(options) {
@@ -203,5 +214,5 @@ function resetForTests() {
   cachedIndexClient = undefined;
 }
 
-module.exports = { save, list, listIndexedPage, summarize, resetForTests };
+module.exports = { save, list, listIndexedPage, summarize, exportCsv, resetForTests };
 

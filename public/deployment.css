@@ -17,6 +17,8 @@
 .deployment-view { display: none; width:100%; max-width: 1240px; margin: 0 auto; box-sizing:border-box; }
 .deployment-view.active { display: block; }
 .deployment-heading { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin-bottom: 20px; }
+.heading-actions { display:flex; gap:8px; align-items:center; }
+.monitor-alert { padding:10px 12px; border-radius:7px; font-size:12px; font-weight:800; }.monitor-alert.high { background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; }.monitor-alert.medium { background:#fef3c7; color:#92400e; border:1px solid #f6d37a; }
 .deployment-heading h1 { margin: 0; font-size: 28px; }
 .deployment-kicker { margin: 0 0 5px; color: #855800; text-transform: uppercase; letter-spacing: .08em; font-size: 12px; font-weight: 800; }
 .deployment-card {
