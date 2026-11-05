@@ -62,7 +62,7 @@ function buildTracking(items, options = {}) {
       sourceType: latest.sourceType, latest, totalRuns: events.length, failedRuns: failures.length,
       openFailures: failures.filter(item => !item.recovery).length, failures, events });
   }
-  groups.sort((a, b) => b.openFailures - a.openFailures || time(b.latest) - time(a.latest));
+  groups.sort((a, b) => time(b.latest) - time(a.latest) || a.key.localeCompare(b.key));
   return { groups, projects: buildProjects(groups, options.mappings || PROJECT_MAP), totalRuns: groups.reduce((sum, group) => sum + group.totalRuns, 0),
     failedRuns: groups.reduce((sum, group) => sum + group.failedRuns, 0),
     openFailures: groups.reduce((sum, group) => sum + group.openFailures, 0),
@@ -104,12 +104,12 @@ function buildProjects(groups, mappings) {
       else status = 'ci-pending';
     }
     const timeline = [...ciEvents, ...cdEvents].sort((a,b) => time(b) - time(a));
-    const failures = [...ciGroups, ...cdGroups].flatMap(group => group.failures);
+    const failures = [...ciGroups, ...cdGroups].flatMap(group => group.failures).sort((a,b) => time(b.failed) - time(a.failed));
     return { key: mapping.key, name: mapping.name, environment: mapping.environment, repositoryName: mapping.repositoryName,
       ci, cd, latestDeployment, status, ciFailed, cdFailed, openFailures, failures, timeline,
       ciPipeline: mapping.ci.name, cdPipeline: mapping.cd.name,
       lineage: cd ? 'release-build-artifact' : 'unknown',
       reusedBuild: !!(latestDeployment && ci && artifactIds(latestDeployment).length && !artifactIds(latestDeployment).includes(String(ci.runId))) };
-  });
+  }).sort((a,b) => time(b.timeline[0] || {}) - time(a.timeline[0] || {}) || a.key.localeCompare(b.key));
 }
 module.exports = { buildTracking, buildProjects };

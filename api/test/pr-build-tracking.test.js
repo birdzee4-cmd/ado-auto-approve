@@ -51,6 +51,12 @@ test('next PR in the same lane recovers failures without erasing failed runs', (
   assert.equal(result.failedRuns, 2); assert.equal(result.openFailures, 0);
   assert.equal(result.groups[0].failures[0].recovery.pullRequestId, '3');
 });
+
+test('latest pipelines sort first even if an older pipeline still has open failures', () => {
+  const result = buildTracking([event(1, 'failed', { pipelineId: 'older' }), event(3, 'succeeded', { pipelineId: 'newer' })]);
+  assert.equal(result.groups[0].latest.pipelineId, 'newer');
+  assert.equal(result.groups[1].openFailures, 1);
+});
 test('CI, CD, stage, project, repository and branch cannot close one another', () => {
   for (const extra of [{ sourceType: 'classic-release' }, { stageName: 'Deploy' }, { projectId: 'other' },
     { repositoryName: 'other' }, { pipelineId: 'other' }, { sourceBranch: 'refs/heads/main' }, { environmentGroup: 'Production' }]) {

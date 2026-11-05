@@ -1,6 +1,7 @@
 import { escapeHtml, setText } from './core.js';
 import { renderCommit } from './deployment-commit.js?v=20261105-1';
-import { initTracking } from './pr-build-tracking.js?v=20261105-3';
+import { historyDates, appendBangkokDates } from './deployment-dates.js';
+import { initTracking } from './pr-build-tracking.js?v=20261105-4';
 const $ = id => document.getElementById(id);
 let eventItems = [];
 let currentPage = 1;
@@ -92,16 +93,13 @@ function prResolutionStatus(item) {
   return String(item.result || '').toLowerCase() === 'failed' ? 'ดูสถานะในเมนูติดตาม PR / CI-CD' : '';
 }
 function renderEvents() {
-  const days = $('eventRange')?.value === 'all' ? 0 : Number($('eventRange')?.value || 0);
   const result = String($('eventResult')?.value || '').toLowerCase();
   const source = String(ensureSourceFilter()?.value || '');
   const environment = String($('eventEnvironment')?.value || '');
-  const cutoff = days ? Date.now() - days * 86400000 : 0;
   const rows = eventItems.filter(item => {
-    const time = Date.parse(item.receivedAt || item.eventCreatedAt || '');
     const normalizedResult = String(item.result || '').toLowerCase();
     const resultMatches = !result || (result === 'unknown' ? !normalizedResult || normalizedResult === 'unknown' : normalizedResult === result);
-    return (!cutoff || (time && time >= cutoff)) && resultMatches && (!environment || displayEnvironmentGroup(item) === environment) && (!source || item.sourceType === source);
+    return resultMatches && (!environment || displayEnvironmentGroup(item) === environment) && (!source || item.sourceType === source);
   });
   const summary = ensureSummary();
   const counts = rows.reduce((acc, item) => {
@@ -151,13 +149,17 @@ function resetCursor() { currentPage = 1; cursorStack = ['']; nextCursor = ''; }
 async function loadEvents(cursor = '') {
   $('eventBody').innerHTML = '<tr><td colspan="9">Loading...</td></tr>';
   try {
+    if ($('eventRange')?.value === 'today') {
+      const dates = historyDates('today');
+      if ($('eventFrom').value !== dates.from) { resetCursor(); cursor = ''; }
+      $('eventFrom').value = dates.from; $('eventTo').value = dates.to;
+    }
     const fromDate = $('eventFrom')?.value || '';
     const toDate = $('eventTo')?.value || '';
     if (fromDate && toDate && fromDate > toDate) throw new Error('From date must be before or equal to To date.');
     const params = new URLSearchParams(cursorMode ? { useCursor: 'true', pageSize: String(PAGE_SIZE) } : { limit: '2000' });
     if (cursorMode && cursor) params.set('cursor', cursor);
-    if (fromDate) params.set('from', `${fromDate}T00:00:00Z`);
-    if (toDate) { const end = new Date(`${toDate}T00:00:00Z`); end.setUTCDate(end.getUTCDate() + 1); params.set('to', end.toISOString()); }
+    appendBangkokDates(params, fromDate, toDate);
     if ($('eventEnvironment')?.value) params.set('environmentGroup', $('eventEnvironment').value);
     if ($('eventResult')?.value && $('eventResult').value !== 'unknown') params.set('result', $('eventResult').value);
     if (ensureSourceFilter()?.value) params.set('sourceType', ensureSourceFilter().value);
@@ -187,13 +189,15 @@ async function init() {
   if (!auth?.clientPrincipal) { window.location.href = '/.auth/login/aad?post_login_redirect_uri=/deployment.html'; return; }
   setText('userName', auth.clientPrincipal.userDetails || 'Authenticated');
   initTracking();
+  const today = historyDates('today');
+  $('eventRange').value = 'today';
+  $('eventFrom').value = today.from; $('eventTo').value = today.to;
   $('exportEvents')?.addEventListener('click', async () => {
     const params = new URLSearchParams();
     if ($('eventEnvironment')?.value) params.set('environmentGroup', $('eventEnvironment').value);
     if (ensureSourceFilter()?.value) params.set('sourceType', ensureSourceFilter().value);
     if ($('eventResult')?.value) params.set('result', $('eventResult').value);
-    if ($('eventFrom')?.value) params.set('from', `${$('eventFrom').value}T00:00:00Z`);
-    if ($('eventTo')?.value) { const end = new Date(`${$('eventTo').value}T00:00:00Z`); end.setUTCDate(end.getUTCDate() + 1); params.set('to', end.toISOString()); }
+    appendBangkokDates(params, $('eventFrom')?.value, $('eventTo')?.value);
     const button = $('exportEvents');
     button.disabled = true;
     try {
@@ -206,12 +210,15 @@ async function init() {
     } catch (error) { setText('eventsUpdated', `Export failed: ${error.message}`); }
     finally { button.disabled = false; }
   });
-  $('refreshEvents')?.addEventListener('click', loadEvents);
-  $('eventRange')?.addEventListener('change', () => { resetCursor(); renderEvents(); });
+  $('refreshEvents')?.addEventListener('click', () => { resetCursor(); loadEvents(); });
+  $('eventRange')?.addEventListener('change', () => {
+    if ($('eventRange').value !== 'custom') { const dates = historyDates($('eventRange').value); $('eventFrom').value = dates.from; $('eventTo').value = dates.to; }
+    resetCursor(); loadEvents();
+  });
   $('eventEnvironment')?.addEventListener('change', () => { resetCursor(); loadEvents(); });
   $('eventResult')?.addEventListener('change', () => { resetCursor(); loadEvents(); });
-  $('eventFrom')?.addEventListener('change', () => { resetCursor(); loadEvents(); });
-  $('eventTo')?.addEventListener('change', () => { resetCursor(); loadEvents(); });
+  $('eventFrom')?.addEventListener('change', () => { $('eventRange').value = 'custom'; resetCursor(); loadEvents(); });
+  $('eventTo')?.addEventListener('change', () => { $('eventRange').value = 'custom'; resetCursor(); loadEvents(); });
   ensureSourceFilter();
   ensureUnknownResultFilter();
   $('closeEventDetail')?.addEventListener('click', () => $('eventDetail').close());
