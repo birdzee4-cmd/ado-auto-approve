@@ -22,6 +22,8 @@ test('delegated history links old build artifact to PR and preserves release ret
   const project = buildTracking(history.items).projects[0];
   assert.equal(project.status, 'succeeded'); assert.equal(project.ci.pullRequestId, '375391');
   assert.equal(project.cd.pullRequestId, '375391'); assert.equal(project.cdFailed, 1); assert.equal(project.openFailures, 0);
+  assert.equal(project.ci.sourceVersion, sha); assert.equal(project.cd.sourceVersion, sha);
+  assert.equal(project.cd.repositoryId, 'repo');
 });
 test('history rejects API failures and never falls back to the service PAT', async () => {
   const ado = { getConfig: () => ({ org: 'Buzzebees', project: 'Buzzebees' }),

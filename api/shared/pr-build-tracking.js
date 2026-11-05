@@ -14,14 +14,16 @@ function buildTracking(items, options = {}) {
   // Classic CD can reuse an older CI artifact. Only its explicit artifact ID
   // may supply a missing PR; never attach the most recent PR by date or name.
   items = items.map(item => {
-    if (item.sourceType !== 'classic-release' || item.pullRequestId || !item.artifactBuildIds) return item;
+    if (item.sourceType !== 'classic-release' || !item.artifactBuildIds) return item;
     let ids;
     try { ids = JSON.parse(item.artifactBuildIds); } catch { return item; }
     if (!Array.isArray(ids) || ids.length !== 1) return item;
-    const matches = (buildsById.get(JSON.stringify([item.projectId || item.projectName, String(ids[0])])) || []).filter(build => build.pullRequestId);
+    const matches = buildsById.get(JSON.stringify([item.projectId || item.projectName, String(ids[0])])) || [];
     if (!matches.length || new Set(matches.map(build => String(build.pullRequestId))).size !== 1) return item;
-    return { ...item, pullRequestId: matches[0].pullRequestId, pullRequestTitle: matches[0].pullRequestTitle,
-      pullRequestUrl: matches[0].pullRequestUrl, prLinkEvidence: 'release-build-artifact' };
+    return { ...item, pullRequestId: item.pullRequestId || matches[0].pullRequestId, pullRequestTitle: item.pullRequestTitle || matches[0].pullRequestTitle,
+      pullRequestUrl: item.pullRequestUrl || matches[0].pullRequestUrl, prLinkEvidence: 'release-build-artifact',
+      sourceVersion: item.sourceVersion || matches[0].sourceVersion || '',
+      repositoryId: item.repositoryId || matches[0].repositoryId || '', repositoryName: item.repositoryName || matches[0].repositoryName || '' };
   });
   const lanes = new Map();
   for (const item of items) {

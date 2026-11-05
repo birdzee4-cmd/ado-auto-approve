@@ -1,4 +1,5 @@
 import { escapeHtml } from './core.js';
+import { renderCommit } from './deployment-commit.js?v=20261105-1';
 
 const esc = value => escapeHtml(String(value ?? ''));
 const date = value => value ? new Date(value).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-';
@@ -7,7 +8,7 @@ function run(item) {
   const label = `${item.pullRequestId ? `PR #${item.pullRequestId}` : 'ไม่ทราบ PR'} · ${item.runName || item.runId || '-'} · ${item.result || item.status || 'unknown'}`;
   let href;
   try { const url = new URL(item.url); if (url.protocol === 'https:') href = url.href; } catch {}
-  return `${href ? `<a href="${esc(href)}" target="_blank" rel="noreferrer">${esc(label)}</a>` : esc(label)}<br><small>${esc(date(item.completedAt || item.eventCreatedAt))}</small>`;
+  return `${href ? `<a href="${esc(href)}" target="_blank" rel="noreferrer">${esc(label)}</a>` : esc(label)}<br><small>${esc(date(item.completedAt || item.eventCreatedAt))}</small><br>${renderCommit(item)}`;
 }
 
 const labels = { unknown: 'ยังไม่มีข้อมูล CI', 'ci-failed': 'CI ล้มเหลว', 'ci-pending': 'CI ยังไม่สำเร็จ', 'awaiting-cd-evidence': 'CI สำเร็จ · ยังไม่พบ CD ของ Build นี้', 'cd-failed': 'CD ล้มเหลว', 'cd-pending': 'CD ยังไม่สำเร็จ', succeeded: 'CI / CD สำเร็จ' };

@@ -75,6 +75,8 @@ function normalizeDeploymentEvent(payload) {
     publisherId,
     eventType,
     sourceType: isClassic ? 'classic-release' : 'yaml-pipeline',
+    sourceVersion: text(resource.sourceVersion || run.sourceVersion || run.resources?.repositories?.self?.version, 200),
+    repositoryId: text(repository.id, 200),
     attemptId: text(deployment.attempt || deployment.id || resource.attempt || resource.attemptId, 100),
     artifactBuildIds: JSON.stringify((release.artifacts || resource.artifacts || []).filter(item => String(item.type || '').toLowerCase() === 'build').map(item => text(item.definitionReference && item.definitionReference.version && item.definitionReference.version.id, 100)).filter(Boolean)),
     projectId: text(project.id || resource.projectId || containerProject.id, 200),
