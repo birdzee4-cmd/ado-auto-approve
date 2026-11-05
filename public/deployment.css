@@ -321,3 +321,6 @@
 #companyMonitor>.tracking-filters label{gap:3px}
 #companyMonitor>.tracking-filters input,#companyMonitor>.tracking-filters select{padding:5px 7px;min-height:30px}
 @media(min-width:1500px){.company-job dl{grid-template-columns:62px minmax(0,1fr) 62px minmax(0,1fr)}}
+.company-job.company-build-failed{background:#fff5f5;border-color:#d98585;border-left:4px solid #bb3434;box-shadow:0 0 0 1px rgba(187,52,52,.08);color:#342727}
+.company-build-failed .result-pill{background:#fde2e2;color:#8c2424;border:1px solid #e5aaaa;font-weight:700}
+.company-build-failed h3{color:#852c2c}.company-build-failed dt,.company-build-failed p{color:#6e5151}.company-build-failed a{color:#883122}
