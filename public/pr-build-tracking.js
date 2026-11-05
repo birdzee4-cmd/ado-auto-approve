@@ -81,5 +81,4 @@ export function initTracking() {
   eventsLink.addEventListener('click', event => { event.preventDefault(); host.hidden = true; events.hidden = false; button.classList.remove('nav-link-active'); eventsLink.classList.add('nav-link-active'); });
   document.getElementById('trackingRefresh').addEventListener('click', load);
   for (const id of ['trackingSearch', 'trackingEnvironment', 'trackingState']) document.getElementById(id).addEventListener('input', render);
-  window.setInterval(() => { if (!document.hidden && !host.hidden) load(); }, 60000);
 }

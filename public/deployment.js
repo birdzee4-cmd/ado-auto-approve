@@ -1,7 +1,7 @@
 import { escapeHtml, setText } from './core.js';
 import { renderCommit } from './deployment-commit.js?v=20261105-1';
 import { historyDates, appendBangkokDates } from './deployment-dates.js';
-import { initTracking } from './pr-build-tracking.js?v=20261105-6';
+import { initTracking } from './pr-build-tracking.js?v=20261105-7';
 const $ = id => document.getElementById(id);
 let eventItems = [];
 let currentPage = 1;
@@ -223,9 +223,6 @@ async function init() {
   ensureUnknownResultFilter();
   $('closeEventDetail')?.addEventListener('click', () => $('eventDetail').close());
   await loadEvents();
-  window.setInterval(() => {
-    if (!document.hidden) loadEvents();
-  }, 60000);
 }
 init().catch(error => {
   setText('eventsUpdated', 'Unable to initialize deployment monitor');
