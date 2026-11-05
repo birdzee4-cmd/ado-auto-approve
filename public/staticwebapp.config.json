@@ -6,6 +6,7 @@
   },
 
   "routes": [
+    { "route": "/api/company-monitor-collect", "methods": ["POST"], "allowedRoles": ["anonymous"] },
     { "route": "/api/company-deployment-monitor", "methods": ["GET"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/applications.html", "allowedRoles": ["authenticated"] },
     { "route": "/applications", "rewrite": "/applications.html", "allowedRoles": ["authenticated"] },

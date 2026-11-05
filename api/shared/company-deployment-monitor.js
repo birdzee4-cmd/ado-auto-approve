@@ -16,9 +16,12 @@ function normalize(payload) {
       duration: String(row.TotalTime || '').split('.')[0] };
   }).sort((a, b) => (Date.parse(b.updatedAt) || 0) - (Date.parse(a.updatedAt) || 0));
 }
-async function load(fetcher = fetch) {
+async function loadRaw(fetcher = fetch) {
   const response = await fetcher(endpoint, { signal: AbortSignal.timeout(15000), redirect: 'error', headers: { Accept: 'application/json' } });
   if (!response.ok || !/application\/json/i.test(response.headers.get('content-type') || '')) throw new Error('Monitor upstream unavailable');
-  return normalize(await response.json());
+  const payload = await response.json();
+  normalize(payload);
+  return payload;
 }
-module.exports = { normalize, load };
+async function load(fetcher = fetch) { return normalize(await loadRaw(fetcher)); }
+module.exports = { normalize, load, loadRaw };

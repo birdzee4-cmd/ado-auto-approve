@@ -1,12 +1,13 @@
 import { escapeHtml } from './core.js';
+import { bangkokToday } from './deployment-dates.js';
 const esc = value => escapeHtml(String(value ?? ''));
 const labels = { complete: 'สำเร็จ', 'build fail': 'Build ล้มเหลว', 'deploy fail': 'Deploy ล้มเหลว', 'cancel deploy': 'ยกเลิก', building: 'กำลัง Build' };
 const environments = ['Development', 'Staging', 'Production', 'Other'];
 export function initCompanyMonitor() {
   const host = document.createElement('section'); host.id = 'companyMonitor'; host.hidden = true;
   host.innerHTML = `<div class="deployment-heading"><div><p class="deployment-kicker">Company deployment monitor</p><h1>Monitor งานประจำวัน</h1><p>ข้อมูลจากระบบ Monitor บริษัท · จบทั้งหมดรวมงานสำเร็จ ล้มเหลว และยกเลิก</p></div><button type="button" class="primary-button" id="companyRefresh">Refresh</button></div>
-    <div class="deployment-card tracking-filters"><label>ค้นหา Project / ประเภท / Build / ผู้ขอ<input id="companySearch" type="search"></label><label>วันที่ข้อมูล<select id="companyDate"><option value="">ทุกวันที่ API ส่งมา</option></select></label></div>
-    <p id="companyMessage" role="status" aria-live="polite">ยังไม่ได้โหลดข้อมูล</p><p class="heading-help">เวลา Update เป็นเวลาจาก Monitor บริษัท (แสดงเป็นเวลาไทย) อาจต่างจากเวลา Build จบใน Azure DevOps · API นี้ยังไม่ยืนยันการเรียกย้อนหลัง</p><div id="companyBoard" class="company-board"></div>`;
+    <div class="deployment-card tracking-filters"><label>ค้นหา Project / ประเภท / Build / ผู้ขอ<input id="companySearch" type="search"></label><label>วันที่ข้อมูล<input id="companyDate" type="date" value="${bangkokToday()}" max="${bangkokToday()}"></label></div>
+    <p id="companyMessage" role="status" aria-live="polite">ยังไม่ได้โหลดข้อมูล</p><p id="companyCoverage" class="heading-help">อ่านประวัติจาก Azure ตามวัน Update ของ Monitor · เก็บเบื้องหลังทุก 1 นาที · หน้าจอ Refresh ด้วยตนเอง</p><div id="companyBoard" class="company-board"></div>`;
   document.querySelector('.deployment-content').append(host);
   const nav = document.querySelector('.nav-links');
   const tab = document.createElement('button'); tab.type = 'button'; tab.className = 'nav-link'; tab.textContent = 'Monitor งานประจำวัน'; nav.append(tab);
@@ -37,19 +38,23 @@ export function initCompanyMonitor() {
     }).join('');
   }
   async function load() {
-    if (pending) return; pending = true; $('companyRefresh').disabled = true; $('companyMessage').textContent = 'กำลังอ่านข้อมูล Monitor บริษัท...';
+    if (pending) return;
+    const requestedDay = $('companyDate').value;
+    if (!requestedDay) { items = null; $('companyBoard').replaceChildren(); $('companyMessage').textContent = 'กรุณาเลือกวันที่ในปฏิทิน'; return; }
+    pending = true; $('companyRefresh').disabled = true; items = null; $('companyBoard').replaceChildren(); $('companyMessage').textContent = `กำลังอ่านประวัติวันที่ ${requestedDay} จาก Azure...`;
     try {
-      const response = await fetch('/api/company-deployment-monitor', { credentials: 'same-origin', signal: AbortSignal.timeout(20000) });
+      const response = await fetch(`/api/company-deployment-monitor?date=${encodeURIComponent(requestedDay)}`, { credentials: 'same-origin', signal: AbortSignal.timeout(30000) });
       const body = await response.json(); if (!response.ok || !body.ok || !Array.isArray(body.items)) throw new Error(body.error || 'อ่านข้อมูลไม่สำเร็จ');
+      if ($('companyDate').value !== requestedDay) return;
       items = body.items;
-      const previous = $('companyDate').value;
-      const days = [...new Set(items.map(item => item.updatedAt.slice(0, 10)).filter(Boolean))].sort().reverse();
-      $('companyDate').innerHTML = '<option value="">ทุกวันที่ API ส่งมา</option>' + days.map(day => `<option value="${esc(day)}">${esc(day)}</option>`).join('');
-      $('companyDate').value = days.includes(previous) ? previous : '';
-      $('companyMessage').textContent = `อ่านข้อมูล ${items.length} รายการ · ${new Date(body.fetchedAt).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })} · Refresh ด้วยตนเอง`;
+      const info = body.archive || {};
+      const time = value => value ? new Date(value).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }) : 'ยังไม่มี';
+      $('companyMessage').textContent = info.snapshotId ? `ประวัติวันที่ ${requestedDay} · ${items.length} รายการ · บันทึกล่าสุด ${time(info.savedAt)}` : `ยังไม่มีข้อมูลที่บันทึกไว้สำหรับวันที่ ${requestedDay} (ไม่ได้หมายความว่าวันนี้ไม่มีงาน)`;
+      const stale = !info.lastSuccessAt || Date.now() - Date.parse(info.lastSuccessAt) > 5 * 60000;
+      $('companyCoverage').textContent = `${info.note || ''} · เริ่มเก็บ ${time(info.collectionStartedAt)} · เก็บสำเร็จล่าสุด ${time(info.lastSuccessAt)}${info.lastAttemptStatus === 'failed' || stale ? ' · ⚠ ข้อมูลอาจไม่ล่าสุด: งานเก็บข้อมูลขัดข้องหรือยังไม่สำเร็จใน 5 นาทีที่ผ่านมา' : ''}`;
       render();
-    } catch (error) { items = null; $('companyBoard').replaceChildren(); $('companyMessage').textContent = error.name === 'TimeoutError' ? 'อ่านข้อมูลเกินเวลา กรุณากด Refresh อีกครั้ง' : error.message; }
-    finally { pending = false; $('companyRefresh').disabled = false; }
+    } catch (error) { if ($('companyDate').value === requestedDay) { items = null; $('companyBoard').replaceChildren(); $('companyMessage').textContent = error.name === 'TimeoutError' ? 'อ่านข้อมูลเกินเวลา กรุณากด Refresh อีกครั้ง' : error.message; } }
+    finally { pending = false; $('companyRefresh').disabled = false; if ($('companyDate').value !== requestedDay) load(); }
   }
   tab.addEventListener('click', () => { host.hidden = false; tab.classList.add('nav-link-active'); if (!items) load(); });
   $('companyRefresh').addEventListener('click', load);
@@ -61,5 +66,6 @@ export function initCompanyMonitor() {
     render();
     [...$('companyBoard').querySelectorAll('.company-status-link')].find(item => item.dataset.env === env && item.dataset.status === status)?.focus({ preventScroll: true });
   });
-  for (const id of ['companySearch', 'companyDate']) $(id).addEventListener('input', render);
+  $('companySearch').addEventListener('input', render);
+  $('companyDate').addEventListener('change', () => { selectedStatuses.clear(); load(); });
 }
