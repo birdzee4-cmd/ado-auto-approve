@@ -62,7 +62,11 @@ function ensureUnknownResultFilter() {
   }
 }
 async function api(url) {
-  const response = await fetch(url, { credentials: 'same-origin' });
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 10000);
+  let response;
+  try { response = await fetch(url, { credentials: 'same-origin', signal: controller.signal }); }
+  finally { window.clearTimeout(timer); }
   const contentType = response.headers.get('content-type') || '';
   const data = contentType.includes('application/json') ? await response.json() : null;
   if (!response.ok) throw new Error(data?.error || data?.detail || `Request failed (${response.status})`);
@@ -159,19 +163,20 @@ async function loadEvents(cursor = '') {
     if (ensureSourceFilter()?.value) params.set('sourceType', ensureSourceFilter().value);
     const summaryParams = new URLSearchParams(params);
     summaryParams.delete('useCursor'); summaryParams.delete('pageSize'); summaryParams.delete('cursor');
-    const results = await Promise.allSettled([
-      api(`/api/ado-deployment-status?${params.toString()}`),
-      api(`/api/ado-deployment-summary?${summaryParams.toString()}`)
-    ]);
-    if (results[0].status === 'rejected') throw results[0].reason;
-    const data = results[0].value;
-    const summaryResponse = results[1].status === 'fulfilled' ? results[1].value : null;
+    const data = await api(`/api/ado-deployment-status?${params.toString()}`);
+    aggregateSummary = null;
     eventItems = Array.isArray(data.items) ? data.items : [];
-    aggregateSummary = summaryResponse?.summary || null;
     nextCursor = data.nextCursor || '';
     renderEvents();
     const capNote = eventItems.length >= 2000 ? ' · Showing latest 2,000' : '';
     setText('eventsUpdated', `${eventItems.length} hook events loaded${capNote} · Updated ${new Date().toLocaleString('th-TH')}`);
+    try {
+      const summaryResponse = await api(`/api/ado-deployment-summary?${summaryParams.toString()}`);
+      aggregateSummary = summaryResponse?.summary || null;
+      renderEvents();
+    } catch (summaryError) {
+      console.warn('Deployment summary unavailable:', summaryError.message);
+    }
   } catch (error) {
     $('eventBody').innerHTML = `<tr><td colspan="9" class="history-error">${escapeHtml(error.message)}</td></tr>`;
     setText('eventsUpdated', 'Unable to load hook events');
