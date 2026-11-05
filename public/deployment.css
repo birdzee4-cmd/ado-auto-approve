@@ -277,13 +277,16 @@
 .tracking-project { margin:16px 0; }
 .version-explorer { margin-bottom:20px; }
 .version-explorer .tracking-filters { padding:0; align-items:end; border:0; }
-.version-table { min-width:1000px; }
-.version-table td { vertical-align:top; overflow-wrap:anywhere; min-width:130px; }
+.version-table { min-width:1000px; width:100%; table-layout:fixed; }
+.version-table th:nth-child(1) { width:18%; }.version-table th:nth-child(2) { width:8%; }.version-table th:nth-child(3) { width:24%; }.version-table th:nth-child(4) { width:17%; }.version-table th:nth-child(5) { width:15%; }.version-table th:nth-child(6) { width:18%; }
+.version-table td { vertical-align:top; overflow-wrap:anywhere; white-space:normal; min-width:130px; }
 .version-table td:first-child { min-width:185px; }
 .version-table details { max-width:420px; }
 .version-table li { margin:12px 0; }
 .version-current { display:inline-block; margin-top:5px; padding:4px; color:#166534; background:#dcfce7; border-radius:4px; }
 .full-commit { overflow-wrap:anywhere; }
+.version-build-lane { padding:8px 0; border-bottom:1px solid #f0e7cd; max-width:310px; overflow-wrap:anywhere; }
+.version-table td a { overflow-wrap:anywhere; }
 .version-help,.version-empty { color:#66583d; font-size:13px; line-height:1.6; }
 .tracking-project-heading { display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; align-items:center; }
 .tracking-project-heading h2 { margin:0; }

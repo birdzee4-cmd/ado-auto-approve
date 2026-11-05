@@ -46,3 +46,11 @@ test('STG and PRD compare the exact build artifact, not just source commit', () 
   assert.equal(versions([item(1), stg, { ...prd, artifactBuildIds: '["99"]' }]).rows[0].comparison, 'same-source-different-build');
   assert.equal(versions([item(1), stg, { ...prd, result: 'failed' }]).rows[0].comparison, 'not-verified');
 });
+test('same commit separates latest CI and run counts by environment and pipeline', () => {
+  const result = versions([item(1), item(2), item(3, { environmentGroup: 'Production', pipelineId: 'prd-ci', result: 'failed' })]);
+  const lanes = result.rows[0].buildLanes;
+  assert.equal(lanes.length, 2);
+  assert.equal(lanes.find(lane => lane.environment === 'Staging').builds.length, 2);
+  assert.equal(lanes.find(lane => lane.environment === 'Staging').latest.result, 'succeeded');
+  assert.equal(lanes.find(lane => lane.environment === 'Production').latest.result, 'failed');
+});

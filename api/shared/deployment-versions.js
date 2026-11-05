@@ -42,6 +42,12 @@ function deploymentVersions(tracking, options = {}) {
       }
     }
     const builds = newest([...buildMap.values()]); const attempts = newest([...attemptMap.values()]);
+    const buildLanes = new Map();
+    for (const build of builds) {
+      const key = JSON.stringify([build.pipelineId || build.pipelineName, build.environmentGroup || 'Other', build.buildSourceBranch || build.targetBranch || build.sourceBranch || '']);
+      if (!buildLanes.has(key)) buildLanes.set(key, { pipelineId: build.pipelineId, pipelineName: build.pipelineName, environment: build.environmentGroup || 'Other', latest: build, builds: [] });
+      buildLanes.get(key).builds.push(build);
+    }
     const environments = {};
     for (const env of ['Staging', 'Production']) {
       const matches = attempts.filter(item => item.environmentGroup === env);
@@ -59,7 +65,7 @@ function deploymentVersions(tracking, options = {}) {
       stgArtifacts[0] === prdArtifacts[0] ? 'same-build' : 'same-source-different-build' : 'same-source-artifact-unknown';
     return { ...version, items, builds, deployments: attempts, latest: items[0], latestBuild: builds[0] || null,
       message: items.find(item => item.commitMessage)?.commitMessage || '', prs, environments, comparison,
-      buildCount: builds.length, deploymentCount: attempts.length,
+      buildCount: builds.length, buildLanes: [...buildLanes.values()], deploymentCount: attempts.length,
       pipelineStages: items.filter(item => item.sourceType === 'yaml-pipeline'),
       lastActivity: new Date(stamp(items[0])).toISOString() };
   }).sort((a,b) => Date.parse(b.lastActivity) - Date.parse(a.lastActivity) || a.key.localeCompare(b.key));

@@ -36,3 +36,14 @@ test('history rejects API failures and never falls back to the service PAT', asy
     listBuilds: async () => ({ ok: false, status: 401 }), releaseRequest: async () => ({ ok: true, body: { value: [] } }) };
   await assert.rejects(loadProjectHistory(mapping, 'user-token', ado), error => error.status === 401);
 });
+test('build-only pipeline reads CI without guessing a CD definition', async () => {
+  const ciOnly = { ...mapping, cd: null };
+  let releaseCalls = 0;
+  const history = await loadProjectHistory(ciOnly, 'user-token', {
+    getConfig: () => ({ org: 'Buzzebees', project: 'Buzzebees' }),
+    listBuilds: async () => ({ ok: true, body: { value: [] } }),
+    releaseRequest: async () => { releaseCalls++; throw new Error('must not call'); }
+  });
+  assert.equal(history.deploymentsChecked, false); assert.equal(releaseCalls, 0);
+  assert.equal(buildTracking(history.items, { mappings: [ciOnly] }).projects[0].cdPipeline, 'ยังไม่ได้เชื่อม CD');
+});

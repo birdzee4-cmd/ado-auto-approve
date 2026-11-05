@@ -85,7 +85,7 @@ function buildProjects(groups, mappings) {
     const ciGroups = groups.filter(group => group.sourceType === 'build' && sameProject(group.latest, mapping) && pipelineMatches(group.latest, mapping.ci) &&
       group.repositoryName.toLowerCase() === mapping.repositoryName.toLowerCase() &&
       (group.latest.targetBranch || group.latest.buildSourceBranch || group.latest.sourceBranch) === mapping.targetBranch);
-    const cdGroups = groups.filter(group => group.sourceType === 'classic-release' && sameProject(group.latest, mapping) && pipelineMatches(group.latest, mapping.cd) &&
+    const cdGroups = groups.filter(group => mapping.cd && group.sourceType === 'classic-release' && sameProject(group.latest, mapping) && pipelineMatches(group.latest, mapping.cd) &&
       group.stageName === mapping.cd.stageName);
     const ciEvents = ciGroups.flatMap(group => group.events).sort((a,b) => time(b) - time(a));
     const cdEvents = cdGroups.flatMap(group => group.events).sort((a,b) => time(b) - time(a));
@@ -107,7 +107,7 @@ function buildProjects(groups, mappings) {
     const failures = [...ciGroups, ...cdGroups].flatMap(group => group.failures).sort((a,b) => time(b.failed) - time(a.failed));
     return { key: mapping.key, name: mapping.name, environment: mapping.environment, repositoryName: mapping.repositoryName,
       ci, cd, latestDeployment, status, ciFailed, cdFailed, openFailures, failures, timeline,
-      ciPipeline: mapping.ci.name, cdPipeline: mapping.cd.name,
+      ciPipeline: mapping.ci.name, cdPipeline: mapping.cd?.name || 'ยังไม่ได้เชื่อม CD',
       lineage: cd ? 'release-build-artifact' : 'unknown',
       reusedBuild: !!(latestDeployment && ci && artifactIds(latestDeployment).length && !artifactIds(latestDeployment).includes(String(ci.runId))) };
   }).sort((a,b) => time(b.timeline[0] || {}) - time(a.timeline[0] || {}) || a.key.localeCompare(b.key));

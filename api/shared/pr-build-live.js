@@ -10,7 +10,7 @@ async function loadProjectHistory(mapping, accessToken, ado, settings = {}) {
   const root = `/${encodeURIComponent(config.org)}/${encodeURIComponent(config.project)}`;
   const [buildResponse, releaseResponse] = await Promise.all([
     ado.listBuilds({ definitions: mapping.ci.id, branchName: mapping.targetBranch, top: limit, accessToken }),
-    ado.releaseRequest('GET', `${root}/_apis/release/releases?definitionId=${encodeURIComponent(mapping.cd.id)}&$top=${limit}&$expand=environments,artifacts&queryOrder=descending&api-version=7.1`, null, options)
+    mapping.cd ? ado.releaseRequest('GET', `${root}/_apis/release/releases?definitionId=${encodeURIComponent(mapping.cd.id)}&$top=${limit}&$expand=environments,artifacts&queryOrder=descending&api-version=7.1`, null, options) : Promise.resolve({ ok: true, body: { value: [] } })
   ]);
   if (!buildResponse.ok || !releaseResponse.ok) {
     const error = new Error('Azure DevOps history unavailable');
@@ -59,7 +59,7 @@ async function loadProjectHistory(mapping, accessToken, ado, settings = {}) {
       }
     }
   }
-  return { items, buildCount: builds.length, releaseCount: releases.length, limit,
+  return { items, buildCount: builds.length, releaseCount: releases.length, limit, deploymentsChecked: !!mapping.cd,
     limited: builds.length >= limit || releases.length >= limit };
 }
 module.exports = { loadProjectHistory };

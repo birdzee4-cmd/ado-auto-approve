@@ -29,8 +29,8 @@ module.exports = async function (context, req) {
       const history = await require('../shared/pr-build-live').loadProjectHistory(mapping, token.accessToken, require('../shared/ado-client'), { commit: query.commit, limit: Number(query.limit) });
       const tracking = buildTracking(history.items, { mappings: [mapping] });
       context.res = { status: 200, headers, body: { ok: true, tracking, availableProjects,
-        versions: deploymentVersions(tracking, { commit: query.commit, source: 'azure-devops', checkedEnvironments: [mapping.environment] }),
-        history: { source: 'azure-devops', project: mapping.key, buildCount: history.buildCount, releaseCount: history.releaseCount, limit: history.limit, limited: history.limited } } };
+        versions: deploymentVersions(tracking, { commit: query.commit, source: 'azure-devops', checkedEnvironments: history.deploymentsChecked ? [mapping.environment] : [] }),
+        history: { source: 'azure-devops', project: mapping.key, buildCount: history.buildCount, releaseCount: history.releaseCount, deploymentsChecked: history.deploymentsChecked, limit: history.limit, limited: history.limited } } };
       return;
     }
     // Do not filter by result: successful events are required to evaluate recovery.

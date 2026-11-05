@@ -1,7 +1,7 @@
 import { escapeHtml, setText } from './core.js';
 import { renderCommit } from './deployment-commit.js?v=20261105-1';
 import { historyDates, appendBangkokDates } from './deployment-dates.js';
-import { initTracking } from './pr-build-tracking.js?v=20261105-5';
+import { initTracking } from './pr-build-tracking.js?v=20261105-6';
 const $ = id => document.getElementById(id);
 let eventItems = [];
 let currentPage = 1;

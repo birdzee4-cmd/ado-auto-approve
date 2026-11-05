@@ -10,5 +10,17 @@
     "ci": { "id": "11169", "name": "oceanlife-web-stg-ci" },
     "cd": { "id": "10239", "name": "oceanlife-web-stg-cd", "stageName": "Azure Automated Deployment" },
     "evidence": "User-supplied Monitor and Azure DevOps UI checked 2026-11-05: build 608087, PR 375391, release 426752; pipeline IDs from breadcrumb and linked release definition."
+  },
+  {
+    "key": "dealshop-web-stg",
+    "name": "DealShop · STG CI",
+    "projectId": "aee92c2c-3918-4dbd-bcf3-15e5191aa4a1",
+    "projectName": "Buzzebees",
+    "repositoryName": "Net_Web_Landing_Buzzebees_DealShop",
+    "targetBranch": "refs/heads/staging",
+    "environment": "Staging",
+    "ci": { "id": "2720", "name": "STG_Net_Web_Landing_Buzzebees_DealShop-CI" },
+    "cd": null,
+    "evidence": "User Azure DevOps screenshot confirms definitionId=2720 and staging branch; legacy stg-ci-cd-map agrees. CD scope is deliberately unverified."
   }
 ]

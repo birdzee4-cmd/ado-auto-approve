@@ -1,6 +1,6 @@
 import { escapeHtml } from './core.js';
 import { renderCommit } from './deployment-commit.js?v=20261105-1';
-import { initVersionExplorer } from './deployment-versions.js?v=20261105-1';
+import { initVersionExplorer } from './deployment-versions.js?v=20261105-2';
 
 const esc = value => escapeHtml(String(value ?? ''));
 const date = value => value ? new Date(value).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-';
