@@ -5,7 +5,7 @@ const environments = ['Development', 'Staging', 'Production', 'Other'];
 export function initCompanyMonitor() {
   const host = document.createElement('section'); host.id = 'companyMonitor'; host.hidden = true;
   host.innerHTML = `<div class="deployment-heading"><div><p class="deployment-kicker">Company deployment monitor</p><h1>Monitor งานประจำวัน</h1><p>ข้อมูลจากระบบ Monitor บริษัท · จบทั้งหมดรวมงานสำเร็จ ล้มเหลว และยกเลิก</p></div><button type="button" class="primary-button" id="companyRefresh">Refresh</button></div>
-    <div class="deployment-card tracking-filters"><label>ค้นหา Project / ประเภท / Build / ผู้ขอ<input id="companySearch" type="search"></label><label>วันที่ข้อมูล<select id="companyDate"><option value="">ทุกวันที่ API ส่งมา</option></select></label><label>สถานะ<select id="companyStatus"><option value="">ทั้งหมด</option><option value="open">กำลังทำ</option><option value="terminal">จบแล้วทั้งหมด</option><option value="complete">สำเร็จ</option><option value="build fail">Build ล้มเหลว</option><option value="deploy fail">Deploy ล้มเหลว</option><option value="cancel deploy">ยกเลิก</option></select></label></div>
+    <div class="deployment-card tracking-filters"><label>ค้นหา Project / ประเภท / Build / ผู้ขอ<input id="companySearch" type="search"></label><label>วันที่ข้อมูล<select id="companyDate"><option value="">ทุกวันที่ API ส่งมา</option></select></label></div>
     <p id="companyMessage" role="status" aria-live="polite">ยังไม่ได้โหลดข้อมูล</p><p class="heading-help">เวลา Update เป็นเวลาจาก Monitor บริษัท (แสดงเป็นเวลาไทย) อาจต่างจากเวลา Build จบใน Azure DevOps · API นี้ยังไม่ยืนยันการเรียกย้อนหลัง</p><div id="companyBoard" class="company-board"></div>`;
   document.querySelector('.deployment-content').append(host);
   const nav = document.querySelector('.nav-links');
@@ -17,6 +17,7 @@ export function initCompanyMonitor() {
   }, true);
   const $ = id => document.getElementById(id);
   let items = null, pending = false;
+  const selectedStatuses = new Map();
   function card(item) {
     const link = item.azureBuildId ? `https://dev.azure.com/buzzebees/Buzzebees/_build/results?buildId=${encodeURIComponent(item.azureBuildId)}` : '';
     const tone = item.status === 'complete' ? 'success' : item.status.includes('fail') ? 'failure' : 'pending';
@@ -24,12 +25,15 @@ export function initCompanyMonitor() {
   }
   function render() {
     if (!items) return;
-    const search = $('companySearch').value.trim().toLowerCase(), day = $('companyDate').value, status = $('companyStatus').value;
-    const rows = items.filter(item => (!day || item.updatedAt.startsWith(day)) && (!search || [item.project, item.projectType, item.id, item.requestedBy, item.branch].join(' ').toLowerCase().includes(search)) && (!status || (status === 'open' ? !item.terminal : status === 'terminal' ? item.terminal : item.status === status)));
+    const search = $('companySearch').value.trim().toLowerCase(), day = $('companyDate').value;
+    const rows = items.filter(item => (!day || item.updatedAt.startsWith(day)) && (!search || [item.project, item.projectType, item.id, item.requestedBy, item.branch].join(' ').toLowerCase().includes(search)));
     $('companyBoard').innerHTML = environments.filter(env => env !== 'Other' || rows.some(item => item.environment === env)).map(env => {
       const jobs = rows.filter(item => item.environment === env), finished = jobs.filter(item => item.terminal), running = jobs.filter(item => !item.terminal);
       const count = status => jobs.filter(item => item.status === status).length;
-      return `<section class="company-column company-env-${env.toLowerCase()}"><h2>${env}</h2><div class="deployment-card"><strong>จบทั้งหมด ${finished.length}</strong><p>สำเร็จ ${count('complete')} · Build fail ${count('build fail')} · Deploy fail ${count('deploy fail')} · ยกเลิก ${count('cancel deploy')}</p><small>ยอดตามตัวกรอง · ${new Set(jobs.map(item => item.project)).size} Project</small></div><h3>กำลังทำ ${running.length}</h3>${running.map(card).join('') || '<p>ไม่มีงานกำลังทำ</p>'}<h3>จบแล้ว ${finished.length}</h3>${finished.map(card).join('') || '<p>ไม่พบรายการ</p>'}</section>`;
+      const selected = selectedStatuses.get(env) || '';
+      const visible = selected ? finished.filter(item => item.status === selected) : finished;
+      const statusButton = (status, label, number) => `<button type="button" class="company-status-link" data-env="${env}" data-status="${status}" aria-pressed="${selected === status}" aria-label="${esc(env)}: ${esc(label)} ${number} รายการ">${esc(label)} ${number}</button>`;
+      return `<section class="company-column company-env-${env.toLowerCase()}"><h2>${env}</h2><div class="deployment-card"><strong>${statusButton('', 'จบทั้งหมด', finished.length)}</strong><p class="company-status-links">${statusButton('complete', 'สำเร็จ', count('complete'))} · ${statusButton('build fail', 'Build fail', count('build fail'))} · ${statusButton('deploy fail', 'Deploy fail', count('deploy fail'))} · ${statusButton('cancel deploy', 'ยกเลิก', count('cancel deploy'))}</p><small>ยอดตามคำค้นหา/วันที่ · ${new Set(jobs.map(item => item.project)).size} Project · กดสถานะเพื่อดูรายการ</small></div>${selected ? '' : `<h3>กำลังทำ ${running.length}</h3>${running.map(card).join('') || '<p>ไม่มีงานกำลังทำ</p>'}`}<h3 aria-live="polite">${esc(selected ? labels[selected] : 'จบแล้ว')} ${visible.length}</h3>${visible.map(card).join('') || '<p>ไม่พบรายการสถานะนี้</p>'}</section>`;
     }).join('');
   }
   async function load() {
@@ -49,5 +53,13 @@ export function initCompanyMonitor() {
   }
   tab.addEventListener('click', () => { host.hidden = false; tab.classList.add('nav-link-active'); if (!items) load(); });
   $('companyRefresh').addEventListener('click', load);
-  for (const id of ['companySearch', 'companyDate', 'companyStatus']) $(id).addEventListener('input', render);
+  $('companyBoard').addEventListener('click', event => {
+    const button = event.target.closest('.company-status-link');
+    if (!button) return;
+    const { env, status } = button.dataset;
+    selectedStatuses.set(env, selectedStatuses.get(env) === status ? '' : status);
+    render();
+    [...$('companyBoard').querySelectorAll('.company-status-link')].find(item => item.dataset.env === env && item.dataset.status === status)?.focus({ preventScroll: true });
+  });
+  for (const id of ['companySearch', 'companyDate']) $(id).addEventListener('input', render);
 }
