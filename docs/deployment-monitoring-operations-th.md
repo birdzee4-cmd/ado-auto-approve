@@ -53,3 +53,15 @@ node scripts/migrate-deployment-event-index.js
 2. ตรวจ Function App logs ว่า webhook ตอบ HTTP 200 และไม่มีข้อความเขียน index ล้มเหลว
 3. ตรวจ app settings ว่า index flag และชื่อตารางตรงกับด้านบน
 4. กด Refresh หลังตรวจ filter และช่วงวันที่
+
+## Export ข้อมูล
+
+- ตั้งค่า Environment, Source, Result และช่วงวันที่ตามที่ต้องการ
+- กด `Export CSV` ระบบจะดาวน์โหลดไฟล์ `deployment-events.csv` ตาม filter ปัจจุบัน
+- หากดาวน์โหลดไม่ได้ ให้ตรวจสิทธิ์หน้าเว็บและตรวจว่า API ตอบกลับสถานะ 200
+
+## ตรวจข้อความ Teams ซ้ำ
+
+- PR notification ใช้ Event ID เป็น `eventKey` สำหรับป้องกันการส่งซ้ำ
+- หาก Azure DevOps ส่ง Event เดิมซ้ำ ระบบจะบันทึกและส่ง Teams เพียงครั้งเดียว
+- ห้ามลบ Service Hook จากภาพข้อความเพียงอย่างเดียว ให้ตรวจ History ของ Hook และ Event ID ก่อน
