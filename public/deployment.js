@@ -2,6 +2,7 @@ import { escapeHtml, setText } from './core.js';
 import { renderCommit } from './deployment-commit.js?v=20261105-1';
 import { historyDates, appendBangkokDates } from './deployment-dates.js';
 import { initTracking } from './pr-build-tracking.js?v=20261105-7';
+import { initCompanyMonitor } from './company-deployment-monitor.js?v=20261105-1';
 const $ = id => document.getElementById(id);
 let eventItems = [];
 let currentPage = 1;
@@ -189,6 +190,7 @@ async function init() {
   if (!auth?.clientPrincipal) { window.location.href = '/.auth/login/aad?post_login_redirect_uri=/deployment.html'; return; }
   setText('userName', auth.clientPrincipal.userDetails || 'Authenticated');
   initTracking();
+  initCompanyMonitor();
   const today = historyDates('today');
   $('eventRange').value = 'today';
   $('eventFrom').value = today.from; $('eventTo').value = today.to;
