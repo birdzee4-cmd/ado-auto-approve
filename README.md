@@ -463,6 +463,7 @@ Body สำหรับ cleanup จริง:
 
 - `ApprovalLocks`: ลบ record ที่ `expiresAt` เก่าเกิน retention window, default 7 วัน
 - `AdoUserTokens`: ลบ encrypted token record ที่ `expiresAt` เก่าเกิน retention window, default 90 วัน
+- `AdoDeploymentEvents` และ `AdoDeploymentEventIndex`: ไม่อยู่ใน cleanup scope และไม่ถูกลบอัตโนมัติ เพื่อให้ตรวจสอบประวัติ Deployment ย้อนหลังได้
 - ไม่แตะ Azure Functions host/system tables
 
 Endpoint:
