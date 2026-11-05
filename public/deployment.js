@@ -159,10 +159,13 @@ async function loadEvents(cursor = '') {
     if (ensureSourceFilter()?.value) params.set('sourceType', ensureSourceFilter().value);
     const summaryParams = new URLSearchParams(params);
     summaryParams.delete('useCursor'); summaryParams.delete('pageSize'); summaryParams.delete('cursor');
-    const [data, summaryResponse] = await Promise.all([
+    const results = await Promise.allSettled([
       api(`/api/ado-deployment-status?${params.toString()}`),
       api(`/api/ado-deployment-summary?${summaryParams.toString()}`)
     ]);
+    if (results[0].status === 'rejected') throw results[0].reason;
+    const data = results[0].value;
+    const summaryResponse = results[1].status === 'fulfilled' ? results[1].value : null;
     eventItems = Array.isArray(data.items) ? data.items : [];
     aggregateSummary = summaryResponse?.summary || null;
     nextCursor = data.nextCursor || '';
