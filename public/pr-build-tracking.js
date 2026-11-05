@@ -13,7 +13,7 @@ function run(item) {
 const labels = { unknown: 'ยังไม่มีข้อมูล CI', 'ci-failed': 'CI ล้มเหลว', 'ci-pending': 'CI ยังไม่สำเร็จ', 'awaiting-cd-evidence': 'CI สำเร็จ · ยังไม่พบ CD ของ Build นี้', 'cd-failed': 'CD ล้มเหลว', 'cd-pending': 'CD ยังไม่สำเร็จ', succeeded: 'CI / CD สำเร็จ' };
 function projectCard(project) {
   return `<article class="deployment-card tracking-project"><div class="tracking-project-heading"><h2>${esc(project.name)}</h2><span class="result-pill ${project.status === 'succeeded' ? 'result-succeeded' : project.status.endsWith('failed') ? 'result-failed' : ''}">${esc(labels[project.status] || project.status)}</span></div>
-    <p>${esc(project.repositoryName)} · ${esc(project.environment)}</p><div class="tracking-stages"><div><h3>CI · ${esc(project.ciPipeline)}</h3>${project.ci ? run(project.ci) : 'ยังไม่มีข้อมูล'}</div><div><h3>CD · ${esc(project.cdPipeline)}</h3>${project.cd ? run(project.cd) : 'ยังไม่พบ Release ที่อ้างอิง CI ล่าสุด'}</div></div>
+    <p>${esc(project.repositoryName)} · ${esc(project.environment)}</p><button type="button" class="secondary-button live-history-button" data-project="${esc(project.key)}">ดึงประวัติจาก Azure DevOps</button><div class="tracking-stages"><div><h3>CI · ${esc(project.ciPipeline)}</h3>${project.ci ? run(project.ci) : 'ยังไม่ได้รับประวัติ CI ในแหล่งข้อมูลนี้'}</div><div><h3>CD · ${esc(project.cdPipeline)}</h3>${project.cd ? run(project.cd) : 'ยังไม่พบ Release ที่อ้างอิง CI ล่าสุด'}</div></div>
     <p>CI fail <strong>${project.ciFailed}</strong> ครั้ง · CD fail <strong>${project.cdFailed}</strong> ครั้ง · ยังไม่กลับมาสำเร็จ <strong>${project.openFailures}</strong> ครั้ง</p>
     ${project.reusedBuild ? `<p class="monitor-alert medium">Release ล่าสุดใช้ Build เก่า จึงยังไม่ถือว่า CI ล่าสุด deploy สำเร็จ</p>` : ''}
     ${project.latestDeployment && !project.cd ? `<p>Deploy ล่าสุดที่ได้รับ: ${run(project.latestDeployment)}</p>` : ''}
@@ -34,6 +34,7 @@ export function initTracking() {
   const eventsLink = nav.querySelector('a');
   let tracking = null;
   let pending = false;
+  let liveProject = '';
   function render() {
     if (!tracking) return;
     const search = document.getElementById('trackingSearch').value.trim().toLowerCase();
@@ -46,6 +47,7 @@ export function initTracking() {
       (!search || [project.name, project.repositoryName, project.ciPipeline, project.cdPipeline, ...project.timeline.map(item => item.pullRequestId || '')].join(' ').toLowerCase().includes(search)) &&
       (!state || (state === 'open' ? project.openFailures > 0 : project.ciFailed + project.cdFailed > 0 && !project.openFailures)));
     document.getElementById('trackingProjects').innerHTML = projects.map(projectCard).join('') || '<p>ไม่พบ Project ที่มี mapping ตรงกับตัวกรอง สามารถดูรายการ Pipeline ด้านล่างได้</p>';
+    document.querySelectorAll('.live-history-button').forEach(button => button.addEventListener('click', () => { liveProject = button.dataset.project; load(); }));
     document.getElementById('trackingCounts').innerHTML = [['Pipelines / Stages', groups.length], ['Runs / Attempts', groups.reduce((n,g) => n + g.totalRuns, 0)], ['Failed', groups.reduce((n,g) => n + g.failedRuns, 0)], ['ยังไม่กลับมาสำเร็จ', groups.reduce((n,g) => n + g.openFailures, 0)]].map(([label,n]) => `<div><strong>${n}</strong><span>${esc(label)}</span></div>`).join('');
     document.getElementById('trackingGroups').innerHTML = groups.map(group => `<article class="deployment-card tracking-group"><h2>${esc(group.pipelineName)}</h2><p>${esc(group.projectName)} · ${esc(group.repositoryName || 'ไม่ทราบ Repository')} · ${esc(group.environment)} · ${esc(group.sourceType === 'build' ? 'CI' : 'CD')} · ${esc(group.stageName)}</p>
       ${group.openFailures ? `<p class="monitor-alert" role="status">พบ ${group.openFailures} Fail ที่ยังไม่กลับมาสำเร็จในข้อมูลที่ได้รับ</p>` : ''}<p>งานล่าสุด: ${run(group.latest)}</p>
@@ -60,12 +62,12 @@ export function initTracking() {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 30000);
     try {
-      const response = await fetch('/api/ado-pr-build-tracking', { credentials: 'same-origin', signal: controller.signal });
-      if (!response.ok) throw new Error(`โหลดข้อมูลไม่สำเร็จ (${response.status})`);
+      const response = await fetch(`/api/ado-pr-build-tracking${liveProject ? `?liveProject=${encodeURIComponent(liveProject)}` : ''}`, { credentials: 'same-origin', signal: controller.signal });
+      if (!response.ok) { const error = await response.json().catch(() => ({})); throw new Error(error.error ? `${error.error}${error.adoStatus ? ` (ADO ${error.adoStatus})` : ''}` : `โหลดข้อมูลไม่สำเร็จ (${response.status})`); }
       const body = await response.json();
       if (!Array.isArray(body.tracking?.groups)) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
       tracking = body.tracking; render();
-      message.textContent = `อัปเดต ${date(new Date().toISOString())} · เวลาไทย · เฉพาะ Hook ที่ระบบได้รับ ยังไม่ยืนยันความสัมพันธ์ระหว่างใบงานกับ CI/CD หากไม่มีข้อมูลอ้างอิง`;
+      message.textContent = `อัปเดต ${date(new Date().toISOString())} · เวลาไทย · ${body.history ? `อ่านจาก Azure DevOps ด้วยบัญชีคุณ: ${body.history.buildCount} Builds / ${body.history.releaseCount} Releases (ล่าสุดสูงสุดอย่างละ 20 รายการ)` : 'เฉพาะ Hook ที่ระบบได้รับ · กดดึงประวัติจาก Azure DevOps เพื่อดูข้อมูลย้อนหลัง'}`;
     } catch (error) { tracking = null; for (const id of ['trackingGroups', 'trackingProjects', 'trackingCounts']) document.getElementById(id).replaceChildren(); message.textContent = error.name === 'AbortError' ? 'โหลดข้อมูลเกินเวลา กด Refresh เพื่อลองใหม่' : error.message; }
     finally { clearTimeout(timer); pending = false; document.getElementById('trackingRefresh').disabled = false; }
   }

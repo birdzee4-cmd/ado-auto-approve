@@ -1,5 +1,5 @@
 import { escapeHtml, setText } from './core.js';
-import { initTracking } from './pr-build-tracking.js';
+import { initTracking } from './pr-build-tracking.js?v=20261105-2';
 const $ = id => document.getElementById(id);
 let eventItems = [];
 let currentPage = 1;
