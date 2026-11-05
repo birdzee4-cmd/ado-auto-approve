@@ -100,6 +100,22 @@ module.exports = async function (context, req) {
             }
             await deploymentEventStore.save(normalized);
             context.log(`webhook: deployment event saved eventId=${normalized.eventId}`);
+            if (String(normalized.result || '').toLowerCase() === 'failed' && String(normalized.environmentGroup || '').toLowerCase() === 'production' && process.env.TEAMS_WEBHOOK_URL) {
+                const alertKey = `teams:deployment-failed:${normalized.eventId}`;
+                let sent = false;
+                try {
+                    const existing = await sp.getLogByEventKey(alertKey);
+                    sent = !!(existing.ok && existing.body && Array.isArray(existing.body.value) && existing.body.value.length);
+                } catch (error) { context.log.warn(`webhook: deployment alert duplicate check failed: ${error.message}`); }
+                if (!sent) {
+                    const message = `## 🚨 Production Deployment Failed\n\n| Field | Value |\n|---|---|\n| **Pipeline** | ${escapeMarkdown(normalized.pipelineName)} |\n| **Run** | ${escapeMarkdown(normalized.runName || normalized.runId)} |\n| **Stage** | ${escapeMarkdown(normalized.stageName)} |\n| **Repository** | ${escapeMarkdown(normalized.repositoryName)} |\n| **PR** | ${normalized.pullRequestId ? `[#${escapeMarkdown(normalized.pullRequestId)}](${normalized.pullRequestUrl || '#'})` : '-'} |\n| **Operator** | ${escapeMarkdown(normalized.requestedBy)} |\n\n🔗 [Open Deployment Monitor](${process.env.WEBSITE_HOSTNAME ? `https://${process.env.WEBSITE_HOSTNAME}/deployment.html` : '/deployment.html'})`;
+                    try {
+                        const result = await notifyTeams(process.env.TEAMS_WEBHOOK_URL, message);
+                        if (result.ok) await sp.addLogItem(sp.buildLogFields({ prId: String(normalized.pullRequestId || 0), action: 'Deployment Failed Alert', user: normalized.requestedBy || 'System', repository: normalized.repositoryName, prTitle: normalized.pullRequestTitle || `Deployment failed: ${normalized.pipelineName}`, targetBranch: normalized.targetBranch, result: 'Alert Sent', reason: `Production deployment alert sent for event ${normalized.eventId}.`, source: 'Azure DevOps Deployment Webhook', eventKey: alertKey }));
+                        else context.log.warn(`webhook: production deployment alert returned ${result.status}`);
+                    } catch (error) { context.log.error(`webhook: production deployment alert failed: ${error.message}`); }
+                }
+            }
             context.res = { status: 200, body: 'OK (deployment event saved)' };
         } catch (error) {
             context.log.error('webhook: deployment event storage failed:', error.message);
