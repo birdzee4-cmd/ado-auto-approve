@@ -1,0 +1,70 @@
+const { createHash } = require('node:crypto');
+const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+const branch = value => String(value || '').trim().replace(/^refs\/heads\//, '');
+function startedAt(text) {
+  const m = String(text || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{1,2}):(\d{2}):(\d{2}) (AM|PM)$/i);
+  if (!m) return '';
+  const hour = Number(m[4]);
+  if (hour < 1 || hour > 12) return '';
+  const value = `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}T${String(hour % 12 + (m[7].toUpperCase() === 'PM' ? 12 : 0)).padStart(2, '0')}:${m[5]}:${m[6]}+07:00`;
+  return Number.isFinite(Date.parse(value)) ? value : '';
+}
+function eventKey(item) {
+  return digest([item.environment, item.id, item.project, item.projectType, branch(item.branch), item.status, item.updatedAt, item.startText]);
+}
+function laneKey(item) { return JSON.stringify([item.environment, item.project, String(item.projectType || '').trim(), branch(item.branch)]); }
+function projectKey(item) { return JSON.stringify([item.environment, item.project]); }
+function later(success, failure) {
+  const a = Date.parse(success.updatedAt), b = Date.parse(failure.updatedAt);
+  if (success.id === failure.id) return a > b || (a === b && success.observedAt > failure.observedAt);
+  return a > b && !!startedAt(success.startText) && Date.parse(startedAt(success.startText)) >= b;
+}
+function trackDay(events, day, now = new Date()) {
+  const end = Date.parse(`${day}T23:59:59.999+07:00`);
+  const asOf = Math.min(now.getTime(), end);
+  const ordered = [...events].filter(item => item.updatedAt?.startsWith(day) && Date.parse(item.updatedAt) <= asOf)
+    .sort((a, b) => Date.parse(a.updatedAt) - Date.parse(b.updatedAt) || String(a.observedAt || '').localeCompare(String(b.observedAt || '')) || eventKey(a).localeCompare(eventKey(b)));
+  // Polling and duration/metadata updates do not constitute additional attempts.
+  const states = new Map(), timeline = [];
+  for (const item of ordered) {
+    const key = JSON.stringify([laneKey(item), item.id]);
+    const previous = states.get(key);
+    if (previous?.status === item.status) { previous.latestUpdateAt = item.updatedAt; if (item.startText) previous.startText = item.startText; continue; }
+    const event = { ...item, eventKey: eventKey(item), latestUpdateAt: item.updatedAt };
+    timeline.push(event); states.set(key, event);
+  }
+  const projects = new Map();
+  for (const item of timeline) {
+    const key = projectKey(item);
+    if (!projects.has(key)) projects.set(key, { key, name: item.project, environment: item.environment, timeline: [], failures: [] });
+    projects.get(key).timeline.push(item);
+  }
+  for (const project of projects.values()) {
+    for (let index = 0; index < project.timeline.length; index++) {
+      const failed = project.timeline[index];
+      if (!['build fail', 'deploy fail'].includes(failed.status)) continue;
+      const following = project.timeline.slice(index + 1).filter(item => laneKey(item) === laneKey(failed));
+      const recovery = following.find(item => item.status === 'complete' && later(item, failed)) || null;
+      const candidate = !recovery ? following.find(item => item.status === 'complete' && Date.parse(item.updatedAt) > Date.parse(failed.updatedAt)) || null : null;
+      const laneLatest = following.at(-1);
+      const retry = !recovery && laneLatest && !laneLatest.terminal && later(laneLatest, failed) ? laneLatest : null;
+      project.failures.push({ failed, recovery, candidate, retry, status: recovery ? 'recovered' : retry ? 'retrying' : candidate ? 'unverified' : 'open',
+        durationSeconds: Math.max(0, Math.floor(((recovery ? Date.parse(recovery.updatedAt) : asOf) - Date.parse(failed.updatedAt)) / 1000)),
+        evidence: recovery ? (failed.id === recovery.id ? 'same-monitor-job-status-change' : 'later-monitor-run-started-after-failure') : candidate ? 'later-complete-without-new-build-evidence' : 'no-later-success' });
+    }
+    project.latest = [...project.timeline].sort((a, b) => Date.parse(a.latestUpdateAt) - Date.parse(b.latestUpdateAt)).at(-1);
+    project.totalRuns = new Set(project.timeline.map(item => item.id)).size;
+    project.failedCount = project.failures.length;
+    project.recoveredCount = project.failures.filter(item => item.recovery).length;
+    project.openBuild = project.failures.filter(item => !item.recovery && item.failed.status === 'build fail').length;
+    project.openDeploy = project.failures.filter(item => !item.recovery && item.failed.status === 'deploy fail').length;
+    project.openCount = project.openBuild + project.openDeploy;
+    project.retrying = project.failures.some(item => item.retry);
+    project.lastFailureAt = project.failures.at(-1)?.failed.updatedAt || '';
+    project.status = project.openCount ? project.retrying ? 'retrying' : 'open' : project.failedCount ? 'recovered' : 'no-failure';
+    project.timeline.reverse(); project.failures.reverse();
+  }
+  return { date: day, asOf: new Date(asOf).toISOString(), projects: [...projects.values()].sort((a, b) => Date.parse(b.latest.updatedAt) - Date.parse(a.latest.updatedAt)),
+    note: 'กลับมาสำเร็จหมายถึง Monitor รายงาน Complete ภายหลังในงานกลุ่มเดียวกัน ยังไม่ยืนยัน Commit/Artifact หรือการแก้โค้ดเดิม; ไม่พบหลักฐานเวลาเริ่ม Build ใหม่จะยังไม่ปิด Fail' };
+}
+module.exports = { trackDay, eventKey, startedAt };

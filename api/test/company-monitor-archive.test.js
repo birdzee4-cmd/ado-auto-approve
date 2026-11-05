@@ -8,6 +8,15 @@ function memoryTable() {
   const table = {
     entities, failChunk: false,
     async createTable() {},
+    async *listEntities(options) {
+      const filter = options?.queryOptions?.filter || '';
+      const exact = filter.match(/PartitionKey eq '([^']+)'/);
+      for (const entity of entities.values()) {
+        if (exact && entity.partitionKey !== exact[1]) continue;
+        if (filter.includes("PartitionKey ge 'polls-'") && !entity.partitionKey.startsWith('polls-')) continue;
+        yield { ...entity };
+      }
+    },
     async getEntity(partitionKey, rowKey) { const row = entities.get(key({ partitionKey, rowKey })); if (!row) throw error(404); return { ...row }; },
     async createEntity(row) { if (entities.has(key(row))) throw error(409); return table.upsertEntity(row); },
     async updateEntity(row, mode, options) { if (entities.get(key(row))?.etag !== options.etag) throw error(412); return table.upsertEntity(row); },
@@ -37,6 +46,15 @@ test('keeps raw fields, module/plugin identities, unchanged snapshots and all ob
   assert.equal(old.records[0].raw.TotalTime, '00:01:00.1234567');
   assert.deepEqual(old.records[0].raw.extraSourceField, { retained: true });
   assert.equal([...table.entities.values()].filter(row => row.partitionKey.startsWith('polls-')).length, 3);
+  assert.equal((await store.readEvents('2026-11-05')).length, 3);
+});
+test('backfills earlier snapshot statuses idempotently after event rows are absent', async () => {
+  const table = memoryTable(), store = createStore(table);
+  await store.collect([source({ Status: 'Build fail' })], '2026-11-05T16:56:00Z');
+  await store.collect([source({ Status: 'Complete', LastUpdate: '05/11/2026 23:59:00' })], '2026-11-05T16:59:00Z');
+  for (const [key, entity] of table.entities) if (entity.partitionKey.startsWith('events-')) table.entities.delete(key);
+  await store.backfillEvents(); await store.backfillEvents();
+  assert.deepEqual((await store.readEvents('2026-11-05')).map(item => item.status).sort(), ['build fail', 'complete']);
 });
 test('days remain isolated across midnight and unavailable history is explicit', async () => {
   const store = createStore(memoryTable());
