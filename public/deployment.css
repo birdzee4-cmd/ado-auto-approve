@@ -305,3 +305,19 @@
 .company-job{background:#fff;border:1px solid #d9dee5;border-left:3px solid #c59430;border-radius:5px;padding:8px 9px;margin:0 0 6px;overflow-wrap:anywhere;font-size:12px;line-height:1.4}.company-job .tracking-project-heading{gap:4px 8px;align-items:flex-start}.company-job h3{font-size:13px;line-height:1.35;margin:0;flex:1;min-width:0}.company-job .result-pill{font-size:10px;line-height:1.3;padding:3px 5px;flex-shrink:0}.company-job p{margin:3px 0;color:#596273;font-size:11px}.company-success{border-left-color:#16834c}.company-failure{border-left-color:#dc3545}.company-job dl{display:grid;grid-template-columns:62px minmax(0,1fr);gap:2px 6px;margin:5px 0 0;font-size:11px;line-height:1.4}.company-job dt{color:#687185}.company-job dd{margin:0}.company-job a{color:#875500;text-decoration:underline}
 #companyMonitor>.deployment-heading{margin-bottom:12px}#companyMonitor>.deployment-heading h1{font-size:23px}#companyMonitor>.deployment-heading p{font-size:12px;margin:4px 0}#companyMonitor>.tracking-filters{padding:12px;margin-bottom:8px;gap:10px}#companyMonitor>.tracking-filters label{font-size:12px}#companyMonitor>.tracking-filters input,#companyMonitor>.tracking-filters select{font-size:12px;padding:7px 9px;min-height:34px}#companyMonitor>p{font-size:11px;margin:6px 0}
 @media(max-width:1050px){.navbar .nav-links{flex-wrap:wrap}}
+/* Compact the monitor containers while preserving the approved font sizes. */
+.company-board{gap:8px;padding-bottom:6px}
+.company-column{padding:4px;border-radius:5px;border-top-width:3px}
+.company-column>h2{margin-bottom:4px;padding:4px 6px}
+.company-column>h3{margin:6px 0 4px;padding:3px 5px}
+.company-column>.deployment-card{padding:5px 6px;margin-bottom:4px;box-shadow:none}
+.company-column>.deployment-card p{margin:2px 0}
+.company-job{padding:5px 6px;margin-bottom:3px;border-radius:3px}
+.company-job .tracking-project-heading{gap:2px 5px}
+.company-job .result-pill{padding:2px 4px}
+.company-job p{margin:1px 0}
+.company-job dl{gap:0 5px;margin-top:3px;line-height:1.3}
+#companyMonitor>.tracking-filters{padding:7px 8px;gap:8px;margin-bottom:5px}
+#companyMonitor>.tracking-filters label{gap:3px}
+#companyMonitor>.tracking-filters input,#companyMonitor>.tracking-filters select{padding:5px 7px;min-height:30px}
+@media(min-width:1500px){.company-job dl{grid-template-columns:62px minmax(0,1fr) 62px minmax(0,1fr)}}
