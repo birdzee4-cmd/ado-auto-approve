@@ -29,7 +29,7 @@ export function initCompanyMonitor() {
     $('companyBoard').innerHTML = environments.filter(env => env !== 'Other' || rows.some(item => item.environment === env)).map(env => {
       const jobs = rows.filter(item => item.environment === env), finished = jobs.filter(item => item.terminal), running = jobs.filter(item => !item.terminal);
       const count = status => jobs.filter(item => item.status === status).length;
-      return `<section class="company-column"><h2>${env}</h2><div class="deployment-card"><strong>จบทั้งหมด ${finished.length}</strong><p>สำเร็จ ${count('complete')} · Build fail ${count('build fail')} · Deploy fail ${count('deploy fail')} · ยกเลิก ${count('cancel deploy')}</p><small>ยอดตามตัวกรอง · ${new Set(jobs.map(item => item.project)).size} Project</small></div><h3>กำลังทำ ${running.length}</h3>${running.map(card).join('') || '<p>ไม่มีงานกำลังทำ</p>'}<h3>จบแล้ว ${finished.length}</h3>${finished.map(card).join('') || '<p>ไม่พบรายการ</p>'}</section>`;
+      return `<section class="company-column company-env-${env.toLowerCase()}"><h2>${env}</h2><div class="deployment-card"><strong>จบทั้งหมด ${finished.length}</strong><p>สำเร็จ ${count('complete')} · Build fail ${count('build fail')} · Deploy fail ${count('deploy fail')} · ยกเลิก ${count('cancel deploy')}</p><small>ยอดตามตัวกรอง · ${new Set(jobs.map(item => item.project)).size} Project</small></div><h3>กำลังทำ ${running.length}</h3>${running.map(card).join('') || '<p>ไม่มีงานกำลังทำ</p>'}<h3>จบแล้ว ${finished.length}</h3>${finished.map(card).join('') || '<p>ไม่พบรายการ</p>'}</section>`;
     }).join('');
   }
   async function load() {
