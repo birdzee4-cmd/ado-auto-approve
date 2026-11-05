@@ -91,6 +91,61 @@ async function list(options) {
   return items.slice(0, limit);
 }
 
+async function listAll(options) {
+  const clauses = [];
+  for (const field of ['environmentGroup', 'sourceType', 'result']) {
+    const value = options && options[field] ? String(options[field]).replace(/'/g, "''") : '';
+    if (value) clauses.push(`${field} eq '${value}'`);
+  }
+  const from = options && options.from ? new Date(options.from) : null;
+  const to = options && options.to ? new Date(options.to) : null;
+  if (from && !Number.isNaN(from.getTime())) clauses.push(`eventCreatedAt ge '${from.toISOString()}'`);
+  if (to && !Number.isNaN(to.getTime())) clauses.push(`eventCreatedAt lt '${to.toISOString()}'`);
+  const queryOptions = clauses.length ? { queryOptions: { filter: clauses.join(' and ') } } : {};
+  const items = [];
+  for await (const entity of client().listEntities(queryOptions)) {
+    const item = Object.assign({}, entity);
+    delete item.partitionKey; delete item.rowKey; delete item.etag;
+    items.push(item);
+  }
+  return items;
+}
+
+async function summarize(options) {
+  const items = await listAll(options);
+  const summary = {
+    total: items.length, succeeded: 0, failed: 0, canceled: 0, unknown: 0,
+    successRate: 0, failureRate: 0, byEnvironment: {}, bySource: {}, byResult: {},
+    byDay: {}, byPipeline: {}, openFailures: [], averageDurationSeconds: null
+  };
+  const successRuns = new Set();
+  let durationTotal = 0; let durationCount = 0;
+  for (const item of items) {
+    const result = String(item.result || 'unknown').toLowerCase() || 'unknown';
+    summary.byResult[result] = (summary.byResult[result] || 0) + 1;
+    if (result === 'succeeded') summary.succeeded += 1;
+    else if (result === 'failed') summary.failed += 1;
+    else if (result === 'canceled' || result === 'cancelled') summary.canceled += 1;
+    else summary.unknown += 1;
+    const env = item.environmentGroup || 'Other';
+    const source = item.sourceType || 'other';
+    const pipeline = item.pipelineName || 'Unknown';
+    summary.byEnvironment[env] = (summary.byEnvironment[env] || 0) + 1;
+    summary.bySource[source] = (summary.bySource[source] || 0) + 1;
+    summary.byPipeline[pipeline] = (summary.byPipeline[pipeline] || 0) + 1;
+    const day = String(item.eventCreatedAt || item.receivedAt || '').slice(0, 10);
+    if (day) summary.byDay[day] = (summary.byDay[day] || 0) + 1;
+    const started = Date.parse(item.startedAt || ''); const completed = Date.parse(item.completedAt || '');
+    if (started && completed && completed >= started) { durationTotal += completed - started; durationCount += 1; }
+    if (result === 'succeeded' && item.pullRequestId) successRuns.add(String(item.pullRequestId));
+  }
+  summary.successRate = summary.total ? Number((summary.succeeded / summary.total * 100).toFixed(2)) : 0;
+  summary.failureRate = summary.total ? Number((summary.failed / summary.total * 100).toFixed(2)) : 0;
+  summary.averageDurationSeconds = durationCount ? Math.round(durationTotal / durationCount / 1000) : null;
+  summary.openFailures = items.filter(item => String(item.result || '').toLowerCase() === 'failed' && item.pullRequestId && !successRuns.has(String(item.pullRequestId))).slice(0, 100);
+  return summary;
+}
+
 async function listIndexedPage(options) {
   const pageSize = Math.min(Math.max(Number(options && (options.pageSize || options.limit)) || 50, 1), 200);
   if (process.env.ADO_DEPLOYMENT_EVENT_INDEX_ENABLED !== 'true') return { items: [], nextCursor: '', enabled: false };
@@ -119,5 +174,5 @@ function resetForTests() {
   cachedIndexClient = undefined;
 }
 
-module.exports = { save, list, listIndexedPage, resetForTests };
+module.exports = { save, list, listIndexedPage, summarize, resetForTests };
 

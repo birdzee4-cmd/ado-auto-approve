@@ -5,6 +5,7 @@ let currentPage = 1;
 let cursorMode = true;
 let cursorStack = [''];
 let nextCursor = '';
+let aggregateSummary = null;
 const PAGE_SIZE = 50;
 function ensureSummary() {
   let summary = $('eventSummary');
@@ -87,6 +88,13 @@ function renderEvents() {
     acc.total += 1; acc.succeeded += String(item.result || '').toLowerCase() === 'succeeded' ? 1 : 0; acc.failed += String(item.result || '').toLowerCase() === 'failed' ? 1 : 0; acc.env[env] = (acc.env[env] || 0) + 1; acc.source[source] = (acc.source[source] || 0) + 1;
     return acc;
   }, { total: 0, succeeded: 0, failed: 0, env: {}, source: {} });
+  const aggregate = aggregateSummary || counts;
+  if (aggregateSummary) {
+    counts.total = aggregate.total || 0;
+    counts.succeeded = aggregate.succeeded || 0;
+    counts.failed = aggregate.failed || 0;
+    counts.source = { 'CI Build': aggregate.bySource?.build || 0, 'YAML CD': aggregate.bySource?.['yaml-pipeline'] || 0, 'Classic CD': aggregate.bySource?.['classic-release'] || 0 };
+  }
   summary.innerHTML = [['Total', counts.total], ['Succeeded', counts.succeeded], ['Failed', counts.failed], ['CI Build', counts.source['CI Build'] || 0], ['CD', (counts.source['YAML CD'] || 0) + (counts.source['Classic CD'] || 0)]].map(([label, value]) => `<div><strong>${value}</strong><span>${label}</span></div>`).join('');
   const totalPages = cursorMode ? currentPage : Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   currentPage = Math.min(currentPage, totalPages);
@@ -130,8 +138,14 @@ async function loadEvents(cursor = '') {
     if ($('eventEnvironment')?.value) params.set('environmentGroup', $('eventEnvironment').value);
     if ($('eventResult')?.value && $('eventResult').value !== 'unknown') params.set('result', $('eventResult').value);
     if (ensureSourceFilter()?.value) params.set('sourceType', ensureSourceFilter().value);
-    const data = await api(`/api/ado-deployment-status?${params.toString()}`);
+    const summaryParams = new URLSearchParams(params);
+    summaryParams.delete('useCursor'); summaryParams.delete('pageSize'); summaryParams.delete('cursor');
+    const [data, summaryResponse] = await Promise.all([
+      api(`/api/ado-deployment-status?${params.toString()}`),
+      api(`/api/ado-deployment-summary?${summaryParams.toString()}`)
+    ]);
     eventItems = Array.isArray(data.items) ? data.items : [];
+    aggregateSummary = summaryResponse?.summary || null;
     nextCursor = data.nextCursor || '';
     renderEvents();
     const capNote = eventItems.length >= 2000 ? ' · Showing latest 2,000' : '';
