@@ -187,6 +187,25 @@ async function init() {
   const auth = await api('/.auth/me');
   if (!auth?.clientPrincipal) { window.location.href = '/.auth/login/aad?post_login_redirect_uri=/deployment.html'; return; }
   setText('userName', auth.clientPrincipal.userDetails || 'Authenticated');
+  $('exportEvents')?.addEventListener('click', async () => {
+    const params = new URLSearchParams();
+    if ($('eventEnvironment')?.value) params.set('environmentGroup', $('eventEnvironment').value);
+    if (ensureSourceFilter()?.value) params.set('sourceType', ensureSourceFilter().value);
+    if ($('eventResult')?.value) params.set('result', $('eventResult').value);
+    if ($('eventFrom')?.value) params.set('from', `${$('eventFrom').value}T00:00:00Z`);
+    if ($('eventTo')?.value) { const end = new Date(`${$('eventTo').value}T00:00:00Z`); end.setUTCDate(end.getUTCDate() + 1); params.set('to', end.toISOString()); }
+    const button = $('exportEvents');
+    button.disabled = true;
+    try {
+      const response = await fetch(`/api/ado-deployment-export?${params.toString()}`, { credentials: 'same-origin' });
+      if (!response.ok) throw new Error(`Export failed (${response.status})`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a'); link.href = url; link.download = 'deployment-events.csv'; link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) { setText('eventsUpdated', `Export failed: ${error.message}`); }
+    finally { button.disabled = false; }
+  });
   $('refreshEvents')?.addEventListener('click', loadEvents);
   $('eventRange')?.addEventListener('change', () => { resetCursor(); renderEvents(); });
   $('eventEnvironment')?.addEventListener('change', () => { resetCursor(); loadEvents(); });

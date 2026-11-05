@@ -418,6 +418,20 @@ module.exports = async function (context, req) {
     }
 
     const actionLabel = eventType === 'git.pullrequest.created' ? 'New PR' : 'PR Updated';
+    const notificationEventId = String(body.id || body.notificationId || '').trim();
+    const notificationKey = notificationEventId
+        ? `teams:pr:${eventType}:${notificationEventId}`
+        : `teams:pr:${eventType}:${prId}:${sourceRef}:${targetRef}:${prTitle}`;
+    try {
+        const existingNotification = await sp.getLogByEventKey(notificationKey);
+        if (existingNotification.ok && existingNotification.body && Array.isArray(existingNotification.body.value) && existingNotification.body.value.length) {
+            context.log(`webhook: skip duplicate Teams notification ${notificationKey}`);
+            context.res = { status: 200, body: 'OK (duplicate Teams notification skipped)' };
+            return;
+        }
+    } catch (err) {
+        context.log.warn('webhook: PR notification duplicate check failed:', err.message);
+    }
     const message =
         `## 🔔 ${actionLabel} Detected on Staging\n\n` +
         `| Field | Value |\n` +
@@ -431,6 +445,13 @@ module.exports = async function (context, req) {
 
     try {
         await notifyTeams(teamsWebhookUrl, message);
+        try {
+            await sp.addLogItem(sp.buildLogFields({
+                prId: String(prId), action: 'PR Teams Notification', user: createdBy,
+                repository: repoName, prTitle, targetBranch: targetRef,
+                result: 'Alert Sent', source: 'Azure DevOps Webhook', eventKey: notificationKey
+            }));
+        } catch (err) { context.log.warn('webhook: PR notification dedupe log failed:', err.message); }
         context.log('webhook: Teams notification ส่งสำเร็จ');
         context.res = { status: 200, body: 'OK' };
     } catch (err) {
