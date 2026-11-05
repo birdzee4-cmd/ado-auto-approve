@@ -1,4 +1,5 @@
 import { escapeHtml, setText } from './core.js';
+import { initTracking } from './pr-build-tracking.js';
 const $ = id => document.getElementById(id);
 let eventItems = [];
 let currentPage = 1;
@@ -87,10 +88,7 @@ function displayEnvironmentGroup(item) {
   return current || 'Other';
 }
 function prResolutionStatus(item) {
-  if (!item.pullRequestId || String(item.result || '').toLowerCase() !== 'failed') return '';
-  const failedAt = Date.parse(item.receivedAt || item.eventCreatedAt || '') || 0;
-  const repaired = eventItems.some(candidate => candidate !== item && String(candidate.pullRequestId || '') === String(item.pullRequestId) && String(candidate.result || '').toLowerCase() === 'succeeded' && (Date.parse(candidate.receivedAt || candidate.eventCreatedAt || '') || 0) > failedAt);
-  return repaired ? 'แก้ไขแล้ว' : 'ยังไม่พบ Build สำเร็จ';
+  return String(item.result || '').toLowerCase() === 'failed' ? 'ดูสถานะในเมนูติดตาม PR / CI-CD' : '';
 }
 function renderEvents() {
   const days = $('eventRange')?.value === 'all' ? 0 : Number($('eventRange')?.value || 0);
@@ -187,6 +185,7 @@ async function init() {
   const auth = await api('/.auth/me');
   if (!auth?.clientPrincipal) { window.location.href = '/.auth/login/aad?post_login_redirect_uri=/deployment.html'; return; }
   setText('userName', auth.clientPrincipal.userDetails || 'Authenticated');
+  initTracking();
   $('exportEvents')?.addEventListener('click', async () => {
     const params = new URLSearchParams();
     if ($('eventEnvironment')?.value) params.set('environmentGroup', $('eventEnvironment').value);

@@ -75,6 +75,8 @@ function normalizeDeploymentEvent(payload) {
     publisherId,
     eventType,
     sourceType: isClassic ? 'classic-release' : 'yaml-pipeline',
+    attemptId: text(deployment.attempt || deployment.id || resource.attempt || resource.attemptId, 100),
+    artifactBuildIds: JSON.stringify((release.artifacts || resource.artifacts || []).filter(item => String(item.type || '').toLowerCase() === 'build').map(item => text(item.definitionReference && item.definitionReference.version && item.definitionReference.version.id, 100)).filter(Boolean)),
     projectId: text(project.id || resource.projectId || containerProject.id, 200),
     projectName: text(project.name || resource.projectName),
     environment: environmentName,
@@ -109,7 +111,7 @@ function normalizeBuildEvent(payload) {
   const resource = body.resource || {};
   const definition = resource.definition || {};
   const repository = resource.repository || {};
-  const project = resource.project || {};
+  const project = resource.project || definition.project || body.resourceContainers && body.resourceContainers.project || {};
   const requestedFor = Array.isArray(resource.requests) && resource.requests[0] && resource.requests[0].requestedFor || resource.requestedFor || {};
   const sourceBranch = text(resource.sourceBranch, 500);
   const triggerInfo = resource.triggerInfo || {};
@@ -123,6 +125,9 @@ function normalizeBuildEvent(payload) {
     publisherId: text(body.publisherId, 200),
     eventType: 'build.complete',
     sourceType: 'build',
+    sourceVersion: text(resource.sourceVersion, 200),
+    repositoryId: text(repository.id, 200),
+    buildSourceBranch: sourceBranch,
     projectId: text(project.id || resource.projectId, 200),
     projectName: text(project.name || resource.projectName),
     environment: environmentName,

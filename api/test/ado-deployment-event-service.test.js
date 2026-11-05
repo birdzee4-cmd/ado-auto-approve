@@ -2,6 +2,25 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const service = require('../shared/ado-deployment-event-service');
 
+test('preserves classic release artifact build and deployment attempt IDs', () => {
+  const event = service.normalizeDeploymentEvent({ id: 'release-artifact', eventType: 'ms.azure-devops-release.deployment-completed-event',
+    resource: { deployment: { id: 500, attempt: 2, status: 'failed', environment: { id: 88, name: 'Azure Automated Deployment' },
+      release: { id: 426752, releaseDefinition: { id: 10239 }, artifacts: [
+        { type: 'Build', definitionReference: { version: { id: '608087' } } },
+        { type: 'Git', definitionReference: { version: { id: 'commit' } } }
+      ] } } } });
+  assert.equal(event.attemptId, '2'); assert.equal(event.artifactBuildIds, '["608087"]');
+  assert.equal(event.runId, '426752'); assert.equal(event.pipelineId, '10239');
+});
+test('preserves source commit and actual built branch for post-merge PR lookup', () => {
+  const event = service.normalizeBuildEvent({ eventType: 'build.complete', resource: { id: 608087,
+    repository: { id: 'repo-guid' }, sourceVersion: 'a'.repeat(40), sourceBranch: 'refs/heads/staging' } });
+  assert.equal(event.repositoryId, 'repo-guid'); assert.equal(event.sourceVersion, 'a'.repeat(40));
+  assert.equal(event.buildSourceBranch, 'refs/heads/staging');
+  const containerEvent = service.normalizeBuildEvent({ eventType: 'build.complete', resourceContainers: { project: { id: 'project-guid' } }, resource: { id: 1 } });
+  assert.equal(containerEvent.projectId, 'project-guid');
+});
+
 test('normalizes a Classic Release deployment completed event', () => {
   const event = service.normalizeDeploymentEvent({
     id: 'evt-classic-1',

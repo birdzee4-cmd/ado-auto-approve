@@ -1,0 +1,14 @@
+[
+  {
+    "key": "oceanlife-web-stg",
+    "name": "oceanlife-web-stg",
+    "projectId": "aee92c2c-3918-4dbd-bcf3-15e5191aa4a1",
+    "projectName": "Buzzebees",
+    "repositoryName": "Net_Web_OceanLife",
+    "targetBranch": "refs/heads/staging",
+    "environment": "Staging",
+    "ci": { "id": "11169", "name": "oceanlife-web-stg-ci" },
+    "cd": { "id": "10239", "name": "oceanlife-web-stg-cd", "stageName": "Azure Automated Deployment" },
+    "evidence": "User-supplied Monitor and Azure DevOps UI checked 2026-11-05: build 608087, PR 375391, release 426752; pipeline IDs from breadcrumb and linked release definition."
+  }
+]

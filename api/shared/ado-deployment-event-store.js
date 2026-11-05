@@ -1,4 +1,5 @@
 const { TableClient } = require('@azure/data-tables');
+const { buildTracking } = require('./pr-build-tracking');
 
 let cachedClient;
 let cachedIndexClient;
@@ -118,7 +119,6 @@ async function summarize(options) {
     successRate: 0, failureRate: 0, byEnvironment: {}, bySource: {}, byResult: {},
     byDay: {}, byPipeline: {}, pipelinePerformance: {}, stageFailures: {}, failureHotspots: [], openFailures: [], repairedFailures: 0, repeatedFailures: 0, meanTimeToFixSeconds: null, averageDurationSeconds: null, alerts: []
   };
-  const byPr = new Map();
   let durationTotal = 0; let durationCount = 0;
   for (const item of items) {
     const result = String(item.result || 'unknown').toLowerCase() || 'unknown';
@@ -142,35 +142,20 @@ async function summarize(options) {
     const started = Date.parse(item.startedAt || ''); const completed = Date.parse(item.completedAt || '');
     if (started && completed && completed >= started) { const seconds = Math.round((completed - started) / 1000); durationTotal += completed - started; durationCount += 1; performance.durationSeconds += seconds; performance.durationSamples += 1; }
     if (result === 'failed') { const stage = item.stageName || 'Unknown'; summary.stageFailures[stage] = (summary.stageFailures[stage] || 0) + 1; }
-    if (item.pullRequestId) { const key = String(item.pullRequestId); if (!byPr.has(key)) byPr.set(key, []); byPr.get(key).push(item); }
-    if (result === 'succeeded' && item.pullRequestId) successRuns.add(String(item.pullRequestId));
   }
   summary.successRate = summary.total ? Number((summary.succeeded / summary.total * 100).toFixed(2)) : 0;
   summary.failureRate = summary.total ? Number((summary.failed / summary.total * 100).toFixed(2)) : 0;
   summary.averageDurationSeconds = durationCount ? Math.round(durationTotal / durationCount / 1000) : null;
   for (const performance of Object.values(summary.pipelinePerformance)) performance.averageDurationSeconds = performance.durationSamples ? Math.round(performance.durationSeconds / performance.durationSamples) : null;
   summary.failureHotspots = Object.entries(summary.stageFailures).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([stage, failed]) => ({ stage, failed }));
-  const fixDurations = [];
-  for (const [pullRequestId, events] of byPr.entries()) {
-    events.sort((a, b) => Date.parse(a.eventCreatedAt || a.receivedAt || '') - Date.parse(b.eventCreatedAt || b.receivedAt || ''));
-    let failures = 0;
-    for (let i = 0; i < events.length; i += 1) {
-      if (String(events[i].result || '').toLowerCase() !== 'failed') continue;
-      failures += 1;
-      const failedAt = Date.parse(events[i].eventCreatedAt || events[i].receivedAt || '') || 0;
-      const fixed = events.slice(i + 1).find(candidate => String(candidate.result || '').toLowerCase() === 'succeeded');
-      if (fixed) {
-        summary.repairedFailures += 1;
-        const fixedAt = Date.parse(fixed.eventCreatedAt || fixed.receivedAt || '') || 0;
-        if (fixedAt > failedAt) fixDurations.push(fixedAt - failedAt);
-      } else {
-        summary.openFailures.push(Object.assign({ remediationStatus: 'open', pullRequestId }, events[i]));
-      }
-    }
-    if (failures > 1) summary.repeatedFailures += failures - 1;
-  }
-  summary.openFailures = summary.openFailures.slice(0, 100);
-  summary.openFailureCount = summary.openFailures.length;
+  const tracking = buildTracking(items);
+  const failures = tracking.groups.flatMap(group => group.failures);
+  const recovered = failures.filter(failure => failure.recovery);
+  summary.repairedFailures = recovered.length;
+  summary.openFailureCount = tracking.openFailures;
+  summary.openFailures = failures.filter(failure => !failure.recovery).slice(0, 100).map(failure => ({ ...failure.failed, remediationStatus: 'open' }));
+  summary.repeatedFailures = tracking.groups.reduce((total, group) => total + Math.max(0, group.failedRuns - 1), 0);
+  const fixDurations = recovered.map(({ failed, recovery }) => Date.parse(recovery.completedAt || recovery.eventCreatedAt || recovery.receivedAt) - Date.parse(failed.completedAt || failed.eventCreatedAt || failed.receivedAt));
   summary.meanTimeToFixSeconds = fixDurations.length ? Math.round(fixDurations.reduce((total, value) => total + value, 0) / fixDurations.length / 1000) : null;
   const productionFailures = items.filter(item => item.environmentGroup === 'Production' && String(item.result || '').toLowerCase() === 'failed').length;
   if (productionFailures) summary.alerts.push({ type: 'production-failure', severity: 'high', count: productionFailures, message: `${productionFailures} Production deployment failure(s)` });
@@ -214,5 +199,5 @@ function resetForTests() {
   cachedIndexClient = undefined;
 }
 
-module.exports = { save, list, listIndexedPage, summarize, exportCsv, resetForTests };
+module.exports = { save, list, listAll, listIndexedPage, summarize, exportCsv, resetForTests };
 
