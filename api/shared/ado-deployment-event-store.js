@@ -116,7 +116,7 @@ async function summarize(options) {
   const summary = {
     total: items.length, succeeded: 0, failed: 0, canceled: 0, unknown: 0,
     successRate: 0, failureRate: 0, byEnvironment: {}, bySource: {}, byResult: {},
-    byDay: {}, byPipeline: {}, openFailures: [], repairedFailures: 0, repeatedFailures: 0, meanTimeToFixSeconds: null, averageDurationSeconds: null
+    byDay: {}, byPipeline: {}, pipelinePerformance: {}, stageFailures: {}, failureHotspots: [], openFailures: [], repairedFailures: 0, repeatedFailures: 0, meanTimeToFixSeconds: null, averageDurationSeconds: null
   };
   const byPr = new Map();
   let durationTotal = 0; let durationCount = 0;
@@ -133,16 +133,23 @@ async function summarize(options) {
     summary.byEnvironment[env] = (summary.byEnvironment[env] || 0) + 1;
     summary.bySource[source] = (summary.bySource[source] || 0) + 1;
     summary.byPipeline[pipeline] = (summary.byPipeline[pipeline] || 0) + 1;
+    if (!summary.pipelinePerformance[pipeline]) summary.pipelinePerformance[pipeline] = { total: 0, failed: 0, succeeded: 0, durationSeconds: 0, durationSamples: 0 };
+    const performance = summary.pipelinePerformance[pipeline]; performance.total += 1;
+    if (result === 'failed') performance.failed += 1;
+    if (result === 'succeeded') performance.succeeded += 1;
     const day = String(item.eventCreatedAt || item.receivedAt || '').slice(0, 10);
     if (day) summary.byDay[day] = (summary.byDay[day] || 0) + 1;
     const started = Date.parse(item.startedAt || ''); const completed = Date.parse(item.completedAt || '');
-    if (started && completed && completed >= started) { durationTotal += completed - started; durationCount += 1; }
+    if (started && completed && completed >= started) { const seconds = Math.round((completed - started) / 1000); durationTotal += completed - started; durationCount += 1; performance.durationSeconds += seconds; performance.durationSamples += 1; }
+    if (result === 'failed') { const stage = item.stageName || 'Unknown'; summary.stageFailures[stage] = (summary.stageFailures[stage] || 0) + 1; }
     if (item.pullRequestId) { const key = String(item.pullRequestId); if (!byPr.has(key)) byPr.set(key, []); byPr.get(key).push(item); }
     if (result === 'succeeded' && item.pullRequestId) successRuns.add(String(item.pullRequestId));
   }
   summary.successRate = summary.total ? Number((summary.succeeded / summary.total * 100).toFixed(2)) : 0;
   summary.failureRate = summary.total ? Number((summary.failed / summary.total * 100).toFixed(2)) : 0;
   summary.averageDurationSeconds = durationCount ? Math.round(durationTotal / durationCount / 1000) : null;
+  for (const performance of Object.values(summary.pipelinePerformance)) performance.averageDurationSeconds = performance.durationSamples ? Math.round(performance.durationSeconds / performance.durationSamples) : null;
+  summary.failureHotspots = Object.entries(summary.stageFailures).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([stage, failed]) => ({ stage, failed }));
   const fixDurations = [];
   for (const [pullRequestId, events] of byPr.entries()) {
     events.sort((a, b) => Date.parse(a.eventCreatedAt || a.receivedAt || '') - Date.parse(b.eventCreatedAt || b.receivedAt || ''));
