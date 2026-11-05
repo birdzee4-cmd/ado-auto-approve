@@ -1,7 +1,7 @@
 import { escapeHtml, setText } from './core.js';
 import { renderCommit } from './deployment-commit.js?v=20261105-1';
 import { historyDates, appendBangkokDates } from './deployment-dates.js';
-import { initTracking } from './pr-build-tracking.js?v=20261105-4';
+import { initTracking } from './pr-build-tracking.js?v=20261105-5';
 const $ = id => document.getElementById(id);
 let eventItems = [];
 let currentPage = 1;
@@ -36,7 +36,7 @@ function renderAdvancedSummary(summary) {
   const slow = Object.entries(summary.pipelinePerformance || {}).filter(([, item]) => item.averageDurationSeconds != null).sort((a, b) => b[1].averageDurationSeconds - a[1].averageDurationSeconds).slice(0, 5).map(([name, item]) => `<li><strong>${escapeHtml(name)}</strong><span>${Math.round(item.averageDurationSeconds / 60)}m average · ${item.failed} failed</span></li>`).join('') || '<li class="metric-empty">ไม่มีข้อมูล duration</li>';
   const hotspots = (summary.failureHotspots || []).slice(0, 5).map(item => `<li><strong>${escapeHtml(item.stage)}</strong><span>${item.failed} failed</span></li>`).join('') || '<li class="metric-empty">ไม่พบ failure hotspot</li>';
   const alerts = (summary.alerts || []).map(alert => `<div class="monitor-alert ${escapeHtml(alert.severity || 'medium')}">${escapeHtml(alert.message)}</div>`).join('');
-  panel.innerHTML = `${alerts}<div class="advanced-kpis"><div><strong>${summary.successRate || 0}%</strong><span>Success rate</span></div><div><strong>${summary.failureRate || 0}%</strong><span>Failure rate</span></div><div><strong>${summary.averageDurationSeconds == null ? '-' : Math.round(summary.averageDurationSeconds / 60) + 'm'}</strong><span>Avg duration</span></div><div><strong>${summary.openFailureCount || 0}</strong><span>Open failures</span></div><div><strong>${summary.repairedFailures || 0}</strong><span>Repaired failures</span></div><div><strong>${summary.repeatedFailures || 0}</strong><span>Repeated failures</span></div><div><strong>${summary.meanTimeToFixSeconds == null ? '-' : Math.round(summary.meanTimeToFixSeconds / 60) + 'm'}</strong><span>Mean time to fix</span></div></div><div class="advanced-charts"><article><h2>By environment</h2>${bars(summary.byEnvironment)}</article><article><h2>By source</h2>${bars(summary.bySource, { build: 'CI Build', 'yaml-pipeline': 'YAML CD', 'classic-release': 'Classic CD' })}</article><article class="trend-chart-card"><h2>Daily trend</h2><div class="daily-bars">${dayEntries.map(([day, value]) => `<div title="${escapeHtml(day)}: ${value}"><i style="height:${Math.max(4, Math.round(value / maxDay * 100))}%"></i><span>${escapeHtml(day.slice(5))}</span></div>`).join('') || '<p class="metric-empty">ไม่มีข้อมูล</p>'}</div></article><article class="open-failures"><h2>Open failures by PR</h2><ul>${open}</ul></article><article class="open-failures"><h2>Slowest pipelines</h2><ul>${slow}</ul></article><article class="open-failures"><h2>Failure hotspots by stage</h2><ul>${hotspots}</ul></article></div>`;
+  panel.innerHTML = `${alerts}<div class="advanced-kpis"><div><strong>${summary.successRate || 0}%</strong><span>Success rate</span></div><div><strong>${summary.failureRate || 0}%</strong><span>Failure rate</span></div><div><strong>${summary.averageDurationSeconds == null ? '-' : Math.round(summary.averageDurationSeconds / 60) + 'm'}</strong><span>Avg duration</span></div><div><strong>${summary.openFailureCount || 0}</strong><span>Open failures</span></div><div><strong>${summary.repairedFailures || 0}</strong><span>Repaired failures</span></div><div><strong>${summary.repeatedFailures || 0}</strong><span>Repeated failures</span></div><div><strong>${summary.meanTimeToFixSeconds == null ? '-' : Math.round(summary.meanTimeToFixSeconds / 60) + 'm'}</strong><span>Mean time to fix</span></div></div><div class="advanced-charts"><article><h2>By environment</h2>${bars(summary.byEnvironment)}</article><article><h2>By source</h2>${bars(summary.bySource, { build: 'CI Build', 'yaml-pipeline': 'Pipeline stage', 'classic-release': 'Classic CD' })}</article><article class="trend-chart-card"><h2>Daily trend</h2><div class="daily-bars">${dayEntries.map(([day, value]) => `<div title="${escapeHtml(day)}: ${value}"><i style="height:${Math.max(4, Math.round(value / maxDay * 100))}%"></i><span>${escapeHtml(day.slice(5))}</span></div>`).join('') || '<p class="metric-empty">ไม่มีข้อมูล</p>'}</div></article><article class="open-failures"><h2>Open failures by PR</h2><ul>${open}</ul></article><article class="open-failures"><h2>Slowest pipelines</h2><ul>${slow}</ul></article><article class="open-failures"><h2>Failure hotspots by stage</h2><ul>${hotspots}</ul></article></div>`;
 }
 function ensureSourceFilter() {
   let select = $('eventSource');
@@ -104,7 +104,7 @@ function renderEvents() {
   const summary = ensureSummary();
   const counts = rows.reduce((acc, item) => {
     const env = displayEnvironmentGroup(item);
-    const source = item.sourceType === 'build' ? 'CI Build' : item.sourceType === 'classic-release' ? 'Classic CD' : item.sourceType === 'yaml-pipeline' ? 'YAML CD' : 'Other';
+    const source = item.sourceType === 'build' ? 'CI Build' : item.sourceType === 'classic-release' ? 'Classic CD' : item.sourceType === 'yaml-pipeline' ? 'Pipeline stage' : 'Other';
     acc.total += 1; acc.succeeded += String(item.result || '').toLowerCase() === 'succeeded' ? 1 : 0; acc.failed += String(item.result || '').toLowerCase() === 'failed' ? 1 : 0; acc.env[env] = (acc.env[env] || 0) + 1; acc.source[source] = (acc.source[source] || 0) + 1;
     return acc;
   }, { total: 0, succeeded: 0, failed: 0, env: {}, source: {} });
@@ -115,7 +115,7 @@ function renderEvents() {
     counts.failed = aggregate.failed || 0;
     counts.source = { 'CI Build': aggregate.bySource?.build || 0, 'YAML CD': aggregate.bySource?.['yaml-pipeline'] || 0, 'Classic CD': aggregate.bySource?.['classic-release'] || 0 };
   }
-  summary.innerHTML = [['Total', counts.total], ['Succeeded', counts.succeeded], ['Failed', counts.failed], ['CI Build', counts.source['CI Build'] || 0], ['CD', (counts.source['YAML CD'] || 0) + (counts.source['Classic CD'] || 0)]].map(([label, value]) => `<div><strong>${value}</strong><span>${label}</span></div>`).join('');
+  summary.innerHTML = [['Hook Events', counts.total], ['Succeeded Events', counts.succeeded], ['Failed Events', counts.failed], ['Build Events', counts.source['CI Build'] || 0], ['Stage / Deploy Events', (counts.source['YAML CD'] || 0) + (counts.source['Classic CD'] || 0)]].map(([label, value]) => `<div><strong>${value}</strong><span>${label}</span></div>`).join('');
   renderAdvancedSummary(aggregateSummary);
   const totalPages = cursorMode ? currentPage : Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   currentPage = Math.min(currentPage, totalPages);
@@ -126,7 +126,7 @@ function renderEvents() {
     const resolutionMarkup = resolution ? `<br><span class="pr-resolution ${resolution === 'แก้ไขแล้ว' ? 'resolved' : 'open'}">${escapeHtml(resolution)}</span>` : '';
     const pr = item.pullRequestUrl ? `<a href="${escapeHtml(item.pullRequestUrl)}" target="_blank" rel="noreferrer">PR #${escapeHtml(item.pullRequestId || '?')}</a>${resolutionMarkup}` : (item.pullRequestId ? `PR #${escapeHtml(item.pullRequestId)}${resolutionMarkup}` : '<span class="muted">ไม่มี PR</span>');
     const operator = item.requestedBy || item.pullRequestAuthor || '-';
-    const source = item.sourceType === 'build' ? 'CI Build' : item.sourceType === 'classic-release' ? 'Classic CD' : item.sourceType === 'yaml-pipeline' ? 'YAML CD' : item.sourceType || 'Service Hook';
+    const source = item.sourceType === 'build' ? 'CI Build' : item.sourceType === 'classic-release' ? 'Classic CD' : item.sourceType === 'yaml-pipeline' ? 'Pipeline stage' : item.sourceType || 'Service Hook';
     const env = displayEnvironmentGroup(item);
     return `<tr><td><span class="env-badge env-${escapeHtml(env.toLowerCase())}">${escapeHtml(env)}</span><br><span class="muted">${escapeHtml(item.environment || '-')}</span></td><td>${escapeHtml(formatDate(item.receivedAt || item.eventCreatedAt))}</td><td><strong>${escapeHtml(item.pipelineName || '-')}</strong><br><span class="muted">Run ${escapeHtml(item.runName || item.runId || '-')}</span><br>${renderCommit(item)}</td><td><span class="source-pill">${escapeHtml(source)}</span></td><td>${escapeHtml(item.stageName || '-')}</td><td><span class="result-pill result-${escapeHtml(resultValue)}">${escapeHtml(resultValue)}</span></td><td>${pr}<br><span class="muted">${escapeHtml(item.pullRequestTitle || '')}</span></td><td>${escapeHtml(operator)}</td><td><button class="row-button event-detail-button" data-event-id="${escapeHtml(item.eventId)}">View</button></td></tr>`;
   }).join('') : '<tr><td colspan="9">No Service Hook events found for this filter.</td></tr>';
@@ -140,7 +140,7 @@ function renderEvents() {
 function openDetail(eventId) {
   const item = eventItems.find(entry => entry.eventId === eventId);
   if (!item) return;
-  const source = item.sourceType === 'build' ? 'CI Build' : item.sourceType === 'classic-release' ? 'Classic CD' : item.sourceType === 'yaml-pipeline' ? 'YAML CD' : item.sourceType || 'Service Hook';
+  const source = item.sourceType === 'build' ? 'CI Build' : item.sourceType === 'classic-release' ? 'Classic CD' : item.sourceType === 'yaml-pipeline' ? 'Pipeline stage' : item.sourceType || 'Service Hook';
   const link = item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">Open pipeline run</a>` : '-';
   $('eventDetailBody').innerHTML = `<h2>${escapeHtml(item.pipelineName || 'Deployment event')}</h2><p class="detail-subtitle">${escapeHtml(displayEnvironmentGroup(item))} · ${escapeHtml(item.stageName || '-')} · ${escapeHtml(source)}</p><dl><dt>Result</dt><dd>${escapeHtml(item.result || '-')}</dd><dt>Status</dt><dd>${escapeHtml(item.status || '-')}</dd><dt>Run</dt><dd>${escapeHtml(item.runName || item.runId || '-')}</dd><dt>Commit</dt><dd>${renderCommit(item, true)}</dd><dt>Repository</dt><dd>${escapeHtml(item.repositoryName || '-')}</dd><dt>Source branch</dt><dd>${escapeHtml(item.sourceBranch || '-')}</dd><dt>Target branch</dt><dd>${escapeHtml(item.targetBranch || '-')}</dd><dt>Pull Request</dt><dd>${item.pullRequestUrl ? `<a href="${escapeHtml(item.pullRequestUrl)}" target="_blank" rel="noreferrer">#${escapeHtml(item.pullRequestId)}</a>` : escapeHtml(item.pullRequestId || '-')}</dd><dt>PR title</dt><dd>${escapeHtml(item.pullRequestTitle || '-')}</dd><dt>PR author</dt><dd>${escapeHtml(item.pullRequestAuthor || '-')}</dd><dt>Operator</dt><dd>${escapeHtml(item.requestedBy || '-')}</dd><dt>Pipeline link</dt><dd>${link}</dd></dl>`;
   $('eventDetail').showModal();

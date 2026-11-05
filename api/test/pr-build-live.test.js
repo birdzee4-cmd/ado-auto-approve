@@ -24,6 +24,12 @@ test('delegated history links old build artifact to PR and preserves release ret
   assert.equal(project.cd.pullRequestId, '375391'); assert.equal(project.cdFailed, 1); assert.equal(project.openFailures, 0);
   assert.equal(project.ci.sourceVersion, sha); assert.equal(project.cd.sourceVersion, sha);
   assert.equal(project.cd.repositoryId, 'repo');
+  ado.adoRequest = async (method, path, body, options) => {
+    assert.equal(method, 'GET'); assert.equal(options.accessToken, 'user-token'); assert.match(path, /\/commits\/a{40}/);
+    return { ok: true, body: { commitId: sha, comment: 'Merge PR for staging' } };
+  };
+  const searched = await loadProjectHistory(mapping, 'user-token', ado, { commit: sha.slice(0, 8), limit: 100 });
+  assert.equal(searched.limit, 100); assert.equal(searched.items[0].commitMessage, 'Merge PR for staging');
 });
 test('history rejects API failures and never falls back to the service PAT', async () => {
   const ado = { getConfig: () => ({ org: 'Buzzebees', project: 'Buzzebees' }),

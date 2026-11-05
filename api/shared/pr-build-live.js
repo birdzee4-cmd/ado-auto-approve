@@ -2,14 +2,15 @@ const service = require('./ado-deployment-event-service');
 
 // Read-only, per-request delegated access. Never persist a user's token or
 // copy live records into the shared webhook archive.
-async function loadProjectHistory(mapping, accessToken, ado) {
+async function loadProjectHistory(mapping, accessToken, ado, settings = {}) {
+  const limit = settings.limit === 100 ? 100 : 20;
   const config = ado.getConfig();
   if (String(config.project).toLowerCase() !== mapping.projectName.toLowerCase()) throw new Error('Project scope mismatch');
   const options = { accessToken };
   const root = `/${encodeURIComponent(config.org)}/${encodeURIComponent(config.project)}`;
   const [buildResponse, releaseResponse] = await Promise.all([
-    ado.listBuilds({ definitions: mapping.ci.id, branchName: mapping.targetBranch, top: 20, accessToken }),
-    ado.releaseRequest('GET', `${root}/_apis/release/releases?definitionId=${encodeURIComponent(mapping.cd.id)}&$top=20&$expand=environments,artifacts&queryOrder=descending&api-version=7.1`, null, options)
+    ado.listBuilds({ definitions: mapping.ci.id, branchName: mapping.targetBranch, top: limit, accessToken }),
+    ado.releaseRequest('GET', `${root}/_apis/release/releases?definitionId=${encodeURIComponent(mapping.cd.id)}&$top=${limit}&$expand=environments,artifacts&queryOrder=descending&api-version=7.1`, null, options)
   ]);
   if (!buildResponse.ok || !releaseResponse.ok) {
     const error = new Error('Azure DevOps history unavailable');
@@ -36,6 +37,15 @@ async function loadProjectHistory(mapping, accessToken, ado) {
     }
     return item;
   });
+  if (settings.commit) {
+    const candidates = [...new Set(items.map(item => item.sourceVersion).filter(value => String(value).toLowerCase().startsWith(settings.commit.toLowerCase())))];
+    if (candidates.length === 1 && repositoryId) {
+      const response = await ado.adoRequest('GET', `${root}/_apis/git/repositories/${encodeURIComponent(repositoryId)}/commits/${encodeURIComponent(candidates[0])}?api-version=7.1`, null, options);
+      if (response.ok && response.body?.commitId === candidates[0]) {
+        for (const item of items) if (item.sourceVersion === candidates[0]) item.commitMessage = String(response.body.comment || '').slice(0, 2000);
+      }
+    }
+  }
   for (const release of releases) {
     for (const environment of release.environments || []) {
       if (environment.name !== mapping.cd.stageName) continue;
@@ -49,7 +59,7 @@ async function loadProjectHistory(mapping, accessToken, ado) {
       }
     }
   }
-  return { items, buildCount: builds.length, releaseCount: releases.length,
-    limited: builds.length >= 20 || releases.length >= 20 };
+  return { items, buildCount: builds.length, releaseCount: releases.length, limit,
+    limited: builds.length >= limit || releases.length >= limit };
 }
 module.exports = { loadProjectHistory };
