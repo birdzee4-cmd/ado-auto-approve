@@ -16,6 +16,21 @@ function ensureSummary() {
   $('eventBody')?.closest('.table-wrap')?.before(summary);
   return summary;
 }
+function ensureAdvancedSummary() {
+  let panel = $('advancedSummary');
+  if (panel) return panel;
+  panel = document.createElement('section'); panel.id = 'advancedSummary'; panel.className = 'advanced-summary';
+  $('eventBody')?.closest('.table-wrap')?.before(panel);
+  return panel;
+}
+function renderAdvancedSummary(summary) {
+  const panel = ensureAdvancedSummary();
+  if (!panel || !summary) return;
+  const bars = (entries, labelMap = {}) => Object.entries(entries || {}).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([label, value]) => `<div class="metric-bar"><span title="${escapeHtml(labelMap[label] || label)}">${escapeHtml(labelMap[label] || label)}</span><i><b style="width:${summary.total ? Math.max(2, Math.round(value / summary.total * 100)) : 0}%"></b></i><strong>${value}</strong></div>`).join('') || '<p class="metric-empty">ไม่มีข้อมูล</p>';
+  const dayEntries = Object.entries(summary.byDay || {}).sort((a, b) => a[0].localeCompare(b[0])).slice(-14);
+  const maxDay = Math.max(1, ...dayEntries.map(([, value]) => value));
+  panel.innerHTML = `<div class="advanced-kpis"><div><strong>${summary.successRate || 0}%</strong><span>Success rate</span></div><div><strong>${summary.failureRate || 0}%</strong><span>Failure rate</span></div><div><strong>${summary.averageDurationSeconds == null ? '-' : Math.round(summary.averageDurationSeconds / 60) + 'm'}</strong><span>Avg duration</span></div><div><strong>${(summary.openFailures || []).length}</strong><span>Open failures</span></div></div><div class="advanced-charts"><article><h2>By environment</h2>${bars(summary.byEnvironment)}</article><article><h2>By source</h2>${bars(summary.bySource, { build: 'CI Build', 'yaml-pipeline': 'YAML CD', 'classic-release': 'Classic CD' })}</article><article class="trend-chart-card"><h2>Daily trend</h2><div class="daily-bars">${dayEntries.map(([day, value]) => `<div title="${escapeHtml(day)}: ${value}"><i style="height:${Math.max(4, Math.round(value / maxDay * 100))}%"></i><span>${escapeHtml(day.slice(5))}</span></div>`).join('') || '<p class="metric-empty">ไม่มีข้อมูล</p>'}</div></article></div>`;
+}
 function ensureSourceFilter() {
   let select = $('eventSource');
   if (select) return select;
@@ -96,6 +111,7 @@ function renderEvents() {
     counts.source = { 'CI Build': aggregate.bySource?.build || 0, 'YAML CD': aggregate.bySource?.['yaml-pipeline'] || 0, 'Classic CD': aggregate.bySource?.['classic-release'] || 0 };
   }
   summary.innerHTML = [['Total', counts.total], ['Succeeded', counts.succeeded], ['Failed', counts.failed], ['CI Build', counts.source['CI Build'] || 0], ['CD', (counts.source['YAML CD'] || 0) + (counts.source['Classic CD'] || 0)]].map(([label, value]) => `<div><strong>${value}</strong><span>${label}</span></div>`).join('');
+  renderAdvancedSummary(aggregateSummary);
   const totalPages = cursorMode ? currentPage : Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   currentPage = Math.min(currentPage, totalPages);
   const pageRows = rows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
