@@ -397,6 +397,15 @@ module.exports = async function (context, req) {
         context.log.warn('webhook: SharePoint log failed:', err.message);
     }
 
+    // PR lifecycle events are recorded for audit/history, but they are not
+    // failure alerts.  Sending them to Teams creates noisy New/Updated pairs
+    // for the same PR; Teams is reserved for the build/deployment failure
+    // branches handled above.
+    if (eventType.startsWith('git.pullrequest.')) {
+        context.res = { status: 200, body: 'OK (PR event logged; Teams notification skipped)' };
+        return;
+    }
+
     // --- ส่งแจ้งเตือนเข้า Teams ---
     const teamsWebhookUrl = process.env.TEAMS_WEBHOOK_URL;
     if (!teamsWebhookUrl) {
