@@ -169,11 +169,14 @@ async function handleWrite(context, req, path, principal) {
     // range.  The IncidentId timestamp is the source of truth for FirstSeenAt;
     // do not infer the correction from the current offset because old records
     // contain both seven- and eight-hour variants.
+    const requestedIncidentId = String(body.incidentId || '').trim().toLowerCase();
     const candidates = incidents
       // The public INC-YYYY-NNNNNN suffix is the SharePoint item ID.
       // displayId is derived from FirstSeenAt and is therefore not a safe
       // filter key while repairing the timestamp that feeds that display.
-      .filter(item => Number.isSafeInteger(Number(item.sharePointId)) && Number(item.sharePointId) >= Number(body.from || 1) && Number(item.sharePointId) <= Number(body.to || 894))
+      .filter(item => requestedIncidentId
+        ? String(item.incidentId || '').trim().toLowerCase() === requestedIncidentId
+        : Number.isSafeInteger(Number(item.sharePointId)) && Number(item.sharePointId) >= Number(body.from || 1) && Number(item.sharePointId) <= Number(body.to || 894))
       .map(legacyTimezonePreview)
       .filter(item => item.eligible);
     if (body.confirmWrite !== true) return jsonResponse(context, 200, { ok: true, dryRun: true, data: candidates });
