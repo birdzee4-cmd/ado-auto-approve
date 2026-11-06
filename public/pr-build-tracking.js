@@ -77,8 +77,8 @@ export function initTracking() {
     } catch (error) { tracking = null; for (const id of ['trackingGroups', 'trackingProjects', 'trackingCounts']) document.getElementById(id).replaceChildren(); message.textContent = error.name === 'AbortError' ? 'โหลดข้อมูลเกินเวลา กด Refresh เพื่อลองใหม่' : error.message; explorer.error(message.textContent); }
     finally { clearTimeout(timer); pending = false; explorer.setBusy(false); document.getElementById('trackingRefresh').disabled = false; if (explorer.params().toString() !== requestQuery) load(); }
   }
-  button.addEventListener('click', () => { events.hidden = true; host.hidden = false; eventsLink.classList.remove('nav-link-active'); button.classList.add('nav-link-active'); if (!tracking) load(); });
-  eventsLink.addEventListener('click', event => { event.preventDefault(); host.hidden = true; events.hidden = false; button.classList.remove('nav-link-active'); eventsLink.classList.add('nav-link-active'); });
+  button.addEventListener('click', () => { document.body.classList.remove('monitor-default'); events.hidden = true; host.hidden = false; eventsLink.classList.remove('nav-link-active'); button.classList.add('nav-link-active'); if (!tracking) load(); });
+  eventsLink.addEventListener('click', event => { event.preventDefault(); document.body.classList.remove('monitor-default'); host.hidden = true; events.hidden = false; button.classList.remove('nav-link-active'); eventsLink.classList.add('nav-link-active'); });
   document.getElementById('trackingRefresh').addEventListener('click', load);
   for (const id of ['trackingSearch', 'trackingEnvironment', 'trackingState']) document.getElementById(id).addEventListener('input', render);
 }

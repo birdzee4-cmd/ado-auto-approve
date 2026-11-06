@@ -1,8 +1,8 @@
 import { escapeHtml, setText } from './core.js';
 import { renderCommit } from './deployment-commit.js?v=20261105-1';
 import { historyDates, appendBangkokDates } from './deployment-dates.js';
-import { initTracking } from './pr-build-tracking.js?v=20261105-7';
-import { initCompanyMonitor } from './company-deployment-monitor.js?v=tracking-20261106-1';
+import { initTracking } from './pr-build-tracking.js?v=20261105-8';
+import { initCompanyMonitor } from './company-deployment-monitor.js?v=tracking-20261106-2';
 const $ = id => document.getElementById(id);
 let eventItems = [];
 let currentPage = 1;

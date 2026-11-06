@@ -10,7 +10,7 @@ export function initCompanyMonitor() {
     <p id="companyMessage" role="status" aria-live="polite">ยังไม่ได้โหลดข้อมูล</p><p id="companyCoverage" class="heading-help">อ่านประวัติจาก Azure ตามวัน Update ของ Monitor · เก็บเบื้องหลังทุก 1 นาที · หน้าจอ Refresh ด้วยตนเอง</p><p class="heading-help">กดชื่อ Project เพื่อดูทุกงานของวันนั้น · กลับมาสำเร็จอิง Monitor ใน Project / Environment / ประเภท / Branch เดียวกัน ยังไม่ยืนยัน Commit หรือ Artifact</p><div id="companyBoard" class="company-board"></div><dialog id="companyProjectDetail" class="company-project-detail" aria-labelledby="companyProjectTitle"><button type="button" id="companyProjectClose" class="secondary-button">ปิด</button><div id="companyProjectBody"></div></dialog>`;
   document.querySelector('.deployment-content').append(host);
   const nav = document.querySelector('.nav-links');
-  const tab = document.createElement('button'); tab.type = 'button'; tab.className = 'nav-link'; tab.textContent = 'Monitor งานประจำวัน'; nav.append(tab);
+  const tab = document.createElement('button'); tab.type = 'button'; tab.className = 'nav-link'; tab.textContent = 'Monitor งานประจำวัน'; nav.prepend(tab);
   nav.addEventListener('click', event => {
     if (!event.target.closest('.nav-link')) return;
     for (const id of ['view-events', 'prTracking', 'companyMonitor']) document.getElementById(id).hidden = true;
@@ -77,7 +77,7 @@ export function initCompanyMonitor() {
     } catch (error) { if ($('companyDate').value === requestedDay) { items = null; $('companyBoard').replaceChildren(); $('companyMessage').textContent = error.name === 'TimeoutError' ? 'อ่านข้อมูลเกินเวลา กรุณากด Refresh อีกครั้ง' : error.message; } }
     finally { pending = false; $('companyRefresh').disabled = false; if ($('companyDate').value !== requestedDay) load(); }
   }
-  tab.addEventListener('click', () => { host.hidden = false; tab.classList.add('nav-link-active'); if (!items) load(); });
+  tab.addEventListener('click', () => { document.body.classList.add('monitor-default'); host.hidden = false; tab.classList.add('nav-link-active'); if (!items) load(); });
   $('companyRefresh').addEventListener('click', load);
   $('companyBoard').addEventListener('click', event => {
     const project = event.target.closest('.company-project-link');
