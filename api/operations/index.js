@@ -301,7 +301,8 @@ function legacyTimezonePreview(incident) {
   const currentFirst = Date.parse(incident.firstSeen || '');
   if (!match || !Number.isFinite(currentFirst)) return { incidentId: incident.incidentId, eligible: false, reason: 'NO_CANONICAL_INCIDENT_TIME' };
   const raw = match[1];
-  const expectedFirst = Date.parse(`${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}T${raw.slice(8, 10)}:${raw.slice(10, 12)}:${raw.slice(12, 14)}+07:00`);
+  // IncidentId timestamps are generated from the canonical UTC FirstSeenAt.
+  const expectedFirst = Date.parse(`${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}T${raw.slice(8, 10)}:${raw.slice(10, 12)}:${raw.slice(12, 14)}Z`);
   const delta = expectedFirst - currentFirst;
   if (delta !== 7 * 60 * 60 * 1000) return { incidentId: incident.incidentId, eligible: false, reason: 'FIRST_SEEN_NOT_EXACTLY_SEVEN_HOURS_EARLY' };
   const currentResolved = Date.parse(incident.resolvedAt || '');
