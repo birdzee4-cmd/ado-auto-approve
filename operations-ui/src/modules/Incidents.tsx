@@ -142,16 +142,27 @@ export function Incidents() {
     refreshInFlight.current = true;
     setRefreshing(true);
     setError('');
-    const allRequest = Promise.all([operationsApi.incidents('', search), operationsApi.incidents()]);
     try {
-      const [all, inventory] = await allRequest;
-      setItems(all.items.filter(item => {
+      // Do not let the inventory refresh hide a successful incident-list read.
+      // Both requests hit SharePoint and a transient failure in the second one
+      // previously caused the whole page to show an error while retaining stale rows.
+      const allPromise = operationsApi.incidents('', search);
+      const inventoryPromise = search ? operationsApi.incidents() : allPromise;
+      const [allResult, inventoryResult] = await Promise.allSettled([allPromise, inventoryPromise]);
+      const all = allResult.status === 'fulfilled' ? allResult.value : null;
+      const inventory = inventoryResult.status === 'fulfilled' ? inventoryResult.value : all;
+      if (!all && !inventory) throw (allResult.status === 'rejected' ? allResult.reason : inventoryResult.status === 'rejected' ? inventoryResult.reason : new Error('Unable to read Operations Hub incidents'));
+      const sourceItems = all?.items || [];
+      setItems(sourceItems.filter(item => {
         if (status === 'OPEN_INCIDENTS') return !isOperationsClosed(item);
         if (status === 'ATTENTION') return isFollowUpItem(item);
         if (status === 'ACTION_REQUIRED') return isActionRequired(item);
         return !status || operationsStatus(item) === status;
       }));
-      setOverviewItems(inventory.items);
+      setOverviewItems(inventory?.items || sourceItems);
+      if (allResult.status === 'rejected' || inventoryResult.status === 'rejected') {
+        setError('บางข้อมูลอาจอัปเดตไม่ครบ กรุณากด Refresh now เพื่อลองใหม่');
+      }
       if (!preservePage) setPage(1);
       setLastUpdatedAt(new Date());
     } catch (err) {
