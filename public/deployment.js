@@ -224,8 +224,10 @@ async function init() {
   ensureSourceFilter();
   ensureUnknownResultFilter();
   $('closeEventDetail')?.addEventListener('click', () => $('eventDetail').close());
-  await loadEvents();
+  // Activate the daily monitor before loading the heavier events history so a
+  // refresh never exposes the legacy Deployment view as the default screen.
   companyMonitor.activate();
+  await loadEvents();
 }
 init().catch(error => {
   setText('eventsUpdated', 'Unable to initialize deployment monitor');
