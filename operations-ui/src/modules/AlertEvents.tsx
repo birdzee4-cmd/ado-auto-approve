@@ -28,7 +28,7 @@ export function AlertEvents() {
     {visible.length > 0 && <div className="ops-card-list">{visible.map(item => {
       return <article className="ops-ticket-preview" key={item.eventId}>
         <div className="ops-section-title"><div><small>{item.eventType}</small><h3>{item.alertName}</h3></div><StatusBadge value={item.processingStatus} /></div>
-        <dl className="ops-detail-grid"><dt>Resource</dt><dd>{item.resource}</dd><dt>First seen</dt><dd>{formatDate(item.firstSeenAt)}</dd><dt>Resolved at</dt><dd>{formatDate(item.resolvedAt)}</dd><dt>Message ID</dt><dd><code>{item.messageId}</code></dd><dt>Matched incident</dt><dd>{item.matchedIncidentId || '-'}</dd><dt>Match method</dt><dd>{item.matchMethod || '-'}</dd><dt>Attempts</dt><dd>{item.attemptCount}</dd></dl>
+        <dl className="ops-detail-grid"><dt>Resource</dt><dd>{item.resource}</dd><dt>First seen · Bangkok</dt><dd>{formatDate(item.firstSeenAt)}</dd><dt>Resolved at · Bangkok</dt><dd>{formatDate(item.resolvedAt)}</dd><dt>Message ID</dt><dd><code>{item.messageId}</code></dd><dt>Matched incident</dt><dd>{item.matchedIncidentId || '-'}</dd><dt>Match method</dt><dd>{item.matchMethod || '-'}</dd><dt>Attempts</dt><dd>{item.attemptCount}</dd></dl>
         {(item.errorCode || item.errorDetail) && <div className="ops-inline-error">{[item.errorCode, item.errorDetail].filter(Boolean).join(': ')}</div>}
       </article>;
     })}</div>}
