@@ -52,7 +52,14 @@ export function initCompanyMonitor() {
   function render() {
     if (!items) return;
     const search = $('companySearch').value.trim().toLowerCase(), day = $('companyDate').value;
-    const rows = items.filter(item => (!day || item.updatedAt.startsWith(day)) && (!search || [item.project, item.projectType, item.id, item.requestedBy, item.branch].join(' ').toLowerCase().includes(search)));
+    const filteredRows = items.filter(item => (!day || item.updatedAt.startsWith(day)) && (!search || [item.project, item.projectType, item.id, item.requestedBy, item.branch].join(' ').toLowerCase().includes(search)));
+    const latest = new Map();
+    for (const item of filteredRows) {
+      const key = [item.environment, item.project, item.projectType, item.branch, item.id].join('|');
+      const previous = latest.get(key);
+      if (!previous || Date.parse(item.updatedAt) >= Date.parse(previous.updatedAt)) latest.set(key, item);
+    }
+    const rows = [...latest.values()];
     $('companyBoard').innerHTML = environments.filter(env => env !== 'Other' || rows.some(item => item.environment === env)).map(env => {
       const jobs = rows.filter(item => item.environment === env), finished = jobs.filter(item => item.terminal), running = jobs.filter(item => !item.terminal);
       const count = status => jobs.filter(item => item.status === status).length;
