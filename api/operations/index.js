@@ -170,7 +170,10 @@ async function handleWrite(context, req, path, principal) {
     // do not infer the correction from the current offset because old records
     // contain both seven- and eight-hour variants.
     const candidates = incidents
-      .filter(item => inLegacyRange(item.displayId, body.from || 1, body.to || 894))
+      // The public INC-YYYY-NNNNNN suffix is the SharePoint item ID.
+      // displayId is derived from FirstSeenAt and is therefore not a safe
+      // filter key while repairing the timestamp that feeds that display.
+      .filter(item => Number.isSafeInteger(Number(item.sharePointId)) && Number(item.sharePointId) >= Number(body.from || 1) && Number(item.sharePointId) <= Number(body.to || 894))
       .map(legacyTimezonePreview)
       .filter(item => item.eligible);
     if (body.confirmWrite !== true) return jsonResponse(context, 200, { ok: true, dryRun: true, data: candidates });
