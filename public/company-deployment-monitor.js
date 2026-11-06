@@ -101,4 +101,5 @@ export function initCompanyMonitor() {
     if (event.target === $('companyProjectDetail')) $('companyProjectDetail').close();
   });
   $('companyDate').addEventListener('change', () => { selectedStatuses.clear(); load(); });
+  return { activate: () => tab.click() };
 }

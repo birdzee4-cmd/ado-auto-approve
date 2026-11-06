@@ -190,7 +190,7 @@ async function init() {
   if (!auth?.clientPrincipal) { window.location.href = '/.auth/login/aad?post_login_redirect_uri=/deployment.html'; return; }
   setText('userName', auth.clientPrincipal.userDetails || 'Authenticated');
   initTracking();
-  initCompanyMonitor();
+  const companyMonitor = initCompanyMonitor();
   const today = historyDates('today');
   $('eventRange').value = 'today';
   $('eventFrom').value = today.from; $('eventTo').value = today.to;
@@ -225,6 +225,7 @@ async function init() {
   ensureUnknownResultFilter();
   $('closeEventDetail')?.addEventListener('click', () => $('eventDetail').close());
   await loadEvents();
+  companyMonitor.activate();
 }
 init().catch(error => {
   setText('eventsUpdated', 'Unable to initialize deployment monitor');
