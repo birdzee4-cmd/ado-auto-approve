@@ -97,5 +97,8 @@ export function initCompanyMonitor() {
   });
   $('companySearch').addEventListener('input', render);
   $('companyProjectClose').addEventListener('click', () => $('companyProjectDetail').close());
+  $('companyProjectDetail').addEventListener('click', event => {
+    if (event.target === $('companyProjectDetail')) $('companyProjectDetail').close();
+  });
   $('companyDate').addEventListener('change', () => { selectedStatuses.clear(); load(); });
 }
