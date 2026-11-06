@@ -165,7 +165,14 @@ async function handleWrite(context, req, path, principal) {
     const admin = auth.requireAnyRole(context, req, ['admin']);
     if (!admin.ok) return jsonResponse(context, admin.status, admin.body);
     const incidents = await sharePoint.listIncidents(5000);
-    const candidates = incidents.map(legacyTimezonePreview).filter(item => item.eligible);
+    // Legacy timezone repair is intentionally bounded to the historical case
+    // range.  The IncidentId timestamp is the source of truth for FirstSeenAt;
+    // do not infer the correction from the current offset because old records
+    // contain both seven- and eight-hour variants.
+    const candidates = incidents
+      .filter(item => inLegacyRange(item.displayId, body.from || 1, body.to || 894))
+      .map(legacyTimezonePreview)
+      .filter(item => item.eligible);
     if (body.confirmWrite !== true) return jsonResponse(context, 200, { ok: true, dryRun: true, data: candidates });
     const results = [];
     for (const candidate of candidates) {
@@ -298,18 +305,19 @@ function legacyResolvedAt(incident) {
 
 function legacyTimezonePreview(incident) {
   const match = /^inc-(\d{14})-/.exec(String(incident.incidentId || ''));
-  const currentFirst = Date.parse(incident.firstSeen || '');
-  if (!match || !Number.isFinite(currentFirst)) return { incidentId: incident.incidentId, eligible: false, reason: 'NO_CANONICAL_INCIDENT_TIME' };
+  if (!match) return { incidentId: incident.incidentId, eligible: false, reason: 'NO_CANONICAL_INCIDENT_TIME' };
   const raw = match[1];
   // IncidentId timestamps are generated from the canonical UTC FirstSeenAt.
   const expectedFirst = Date.parse(`${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}T${raw.slice(8, 10)}:${raw.slice(10, 12)}:${raw.slice(12, 14)}Z`);
-  const delta = expectedFirst - currentFirst;
-  // The legacy records in this list were serialized eight hours early:
-  // the UTC value in storage is one hour earlier than the UTC timestamp
-  // encoded in IncidentId, after the old +07:00 value was converted twice.
-  if (delta !== 8 * 60 * 60 * 1000) return { incidentId: incident.incidentId, eligible: false, reason: 'FIRST_SEEN_NOT_EXACTLY_EIGHT_HOURS_EARLY' };
+  const currentFirst = Date.parse(incident.firstSeen || '');
+  if (!Number.isFinite(currentFirst) || !Number.isFinite(expectedFirst)) return { incidentId: incident.incidentId, eligible: false, reason: 'INVALID_TIMESTAMP' };
+  if (currentFirst === expectedFirst) return { incidentId: incident.incidentId, eligible: false, reason: 'ALREADY_CANONICAL' };
   const currentResolved = Date.parse(incident.resolvedAt || '');
-  const newResolved = Number.isFinite(currentResolved) ? new Date(currentResolved + 7 * 60 * 60 * 1000).toISOString() : '';
+  // Preserve the observed incident duration while moving the event to the
+  // canonical UTC start. This avoids applying a guessed fixed offset to old
+  // ResolvedAt values and guarantees the lifecycle remains chronological.
+  const duration = Number.isFinite(currentResolved) ? Math.max(1000, currentResolved - currentFirst) : 0;
+  const newResolved = duration ? new Date(expectedFirst + duration).toISOString() : '';
   if (newResolved && Date.parse(newResolved) <= expectedFirst) return { incidentId: incident.incidentId, eligible: false, reason: 'INVALID_RESOLUTION_SEQUENCE' };
   return {
     eligible: true, sharePointId: incident.sharePointId, incidentId: incident.incidentId,
