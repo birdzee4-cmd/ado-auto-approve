@@ -9,6 +9,11 @@ export function initCompanyMonitor() {
     <div class="deployment-card tracking-filters"><label>ค้นหา Project / ประเภท / Build / ผู้ขอ<input id="companySearch" type="search"></label><label>วันที่ข้อมูล<input id="companyDate" type="date" value="${bangkokToday()}" max="${bangkokToday()}"></label></div>
     <p id="companyMessage" role="status" aria-live="polite">ยังไม่ได้โหลดข้อมูล</p><p id="companyCoverage" class="heading-help">อ่านประวัติจาก Azure ตามวัน Update ของ Monitor · เก็บเบื้องหลังทุก 1 นาที · หน้าจอ Refresh ด้วยตนเอง</p><p class="heading-help">กดชื่อ Project เพื่อดูทุกงานของวันนั้น · กลับมาสำเร็จอิง Monitor ใน Project / Environment / ประเภท / Branch เดียวกัน ยังไม่ยืนยัน Commit หรือ Artifact</p><div id="companyBoard" class="company-board"></div><dialog id="companyProjectDetail" class="company-project-detail" aria-labelledby="companyProjectTitle"><button type="button" id="companyProjectClose" class="secondary-button">ปิด</button><div id="companyProjectBody"></div></dialog>`;
   document.querySelector('.deployment-content').append(host);
+  const developmentToggle = document.createElement('button');
+  developmentToggle.type = 'button'; developmentToggle.className = 'secondary-button';
+  developmentToggle.textContent = 'View Development'; developmentToggle.style.margin = '0 0 8px';
+  host.querySelector('#companyBoard').classList.add('company-hide-development');
+  host.querySelector('#companyBoard').before(developmentToggle);
   const nav = document.querySelector('.nav-links');
   const tab = document.createElement('button'); tab.type = 'button'; tab.className = 'nav-link'; tab.textContent = 'Monitor งานประจำวัน'; nav.prepend(tab);
   nav.addEventListener('click', event => {
@@ -101,5 +106,9 @@ export function initCompanyMonitor() {
     if (event.target === $('companyProjectDetail')) $('companyProjectDetail').close();
   });
   $('companyDate').addEventListener('change', () => { selectedStatuses.clear(); load(); });
+  developmentToggle.addEventListener('click', () => {
+    const hidden = $('companyBoard').classList.toggle('company-hide-development');
+    developmentToggle.textContent = hidden ? 'View Development' : 'Hide Development';
+  });
   return { activate: () => tab.click() };
 }
