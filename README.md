@@ -19,6 +19,7 @@ Production URL:
 - App Service Portal: https://mango-wave-09cff3700.7.azurestaticapps.net/portal.html
 - App Service Audit Logs: https://mango-wave-09cff3700.7.azurestaticapps.net/portal-logs.html
 - Deployment Monitoring: https://mango-wave-09cff3700.7.azurestaticapps.net/deployment.html
+- Deployment Analytics (read-only): https://mango-wave-09cff3700.7.azurestaticapps.net/deployment-analytics.html
 
 ## Current Status
 
