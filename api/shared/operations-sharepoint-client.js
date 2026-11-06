@@ -424,7 +424,7 @@ async function getIncident(incidentId) {
   if (!target) return null;
   const config = getConfig();
   const escaped = String(incidentId).replace(/'/g, "''");
-  const direct = (await listItems(5, config.listName, `fields/IncidentId eq '${escaped}'`))
+  const direct = (await listItems(5, config.listName, `fields/IncidentId eq '${escaped}' or fields/CorrelationId eq '${escaped}'`))
     .map(mapSharePointIncident)
     .find(item => item.incidentId.toLowerCase() === target);
   if (direct) return direct;
