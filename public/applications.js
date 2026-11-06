@@ -22,11 +22,11 @@ const APPS = [
   {
     id: 'deployment',
     title: 'Deployment Report',
-    description: 'Plan Web, Service, Android, and iOS deployments, update outcomes, and export the report to Excel.',
+    description: 'Plan Web, Service, Android, and iOS deployments, review read-only Deployment Analytics, and export the report to Excel.',
     href: '/deployment.html',
     icon: 'D',
     permission: 'canManageDeployments',
-    chips: ['Planning', 'Deployment History', 'Excel Export']
+    chips: ['Planning', 'Deployment Analytics', 'Excel Export']
   },
   {
     id: 'operations',
