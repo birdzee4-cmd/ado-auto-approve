@@ -304,7 +304,10 @@ function legacyTimezonePreview(incident) {
   // IncidentId timestamps are generated from the canonical UTC FirstSeenAt.
   const expectedFirst = Date.parse(`${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}T${raw.slice(8, 10)}:${raw.slice(10, 12)}:${raw.slice(12, 14)}Z`);
   const delta = expectedFirst - currentFirst;
-  if (delta !== 7 * 60 * 60 * 1000) return { incidentId: incident.incidentId, eligible: false, reason: 'FIRST_SEEN_NOT_EXACTLY_SEVEN_HOURS_EARLY' };
+  // The legacy records in this list were serialized eight hours early:
+  // the UTC value in storage is one hour earlier than the UTC timestamp
+  // encoded in IncidentId, after the old +07:00 value was converted twice.
+  if (delta !== 8 * 60 * 60 * 1000) return { incidentId: incident.incidentId, eligible: false, reason: 'FIRST_SEEN_NOT_EXACTLY_EIGHT_HOURS_EARLY' };
   const currentResolved = Date.parse(incident.resolvedAt || '');
   const newResolved = Number.isFinite(currentResolved) ? new Date(currentResolved + 7 * 60 * 60 * 1000).toISOString() : '';
   if (newResolved && Date.parse(newResolved) <= expectedFirst) return { incidentId: incident.incidentId, eligible: false, reason: 'INVALID_RESOLUTION_SEQUENCE' };
