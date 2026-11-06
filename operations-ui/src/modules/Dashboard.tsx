@@ -68,7 +68,7 @@ function formatDay(value?: string) {
 }
 
 function formatDate(value?: string) {
-  return formatBangkokTimestamp(value, 'en-GB', true);
+  return formatBangkokTimestamp(value, 'en-GB');
 }
 
 function formatTime(value?: string) {

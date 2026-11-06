@@ -2,19 +2,17 @@ import type { ReactNode } from 'react';
 
 // API timestamps are UTC instants. Explicitly mark timezone-less values as UTC
 // so browser locale settings cannot shift incident times inconsistently.
-export function parseUtcTimestamp(value?: string, legacyBangkokWallClock = false) {
+export function parseUtcTimestamp(value?: string) {
   if (!value) return undefined;
   const normalized = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`;
   const date = new Date(normalized);
-  // FirstSeenAt/ResolvedAt in the incident store are legacy Bangkok
-  // wall-clock values exposed as UTC-like timestamps. These two fields need
-  // the Bangkok offset applied once more; normal timestamps do not opt in.
-  if (legacyBangkokWallClock) date.setTime(date.getTime() + 7 * 60 * 60 * 1000);
+  // Canonical API timestamps are UTC instants. Display conversion happens
+  // only in formatBangkokTimestamp; never add the Bangkok offset twice.
   return Number.isFinite(date.getTime()) ? date : undefined;
 }
 
-export function formatBangkokTimestamp(value?: string, locale = 'en-GB', legacyBangkokWallClock = false) {
-  const date = parseUtcTimestamp(value, legacyBangkokWallClock);
+export function formatBangkokTimestamp(value?: string, locale = 'en-GB') {
+  const date = parseUtcTimestamp(value);
   return date ? date.toLocaleString(locale, { timeZone: 'Asia/Bangkok', hour12: false }) : '-';
 }
 

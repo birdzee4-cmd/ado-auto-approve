@@ -365,7 +365,7 @@ export function Incidents() {
         <span className="ops-cell-stack ops-incident-ado"><AdoStateBadge value={item.adoState} /><small>{item.workItemId ? `#${item.workItemId}` : 'No work item'}</small></span>
         <StatusBadge value={operationsStatus(item)} />
         <span className="ops-cell-stack ops-incident-related"><strong>{relatedWorkItemCount(item) || '—'}</strong><small>{relatedWorkItemSummary(item)}</small></span>
-        <span className="ops-cell-stack ops-incident-time"><strong>{formatRelativeDate(item.firstSeen, true)}</strong><small>{formatBangkokTimestamp(item.firstSeen, 'en-GB', true)}</small></span>
+        <span className="ops-cell-stack ops-incident-time"><strong>{formatRelativeDate(item.firstSeen)}</strong><small>{formatBangkokTimestamp(item.firstSeen, 'en-GB')}</small></span>
         <span className="ops-incident-owner">{item.assignedTo || 'Unassigned'}</span>
         <span className="ops-row-arrow" aria-hidden="true">→</span>
       </button>)}</div>
@@ -375,7 +375,7 @@ export function Incidents() {
       <div className="ops-bulk-review-content">
       <h2 id="bulk-close-title">Close {batchReview.length} incidents</h2>
       <p>Latest Work Item and alert states will be checked before each closure. Incidents that no longer qualify will be skipped.</p>
-      <ul>{batchReview.map(item => <li key={item.incidentId}><strong>{item.displayId || item.incidentId}</strong> · {item.resource || item.service}<br /><small>Recovered: {formatBangkokTimestamp(item.resolvedAt, 'en-GB', true)} · ADO: {item.adoState || 'Unknown'}</small></li>)}</ul>
+      <ul>{batchReview.map(item => <li key={item.incidentId}><strong>{item.displayId || item.incidentId}</strong> · {item.resource || item.service}<br /><small>Recovered: {formatBangkokTimestamp(item.resolvedAt, 'en-GB')} · ADO: {item.adoState || 'Unknown'}</small></li>)}</ul>
       <label>Closure note (optional)<textarea maxLength={1000} disabled={busy || batchResults.length > 0} value={batchNote} onChange={e => setBatchNote(e.target.value)} /></label>
       <div role="status" aria-live="polite">{busy ? `Processing ${batchResults.length} / ${batchReview.length}` : batchResults.length > 0 ? `${batchResults.filter(item => item.result === 'Closed').length} closed · ${batchResults.filter(item => item.result === 'Already closed').length} already closed · ${batchResults.filter(item => item.failed).length} failed / skipped` : ''}</div>
       {batchResults.length > 0 && <ul>{batchResults.map(item => <li key={item.id}>{item.label}: {item.result}</li>)}</ul>}
@@ -440,12 +440,12 @@ function formatDate(value?: string) {
 }
 
 function formatIncidentDate(value?: string) {
-  return formatBangkokTimestamp(value, 'en-GB', true);
+  return formatBangkokTimestamp(value, 'en-GB');
 }
 
 function formatTimelineDate(event: { eventType?: string; timestamp?: string }) {
   const monitoringEvent = event.eventType === 'ALERT_FIRING' || event.eventType === 'ALERT_RESOLVED';
-  return monitoringEvent ? formatBangkokTimestamp(event.timestamp, 'en-GB', true) : formatDate(event.timestamp);
+  return monitoringEvent ? formatBangkokTimestamp(event.timestamp, 'en-GB') : formatDate(event.timestamp);
 }
 
 function relatedWorkItemCount(item: Incident) {
@@ -479,8 +479,8 @@ function formatClock(value: Date) {
   return value.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-function formatRelativeDate(value?: string, legacyBangkokWallClock = false) {
-  const timestamp = parseUtcTimestamp(value, legacyBangkokWallClock);
+function formatRelativeDate(value?: string) {
+  const timestamp = parseUtcTimestamp(value);
   if (!timestamp) return 'Unknown';
   const minutes = Math.round((Date.now() - timestamp.getTime()) / 60000);
   if (minutes < 1) return 'Just now';
