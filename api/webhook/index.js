@@ -406,10 +406,10 @@ module.exports = async function (context, req) {
     }
 
     const actionLabel = eventType === 'git.pullrequest.created' ? 'New PR' : 'PR Updated';
-    const notificationEventId = String(body.id || body.notificationId || '').trim();
-    const notificationKey = notificationEventId
-        ? `teams:pr:${eventType}:${notificationEventId}`
-        : `teams:pr:${eventType}:${prId}:${sourceRef}:${targetRef}:${prTitle}`;
+    // ADO assigns a new notification id for every update to the same PR.  The
+    // business rule for this channel is one alert per PR/target branch, so the
+    // PR identity (rather than the delivery id) must be the idempotency key.
+    const notificationKey = `teams:pr:${prId}:${targetRef.toLowerCase()}`;
     try {
         const existingNotification = await sp.getLogByEventKey(notificationKey);
         if (existingNotification.ok && existingNotification.body && Array.isArray(existingNotification.body.value) && existingNotification.body.value.length) {
