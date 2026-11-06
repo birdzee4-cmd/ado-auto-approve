@@ -424,10 +424,17 @@ async function getIncident(incidentId) {
   if (!target) return null;
   const config = getConfig();
   const escaped = String(incidentId).replace(/'/g, "''");
-  const direct = (await listItems(10, config.listName, `contains(fields/IncidentId,'${escaped}') or contains(fields/CorrelationId,'${escaped}')`))
-    .map(mapSharePointIncident)
-    .find(item => item.incidentId.toLowerCase() === target || item.incidentId.toLowerCase().includes(target));
-  if (direct) return direct;
+  // Graph may reject contains/or filters on this list depending on the
+  // SharePoint field index. Detail lookup must still fall back to the normal
+  // bounded list read instead of turning a query limitation into HTTP 503.
+  try {
+    const direct = (await listItems(10, config.listName, `contains(fields/IncidentId,'${escaped}') or contains(fields/CorrelationId,'${escaped}')`))
+      .map(mapSharePointIncident)
+      .find(item => item.incidentId.toLowerCase() === target || item.incidentId.toLowerCase().includes(target));
+    if (direct) return direct;
+  } catch (err) {
+    // Best-effort optimization only; the fallback below is authoritative.
+  }
   // Keep the previous bounded fallback for records whose field was stored
   // under CorrelationId by an older workflow version.
   const items = await listIncidents(1000);
