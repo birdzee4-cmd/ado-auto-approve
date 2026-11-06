@@ -1,4 +1,5 @@
 const { createHash } = require('node:crypto');
+const { findReplacement } = require('./company-monitor-correlation');
 const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const branch = value => String(value || '').trim().replace(/^refs\/heads\//, '');
 function startedAt(text) {
@@ -39,6 +40,7 @@ function trackDay(events, day, now = new Date()) {
     if (!projects.has(key)) projects.set(key, { key, name: item.project, environment: item.environment, timeline: [], failures: [] });
     projects.get(key).timeline.push(item);
   }
+  const allEvents = timeline;
   for (const project of projects.values()) {
     for (let index = 0; index < project.timeline.length; index++) {
       const failed = project.timeline[index];
@@ -48,16 +50,18 @@ function trackDay(events, day, now = new Date()) {
       const candidate = !recovery ? following.find(item => item.status === 'complete' && Date.parse(item.updatedAt) > Date.parse(failed.updatedAt)) || null : null;
       const laneLatest = following.at(-1);
       const retry = !recovery && laneLatest && !laneLatest.terminal && later(laneLatest, failed) ? laneLatest : null;
-      project.failures.push({ failed, recovery, candidate, retry, status: recovery ? 'recovered' : retry ? 'retrying' : candidate ? 'unverified' : 'open',
+      const replacement = !recovery ? findReplacement(failed, allEvents) : null;
+      project.failures.push({ failed, recovery, candidate, replacement, retry, status: recovery ? 'recovered' : replacement ? 'superseded' : retry ? 'retrying' : candidate ? 'unverified' : 'open',
         durationSeconds: Math.max(0, Math.floor(((recovery ? Date.parse(recovery.updatedAt) : asOf) - Date.parse(failed.updatedAt)) / 1000)),
         evidence: recovery ? (failed.id === recovery.id ? 'same-monitor-job-status-change' : 'later-monitor-run-started-after-failure') : candidate ? 'later-complete-without-new-build-evidence' : 'no-later-success' });
     }
     project.latest = [...project.timeline].sort((a, b) => Date.parse(a.latestUpdateAt) - Date.parse(b.latestUpdateAt)).at(-1);
     project.totalRuns = new Set(project.timeline.map(item => item.id)).size;
     project.failedCount = project.failures.length;
-    project.recoveredCount = project.failures.filter(item => item.recovery).length;
-    project.openBuild = project.failures.filter(item => !item.recovery && item.failed.status === 'build fail').length;
-    project.openDeploy = project.failures.filter(item => !item.recovery && item.failed.status === 'deploy fail').length;
+    project.recoveredCount = project.failures.filter(item => item.recovery || item.replacement).length;
+    project.supersededCount = project.failures.filter(item => item.replacement).length;
+    project.openBuild = project.failures.filter(item => !item.recovery && !item.replacement && item.failed.status === 'build fail').length;
+    project.openDeploy = project.failures.filter(item => !item.recovery && !item.replacement && item.failed.status === 'deploy fail').length;
     project.openCount = project.openBuild + project.openDeploy;
     project.retrying = project.failures.some(item => item.retry);
     project.lastFailureAt = project.failures.at(-1)?.failed.updatedAt || '';
@@ -65,6 +69,6 @@ function trackDay(events, day, now = new Date()) {
     project.timeline.reverse(); project.failures.reverse();
   }
   return { date: day, asOf: new Date(asOf).toISOString(), projects: [...projects.values()].sort((a, b) => Date.parse(b.latest.updatedAt) - Date.parse(a.latest.updatedAt)),
-    note: 'กลับมาสำเร็จหมายถึง Monitor รายงาน Complete ภายหลังในงานกลุ่มเดียวกัน ยังไม่ยืนยัน Commit/Artifact หรือการแก้โค้ดเดิม; ไม่พบหลักฐานเวลาเริ่ม Build ใหม่จะยังไม่ปิด Fail' };
+    note: 'กลับมาสำเร็จหมายถึง Monitor รายงาน Complete ภายหลังในงานกลุ่มเดียวกัน; กรณี Pipeline ย้ายชื่อจะปิด Fail ได้เมื่อ Commit/Repository/Environment/Branch ตรงกันและอยู่ใน Mapping ที่กำหนด' };
 }
 module.exports = { trackDay, eventKey, startedAt };

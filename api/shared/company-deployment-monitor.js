@@ -10,7 +10,8 @@ function normalize(payload) {
     const match = row.LastUpdate.match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}:\d{2}:\d{2})$/);
     const updatedAt = match ? `${match[3]}-${match[2]}-${match[1]}T${match[4]}+07:00` : '';
     const azureBuildId = /^\d+(?:_[MP])?$/.test(row.BuildId) ? row.BuildId.replace(/_[MP]$/, '') : '';
-    return { id: row.BuildId, azureBuildId, project: row.CiName, projectType: String(row.ProjectType || '').trim(),
+    return { id: row.BuildId, azureBuildId, project: row.CiName, pipelineName: row.CiName, repository: String(row.Repository || row.RepositoryName || '').trim(), commitId: String(row.Commit || row.CommitId || row.SourceVersion || row.Version || '').trim().toLowerCase(),
+      projectType: String(row.ProjectType || '').trim(),
       environment, branch: String(row.BranchName || ''), requestedBy: String(row.RequestBy || ''), status,
       terminal: terminal.has(status), updatedAt, updatedText: row.LastUpdate, startText: String(row.StartTime || ''),
       duration: String(row.TotalTime || '').split('.')[0] };
