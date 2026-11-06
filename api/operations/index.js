@@ -23,6 +23,10 @@ module.exports = async function (context, req) {
     const query = req.query || {};
     return handleWrite(context, { ...req, method: 'POST', body: { ...query, confirmWrite: String(query.confirmWrite || '').toLowerCase() === 'true' } }, path, roleCheck.principal);
   }
+  if (method === 'GET' && path === 'legacy-timezone-migration') {
+    const query = req.query || {};
+    return handleWrite(context, { ...req, method: 'POST', body: { ...query, confirmWrite: String(query.confirmWrite || '').toLowerCase() === 'true' } }, path, roleCheck.principal);
+  }
   try {
     if (method === 'POST') {
       // Await inside this try/catch so rejected write operations are converted
@@ -156,6 +160,33 @@ async function handleWrite(context, req, path, principal) {
     }
     return jsonResponse(context, 200, { ok: true, dryRun: false, data: results });
   }
+  const legacyTimezone = /^legacy-timezone-migration$/.test(path);
+  if (legacyTimezone) {
+    const admin = auth.requireAnyRole(context, req, ['admin']);
+    if (!admin.ok) return jsonResponse(context, admin.status, admin.body);
+    const incidents = await sharePoint.listIncidents(5000);
+    const candidates = incidents.map(legacyTimezonePreview).filter(item => item.eligible);
+    if (body.confirmWrite !== true) return jsonResponse(context, 200, { ok: true, dryRun: true, data: candidates });
+    const results = [];
+    for (const candidate of candidates) {
+      await sharePoint.updateIncidentRecord(candidate.sharePointId, {
+        FirstSeenAt: candidate.newFirstSeenAt,
+        ...(candidate.newResolvedAt ? { ResolvedAt: candidate.newResolvedAt } : {})
+      });
+      await sharePoint.appendAudit({
+        Title: 'LEGACY_TIMEZONE_MIGRATION', EventId: crypto.randomUUID(),
+        EventKey: `LEGACY_TIMEZONE_MIGRATION:${candidate.incidentId}`,
+        CorrelationId: String(req.headers && (req.headers['x-correlation-id'] || req.headers['x-ms-request-id']) || crypto.randomUUID()),
+        IncidentId: candidate.incidentId, Action: 'LEGACY_TIMEZONE_MIGRATION', Result: 'SUCCEEDED',
+        OperationsUserId: principal.userId || '', OperationsUserName: principal.userDetails || '',
+        OperationsUserEmail: auth.getUserEmail(principal) || '',
+        Detail: JSON.stringify({ oldFirstSeenAt: candidate.firstSeenAt, newFirstSeenAt: candidate.newFirstSeenAt, oldResolvedAt: candidate.resolvedAt, newResolvedAt: candidate.newResolvedAt }),
+        OccurredAt: new Date().toISOString()
+      });
+      results.push({ ...candidate, updated: true });
+    }
+    return jsonResponse(context, 200, { ok: true, dryRun: false, data: results });
+  }
   // Alert Events is intentionally a read-only monitoring surface. Event
   // ingestion remains automation-only above; reconciliation is owned by the
   // scheduled service and must not be triggered from the UI.
@@ -263,6 +294,24 @@ function legacyResolvedAt(incident) {
     if (Number.isFinite(parsed) && (!Number.isFinite(first) || parsed > first)) return new Date(parsed).toISOString();
   }
   return new Date((Number.isFinite(first) ? first : Date.now()) + 1000).toISOString();
+}
+
+function legacyTimezonePreview(incident) {
+  const match = /^inc-(\d{14})-/.exec(String(incident.incidentId || ''));
+  const currentFirst = Date.parse(incident.firstSeen || '');
+  if (!match || !Number.isFinite(currentFirst)) return { incidentId: incident.incidentId, eligible: false, reason: 'NO_CANONICAL_INCIDENT_TIME' };
+  const raw = match[1];
+  const expectedFirst = Date.parse(`${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}T${raw.slice(8, 10)}:${raw.slice(10, 12)}:${raw.slice(12, 14)}+07:00`);
+  const delta = expectedFirst - currentFirst;
+  if (delta !== 7 * 60 * 60 * 1000) return { incidentId: incident.incidentId, eligible: false, reason: 'FIRST_SEEN_NOT_EXACTLY_SEVEN_HOURS_EARLY' };
+  const currentResolved = Date.parse(incident.resolvedAt || '');
+  const newResolved = Number.isFinite(currentResolved) ? new Date(currentResolved + 7 * 60 * 60 * 1000).toISOString() : '';
+  if (newResolved && Date.parse(newResolved) <= expectedFirst) return { incidentId: incident.incidentId, eligible: false, reason: 'INVALID_RESOLUTION_SEQUENCE' };
+  return {
+    eligible: true, sharePointId: incident.sharePointId, incidentId: incident.incidentId,
+    firstSeenAt: incident.firstSeen, newFirstSeenAt: new Date(expectedFirst).toISOString(),
+    resolvedAt: incident.resolvedAt || '', newResolvedAt: newResolved
+  };
 }
 
 function legacyMigrationPreview(incident) {
