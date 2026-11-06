@@ -177,7 +177,7 @@ async function handleWrite(context, req, path, principal) {
       // displayId is derived from FirstSeenAt and is therefore not a safe
       // filter key while repairing the timestamp that feeds that display.
       .filter(item => requestedIncidentId
-        ? String(item.incidentId || '').trim().toLowerCase() === requestedIncidentId
+        ? String(item.incidentId || '').trim().toLowerCase().includes(requestedIncidentId)
         : Number.isSafeInteger(Number(item.sharePointId)) && Number(item.sharePointId) >= Number(body.from || 1) && Number(item.sharePointId) <= Number(body.to || 894))
       .map(legacyTimezonePreview)
       .filter(item => item.eligible);
