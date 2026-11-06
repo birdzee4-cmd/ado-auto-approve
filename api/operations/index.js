@@ -164,12 +164,14 @@ async function handleWrite(context, req, path, principal) {
   if (legacyTimezone) {
     const admin = auth.requireAnyRole(context, req, ['admin']);
     if (!admin.ok) return jsonResponse(context, admin.status, admin.body);
-    const incidents = await sharePoint.listIncidents(5000);
+    const requestedIncidentId = String(body.incidentId || '').trim().toLowerCase();
+    const incidents = requestedIncidentId
+      ? [await sharePoint.getIncident(requestedIncidentId)].filter(Boolean)
+      : await sharePoint.listIncidents(5000);
     // Legacy timezone repair is intentionally bounded to the historical case
     // range.  The IncidentId timestamp is the source of truth for FirstSeenAt;
     // do not infer the correction from the current offset because old records
     // contain both seven- and eight-hour variants.
-    const requestedIncidentId = String(body.incidentId || '').trim().toLowerCase();
     const candidates = incidents
       // The public INC-YYYY-NNNNNN suffix is the SharePoint item ID.
       // displayId is derived from FirstSeenAt and is therefore not a safe
