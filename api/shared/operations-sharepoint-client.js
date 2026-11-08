@@ -453,7 +453,11 @@ function mapSharePointIncident(item) {
   const workItemId = /^\d+$/.test(workItemIdValue) ? Number(workItemIdValue) : undefined;
   const resource = textField(fields, ['Resource', 'Service']) || '-';
   const receivedAt = dateField(fields, ['ReceivedAt']) || item.createdDateTime || '';
-  const firstSeenAt = dateField(fields, ['FirstSeenAt', 'FirstSeen']) || receivedAt;
+  const storedFirstSeenAt = dateField(fields, ['FirstSeenAt', 'FirstSeen']) || receivedAt;
+  // Flow-generated incident IDs embed the canonical UTC First Seen instant.
+  // Prefer it when available: this prevents a SharePoint/connector timezone
+  // conversion from shifting the displayed Bangkok time for new incidents.
+  const firstSeenAt = canonicalIncidentFirstSeen(incidentId) || storedFirstSeenAt;
   const resolvedAt = dateField(fields, ['ResolvedAt']);
   const lastAlertAt = dateField(fields, ['LastAlertAt']);
   const lastSyncedAt = dateField(fields, ['LastSyncedAt', 'LastSeen']) || item.lastModifiedDateTime || receivedAt;
@@ -562,6 +566,14 @@ function isoDate(value) {
   if (!value) return '';
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? new Date(parsed).toISOString() : '';
+}
+
+function canonicalIncidentFirstSeen(incidentId) {
+  const match = /^inc-(\d{14})-/i.exec(String(incidentId || ''));
+  if (!match) return '';
+  const raw = match[1];
+  const value = Date.parse(`${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}T${raw.slice(8, 10)}:${raw.slice(10, 12)}:${raw.slice(12, 14)}Z`);
+  return Number.isFinite(value) ? new Date(value).toISOString() : '';
 }
 
 function numberField(fields, names) {
@@ -682,6 +694,7 @@ module.exports = {
   trackingStatus,
   safeAdoUrl,
   durationMinutes,
+  canonicalIncidentFirstSeen,
   inferEnvironment,
   incidentLifecycleIssues
 };

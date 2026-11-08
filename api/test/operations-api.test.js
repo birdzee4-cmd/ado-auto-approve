@@ -505,6 +505,20 @@ test('SharePoint mapping keeps monitoring timestamps distinct and derives enviro
   assert.equal(incident.trackingStatus, 'CANCELLED');
 });
 
+test('SharePoint mapping uses the canonical UTC instant embedded in flow incident IDs', () => {
+  const incident = sharePoint.mapSharePointIncident({
+    id: '917',
+    fields: {
+      IncidentId: 'inc-20261108004000-meadjohnson-azureappservice5xxcountcritical',
+      Title: 'AzureAppService5xxCountCritical',
+      Resource: 'meadjohnson',
+      FirstSeenAt: '2026-11-07T23:40:00Z'
+    }
+  });
+
+  assert.equal(incident.firstSeen, '2026-11-08T00:40:00.000Z');
+});
+
 test('Incident duration rejects missing or non-forward timestamps', () => {
   assert.equal(sharePoint.durationMinutes('2026-09-17T12:00:00Z', '2026-09-17T12:20:00Z'), 20);
   assert.equal(sharePoint.durationMinutes('2026-09-17T12:20:00Z', '2026-09-17T12:00:00Z'), undefined);
