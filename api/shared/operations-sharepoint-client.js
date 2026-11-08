@@ -131,7 +131,14 @@ async function listItems(maxItems, listName, filter) {
   const items = [];
 
   while (url && items.length < maximum) {
-    const result = await httpRequest('GET', url, headers);
+    let result;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      result = await httpRequest('GET', url, headers);
+      if (result.ok || ![429, 500, 502, 503, 504].includes(result.status) || attempt === 2) break;
+      const retryAfter = Number(result.body?.error?.innerError?.retryAfter || result.body?.retryAfter || 0);
+      const delay = Math.min(5000, Math.max(500, retryAfter * 1000 || 500 * (attempt + 1)));
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
     if (!result.ok) throw new Error('Unable to read Operations Hub incidents from SharePoint');
     const page = result.body && Array.isArray(result.body.value) ? result.body.value : [];
     items.push(...page.slice(0, maximum - items.length));
