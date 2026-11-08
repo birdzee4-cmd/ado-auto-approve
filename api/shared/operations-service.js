@@ -681,7 +681,9 @@ async function manualCloseIncident(input, context, dependencies = {}) {
   const now = new Date().toISOString();
   const resolvedAt = incident.resolvedAt || input.resolvedAt || now;
   if (String(incident.status || '').toUpperCase() !== 'RESOLVED' || !incident.resolvedAt) await sp.updateIncidentRecord(incident.sharePointId, { AlertStatus: 'RESOLVED', ResolvedAt: resolvedAt, LastSyncedAt: now });
-  await audit(sp, context, { incidentId: incident.incidentId, action: 'INCIDENT_MANUAL_OVERRIDE_CLOSED', result: 'SUCCEEDED', detail: `Manual override closed at ${now}; reason: ${reason}; previous alert status: ${incident.status || 'UNKNOWN'}` });
+  // Use the canonical closure event so list/detail reconciliation marks the
+  // incident CLOSED. Preserve the manual-override context in the audit detail.
+  await audit(sp, context, { incidentId: incident.incidentId, action: 'INCIDENT_CLOSED', result: 'SUCCEEDED', detail: `Manual override closed at ${now}; reason: ${reason}; previous alert status: ${incident.status || 'UNKNOWN'}` });
   return { incidentId: incident.incidentId, closed: true, manualOverride: true, closedAt: now, resolvedAt };
 }
 
