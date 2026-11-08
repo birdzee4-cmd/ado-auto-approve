@@ -678,12 +678,19 @@ async function manualCloseIncident(input, context, dependencies = {}) {
   const reason = String(input.reason || '').trim();
   if (reason.length < 10) throw operationalError(422, 'MANUAL_CLOSE_REASON_REQUIRED', 'A manual closure reason of at least 10 characters is required');
   if (String(incident.operationsStatus || '').toUpperCase() === 'CLOSED') return { incidentId: incident.incidentId, closed: true, duplicate: true, closedAt: incident.operationsClosedAt || null };
+  const workItems = incident.workItems || [];
+  if (String(incident.status || '').toUpperCase() !== 'RESOLVED') {
+    throw operationalError(409, 'LEGACY_CLOSE_ALERT_NOT_RECOVERED', 'Legacy closure requires a recovered alert');
+  }
+  if (!workItems.length || workItems.some(item => !defaultWorkItems.isClosedState(item.state))) {
+    throw operationalError(409, 'LEGACY_CLOSE_WORK_ITEMS_OPEN', 'Legacy closure requires all VSTS Work Items to be closed');
+  }
   const now = new Date().toISOString();
   const resolvedAt = incident.resolvedAt || input.resolvedAt || now;
   if (String(incident.status || '').toUpperCase() !== 'RESOLVED' || !incident.resolvedAt) await sp.updateIncidentRecord(incident.sharePointId, { AlertStatus: 'RESOLVED', ResolvedAt: resolvedAt, LastSyncedAt: now });
   // Use the canonical closure event so list/detail reconciliation marks the
   // incident CLOSED. Preserve the manual-override context in the audit detail.
-  await audit(sp, context, { incidentId: incident.incidentId, action: 'INCIDENT_CLOSED', result: 'SUCCEEDED', detail: `Manual override closed at ${now}; reason: ${reason}; previous alert status: ${incident.status || 'UNKNOWN'}` });
+  await audit(sp, context, { incidentId: incident.incidentId, action: 'INCIDENT_CLOSED', result: 'SUCCEEDED', detail: `Legacy timeline override closed at ${now}; reason: ${reason}; all VSTS Work Items verified closed` });
   return { incidentId: incident.incidentId, closed: true, manualOverride: true, closedAt: now, resolvedAt };
 }
 

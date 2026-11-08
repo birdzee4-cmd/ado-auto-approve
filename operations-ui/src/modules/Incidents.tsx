@@ -100,7 +100,10 @@ export function Incidents() {
   const currentPage = Math.min(page, pageCount);
   const visibleItems = filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const canBatchClose = capabilities.closeIncident && connection?.connected;
-  const eligibleVisible = visibleItems.filter(item => operationsStatus(item) === 'READY_TO_CLOSE' && item.status === 'RESOLVED' && !item.hasLifecycleConflict);
+  const eligibleVisible = visibleItems.filter(item => {
+    if (operationsStatus(item) === 'READY_TO_CLOSE' && item.status === 'RESOLVED' && !item.hasLifecycleConflict) return true;
+    return item.status === 'RESOLVED' && Boolean(item.hasLifecycleConflict) && Number(item.workItemSummary?.total || 0) > 0 && Number(item.workItemSummary?.open || 0) === 0;
+  });
   const checkedVisible = eligibleVisible.filter(item => checkedIds.includes(item.incidentId));
   useEffect(() => { setCheckedIds([]); }, [status, search, alertStatus, adoState, lifecycle, assignee, currentPage]);
   const syncCandidates = (syncScope === 'page' ? visibleItems : filteredItems).filter(item => item.workItemSummary.total > 0);
@@ -317,8 +320,13 @@ export function Incidents() {
         let result: string;
         let failed = false;
         try {
-          const response = await operationsApi.closeInBatch(item.incidentId, batchId, batchNote.trim());
-          result = response.duplicate ? 'Already closed' : 'Closed';
+          if (item.hasLifecycleConflict) {
+            await operationsApi.manualClose(item.incidentId, batchNote.trim() || 'Legacy timeline override: recovered alert and all VSTS Work Items verified closed');
+            result = 'Legacy override closed';
+          } else {
+            const response = await operationsApi.closeInBatch(item.incidentId, batchId, batchNote.trim());
+            result = response.duplicate ? 'Already closed' : 'Closed';
+          }
         } catch (err) {
           result = (err as Error).message;
           failed = true;
@@ -365,7 +373,7 @@ export function Incidents() {
       <div className="ops-results-head"><div><strong>{filteredItems.length} incidents</strong><span>Sorted by Incident number, newest first</span></div><small>Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredItems.length)} of {filteredItems.length}</small></div>
       <div className="ops-incident-columns" aria-hidden="true"><span>Incident / alert</span><span>Resource</span><span>ADO state</span><span>Operations status</span><span>Related</span><span>First seen</span><span>Owner</span><span /></div>
       {canBatchClose && <details className="ops-bulk-panel">
-        <summary>Close multiple ready incidents · {eligibleVisible.length} eligible on this page</summary>
+        <summary>Close multiple ready/legacy incidents · {eligibleVisible.length} eligible on this page</summary>
         <label><input type="checkbox" disabled={busy || eligibleVisible.length === 0} checked={eligibleVisible.length > 0 && checkedVisible.length === eligibleVisible.length} onChange={e => setCheckedIds(e.target.checked ? eligibleVisible.map(item => item.incidentId) : [])} /> Select all ready incidents on this page (maximum 20)</label>
         <div className="ops-bulk-selection">{eligibleVisible.map(item => <label key={item.incidentId}><input type="checkbox" disabled={busy} checked={checkedIds.includes(item.incidentId)} onChange={e => setCheckedIds(current => e.target.checked ? [...current, item.incidentId] : current.filter(id => id !== item.incidentId))} /><span><strong>{item.displayId || item.incidentId}</strong> · {item.resource || item.service}</span></label>)}</div>
         <button className="ops-button" disabled={busy || checkedVisible.length === 0} onClick={() => { setBatchReview([...checkedVisible]); setBatchResults([]); setBatchNote(''); }}>Close selected incidents ({checkedVisible.length})</button>
