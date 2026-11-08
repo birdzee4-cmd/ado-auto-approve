@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { operationsApi } from '../api';
-import { EmptyState, ErrorState, formatBangkokTimestamp, LoadingState, PageHeading, StatusBadge } from '../components';
+import { EmptyState, ErrorState, formatBangkokDateKey, formatBangkokTimestamp, LoadingState, PageHeading, parseUtcTimestamp, StatusBadge } from '../components';
 import type { IncidentReport } from '../types';
 
 const bangkokToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -49,13 +49,13 @@ export function Reports() {
   const resourceKey = (item: IncidentReport['incidents'][number]) => JSON.stringify([item.subscription || '', item.resourceGroup || '', item.resource?.trim() || 'Unknown resource'].map(value => value.trim().toLowerCase()));
   const resourceIncidents = data?.incidents.filter(item => !resource || resourceKey(item) === resource) || [];
   const started = (item: IncidentReport['incidents'][number]) => item.firstSeen || item.receivedAt || item.createdAt;
-  const dateKey = (value?: string) => value && Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(value)) : '';
+  const dateKey = (value?: string) => formatBangkokDateKey(value);
   const incidents = resourceIncidents.filter(item => !day || dateKey(started(item)) === day);
   const daily = (data?.daily || []).map(entry => ({ ...entry, count: resourceIncidents.filter(item => dateKey(started(item)) === entry.date).length }));
   const alerts = [...new Set(resourceIncidents.map(item => item.alertName || item.metric || 'Unknown alert'))];
   const tickets = (item: IncidentReport['incidents'][number]) => item.workItems?.length ? item.workItems : item.workItemId ? [{ workItemId: item.workItemId, url: item.workItemUrl, role: 'PRIMARY', state: item.adoState, assignedTo: item.assignedTo }] : [];
   const duration = (item: IncidentReport['incidents'][number]) => {
-    const start = Date.parse(started(item) || ''), end = Date.parse(item.resolvedAt || '');
+    const start = parseUtcTimestamp(started(item))?.getTime() || NaN, end = parseUtcTimestamp(item.resolvedAt)?.getTime() || NaN;
     return item.status === 'RESOLVED' && Number.isFinite(start) && Number.isFinite(end) && end >= start ? `${Math.round((end - start) / 60000)} min` : '—';
   };
   function selectResource(key: string) {

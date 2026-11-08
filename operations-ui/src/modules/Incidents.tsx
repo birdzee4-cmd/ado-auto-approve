@@ -444,10 +444,7 @@ function SummaryCard({ tone, label, value, detail }: { tone: 'success' | 'danger
 }
 
 function formatDate(value?: string) {
-  const timestamp = parseTimestamp(value);
-  return timestamp
-      ? timestamp.toLocaleString('en-GB', { timeZone: 'Asia/Bangkok', hour12: false })
-    : '-';
+  return formatBangkokTimestamp(value, 'en-GB');
 }
 
 function formatIncidentDate(value?: string) {
@@ -479,13 +476,6 @@ function decodeHtmlEntities(value: string) {
 
 // SharePoint/API timestamps are UTC instants. Treat timezone-less ISO values as UTC
 // instead of allowing the browser's local timezone to reinterpret them.
-function parseTimestamp(value?: string) {
-  if (!value) return undefined;
-  const normalized = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`;
-  const timestamp = new Date(normalized);
-  return Number.isFinite(timestamp.getTime()) ? timestamp : undefined;
-}
-
 function formatClock(value: Date) {
   return value.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
@@ -549,10 +539,10 @@ function timelineForDisplay(events: AuditEvent[], showTechnical: boolean) {
   const syncEvents = events.filter(event => event.eventType === 'SYNCHRONIZE_WORK_ITEMS');
   const visible = events.filter(event => !['SYNCHRONIZE_WORK_ITEMS', 'LAST_SYNCED'].includes(event.eventType));
   if (syncEvents.length > 0) {
-    const latest = syncEvents.reduce((left, right) => Date.parse(left.timestamp) >= Date.parse(right.timestamp) ? left : right);
+    const latest = syncEvents.reduce((left, right) => (parseUtcTimestamp(left.timestamp)?.getTime() || 0) >= (parseUtcTimestamp(right.timestamp)?.getTime() || 0) ? left : right);
     visible.push({ ...latest, eventId: `WORK_ITEMS_SYNCED_SUMMARY:${latest.eventId}`, eventType: 'WORK_ITEMS_SYNCED', detail: `${latest.detail || latest.result} · ${syncEvents.length} synchronization${syncEvents.length === 1 ? '' : 's'} recorded` });
   }
-  return visible.sort((left, right) => (Date.parse(right.timestamp) || 0) - (Date.parse(left.timestamp) || 0));
+  return visible.sort((left, right) => (parseUtcTimestamp(right.timestamp)?.getTime() || 0) - (parseUtcTimestamp(left.timestamp)?.getTime() || 0));
 }
 
 function approvalStatus(item: Incident) {

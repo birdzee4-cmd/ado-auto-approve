@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { operationsApi } from '../api';
 import { AdoConnection } from '../AdoConnection';
-import { AdoStateBadge, EmptyState, ErrorState, formatBangkokTimestamp, LoadingState, PageHeading, StatusBadge } from '../components';
+import { AdoStateBadge, EmptyState, ErrorState, formatBangkokTime, formatBangkokTimestamp, LoadingState, PageHeading, StatusBadge } from '../components';
 import type { DashboardData } from '../types';
 import { operationsStatus } from '../incidentStatus';
 
@@ -72,8 +72,6 @@ function formatDate(value?: string) {
 }
 
 function formatTime(value?: string) {
-  return value && Number.isFinite(Date.parse(value))
-    ? new Date(value).toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour12: false })
-    : '-';
+  return formatBangkokTime(value);
 }
 

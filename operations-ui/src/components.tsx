@@ -16,6 +16,18 @@ export function formatBangkokTimestamp(value?: string, locale = 'en-GB') {
   return date ? date.toLocaleString(locale, { timeZone: 'Asia/Bangkok', hour12: false }) : '-';
 }
 
+export function formatBangkokDateKey(value?: string) {
+  const date = parseUtcTimestamp(value);
+  return date ? new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(date) : '';
+}
+
+export function formatBangkokTime(value?: string) {
+  const date = parseUtcTimestamp(value);
+  return date ? date.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour12: false }) : '-';
+}
+
 export function StatusBadge({ value }: { value: string }) {
   const className = value.trim().toLowerCase().replace(/[_\s]+/g, '-');
   return <span className={`ops-status ops-status-${className}`}>{displayStatus(value)}</span>;
