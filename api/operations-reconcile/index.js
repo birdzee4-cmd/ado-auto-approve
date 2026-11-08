@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const sharePoint = require('../shared/operations-sharepoint-client');
 const service = require('../shared/operations-service');
 const alertService = require('../shared/operations-alert-service');
+const READY_TO_CLOSE_DELAY_MS = 12 * 60 * 60 * 1000;
 
 module.exports = async function (context, req) {
   try {
@@ -24,11 +25,12 @@ module.exports = async function (context, req) {
       .filter(event => (alertService.RETRYABLE.has(event.processingStatus) || (alertWritesEnabled && event.processingStatus === 'MATCHED')) && Number(event.attemptCount || 0) < 5)
       .filter(event => !targetIncidentId || event.incidentId === targetIncidentId || event.matchedIncidentId === targetIncidentId)
       .slice(0, Math.min(maximum, 20));
-    const incidents = (await sharePoint.listIncidents(1000))
+    const loadIncidents = async () => (await sharePoint.listIncidents(1000))
       .filter(item => !targetIncidentId || item.incidentId === targetIncidentId || item.displayId === targetIncidentId)
       .filter(item => item.operationsStatus !== 'CLOSED' && item.workItemSummary && item.workItemSummary.total > 0)
       .sort((left, right) => reconciliationOrder(left, right))
       .slice(0, maximum);
+    let incidents = await loadIncidents();
     if (targetIncidentId && incidents.length === 0) {
       return respond(context, 404, { ok: false, error: 'INCIDENT_NOT_FOUND', incidentId: targetIncidentId });
     }
@@ -60,6 +62,12 @@ module.exports = async function (context, req) {
         alertEventResults.push({ eventId: event.eventId, ok: false, error: err.code || err.message });
       }
     }
+    // RESOLVED events can update the Incident record above. Reload the
+    // candidates before synchronizing ADO so the same reconciliation run can
+    // add the RESOLVED comment and close the primary Work Item. Without this,
+    // the initial pre-event snapshot could defer the ADO action until a later
+    // run (or miss it when the event was written by the legacy flow).
+    if (pendingAlertEvents.length > 0) incidents = await loadIncidents();
     const results = [];
     for (const incident of incidents) {
       try {
@@ -174,7 +182,7 @@ async function notifyIfNeeded(incident, failedCount, actionContext, nowMs = Date
         detail: candidate.type,
         eventKey: `${candidate.eventKey}:scheduled`
       });
-      return { sent: false, reason: 'waiting-first-reminder', dueAt: new Date(nowMs + 60 * 60 * 1000).toISOString() };
+      return { sent: false, reason: 'waiting-first-reminder', dueAt: new Date(nowMs + READY_TO_CLOSE_DELAY_MS).toISOString() };
     }
     if (!timing.due) return { sent: false, reason: 'waiting-first-reminder', dueAt: timing.dueAt };
   }
@@ -198,7 +206,7 @@ function readyNotificationTiming(candidate, audit, nowMs = Date.now()) {
   const scheduled = audit.find(event => event.eventKey === `${candidate.eventKey}:scheduled`);
   const scheduledMs = Date.parse(scheduled?.timestamp || '');
   if (!Number.isFinite(scheduledMs)) return { scheduledAt: null, dueAt: null, due: false };
-  const dueMs = scheduledMs + 60 * 60 * 1000;
+  const dueMs = scheduledMs + READY_TO_CLOSE_DELAY_MS;
   return { scheduledAt: new Date(scheduledMs).toISOString(), dueAt: new Date(dueMs).toISOString(), due: nowMs >= dueMs };
 }
 
