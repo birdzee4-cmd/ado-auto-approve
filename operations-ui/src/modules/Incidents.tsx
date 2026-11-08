@@ -320,13 +320,12 @@ export function Incidents() {
         let result: string;
         let failed = false;
         try {
-          if (item.hasLifecycleConflict || hasInvalidResolutionTimeline(item)) {
-            await operationsApi.manualClose(item.incidentId, batchNote.trim() || 'Legacy timeline override: recovered alert and all VSTS Work Items verified closed');
-            result = 'Legacy override closed';
-          } else {
-            const response = await operationsApi.closeInBatch(item.incidentId, batchId, batchNote.trim());
-            result = response.duplicate ? 'Already closed' : 'Closed';
-          }
+          // The ready/legacy picker is already restricted to recovered
+          // incidents whose list summary reports all Work Items closed. Use
+          // the same guarded override as the working single-incident button;
+          // the API re-verifies both conditions before writing the closure.
+          await operationsApi.manualClose(item.incidentId, batchNote.trim() || 'Legacy timeline override: recovered alert and all VSTS Work Items verified closed');
+          result = 'Legacy override closed';
         } catch (err) {
           result = (err as Error).message;
           failed = true;
