@@ -461,6 +461,23 @@ async function closeResolvedPrimaryIfReady(input, context, dependencies = {}) {
   const primary = (incident.workItems || []).find(item => item.role === 'PRIMARY');
   if (!primary) return { closed: false, reason: 'primary-missing' };
   if (defaultWorkItems.isClosedState(primary.state)) return { closed: false, reason: 'primary-already-closed' };
+  // Reconciliation can be retried after an external/manual close. Refresh the
+  // authoritative ADO state before attempting comments or another transition.
+  const latestPrimaryResponse = typeof ado.getWorkItem === 'function'
+    ? await ado.getWorkItem(primary.workItemId, { accessToken: context.accessToken })
+    : null;
+  if (latestPrimaryResponse && latestPrimaryResponse.ok && latestPrimaryResponse.body) {
+    const latestPrimary = normalizeAdoWorkItem(latestPrimaryResponse.body);
+    if (defaultWorkItems.isClosedState(latestPrimary.state)) {
+      const now = new Date().toISOString();
+      await sp.updateIncidentRecord(incident.sharePointId, {
+        AdoState: latestPrimary.state,
+        AdoClosedAt: latestPrimary.closedAt || now,
+        LastSyncedAt: now
+      });
+      return { closed: true, alreadyClosed: true, workItemId: primary.workItemId };
+    }
+  }
   const commentResult = await ensureResolvedPrimaryComment(incident, primary, sp, ado, context);
   const openRelated = (incident.workItems || []).filter(item => item.role === 'RELATED' && !defaultWorkItems.isClosedState(item.state));
   if (openRelated.length > 0) return { closed: false, reason: 'related-work-open', commented: commentResult.commented, blockingWorkItems: openRelated.map(item => item.workItemId) };
