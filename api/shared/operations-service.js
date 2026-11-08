@@ -460,7 +460,19 @@ async function closeResolvedPrimaryIfReady(input, context, dependencies = {}) {
   if (hasInvalidResolutionTimeline(incident)) return { closed: false, reason: 'invalid-resolution-timeline' };
   const primary = (incident.workItems || []).find(item => item.role === 'PRIMARY');
   if (!primary) return { closed: false, reason: 'primary-missing' };
-  if (defaultWorkItems.isClosedState(primary.state)) return { closed: false, reason: 'primary-already-closed' };
+  if (defaultWorkItems.isClosedState(primary.state)) {
+    const existingAudit = typeof sp.listAudit === 'function' ? await sp.listAudit(incident.incidentId) : [];
+    if (!existingAudit.some(event => event.action === 'INCIDENT_CLOSED' && event.result === 'SUCCEEDED')) {
+      await audit(sp, context, {
+        incidentId: incident.incidentId,
+        workItemId: primary.workItemId,
+        action: 'INCIDENT_CLOSED',
+        result: 'SUCCEEDED',
+        detail: 'VSTS primary Work Item was already Closed; Operations Hub closure reconciled'
+      });
+    }
+    return { closed: true, alreadyClosed: true, workItemId: primary.workItemId };
+  }
   // Reconciliation can be retried after an external/manual close. Refresh the
   // authoritative ADO state before attempting comments or another transition.
   const latestPrimaryResponse = typeof ado.getWorkItem === 'function'
