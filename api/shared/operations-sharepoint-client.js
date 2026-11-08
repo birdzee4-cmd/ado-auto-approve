@@ -431,19 +431,20 @@ async function getIncident(incidentId) {
   if (!target) return null;
   const config = getConfig();
   const escaped = String(incidentId).replace(/'/g, "''");
-  // Graph may reject contains/or filters on this list depending on the
-  // SharePoint field index. Detail lookup must still fall back to the normal
-  // bounded list read instead of turning a query limitation into HTTP 503.
-  try {
-    const direct = (await listItems(10, config.listName, `contains(fields/IncidentId,'${escaped}') or contains(fields/CorrelationId,'${escaped}')`))
-      .map(mapSharePointIncident)
-      .find(item => item.incidentId.toLowerCase() === target || item.incidentId.toLowerCase().includes(target));
+  // Detail reads should use indexed equality filters first. The previous
+  // contains/or query is rejected by some Graph/SharePoint list indexes and
+  // caused a fallback scan of up to 1,000 incidents before the drawer opened.
+  const directResults = await Promise.allSettled([
+    listItems(10, config.listName, `fields/IncidentId eq '${escaped}'`),
+    listItems(10, config.listName, `fields/CorrelationId eq '${escaped}'`)
+  ]);
+  for (const result of directResults) {
+    if (result.status !== 'fulfilled') continue;
+    const direct = result.value.map(mapSharePointIncident).find(item => item.incidentId.toLowerCase() === target);
     if (direct) return direct;
-  } catch (err) {
-    // Best-effort optimization only; the fallback below is authoritative.
   }
-  // Keep the previous bounded fallback for records whose field was stored
-  // under CorrelationId by an older workflow version.
+  // Legacy records may not be indexed under either exact field. Keep a
+  // bounded authoritative fallback for those records only.
   const items = await listIncidents(1000);
   return items.find(item => item.incidentId.toLowerCase() === target) || null;
 }

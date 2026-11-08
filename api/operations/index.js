@@ -80,9 +80,11 @@ module.exports = async function (context, req) {
 
     const detailMatch = /^incidents\/([A-Za-z0-9._:-]+)$/.exec(path);
     if (detailMatch) {
-      const incident = await sharePoint.getIncident(detailMatch[1]);
+      const [incident, audit] = await Promise.all([
+        sharePoint.getIncident(detailMatch[1]),
+        sharePoint.listAudit(detailMatch[1])
+      ]);
       if (!incident) return jsonResponse(context, 404, { ok: false, error: 'Incident not found' });
-      const audit = await sharePoint.listAudit(incident.incidentId);
       return jsonResponse(context, 200, {
         ok: true,
         data: {
