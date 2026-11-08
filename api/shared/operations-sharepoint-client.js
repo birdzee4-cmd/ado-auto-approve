@@ -446,7 +446,16 @@ async function getIncident(incidentId) {
   for (const result of directResults) {
     if (result.status !== 'fulfilled') continue;
     const direct = result.value.map(mapSharePointIncident).find(item => item.incidentId.toLowerCase() === target);
-    if (direct) return direct;
+    if (direct) {
+      // The list endpoint enriches incidents with workItems/workItemSummary,
+      // but the direct detail lookup used to return the bare incident shape.
+      // The Details Command renders those fields immediately after the 200
+      // response, so normalize the shape here before returning it.
+      // Keep the direct detail path fast. The primary work item is already
+      // present on the incident; related items are enriched by list reads and
+      // can be synchronized separately without making the drawer crash.
+      return workItems.attachWorkItems([direct], [])[0];
+    }
   }
   // Legacy records may not be indexed under either exact field. Keep a
   // bounded authoritative fallback for those records only.
