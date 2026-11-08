@@ -80,11 +80,22 @@ module.exports = async function (context, req) {
 
     const detailMatch = /^incidents\/([A-Za-z0-9._:-]+)$/.exec(path);
     if (detailMatch) {
-      const [incident, audit] = await Promise.all([
+      let [incident, audit] = await Promise.all([
         sharePoint.getIncident(detailMatch[1]),
         sharePoint.listAudit(detailMatch[1])
       ]);
       if (!incident) return jsonResponse(context, 404, { ok: false, error: 'Incident not found' });
+      const closure = audit
+        .filter(event => ['INCIDENT_CLOSED', 'INCIDENT_MANUAL_OVERRIDE_CLOSED'].includes(String(event.eventType || '').toUpperCase()) && String(event.result || '').toUpperCase() === 'SUCCEEDED')
+        .sort((left, right) => (Date.parse(right.timestamp || '') || 0) - (Date.parse(left.timestamp || '') || 0))[0];
+      if (closure) {
+        incident = {
+          ...incident,
+          operationsStatus: 'CLOSED',
+          operationsClosedBy: closure.operationsUserEmail || '',
+          operationsClosedAt: closure.timestamp || ''
+        };
+      }
       return jsonResponse(context, 200, {
         ok: true,
         data: {
