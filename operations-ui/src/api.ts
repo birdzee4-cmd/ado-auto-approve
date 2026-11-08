@@ -8,15 +8,18 @@ interface ApiEnvelope<T> {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 30000);
   const response = await fetch(path, {
     ...init,
+    signal: init?.signal || controller.signal,
     headers: {
       Accept: 'application/json',
       ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
       ...(init?.headers || {})
     },
     redirect: 'manual'
-  });
+  }).finally(() => window.clearTimeout(timeoutId));
 
   if (response.type === 'opaqueredirect' || response.status === 0 || response.status === 302) {
     window.location.assign('/.auth/login/aad?post_login_redirect_uri=/operations.html');

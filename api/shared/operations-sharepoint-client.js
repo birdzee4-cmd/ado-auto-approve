@@ -149,18 +149,23 @@ async function listItems(maxItems, listName, filter) {
 
 async function listIncidents(maxItems) {
   const config = getConfig();
-  let incidents = (await listItems(maxItems, config.listName)).map(mapSharePointIncident).sort(compareNewest);
+  // These reads are independent. Running them in parallel avoids making the
+  // incident list wait for the full audit and supporting-work-item lists in
+  // sequence, which was especially noticeable with 700+ historical records.
+  const [incidentItems, auditItems, related] = await Promise.all([
+    listItems(maxItems, config.listName),
+    config.auditListName
+      ? listItems(1000, config.auditListName, "fields/field_6 eq 'INCIDENT_CLOSED' and fields/field_7 eq 'SUCCEEDED'")
+      : Promise.resolve([]),
+    config.workItemsListName ? listWorkItems(1000, config.workItemsListName) : Promise.resolve([])
+  ]);
+  let incidents = incidentItems.map(mapSharePointIncident).sort(compareNewest);
   if (config.auditListName) {
-    const closureEvents = (await listItems(
-      1000,
-      config.auditListName,
-      "fields/field_6 eq 'INCIDENT_CLOSED' and fields/field_7 eq 'SUCCEEDED'"
-    ))
+    const closureEvents = auditItems
       .map(mapAuditEvent)
       .filter(item => item.eventType === 'INCIDENT_CLOSED' && item.result === 'SUCCEEDED');
     incidents = attachIncidentClosureEvents(incidents, closureEvents);
   }
-  const related = config.workItemsListName ? await listWorkItems(1000, config.workItemsListName) : [];
   return workItems.attachWorkItems(incidents, related);
 }
 
