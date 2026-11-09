@@ -769,23 +769,63 @@ async function getPendingReleaseApprovals(reviewerGroup) {
   const params = [
     'statusFilter=pending',
     'includeMyGroupApprovals=true',
+    '$top=200',
     'api-version=7.1'
   ].join('&');
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/approvals?${params}`;
   const result = await releaseRequest('GET', path);
-  if (!result.ok || !result.body || !Array.isArray(result.body.value)) {
+  const approvals = result.ok && result.body && Array.isArray(result.body.value)
+    ? result.body.value
+    : [];
+  const groupText = String(reviewerGroup || '').toLowerCase().trim();
+  const matchesGroup = app => !groupText || String(app.approver && app.approver.displayName || '')
+    .toLowerCase()
+    .includes(groupText);
+  const groupApprovals = approvals.filter(matchesGroup);
+  if (groupApprovals.length) return groupApprovals;
+
+  // Some Azure DevOps tenants omit group approvals from the approvals-list
+  // endpoint even when includeMyGroupApprovals=true. Fall back to recent
+  // releases, where the pending pre-deploy approval is embedded in the
+  // environment payload.
+  const releaseParams = [
+    '$top=200',
+    'queryOrder=descending',
+    '$expand=environments,artifacts',
+    'api-version=7.1'
+  ].join('&');
+  const releasesPath = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/releases?${releaseParams}`;
+  const releasesResult = await releaseRequest('GET', releasesPath);
+  if (!releasesResult.ok || !releasesResult.body || !Array.isArray(releasesResult.body.value)) {
     return [];
   }
 
-  const approvals = result.body.value;
-  if (reviewerGroup) {
-    const groupText = String(reviewerGroup).toLowerCase().trim();
-    return approvals.filter(app => {
-      const name = app.approver && app.approver.displayName || '';
-      return name.toLowerCase().includes(groupText);
-    });
+  const fallback = [];
+  for (const release of releasesResult.body.value) {
+    const environments = Array.isArray(release.environments) ? release.environments : [];
+    for (const environment of environments) {
+      const pending = (Array.isArray(environment.preDeployApprovals)
+        ? environment.preDeployApprovals
+        : [])
+        .filter(app => String(app && app.status || '').toLowerCase() === 'pending')
+        .filter(app => app.isAutomated !== true)
+        .filter(matchesGroup);
+      for (const approval of pending) {
+        fallback.push(Object.assign({}, approval, {
+          release: approval.release || {
+            id: release.id,
+            name: release.name
+          },
+          releaseDefinition: approval.releaseDefinition || release.releaseDefinition,
+          releaseEnvironment: approval.releaseEnvironment || {
+            id: environment.id,
+            name: environment.name
+          }
+        }));
+      }
+    }
   }
-  return approvals;
+  return fallback;
 }
 
 async function listGitRefs(repositoryId, filterPrefix) {
