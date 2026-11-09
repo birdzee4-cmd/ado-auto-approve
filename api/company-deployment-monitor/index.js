@@ -3,6 +3,7 @@ const archive = require('../shared/company-monitor-archive');
 const eventStore = require('../shared/ado-deployment-event-store');
 const { trackDay, eventKey } = require('../shared/company-monitor-tracking');
 const { enrich } = require('../shared/company-monitor-ado-enrichment');
+const overridesStore = require('../shared/company-monitor-overrides');
 module.exports = async function(context, req) {
   const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-store' };
   const access = auth.requireAnyRole(context, req, ['it_support_approve', 'admin']);
@@ -18,7 +19,8 @@ module.exports = async function(context, req) {
     let lineageByBuildId = {};
     try { lineageByBuildId = await eventStore.findBuildLineage(monitorItems.map(item => item.azureBuildId || item.id), day); } catch (error) { context.log.warn('Service Hook lineage enrichment unavailable:', error.message); }
     const enriched = await enrich(monitorItems, { lineageByBuildId });
-    const tracking = trackDay(enriched, day);
+    const overrides = await overridesStore.read(day);
+    const tracking = trackDay(enriched, day, new Date(), overrides);
     context.res = { status: 200, headers, body: { ok: true, fetchedAt: result.archive.savedAt, source: 'Company Monitor Archive', ...result, items: enriched, tracking } };
   } catch (error) {
     context.log.error('Company monitor unavailable:', error.message);

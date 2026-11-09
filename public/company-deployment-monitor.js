@@ -43,16 +43,17 @@ export function initCompanyMonitor() {
     'same-commit-cross-project': 'จับคู่แล้ว · Project/Type เปลี่ยน',
     'legacy-replacement': 'จับคู่แล้ว · Legacy Mapping'
   }[failure?.correlationType] || 'ยังไม่ยืนยันการจับคู่');
-  const correlationClass = failure => failure?.recovery ? `company-correlation company-correlation-${String(failure.correlationType || 'matched').replace(/[^a-z0-9-]/gi, '-')}` : 'company-correlation company-correlation-pending';
+  const correlationClass = failure => failure?.manual ? 'company-correlation company-correlation-manual' : failure?.recovery ? `company-correlation company-correlation-${String(failure.correlationType || 'matched').replace(/[^a-z0-9-]/gi, '-')}` : 'company-correlation company-correlation-pending';
   function card(item) {
     const link = item.azureBuildId ? `https://dev.azure.com/buzzebees/Buzzebees/_build/results?buildId=${encodeURIComponent(item.azureBuildId)}` : '';
     const tone = item.status === 'complete' ? 'success' : item.status.includes('fail') ? 'failure' : 'pending';
     const relation = matchForItem(item);
-    const relationText = relation?.match?.recovery ? correlationText(relation.match) : item.status.includes('fail') ? 'รอตรวจสอบ Build Success' : '';
+    const relationText = relation?.match?.manual ? 'ยืนยันโดยผู้ดูแล' : relation?.match?.recovery ? correlationText(relation.match) : item.status.includes('fail') ? 'รอตรวจสอบ Build Success' : '';
     const relationDetail = relation?.match?.recovery ? ` · ${relation.side === 'failed' ? `Success ${relation.match.recovery.id}` : `แก้ไข Fail ${relation.match.failed.id}`} · ${relation.match.confidence === 'high' ? 'ความมั่นใจสูง' : 'ความมั่นใจปานกลาง'}${relation.match.evidence === 'complete-after-deploy-failure-same-commit' ? ' · Success เสร็จหลัง Deploy fail' : ''}` : '';
+    const manualAction = item.status.includes('fail') && relation?.side === 'failed' && !relation.match.recovery && !relation.match.manual ? `<button type="button" class="company-manual-confirm" data-manual-confirm="${esc(item.azureBuildId || item.id)}">ยืนยันโดยผู้ดูแล</button>` : '';
     const commit = String(item.commitId || '').trim();
     const commitLabel = commit ? commit.slice(0, 8) : 'ไม่พบ Commit';
-    return `<article class="company-job company-${tone}${item.status === 'build fail' ? ' company-build-failed' : ''}"><div class="tracking-project-heading"><h3>${projectLink(item.project, item.environment)}</h3><span class="result-pill">${esc(labels[item.status] || item.status)}</span></div>${relationText ? `<p class="${correlationClass(relation?.match)}"><strong>${esc(relation?.match?.recovery ? '✓ ยืนยันการจับคู่' : '⚠ รอตรวจสอบ')}</strong> <span>${esc(relationText)}</span>${esc(relationDetail)}</p>` : ''}<p>${esc(item.projectType || 'ไม่ระบุประเภท')}</p><dl><dt>Build / งาน</dt><dd>${link ? `<a href="${esc(link)}" target="_blank" rel="noreferrer">${esc(item.id)}</a>` : esc(item.id)}</dd><dt>Commit</dt><dd title="${esc(commit || 'ไม่พบ Commit')}">${esc(commitLabel)}</dd><dt>Branch</dt><dd>${esc(item.branch.replace(/^refs\/heads\//, ''))}</dd><dt>ผู้ขอ</dt><dd>${esc(item.requestedBy || '-')}</dd><dt>Update</dt><dd>${esc(item.updatedText)}</dd><dt>ระยะเวลา</dt><dd>${esc(item.duration || '-')}</dd></dl></article>`;
+    return `<article class="company-job company-${tone}${item.status === 'build fail' ? ' company-build-failed' : ''}"><div class="tracking-project-heading"><h3>${projectLink(item.project, item.environment)}</h3><span class="result-pill">${esc(labels[item.status] || item.status)}</span></div>${relationText ? `<p class="${correlationClass(relation?.match)}"><strong>${esc(relation?.match?.manual ? '✓ ยืนยันโดยผู้ดูแล' : relation?.match?.recovery ? '✓ ยืนยันการจับคู่' : '⚠ รอตรวจสอบ')}</strong> <span>${esc(relationText)}</span>${esc(relationDetail)}</p>` : ''}${manualAction}<p>${esc(item.projectType || 'ไม่ระบุประเภท')}</p><dl><dt>Build / งาน</dt><dd>${link ? `<a href="${esc(link)}" target="_blank" rel="noreferrer">${esc(item.id)}</a>` : esc(item.id)}</dd><dt>Commit</dt><dd title="${esc(commit || 'ไม่พบ Commit')}">${esc(commitLabel)}</dd><dt>Branch</dt><dd>${esc(item.branch.replace(/^refs\/heads\//, ''))}</dd><dt>ผู้ขอ</dt><dd>${esc(item.requestedBy || '-')}</dd><dt>Update</dt><dd>${esc(item.updatedText)}</dd><dt>ระยะเวลา</dt><dd>${esc(item.duration || '-')}</dd></dl></article>`;
   }
   function projectSummary(env, jobs) {
     if (!tracking) return '<p>ยังไม่มีข้อมูลติดตาม Project</p>';
@@ -129,6 +130,13 @@ export function initCompanyMonitor() {
   tab.addEventListener('click', () => { document.body.classList.add('monitor-default'); host.hidden = false; tab.classList.add('nav-link-active'); if (!items) load(); });
   $('companyRefresh').addEventListener('click', load);
   $('companyBoard').addEventListener('click', event => {
+    const manual = event.target.closest('[data-manual-confirm]');
+    if (manual) {
+      if (!confirm('ยืนยันว่าได้ตรวจสอบ Build นี้แล้ว และไม่ต้องติดตามต่อใช่หรือไม่?')) return;
+      manual.disabled = true;
+      fetch('/api/company-deployment-monitor/override', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ date: $('companyDate').value, buildId: manual.dataset.manualConfirm }) }).then(response => response.json().then(body => ({ response, body }))).then(({ response, body }) => { if (!response.ok || !body.ok) throw new Error(body.error || 'ยืนยันไม่สำเร็จ'); load(); }).catch(error => { manual.disabled = false; $('companyMessage').textContent = error.message; });
+      return;
+    }
     const project = event.target.closest('.company-project-link');
     if (project) { openProject(project.dataset.project, project.dataset.env); return; }
     const view = event.target.closest('[data-project-view]');

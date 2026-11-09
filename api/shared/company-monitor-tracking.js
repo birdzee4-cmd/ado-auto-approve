@@ -21,7 +21,7 @@ function later(success, failure) {
   if (success.id === failure.id) return a > b || (a === b && success.observedAt > failure.observedAt);
   return a > b && !!startedAt(success.startText) && Date.parse(startedAt(success.startText)) >= b;
 }
-function trackDay(events, day, now = new Date()) {
+function trackDay(events, day, now = new Date(), overrides = {}) {
   const end = Date.parse(`${day}T23:59:59.999+07:00`);
   const asOf = Math.min(now.getTime(), end);
   const ordered = [...events].filter(item => item.updatedAt?.startsWith(day) && Date.parse(item.updatedAt) <= asOf)
@@ -47,6 +47,7 @@ function trackDay(events, day, now = new Date()) {
     for (let index = 0; index < project.timeline.length; index++) {
       const failed = project.timeline[index];
       if (!['build fail', 'deploy fail'].includes(failed.status)) continue;
+      const manual = overrides[String(failed.azureBuildId || failed.id).replace(/_[MP]$/, '')];
       const following = project.timeline.slice(index + 1).filter(item => laneKey(item) === laneKey(failed));
       const sameLaneSuccess = following.find(item => item.status === 'complete' && later(item, failed) && !usedRecoveries.has(item.eventKey) &&
         (!failed.commitId && !item.commitId || (failed.commitId && item.commitId && failed.commitId === item.commitId && (!failed.repository || !item.repository || failed.repository.toLowerCase() === item.repository.toLowerCase()))));
@@ -60,17 +61,17 @@ function trackDay(events, day, now = new Date()) {
       const retry = !recovery && laneLatest && !laneLatest.terminal && later(laneLatest, failed) ? laneLatest : null;
       const replacement = recovery && match.correlation?.type === 'legacy-replacement' ? recovery : null;
       const ambiguous = !recovery && match.ambiguous;
-      project.failures.push({ failed, recovery, candidate, replacement, retry, ambiguous, correlationType: recovery ? match.correlation?.type : ambiguous ? 'ambiguous' : candidate ? 'unverified' : 'no-match', confidence: recovery ? match.correlation?.confidence : ambiguous ? 'low' : 'none', matchedBy: recovery ? match.correlation?.matchedBy || [] : [], status: recovery ? 'recovered' : replacement ? 'superseded' : retry ? 'retrying' : ambiguous || candidate ? 'unverified' : 'open',
+      project.failures.push({ failed, recovery, candidate, replacement, retry, ambiguous, manual, correlationType: recovery ? match.correlation?.type : manual ? 'manual-confirmed' : ambiguous ? 'ambiguous' : candidate ? 'unverified' : 'no-match', confidence: recovery ? match.correlation?.confidence : manual ? 'manual' : ambiguous ? 'low' : 'none', matchedBy: recovery ? match.correlation?.matchedBy || [] : manual ? ['manual-confirmation'] : [], status: recovery ? 'recovered' : replacement ? 'superseded' : manual ? 'manually-resolved' : retry ? 'retrying' : ambiguous || candidate ? 'unverified' : 'open',
         durationSeconds: Math.max(0, Math.floor(((recovery ? Date.parse(recovery.updatedAt) : asOf) - Date.parse(failed.updatedAt)) / 1000)),
-        evidence: recovery ? (failed.status === 'deploy fail' && failed.id !== recovery.id && match.correlation?.type?.startsWith('same-commit') ? 'complete-after-deploy-failure-same-commit' : match.correlation?.type === 'same-commit-cross-pipeline' ? 'later-complete-same-commit-cross-pipeline' : failed.id === recovery.id ? 'same-monitor-job-status-change' : 'later-monitor-run-started-after-failure') : ambiguous ? 'multiple-success-candidates' : candidate ? 'later-complete-without-new-build-evidence' : 'no-later-success' });
+        evidence: recovery ? (failed.status === 'deploy fail' && failed.id !== recovery.id && match.correlation?.type?.startsWith('same-commit') ? 'complete-after-deploy-failure-same-commit' : match.correlation?.type === 'same-commit-cross-pipeline' ? 'later-complete-same-commit-cross-pipeline' : failed.id === recovery.id ? 'same-monitor-job-status-change' : 'later-monitor-run-started-after-failure') : manual ? 'manual-confirmation' : ambiguous ? 'multiple-success-candidates' : candidate ? 'later-complete-without-new-build-evidence' : 'no-later-success' });
     }
     project.latest = [...project.timeline].sort((a, b) => Date.parse(a.latestUpdateAt) - Date.parse(b.latestUpdateAt)).at(-1);
     project.totalRuns = new Set(project.timeline.map(item => item.id)).size;
     project.failedCount = project.failures.length;
     project.recoveredCount = project.failures.filter(item => item.recovery || item.replacement).length;
     project.supersededCount = project.failures.filter(item => item.replacement).length;
-    project.openBuild = project.failures.filter(item => !item.recovery && !item.replacement && item.failed.status === 'build fail').length;
-    project.openDeploy = project.failures.filter(item => !item.recovery && !item.replacement && item.failed.status === 'deploy fail').length;
+    project.openBuild = project.failures.filter(item => !item.recovery && !item.replacement && !item.manual && item.failed.status === 'build fail').length;
+    project.openDeploy = project.failures.filter(item => !item.recovery && !item.replacement && !item.manual && item.failed.status === 'deploy fail').length;
     project.openCount = project.openBuild + project.openDeploy;
     project.retrying = project.failures.some(item => item.retry);
     project.lastFailureAt = project.failures.at(-1)?.failed.updatedAt || '';
