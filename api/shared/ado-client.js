@@ -782,9 +782,13 @@ async function getPendingReleaseApprovals(reviewerGroup, options) {
     ? result.body.value
     : [];
   const groupText = String(reviewerGroup || '').toLowerCase().trim();
-  const matchesGroup = app => !groupText || String(app.approver && app.approver.displayName || '')
-    .toLowerCase()
-    .includes(groupText);
+  const matchesGroup = app => {
+    if (!groupText) return true;
+    const approver = app && app.approver || {};
+    return [approver.displayName, approver.uniqueName, approver.id, approver.descriptor]
+      .map(value => String(value || '').toLowerCase())
+      .some(value => value.includes(groupText));
+  };
   let groupApprovals = approvals.filter(matchesGroup);
   // A delegated identity can receive HTTP 200 with an empty list when it
   // lacks vso.release visibility. Retry with the configured PAT in that case.
