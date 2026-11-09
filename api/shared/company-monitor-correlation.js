@@ -7,6 +7,14 @@ const repositoryKey = item => norm(item.repositoryId || item.repository);
 const pipelineKey = item => norm(item.pipelineId || item.definitionId || item.pipelineName || item.project);
 const projectTypeKey = item => norm(item.projectType);
 const projectKey = item => norm(item.projectName || item.project);
+function startedAt(text) {
+  const m = String(text || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{1,2}):(\d{2}):(\d{2}) (AM|PM)$/i);
+  if (!m) return '';
+  const hour = Number(m[4]);
+  if (hour < 1 || hour > 12) return '';
+  const value = `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}T${String(hour % 12 + (m[7].toUpperCase() === 'PM' ? 12 : 0)).padStart(2, '0')}:${m[5]}:${m[6]}+07:00`;
+  return Number.isFinite(Date.parse(value)) ? value : '';
+}
 function sameBuild(a, b) {
   return !!a.id && !!b.id && String(a.id) === String(b.id);
 }
@@ -35,8 +43,16 @@ function correlationFor(failed, success) {
   if (isReplacementPair(failed, success) && sameCommitScope(failed, success)) return { type: 'legacy-replacement', confidence: 'medium', matchedBy: ['legacyMapping', 'commit', 'repository', 'branch', 'environment', 'projectType'] };
   return null;
 }
+function isRecoveryCandidate(failed, success) {
+  if (!success || Date.parse(success.updatedAt) <= Date.parse(failed.updatedAt)) return false;
+  // A deployment can fail while the corresponding build is already running.
+  // For deploy failures, completion after the failure plus exact lineage is sufficient.
+  if (failed.status === 'deploy fail' && sameCommitScope(failed, success)) return true;
+  const successStart = startedAt(success.startText);
+  return failed.id === success.id || (!!successStart && Date.parse(successStart) >= Date.parse(failed.updatedAt));
+}
 function findReplacement(failed, events, used = new Set()) {
-  const candidates = events.filter(item => item.status === 'complete' && !used.has(item.eventKey || item.id) && item.updatedAt > failed.updatedAt && correlationFor(failed, item));
+  const candidates = events.filter(item => item.status === 'complete' && !used.has(item.eventKey || item.id) && isRecoveryCandidate(failed, item) && correlationFor(failed, item));
   if (!candidates.length) return { recovery: null, candidate: null, ambiguous: false };
   candidates.sort((a, b) => Date.parse(a.updatedAt) - Date.parse(b.updatedAt));
   const best = candidates[0];
@@ -45,4 +61,4 @@ function findReplacement(failed, events, used = new Set()) {
   if (equivalent.length > 1) return { recovery: null, candidate: best, ambiguous: true };
   return { recovery: best, candidate: null, ambiguous: false, correlation: bestCorrelation };
 }
-module.exports = { replacements, norm, branch, sameBuild, samePipeline, sameCommitScope, sameProjectScope, isReplacementPair, correlationFor, findReplacement };
+module.exports = { replacements, norm, branch, sameBuild, samePipeline, sameCommitScope, sameProjectScope, isReplacementPair, correlationFor, isRecoveryCandidate, findReplacement };

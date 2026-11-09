@@ -74,3 +74,12 @@ test('recovers when project and project type change but commit lineage is exact'
   assert.equal(project.failures[0].correlationType, 'same-commit-cross-project');
   assert.equal(project.failures[0].confidence, 'medium');
 });
+test('recovers deploy failure when same-commit build started before failure but completed after it', () => {
+  const project = run([
+    event('616147', 'deploy fail', '13:10', { project: 'node-web-supersports-docker', projectType: 'Website', repository: 'repo', commitId: 'a90ac064', startText: '11/6/2026 1:03:43 PM' }),
+    event('616148', 'complete', '13:20', { project: 'supersports-web-stg', projectType: 'frontend-web', repository: 'repo', commitId: 'a90ac064', startText: '11/6/2026 1:03:43 PM' })
+  ]).find(item => item.failures.length);
+  assert.equal(project.openCount, 0);
+  assert.equal(project.failures[0].recovery.id, '616148');
+  assert.equal(project.failures[0].evidence, 'complete-after-deploy-failure-same-commit');
+});
