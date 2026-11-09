@@ -785,7 +785,16 @@ async function getPendingReleaseApprovals(reviewerGroup, options) {
   const matchesGroup = app => !groupText || String(app.approver && app.approver.displayName || '')
     .toLowerCase()
     .includes(groupText);
-  const groupApprovals = approvals.filter(matchesGroup);
+  let groupApprovals = approvals.filter(matchesGroup);
+  // A delegated identity can receive HTTP 200 with an empty list when it
+  // lacks vso.release visibility. Retry with the configured PAT in that case.
+  if (!groupApprovals.length && patFallback) {
+    const patResult = await releaseRequest('GET', path, null, patFallback);
+    const patApprovals = patResult.ok && patResult.body && Array.isArray(patResult.body.value)
+      ? patResult.body.value.filter(matchesGroup)
+      : [];
+    if (patApprovals.length) groupApprovals = patApprovals;
+  }
   if (groupApprovals.length) return groupApprovals;
 
   // Some Azure DevOps tenants omit group approvals from the approvals-list
