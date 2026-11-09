@@ -40,10 +40,10 @@ test('historical unresolved age stops at the end of the selected day', () => {
   assert.equal(project.failures[0].durationSeconds, 3600);
 });
 test('recovers across renamed pipelines using the same commit lineage', () => {
-  const [project] = run([
+  const project = run([
     event('616169', 'build fail', '13:00', { project: 'project.sika-module-docker', pipelineName: 'STG_Net_Project.Sika_module_docker-CI', repository: 'Net_Project.Sika', commitId: 'c6b4c1a1', startText: '11/6/2026 1:00:00 PM' }),
     event('616170', 'complete', '13:20', { project: 'project.sika-module-docker', pipelineName: 'sika-module-stg-ci', repository: 'Net_Project.Sika', commitId: 'c6b4c1a1', startText: '11/6/2026 1:10:00 PM' })
-  ]);
+  ]).find(item => item.failures.length);
   assert.equal(project.openCount, 0);
   assert.equal(project.failures[0].correlationType, 'same-commit-cross-pipeline');
   assert.equal(project.failures[0].confidence, 'high');
@@ -64,4 +64,13 @@ test('does not reuse one success for multiple failures', () => {
   ]);
   assert.equal(projects[0].recoveredCount, 1);
   assert.equal(projects[0].openCount, 1);
+});
+test('recovers when project and project type change but commit lineage is exact', () => {
+  const project = run([
+    event('616169', 'build fail', '13:00', { project: 'project.sika-module-docker', projectType: 'net_project_module', pipelineName: 'old-ci', repository: 'Net_Project.Sika', commitId: 'c6b4c1a1', startText: '11/6/2026 1:00:00 PM' }),
+    event('616170', 'complete', '13:20', { project: 'sika-module-stg', projectType: 'backend-api', pipelineName: 'new-ci', repository: 'Net_Project.Sika', commitId: 'c6b4c1a1', startText: '11/6/2026 1:10:00 PM' })
+  ]).find(item => item.failures.length);
+  assert.equal(project.openCount, 0);
+  assert.equal(project.failures[0].correlationType, 'same-commit-cross-project');
+  assert.equal(project.failures[0].confidence, 'medium');
 });

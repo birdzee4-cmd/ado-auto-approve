@@ -21,15 +21,17 @@ function isReplacementPair(failed, success) {
 function sameCommitScope(a, b) {
   const repositoryMatches = repositoryKey(a) && repositoryKey(b) && repositoryKey(a) === repositoryKey(b);
   return !!a.commitId && !!b.commitId && norm(a.commitId) === norm(b.commitId) &&
-    projectKey(a) === projectKey(b) &&
-    norm(a.environment) === norm(b.environment) && branch(a.branch) === branch(b.branch) &&
-    projectTypeKey(a) === projectTypeKey(b) && repositoryMatches;
+    norm(a.environment) === norm(b.environment) && branch(a.branch) === branch(b.branch) && repositoryMatches;
+}
+function sameProjectScope(a, b) {
+  return sameCommitScope(a, b) && projectKey(a) === projectKey(b) && projectTypeKey(a) === projectTypeKey(b);
 }
 function correlationFor(failed, success) {
   if (!success || success.status !== 'complete') return null;
   if (sameBuild(failed, success)) return { type: 'same-build', confidence: 'high', matchedBy: ['buildId'] };
-  if (samePipeline(failed, success) && sameCommitScope(failed, success)) return { type: 'same-pipeline', confidence: 'high', matchedBy: ['pipeline', 'commit', 'repository', 'branch', 'environment', 'projectType'] };
-  if (sameCommitScope(failed, success)) return { type: 'same-commit-cross-pipeline', confidence: 'high', matchedBy: ['commit', 'repository', 'branch', 'environment', 'projectType'] };
+  if (samePipeline(failed, success) && sameProjectScope(failed, success)) return { type: 'same-pipeline', confidence: 'high', matchedBy: ['pipeline', 'commit', 'repository', 'branch', 'environment', 'projectType'] };
+  if (sameProjectScope(failed, success)) return { type: 'same-commit-cross-pipeline', confidence: 'high', matchedBy: ['commit', 'repository', 'branch', 'environment', 'projectType'] };
+  if (sameCommitScope(failed, success)) return { type: 'same-commit-cross-project', confidence: 'medium', matchedBy: ['commit', 'repository', 'branch', 'environment'] };
   if (isReplacementPair(failed, success) && sameCommitScope(failed, success)) return { type: 'legacy-replacement', confidence: 'medium', matchedBy: ['legacyMapping', 'commit', 'repository', 'branch', 'environment', 'projectType'] };
   return null;
 }
@@ -43,4 +45,4 @@ function findReplacement(failed, events, used = new Set()) {
   if (equivalent.length > 1) return { recovery: null, candidate: best, ambiguous: true };
   return { recovery: best, candidate: null, ambiguous: false, correlation: bestCorrelation };
 }
-module.exports = { replacements, norm, branch, sameBuild, samePipeline, sameCommitScope, isReplacementPair, correlationFor, findReplacement };
+module.exports = { replacements, norm, branch, sameBuild, samePipeline, sameCommitScope, sameProjectScope, isReplacementPair, correlationFor, findReplacement };
