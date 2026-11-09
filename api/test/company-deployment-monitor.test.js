@@ -21,6 +21,17 @@ test('upstream errors and HTML login responses are rejected', async () => {
   await assert.rejects(load(async () => ({ ok: false })));
   await assert.rejects(load(async () => ({ ok: true, headers: new Headers({ 'content-type': 'text/html' }) })));
 });
+test('normalizes lineage identifiers and marks incomplete lineage', () => {
+  const [complete, incomplete] = normalize([
+    row({ PipelineId: '42', RepositoryId: 'repo-1', Commit: 'C6B4C1A1', BranchName: 'refs/heads/Staging/Api' }),
+    row({ BuildId: '2', PipelineId: '43', Repository: '', Commit: '' })
+  ]);
+  assert.equal(complete.pipelineId, '42');
+  assert.equal(complete.repositoryId, 'repo-1');
+  assert.equal(complete.commitId, 'c6b4c1a1');
+  assert.equal(complete.lineageUnavailable, false);
+  assert.equal(incomplete.lineageUnavailable, true);
+});
 test('HTTP handler requires dashboard roles before accessing upstream', async () => {
   const handler = require('../company-deployment-monitor');
   const context = { log: { warn() {}, error() {} } };

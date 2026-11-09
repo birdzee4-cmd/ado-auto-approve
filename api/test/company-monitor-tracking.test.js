@@ -27,7 +27,7 @@ test('same job status change preserves failure; repeated polls do not inflate co
 });
 test('build and deploy failures remain separate and recurrence after success reopens the project', () => {
   const [project] = run([event('1', 'build fail', '13:00'), event('2', 'deploy fail', '13:10'), event('3', 'complete', '13:20', { startText: '11/6/2026 1:15:00 PM' }), event('4', 'build fail', '14:00')]);
-  assert.equal(project.recoveredCount, 2); assert.equal(project.openBuild, 1); assert.equal(project.openDeploy, 0);
+  assert.equal(project.recoveredCount, 1); assert.equal(project.openBuild, 1); assert.equal(project.openDeploy, 1);
 });
 test('only the latest lane state can count as retrying', () => {
   const [project] = run([event('1', 'build fail', '13:00'), event('2', 'building', '13:10'), event('2', 'build fail', '13:20')]);
@@ -38,4 +38,30 @@ test('historical unresolved age stops at the end of the selected day', () => {
   const future = trackDay([event('1', 'build fail', '22:00')], date, new Date('2026-11-10T10:00:00Z')).projects[0];
   assert.equal(future.failures[0].durationSeconds, 7199);
   assert.equal(project.failures[0].durationSeconds, 3600);
+});
+test('recovers across renamed pipelines using the same commit lineage', () => {
+  const [project] = run([
+    event('616169', 'build fail', '13:00', { project: 'project.sika-module-docker', pipelineName: 'STG_Net_Project.Sika_module_docker-CI', repository: 'Net_Project.Sika', commitId: 'c6b4c1a1', startText: '11/6/2026 1:00:00 PM' }),
+    event('616170', 'complete', '13:20', { project: 'project.sika-module-docker', pipelineName: 'sika-module-stg-ci', repository: 'Net_Project.Sika', commitId: 'c6b4c1a1', startText: '11/6/2026 1:10:00 PM' })
+  ]);
+  assert.equal(project.openCount, 0);
+  assert.equal(project.failures[0].correlationType, 'same-commit-cross-pipeline');
+  assert.equal(project.failures[0].confidence, 'high');
+});
+test('does not recover across pipelines when commit or repository differs', () => {
+  const [project] = run([
+    event('1', 'build fail', '13:00', { repository: 'repo-a', commitId: 'aaa', startText: '11/6/2026 1:00:00 PM' }),
+    event('2', 'complete', '13:20', { repository: 'repo-b', commitId: 'bbb', startText: '11/6/2026 1:10:00 PM' })
+  ]);
+  assert.equal(project.openCount, 1);
+  assert.equal(project.failures[0].recovery, null);
+});
+test('does not reuse one success for multiple failures', () => {
+  const projects = run([
+    event('1', 'build fail', '13:00', { commitId: 'same', repository: 'repo', startText: '11/6/2026 1:00:00 PM' }),
+    event('2', 'build fail', '13:05', { commitId: 'same', repository: 'repo', startText: '11/6/2026 1:05:00 PM' }),
+    event('3', 'complete', '13:20', { commitId: 'same', repository: 'repo', startText: '11/6/2026 1:10:00 PM' })
+  ]);
+  assert.equal(projects[0].recoveredCount, 1);
+  assert.equal(projects[0].openCount, 1);
 });

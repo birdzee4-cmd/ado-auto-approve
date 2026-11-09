@@ -2,6 +2,7 @@ const { createHash } = require('node:crypto');
 const { findReplacement } = require('./company-monitor-correlation');
 const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const branch = value => String(value || '').trim().replace(/^refs\/heads\//, '');
+const pipeline = item => String(item.pipelineId || item.definitionId || item.pipelineName || '').trim().toLowerCase();
 function startedAt(text) {
   const m = String(text || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{1,2}):(\d{2}):(\d{2}) (AM|PM)$/i);
   if (!m) return '';
@@ -41,19 +42,27 @@ function trackDay(events, day, now = new Date()) {
     projects.get(key).timeline.push(item);
   }
   const allEvents = timeline;
+  const usedRecoveries = new Set();
   for (const project of projects.values()) {
     for (let index = 0; index < project.timeline.length; index++) {
       const failed = project.timeline[index];
       if (!['build fail', 'deploy fail'].includes(failed.status)) continue;
       const following = project.timeline.slice(index + 1).filter(item => laneKey(item) === laneKey(failed));
-      const recovery = following.find(item => item.status === 'complete' && later(item, failed)) || null;
-      const candidate = !recovery ? following.find(item => item.status === 'complete' && Date.parse(item.updatedAt) > Date.parse(failed.updatedAt)) || null : null;
+      const sameLaneSuccess = following.find(item => item.status === 'complete' && later(item, failed) && !usedRecoveries.has(item.eventKey) &&
+        (!failed.commitId && !item.commitId || (failed.commitId && item.commitId && failed.commitId === item.commitId && (!failed.repository || !item.repository || failed.repository.toLowerCase() === item.repository.toLowerCase()))));
+      const match = sameLaneSuccess
+        ? { recovery: sameLaneSuccess, candidate: null, ambiguous: false, correlation: { type: failed.id === sameLaneSuccess.id ? 'same-build' : pipeline(failed) === pipeline(sameLaneSuccess) ? 'same-pipeline' : 'same-commit-cross-pipeline', confidence: 'high', matchedBy: ['pipeline', 'branch', 'environment', 'projectType'] } }
+        : findReplacement(failed, allEvents.filter(item => later(item, failed)), usedRecoveries);
+      const recovery = match.recovery;
+      if (recovery) usedRecoveries.add(recovery.eventKey);
+      const candidate = !recovery ? match.candidate || following.find(item => item.status === 'complete' && Date.parse(item.updatedAt) > Date.parse(failed.updatedAt)) || null : null;
       const laneLatest = following.at(-1);
       const retry = !recovery && laneLatest && !laneLatest.terminal && later(laneLatest, failed) ? laneLatest : null;
-      const replacement = !recovery ? findReplacement(failed, allEvents) : null;
-      project.failures.push({ failed, recovery, candidate, replacement, retry, status: recovery ? 'recovered' : replacement ? 'superseded' : retry ? 'retrying' : candidate ? 'unverified' : 'open',
+      const replacement = recovery && match.correlation?.type === 'legacy-replacement' ? recovery : null;
+      const ambiguous = !recovery && match.ambiguous;
+      project.failures.push({ failed, recovery, candidate, replacement, retry, ambiguous, correlationType: recovery ? match.correlation?.type : ambiguous ? 'ambiguous' : candidate ? 'unverified' : 'no-match', confidence: recovery ? match.correlation?.confidence : ambiguous ? 'low' : 'none', matchedBy: recovery ? match.correlation?.matchedBy || [] : [], status: recovery ? 'recovered' : replacement ? 'superseded' : retry ? 'retrying' : ambiguous || candidate ? 'unverified' : 'open',
         durationSeconds: Math.max(0, Math.floor(((recovery ? Date.parse(recovery.updatedAt) : asOf) - Date.parse(failed.updatedAt)) / 1000)),
-        evidence: recovery ? (failed.id === recovery.id ? 'same-monitor-job-status-change' : 'later-monitor-run-started-after-failure') : candidate ? 'later-complete-without-new-build-evidence' : 'no-later-success' });
+        evidence: recovery ? (match.correlation?.type === 'same-commit-cross-pipeline' ? 'later-complete-same-commit-cross-pipeline' : failed.id === recovery.id ? 'same-monitor-job-status-change' : 'later-monitor-run-started-after-failure') : ambiguous ? 'multiple-success-candidates' : candidate ? 'later-complete-without-new-build-evidence' : 'no-later-success' });
     }
     project.latest = [...project.timeline].sort((a, b) => Date.parse(a.latestUpdateAt) - Date.parse(b.latestUpdateAt)).at(-1);
     project.totalRuns = new Set(project.timeline.map(item => item.id)).size;
@@ -69,6 +78,6 @@ function trackDay(events, day, now = new Date()) {
     project.timeline.reverse(); project.failures.reverse();
   }
   return { date: day, asOf: new Date(asOf).toISOString(), projects: [...projects.values()].sort((a, b) => Date.parse(b.latest.updatedAt) - Date.parse(a.latest.updatedAt)),
-    note: 'กลับมาสำเร็จหมายถึง Monitor รายงาน Complete ภายหลังในงานกลุ่มเดียวกัน; กรณี Pipeline ย้ายชื่อจะปิด Fail ได้เมื่อ Commit/Repository/Environment/Branch ตรงกันและอยู่ใน Mapping ที่กำหนด' };
+    note: 'กลับมาสำเร็จหมายถึง Monitor รายงาน Complete ภายหลัง โดยยืนยันจาก Build/ Pipeline เดิม หรือ Commit + Repository + Environment + Project Type + Branch เดียวกัน; Legacy Mapping ใช้เฉพาะข้อมูลเก่า' };
 }
 module.exports = { trackDay, eventKey, startedAt };
