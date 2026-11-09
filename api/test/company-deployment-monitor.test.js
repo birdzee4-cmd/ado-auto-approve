@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { normalize, load } = require('../shared/company-deployment-monitor');
+const { enrich } = require('../shared/company-monitor-ado-enrichment');
 const row = overrides => ({ BuildId: '615209_M', CiName: 'service', Status: 'Complete', Branch: 'staging', LastUpdate: '05/11/2026 20:06:13', ...overrides });
 test('preserves module/plugin identities and separates environment from Git branch', () => {
   const items = normalize([row({ BranchName: 'refs/heads/main' }), row({ BuildId: '615209_P', Status: 'Build fail' })]);
@@ -31,6 +32,15 @@ test('normalizes lineage identifiers and marks incomplete lineage', () => {
   assert.equal(complete.commitId, 'c6b4c1a1');
   assert.equal(complete.lineageUnavailable, false);
   assert.equal(incomplete.lineageUnavailable, true);
+});
+test('uses Service Hook build lineage before Azure DevOps API enrichment', async () => {
+  const [item] = normalize([row({ BuildId: '616170', Repository: '', Commit: '' })]);
+  const [enriched] = await enrich([item], { lineageByBuildId: { '616170': {
+    runId: '616170', sourceVersion: 'C6B4C1A1', repositoryId: 'repo-1', repositoryName: 'Net_Project.Sika', sourceBranch: 'refs/heads/Staging/Api', result: 'succeeded', url: 'hook-url'
+  } } });
+  assert.equal(enriched.commitId, 'c6b4c1a1');
+  assert.equal(enriched.repository, 'Net_Project.Sika');
+  assert.equal(enriched.lineageSource, 'service-hook');
 });
 test('HTTP handler requires dashboard roles before accessing upstream', async () => {
   const handler = require('../company-deployment-monitor');

@@ -112,6 +112,21 @@ async function listAll(options) {
   return items;
 }
 
+async function findBuildLineage(buildIds, day) {
+  const wanted = new Set((Array.isArray(buildIds) ? buildIds : []).map(value => String(value || '').replace(/_[MP]$/, '')).filter(value => /^\d+$/.test(value)));
+  if (!wanted.size) return {};
+  const start = new Date(`${day}T00:00:00+07:00`);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  const events = await listAll({ sourceType: 'build', from: start.toISOString(), to: end.toISOString() });
+  const result = {};
+  for (const event of events) {
+    const buildId = String(event.runId || '').replace(/_[MP]$/, '');
+    if (!wanted.has(buildId) || !event.sourceVersion) continue;
+    if (!result[buildId] || String(event.eventCreatedAt || '') > String(result[buildId].eventCreatedAt || '')) result[buildId] = event;
+  }
+  return result;
+}
+
 async function summarize(options) {
   const items = await listAll(options);
   const summary = {
@@ -199,5 +214,5 @@ function resetForTests() {
   cachedIndexClient = undefined;
 }
 
-module.exports = { save, list, listAll, listIndexedPage, summarize, exportCsv, resetForTests };
+module.exports = { save, list, listAll, findBuildLineage, listIndexedPage, summarize, exportCsv, resetForTests };
 

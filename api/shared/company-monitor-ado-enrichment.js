@@ -16,13 +16,17 @@ async function enrich(items, options = {}) {
   await Promise.all(Array.from({ length: Math.min(5, ids.length) }, worker));
   return items.map(item => {
     const detail = details.get(item.azureBuildId || String(item.id || '').replace(/_[MP]$/, ''));
-    if (!detail) return item;
+    const buildId = item.azureBuildId || String(item.id || '').replace(/_[MP]$/, '');
+    const hook = options.lineageByBuildId && options.lineageByBuildId[buildId];
+    if (!detail && !hook) return item;
     return { ...item,
-      repository: item.repository || detail.repository?.name || '',
-      commitId: item.commitId || String(detail.sourceVersion || '').trim().toLowerCase(),
-      sourceBranch: item.sourceBranch || detail.sourceBranch || '',
-      adoResult: String(detail.result || '').toLowerCase(),
-      adoBuildUrl: detail._links?.web?.href || detail.url || ''
+      repository: item.repository || hook?.repositoryName || detail?.repository?.name || '',
+      repositoryId: item.repositoryId || hook?.repositoryId || detail?.repository?.id || '',
+      commitId: item.commitId || String(hook?.sourceVersion || detail?.sourceVersion || '').trim().toLowerCase(),
+      sourceBranch: item.sourceBranch || hook?.sourceBranch || detail?.sourceBranch || '',
+      lineageSource: item.commitId ? (item.lineageSource || 'monitor') : hook?.sourceVersion ? 'service-hook' : detail?.sourceVersion ? 'azure-devops-api' : '',
+      adoResult: String(detail?.result || hook?.result || '').toLowerCase(),
+      adoBuildUrl: detail?._links?.web?.href || detail?.url || hook?.url || ''
     };
   });
 }
