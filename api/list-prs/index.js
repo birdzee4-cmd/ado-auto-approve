@@ -179,10 +179,15 @@ module.exports = async function (context, req) {
 
           context.log('Building virtual release row for approval ID:', app.id);
           const vRow = await buildVirtualReleaseRow(context, app, releaseReadAuth, org, project);
-          if (isTargetBranch(vRow.targetBranch, stagingPrefix) || isMergeCodeBranch(vRow.targetBranch)) {
+          const stagingRelease = isStagingReleaseDefinition(vRow.releaseApproval && vRow.releaseApproval.releaseDefinitionName);
+          if ((isTargetBranch(vRow.targetBranch, stagingPrefix) || isMergeCodeBranch(vRow.targetBranch)) &&
+              (stagingRelease || isMergeCodeBranch(vRow.targetBranch))) {
             prs.push(vRow);
           } else {
-            context.log('Filtered out virtual release row with non-staging branch:', vRow.targetBranch);
+            context.log('Filtered out virtual release row:', {
+              branch: vRow.targetBranch,
+              definition: vRow.releaseApproval && vRow.releaseApproval.releaseDefinitionName
+            });
           }
         }
       } catch (e) {
@@ -414,6 +419,13 @@ function isTargetBranch(refName, configuredPrefix) {
     .replace(/^refs\/heads\//, '')
     .replace(/\/+$/, '');
   return actual === prefix || actual.startsWith(prefix + '/');
+}
+
+function isStagingReleaseDefinition(name) {
+  const value = String(name || '').trim().toLowerCase();
+  if (!value) return false;
+  return (value.startsWith('stg') || value.includes(' stg') || value.includes('-stg') || value.includes('_stg')) &&
+    !value.includes('-prd') && !value.includes('_prd') && !value.includes(' prd');
 }
 
 async function buildRecentlyApprovedRows(context, options) {
