@@ -769,9 +769,6 @@ async function getPendingReleaseApprovals(reviewerGroup, options) {
   const patFallback = getConfig().pat ? { pat: getConfig().pat } : null;
   const diagnostics = options && options.diagnostics;
   const params = [
-    'statusFilter=pending',
-    'includeMyGroupApprovals=true',
-    'top=200',
     'api-version=7.1'
   ].join('&');
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/approvals?${params}`;
@@ -792,9 +789,11 @@ async function getPendingReleaseApprovals(reviewerGroup, options) {
       .map(value => String(value || '').toLowerCase())
       .some(value => value.includes(groupText));
   };
-  let groupApprovals = approvals.filter(matchesGroup);
+  const pendingApprovals = approvals.filter(app => String(app && app.status || '').toLowerCase() === 'pending');
+  let groupApprovals = pendingApprovals.filter(matchesGroup);
   if (diagnostics) {
     diagnostics.approvalList.total = approvals.length;
+    diagnostics.approvalList.pending = pendingApprovals.length;
     diagnostics.approvalList.groupMatches = groupApprovals.length;
     diagnostics.approvalList.sample = approvals.slice(0, 10).map(app => ({
       id: app && app.id,
@@ -810,7 +809,9 @@ async function getPendingReleaseApprovals(reviewerGroup, options) {
   if (!groupApprovals.length && patFallback) {
     const patResult = await releaseRequest('GET', path, null, patFallback);
     const patApprovals = patResult.ok && patResult.body && Array.isArray(patResult.body.value)
-      ? patResult.body.value.filter(matchesGroup)
+      ? patResult.body.value
+        .filter(app => String(app && app.status || '').toLowerCase() === 'pending')
+        .filter(matchesGroup)
       : [];
     if (patApprovals.length) groupApprovals = patApprovals;
   }
