@@ -60,6 +60,19 @@ export function initCompanyMonitor() {
       if (!previous || Date.parse(item.updatedAt) >= Date.parse(previous.updatedAt)) latest.set(key, item);
     }
     const rows = [...latest.values()];
+    const recoveryPairs = new Map();
+    tracking?.projects?.forEach(project => project.failures?.forEach(failure => {
+      if (!failure.recovery) return;
+      const failedId = String(failure.failed?.id || '');
+      const recoveryId = String(failure.recovery?.id || '');
+      if (failedId && recoveryId) { recoveryPairs.set(failedId, failedId); recoveryPairs.set(recoveryId, failedId); }
+    }));
+    rows.sort((a, b) => {
+      const pairA = recoveryPairs.get(String(a.id)) || '';
+      const pairB = recoveryPairs.get(String(b.id)) || '';
+      if (pairA !== pairB) return pairA.localeCompare(pairB) || String(a.project).localeCompare(String(b.project));
+      return (Date.parse(a.updatedAt) || 0) - (Date.parse(b.updatedAt) || 0);
+    });
     $('companyBoard').innerHTML = environments.filter(env => env !== 'Other' || rows.some(item => item.environment === env)).map(env => {
       const jobs = rows.filter(item => item.environment === env), finished = jobs.filter(item => item.terminal), running = jobs.filter(item => !item.terminal);
       const count = status => jobs.filter(item => item.status === status).length;
