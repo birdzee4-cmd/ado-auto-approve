@@ -77,7 +77,9 @@ export function initCompanyMonitor() {
     const latest = new Map();
     for (const item of filteredRows) {
       const buildId = String(item.azureBuildId || item.id || '').replace(/_[MP]$/, '');
-      const key = [item.environment, item.project, item.projectType, item.branch, buildId].join('|');
+      // Azure Build ID is globally unique; project type can vary between monitor sources.
+      // Keep the latest metadata instead of rendering the same build as multiple cards.
+      const key = buildId ? `build:${buildId}` : ['fallback', item.environment, item.project, item.projectType, item.branch, item.id].join('|');
       const previous = latest.get(key);
       if (!previous || Date.parse(item.updatedAt) >= Date.parse(previous.updatedAt)) latest.set(key, { ...item, observationCount: (previous?.observationCount || 0) + 1 });
       else previous.observationCount = (previous.observationCount || 0) + 1;
