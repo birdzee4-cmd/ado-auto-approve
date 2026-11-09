@@ -66,6 +66,8 @@ module.exports = async function (context, req) {
     const activityQuery = String(req.query && req.query.activityQuery || '').trim();
     const activityQueryType = normalizeActivityQueryType(req.query && req.query.activityQueryType);
     const scanOnly = req.query && String(req.query.scanOnly || '').toLowerCase() === 'true';
+    const diagnosticMode = req.query && String(req.query.diagnostic || '').toLowerCase() === 'true';
+    const releaseDiagnostics = diagnosticMode ? {} : null;
     const branchBuildCache = {};
     const releaseLookupCache = {};
 
@@ -166,14 +168,17 @@ module.exports = async function (context, req) {
 
       // Fetch all direct pending release approvals for the reviewer group
       try {
-        const directApprovals = await ado.getPendingReleaseApprovals(reviewerGroup, readAuth);
+        const releaseReadAuth = diagnosticMode
+          ? Object.assign({}, readAuth, { diagnostics: releaseDiagnostics })
+          : readAuth;
+        const directApprovals = await ado.getPendingReleaseApprovals(reviewerGroup, releaseReadAuth);
         context.log('Fetched direct pending release approvals:', directApprovals.length);
         for (const app of directApprovals) {
           const alreadyMapped = prs.some(p => p.releaseApproval && String(p.releaseApproval.approvalId) === String(app.id));
           if (alreadyMapped) continue;
 
           context.log('Building virtual release row for approval ID:', app.id);
-          const vRow = await buildVirtualReleaseRow(context, app, readAuth, org, project);
+          const vRow = await buildVirtualReleaseRow(context, app, releaseReadAuth, org, project);
           if (isTargetBranch(vRow.targetBranch, stagingPrefix) || isMergeCodeBranch(vRow.targetBranch)) {
             prs.push(vRow);
           } else {
@@ -276,6 +281,7 @@ module.exports = async function (context, req) {
         sent: (activeNotificationResult.sent || 0) + (completedNotificationResult.sent || 0)
       },
       externalLogSync: syncResult,
+      releaseDiagnostics: diagnosticMode ? releaseDiagnostics : undefined,
       completedPrs: recentlyApprovedPrs
     });
 

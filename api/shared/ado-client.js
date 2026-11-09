@@ -767,6 +767,7 @@ function hasReviewerGroup(pr, groupName) {
 async function getPendingReleaseApprovals(reviewerGroup, options) {
   const { org, project } = getConfig();
   const patFallback = getConfig().pat ? { pat: getConfig().pat } : null;
+  const diagnostics = options && options.diagnostics;
   const params = [
     'statusFilter=pending',
     'includeMyGroupApprovals=true',
@@ -775,8 +776,10 @@ async function getPendingReleaseApprovals(reviewerGroup, options) {
   ].join('&');
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/approvals?${params}`;
   let result = await releaseRequest('GET', path, null, options);
+  if (diagnostics) diagnostics.approvalList = { status: result.status, ok: result.ok };
   if (!result.ok && patFallback) {
     result = await releaseRequest('GET', path, null, patFallback);
+    if (diagnostics) diagnostics.approvalList.patFallback = { status: result.status, ok: result.ok };
   }
   const approvals = result.ok && result.body && Array.isArray(result.body.value)
     ? result.body.value
@@ -790,6 +793,18 @@ async function getPendingReleaseApprovals(reviewerGroup, options) {
       .some(value => value.includes(groupText));
   };
   let groupApprovals = approvals.filter(matchesGroup);
+  if (diagnostics) {
+    diagnostics.approvalList.total = approvals.length;
+    diagnostics.approvalList.groupMatches = groupApprovals.length;
+    diagnostics.approvalList.sample = approvals.slice(0, 10).map(app => ({
+      id: app && app.id,
+      releaseId: app && app.release && app.release.id,
+      status: app && app.status,
+      approver: app && app.approver && app.approver.displayName,
+      uniqueName: app && app.approver && app.approver.uniqueName,
+      environment: app && app.releaseEnvironment && app.releaseEnvironment.name
+    }));
+  }
   // A delegated identity can receive HTTP 200 with an empty list when it
   // lacks vso.release visibility. Retry with the configured PAT in that case.
   if (!groupApprovals.length && patFallback) {
@@ -813,8 +828,10 @@ async function getPendingReleaseApprovals(reviewerGroup, options) {
   ].join('&');
   const releasesPath = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/releases?${releaseParams}`;
   let releasesResult = await releaseRequest('GET', releasesPath, null, options);
+  if (diagnostics) diagnostics.releasesList = { status: releasesResult.status, ok: releasesResult.ok };
   if (!releasesResult.ok && patFallback) {
     releasesResult = await releaseRequest('GET', releasesPath, null, patFallback);
+    if (diagnostics) diagnostics.releasesList.patFallback = { status: releasesResult.status, ok: releasesResult.ok };
   }
   if (!releasesResult.ok || !releasesResult.body || !Array.isArray(releasesResult.body.value)) {
     return [];
@@ -844,6 +861,10 @@ async function getPendingReleaseApprovals(reviewerGroup, options) {
         }));
       }
     }
+  }
+  if (diagnostics) {
+    diagnostics.releasesList.count = releasesResult.body.value.length;
+    diagnostics.releasesList.fallbackMatches = fallback.length;
   }
   return fallback;
 }

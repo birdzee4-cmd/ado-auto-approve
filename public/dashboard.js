@@ -347,7 +347,7 @@ async function checkPrs(isSilent) {
   }
 
   try {
-    const listPrsUrl = isSilent ? '/api/list-prs?scanOnly=true' : '/api/list-prs';
+    const listPrsUrl = isSilent ? '/api/list-prs?scanOnly=true' : '/api/list-prs?diagnostic=true';
     const r = await safeFetchJson(listPrsUrl, { timeoutMs: 55000 });
     if (handleBrowserAuthRedirect(r, isSilent)) {
       return false;
@@ -374,7 +374,11 @@ async function checkPrs(isSilent) {
     saveLastSync(d);
     const mergeCodeCount = (d.prs || []).filter(isMergeCodePr).length;
     const attention = d.attentionSummary || {};
-    showBox('prResult', renderPrSummaryBanner(d, attention, mergeCodeCount));
+    const diagnosticHtml = d.releaseDiagnostics
+      ? '<details class="release-diagnostics"><summary>Release API diagnostics</summary><pre>' +
+        escapeHtml(JSON.stringify(d.releaseDiagnostics, null, 2)) + '</pre></details>'
+      : '';
+    showBox('prResult', renderPrSummaryBanner(d, attention, mergeCodeCount) + diagnosticHtml);
     renderPrTable(d.prs);
     updateMergeWaitingNotice(d.prs);
     
