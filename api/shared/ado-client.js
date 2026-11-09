@@ -766,6 +766,7 @@ function hasReviewerGroup(pr, groupName) {
 
 async function getPendingReleaseApprovals(reviewerGroup, options) {
   const { org, project } = getConfig();
+  const patFallback = getConfig().pat ? { pat: getConfig().pat } : null;
   const params = [
     'statusFilter=pending',
     'includeMyGroupApprovals=true',
@@ -773,7 +774,10 @@ async function getPendingReleaseApprovals(reviewerGroup, options) {
     'api-version=7.1'
   ].join('&');
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/approvals?${params}`;
-  const result = await releaseRequest('GET', path, null, options);
+  let result = await releaseRequest('GET', path, null, options);
+  if (!result.ok && patFallback) {
+    result = await releaseRequest('GET', path, null, patFallback);
+  }
   const approvals = result.ok && result.body && Array.isArray(result.body.value)
     ? result.body.value
     : [];
@@ -795,7 +799,10 @@ async function getPendingReleaseApprovals(reviewerGroup, options) {
     'api-version=7.1'
   ].join('&');
   const releasesPath = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/releases?${releaseParams}`;
-  const releasesResult = await releaseRequest('GET', releasesPath, null, options);
+  let releasesResult = await releaseRequest('GET', releasesPath, null, options);
+  if (!releasesResult.ok && patFallback) {
+    releasesResult = await releaseRequest('GET', releasesPath, null, patFallback);
+  }
   if (!releasesResult.ok || !releasesResult.body || !Array.isArray(releasesResult.body.value)) {
     return [];
   }
