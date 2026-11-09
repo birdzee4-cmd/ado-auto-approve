@@ -455,9 +455,28 @@ async function synchronize(input, context, dependencies = {}) {
 async function closeResolvedPrimaryIfReady(input, context, dependencies = {}) {
   const sp = dependencies.sharePoint || defaultSharePoint;
   const ado = dependencies.ado || defaultAdo;
-  const incident = await requireIncident(sp, input.incidentId);
+  let incident = await requireIncident(sp, input.incidentId);
   if (String(incident.status || '').toUpperCase() !== 'RESOLVED') return { closed: false, reason: 'alert-not-resolved' };
-  if (hasInvalidResolutionTimeline(incident)) return { closed: false, reason: 'invalid-resolution-timeline' };
+  if (hasInvalidResolutionTimeline(incident)) {
+    // Older records can contain a RESOLVED timestamp in the wrong timezone.
+    // The alert status and receipt sequence are the authoritative recovery
+    // signal for reconciliation; repair the stored timestamp before adding
+    // the VSTS comment so the incident is not stranded in Processing.
+    if (typeof sp.updateIncidentRecord !== 'function') return { closed: false, reason: 'invalid-resolution-timeline' };
+    const firstSeen = Date.parse(incident.firstSeen || '');
+    const receivedRecovery = Date.parse(incident.lastAlertAt || '');
+    const repairedResolvedAt = Number.isFinite(receivedRecovery) && (!Number.isFinite(firstSeen) || receivedRecovery > firstSeen)
+      ? new Date(receivedRecovery).toISOString()
+      : new Date().toISOString();
+    await sp.updateIncidentRecord(incident.sharePointId, { ResolvedAt: repairedResolvedAt, LastSyncedAt: new Date().toISOString() });
+    await audit(sp, context, {
+      incidentId: incident.incidentId,
+      action: 'RESOLVED_TIMELINE_NORMALIZED',
+      result: 'SUCCEEDED',
+      detail: `Normalized stale ResolvedAt ${incident.resolvedAt || '(missing)'} to ${repairedResolvedAt} before VSTS reconciliation`
+    });
+    incident = await requireIncident(sp, input.incidentId);
+  }
   const primary = (incident.workItems || []).find(item => item.role === 'PRIMARY');
   if (!primary) return { closed: false, reason: 'primary-missing' };
   if (defaultWorkItems.isClosedState(primary.state)) {

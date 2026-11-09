@@ -20,6 +20,27 @@ test('a stale recovery cannot trigger readiness or automatic primary closure', a
   assert.equal(result.reason, 'invalid-resolution-timeline');
 });
 
+test('reconciliation repairs a stale recovery timestamp before closing VSTS', async () => {
+  const writes = [];
+  const audits = [];
+  const repaired = { ...incident, workItems: [{ ...incident.workItems[0], state: 'Closed' }] };
+  const result = await service.closeResolvedPrimaryIfReady({ incidentId: incident.incidentId }, {}, {
+    sharePoint: {
+      getIncident: async () => ({ ...repaired, resolvedAt: writes[0]?.ResolvedAt || repaired.resolvedAt }),
+      updateIncidentRecord: async (_id, fields) => writes.push(fields),
+      appendAudit: async event => audits.push(event),
+      listAudit: async () => []
+    },
+    ado: {
+      getWorkItem: async () => ({ ok: true, body: { id: 892972, rev: 1, fields: { 'System.State': 'New' } } }),
+      updateWorkItem: async () => ({ ok: true, body: { id: 892972, fields: { 'System.State': 'Closed' } } })
+    }
+  });
+  assert.equal(result.closed, true);
+  assert.equal(writes[0].ResolvedAt, incident.lastAlertAt);
+  assert.equal(audits[0].Action, 'RESOLVED_TIMELINE_NORMALIZED');
+});
+
 test('receipt order catches stale recovery even when stored timestamps have timezone drift', () => {
   assert.equal(service.hasInvalidResolutionTimeline({ ...incident, resolvedAt: '2026-10-19T11:29:00Z' }), true);
 });
