@@ -4,12 +4,15 @@ const dateKey = value => {
   const date = new Date(text);
   return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date) : '';
 };
-const iso = date => date.toISOString().slice(0, 10);
+const bangkokKey = date => new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit'
+}).format(date);
+const bangkokMidnight = value => new Date(`${value}T00:00:00+07:00`);
 function buildReport(items, query = {}, now = new Date()) {
   const period = query.period || 'week';
   const selected = period === 'today' ? dateKey(now.toISOString()) : query.date || dateKey(now.toISOString());
-  const anchor = new Date(`${selected}T00:00:00Z`);
-  if (!['today', 'week', 'month'].includes(period) || !/^\d{4}-\d{2}-\d{2}$/.test(selected) || !Number.isFinite(anchor.getTime()) || iso(anchor) !== selected) {
+  const anchor = bangkokMidnight(selected);
+  if (!['today', 'week', 'month'].includes(period) || !/^\d{4}-\d{2}-\d{2}$/.test(selected) || !Number.isFinite(anchor.getTime()) || bangkokKey(anchor) !== selected) {
     throw Object.assign(new Error('Select a valid date and today, week or month period'), { status: 400, code: 'INVALID_REPORT_PERIOD' });
   }
   const start = new Date(anchor);
@@ -19,7 +22,7 @@ function buildReport(items, query = {}, now = new Date()) {
   if (period === 'week') next.setUTCDate(next.getUTCDate() + 7);
   else if (period === 'month') next.setUTCMonth(next.getUTCMonth() + 1);
   else next.setUTCDate(next.getUTCDate() + 1);
-  const startKey = iso(start), nextKey = iso(next);
+  const startKey = bangkokKey(start), nextKey = bangkokKey(next);
   const dated = items.map(item => ({ item, date: dateKey(item.firstSeen || item.receivedAt || item.createdAt) }));
   const incidents = dated.filter(row => row.date >= startKey && row.date < nextKey).map(row => row.item)
     .sort((a, b) => Date.parse(b.firstSeen || b.receivedAt || b.createdAt) - Date.parse(a.firstSeen || a.receivedAt || a.createdAt));
@@ -59,10 +62,10 @@ function buildReport(items, query = {}, now = new Date()) {
   }
   const daily = [];
   for (const day = new Date(start); day < next; day.setUTCDate(day.getUTCDate() + 1)) {
-    const date = iso(day); daily.push({ date, count: dated.filter(row => row.date === date).length });
+    const date = bangkokKey(day); daily.push({ date, count: dated.filter(row => row.date === date).length });
   }
   const end = new Date(next); end.setUTCDate(end.getUTCDate() - 1);
-  return { handoffs, period, start: startKey, end: iso(end), generatedAt: now.toISOString(), total: incidents.length,
+  return { handoffs, period, start: startKey, end: bangkokKey(end), generatedAt: now.toISOString(), total: incidents.length,
     recovered: incidents.filter(item => item.status === 'RESOLVED').length,
     active: incidents.filter(item => item.status === 'FIRING').length,
     unknownDates: dated.filter(row => !row.date).length,

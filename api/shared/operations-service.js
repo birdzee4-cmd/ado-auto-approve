@@ -664,8 +664,7 @@ async function closeIncident(input, context, dependencies = {}) {
   }
   const eligibility = closeEligibility(incident);
   const latestOpenItems = synchronization.items.filter(item => !defaultWorkItems.isClosedState(item.state));
-  const invalidBulkTimeline = Date.parse(incident.resolvedAt || '') <= Date.parse(incident.firstSeen || '')
-    || Date.parse(incident.lastAlertAt || '') < Date.parse(incident.receivedAt || '');
+  const invalidBulkTimeline = hasInvalidResolutionTimeline(incident);
   if (input.batchClose === true && (eligibility.readinessStatus !== 'READY_TO_CLOSE' || incident.hasLifecycleConflict || latestOpenItems.length > 0 || invalidBulkTimeline)) {
     const detail = 'Bulk closure requires a recovered alert, closed Work Items and no lifecycle conflict';
     await audit(sp, context, { incidentId: incident.incidentId, action: 'INCIDENT_CLOSE_BLOCKED', result: 'BLOCKED', detail });

@@ -218,12 +218,12 @@ async function safeFetchJson(url, options) {
 }
 function formatDate(iso) {
   if (!iso) return '-';
-  try { return new Date(iso).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }); }
+  try { return new Date(iso).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Bangkok' }); }
   catch (e) { return iso; }
 }
 function formatDateTime(iso) {
   if (!iso) return '-';
-  try { return new Date(iso).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }); }
+  try { return new Date(iso).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Bangkok' }); }
   catch (e) { return iso; }
 }
 function shortBranch(ref) {
