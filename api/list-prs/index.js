@@ -166,14 +166,14 @@ module.exports = async function (context, req) {
 
       // Fetch all direct pending release approvals for the reviewer group
       try {
-        const directApprovals = await ado.getPendingReleaseApprovals(reviewerGroup);
+        const directApprovals = await ado.getPendingReleaseApprovals(reviewerGroup, readAuth);
         context.log('Fetched direct pending release approvals:', directApprovals.length);
         for (const app of directApprovals) {
           const alreadyMapped = prs.some(p => p.releaseApproval && String(p.releaseApproval.approvalId) === String(app.id));
           if (alreadyMapped) continue;
 
           context.log('Building virtual release row for approval ID:', app.id);
-          const vRow = await buildVirtualReleaseRow(context, app, pat, org, project);
+          const vRow = await buildVirtualReleaseRow(context, app, readAuth, org, project);
           if (isTargetBranch(vRow.targetBranch, stagingPrefix) || isMergeCodeBranch(vRow.targetBranch)) {
             prs.push(vRow);
           } else {
@@ -1267,7 +1267,7 @@ async function getReleaseApprovalSnapshot(context, pr, statusSnapshot, releaseLo
   return Object.assign({ buildId: buildId }, actual || { status: 'not_found', label: 'No release yet' });
 }
 
-async function buildVirtualReleaseRow(context, approval, pat, org, project) {
+async function buildVirtualReleaseRow(context, approval, authOptions, org, project) {
   const releaseId = approval.release.id;
   const releaseName = approval.release.name;
   const definitionName = approval.releaseDefinition.name;
@@ -1282,7 +1282,7 @@ async function buildVirtualReleaseRow(context, approval, pat, org, project) {
   let createdBy = 'System';
 
   try {
-    const relResult = await callAdoApi('vsrm.dev.azure.com', `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/releases/${releaseId}?api-version=7.1`, pat);
+    const relResult = await ado.releaseRequest('GET', `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/releases/${releaseId}?api-version=7.1`, null, authOptions);
     if (relResult.ok && relResult.body) {
       const rel = JSON.parse(relResult.body);
       createdBy = rel.createdBy && rel.createdBy.displayName || createdBy;
@@ -1308,7 +1308,7 @@ async function buildVirtualReleaseRow(context, approval, pat, org, project) {
 
   if (buildId) {
     try {
-      const buildResult = await callAdoApi('dev.azure.com', `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds/${buildId}?api-version=6.0`, pat);
+      const buildResult = await ado.adoRequest('GET', `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds/${buildId}?api-version=6.0`, null, authOptions);
       if (buildResult.ok && buildResult.body) {
         const build = JSON.parse(buildResult.body);
         if (build.triggerInfo && build.triggerInfo['pr.number']) {
@@ -1323,7 +1323,7 @@ async function buildVirtualReleaseRow(context, approval, pat, org, project) {
   let prFetched = false;
   if (prId) {
     try {
-      const prResult = await callAdoApi('dev.azure.com', `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/pullrequests/${prId}?api-version=7.0`, pat);
+      const prResult = await ado.adoRequest('GET', `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/pullrequests/${prId}?api-version=7.0`, null, authOptions);
       if (prResult.ok && prResult.body) {
         const pr = JSON.parse(prResult.body);
         prTitle = pr.title;

@@ -764,7 +764,7 @@ function hasReviewerGroup(pr, groupName) {
   );
 }
 
-async function getPendingReleaseApprovals(reviewerGroup) {
+async function getPendingReleaseApprovals(reviewerGroup, options) {
   const { org, project } = getConfig();
   const params = [
     'statusFilter=pending',
@@ -773,7 +773,7 @@ async function getPendingReleaseApprovals(reviewerGroup) {
     'api-version=7.1'
   ].join('&');
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/approvals?${params}`;
-  const result = await releaseRequest('GET', path);
+  const result = await releaseRequest('GET', path, null, options);
   const approvals = result.ok && result.body && Array.isArray(result.body.value)
     ? result.body.value
     : [];
@@ -795,7 +795,7 @@ async function getPendingReleaseApprovals(reviewerGroup) {
     'api-version=7.1'
   ].join('&');
   const releasesPath = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/releases?${releaseParams}`;
-  const releasesResult = await releaseRequest('GET', releasesPath);
+  const releasesResult = await releaseRequest('GET', releasesPath, null, options);
   if (!releasesResult.ok || !releasesResult.body || !Array.isArray(releasesResult.body.value)) {
     return [];
   }
