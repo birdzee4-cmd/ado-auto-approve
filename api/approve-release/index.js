@@ -71,7 +71,10 @@ module.exports = async function (context, req) {
     }
 
     const ado = require('../shared/ado-client');
-    const releaseResult = await ado.getRelease(releaseId);
+    // Use the delegated ADO token for the detail lookup as well as the approval
+    // PATCH. The release API may be accessible to the connected user while the
+    // app-level PAT is missing release-read permission.
+    const releaseResult = await ado.getRelease(releaseId, userAdoAuth);
     if (!releaseResult.ok || !releaseResult.body) {
       jsonResponse(502, {
         ok: false,
