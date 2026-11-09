@@ -29,10 +29,27 @@ export function initCompanyMonitor() {
   const elapsed = seconds => seconds < 60 ? `${seconds} วินาที` : seconds < 3600 ? `${Math.floor(seconds / 60)} นาที` : `${Math.floor(seconds / 3600)} ชม. ${Math.floor(seconds % 3600 / 60)} นาที`;
   const buildLink = item => item ? `<a href="https://dev.azure.com/buzzebees/Buzzebees/_build/results?buildId=${encodeURIComponent(item.azureBuildId || item.id.replace(/_[MP]$/, ''))}" target="_blank" rel="noreferrer">${esc(item.id)}</a>` : '-';
   const projectLink = (project, environment) => `<button type="button" class="company-project-link" data-project="${esc(project)}" data-env="${esc(environment)}">${esc(project)}</button>`;
+  const matchForItem = item => {
+    for (const project of tracking?.projects || []) for (const failure of project.failures || []) {
+      if (String(failure.failed?.id) === String(item.id)) return { side: 'failed', match: failure };
+      if (String(failure.recovery?.id) === String(item.id)) return { side: 'recovery', match: failure };
+    }
+    return null;
+  };
+  const correlationText = failure => ({
+    'same-build': 'จับคู่แล้ว · Build เดิม',
+    'same-pipeline': 'จับคู่แล้ว · Pipeline เดิม',
+    'same-commit-cross-pipeline': 'จับคู่แล้ว · Pipeline เปลี่ยน',
+    'same-commit-cross-project': 'จับคู่แล้ว · Project/Type เปลี่ยน',
+    'legacy-replacement': 'จับคู่แล้ว · Legacy Mapping'
+  }[failure?.correlationType] || 'ยังไม่ยืนยันการจับคู่');
   function card(item) {
     const link = item.azureBuildId ? `https://dev.azure.com/buzzebees/Buzzebees/_build/results?buildId=${encodeURIComponent(item.azureBuildId)}` : '';
     const tone = item.status === 'complete' ? 'success' : item.status.includes('fail') ? 'failure' : 'pending';
-    return `<article class="company-job company-${tone}${item.status === 'build fail' ? ' company-build-failed' : ''}"><div class="tracking-project-heading"><h3>${projectLink(item.project, item.environment)}</h3><span class="result-pill">${esc(labels[item.status] || item.status)}</span></div><p>${esc(item.projectType || 'ไม่ระบุประเภท')}</p><dl><dt>Build / งาน</dt><dd>${link ? `<a href="${esc(link)}" target="_blank" rel="noreferrer">${esc(item.id)}</a>` : esc(item.id)}</dd><dt>Branch</dt><dd>${esc(item.branch.replace(/^refs\/heads\//, ''))}</dd><dt>ผู้ขอ</dt><dd>${esc(item.requestedBy || '-')}</dd><dt>Update</dt><dd>${esc(item.updatedText)}</dd><dt>ระยะเวลา</dt><dd>${esc(item.duration || '-')}</dd></dl></article>`;
+    const relation = matchForItem(item);
+    const relationText = relation?.match?.recovery ? correlationText(relation.match) : item.status.includes('fail') ? 'รอตรวจสอบ Build Success' : '';
+    const relationDetail = relation?.match?.recovery ? ` · ${relation.side === 'failed' ? `Success ${relation.match.recovery.id}` : `แก้ไข Fail ${relation.match.failed.id}`} · ${relation.match.confidence === 'high' ? 'ความมั่นใจสูง' : 'ความมั่นใจปานกลาง'}` : '';
+    return `<article class="company-job company-${tone}${item.status === 'build fail' ? ' company-build-failed' : ''}"><div class="tracking-project-heading"><h3>${projectLink(item.project, item.environment)}</h3><span class="result-pill">${esc(labels[item.status] || item.status)}</span></div>${relationText ? `<p class="company-correlation"><strong>${esc(relationText)}</strong>${esc(relationDetail)}</p>` : ''}<p>${esc(item.projectType || 'ไม่ระบุประเภท')}</p><dl><dt>Build / งาน</dt><dd>${link ? `<a href="${esc(link)}" target="_blank" rel="noreferrer">${esc(item.id)}</a>` : esc(item.id)}</dd><dt>Branch</dt><dd>${esc(item.branch.replace(/^refs\/heads\//, ''))}</dd><dt>ผู้ขอ</dt><dd>${esc(item.requestedBy || '-')}</dd><dt>Update</dt><dd>${esc(item.updatedText)}</dd><dt>ระยะเวลา</dt><dd>${esc(item.duration || '-')}</dd></dl></article>`;
   }
   function projectSummary(env, jobs) {
     if (!tracking) return '<p>ยังไม่มีข้อมูลติดตาม Project</p>';
