@@ -52,7 +52,8 @@ export function initCompanyMonitor() {
     const relationDetail = relation?.match?.recovery ? ` · ${relation.side === 'failed' ? `Success ${relation.match.recovery.id}` : `แก้ไข Fail ${relation.match.failed.id}`} · ${relation.match.confidence === 'high' ? 'ความมั่นใจสูง' : 'ความมั่นใจปานกลาง'}` : '';
     const commit = String(item.commitId || '').trim();
     const commitLabel = commit ? commit.slice(0, 8) : 'ไม่พบ Commit';
-    return `<article class="company-job company-${tone}${item.status === 'build fail' ? ' company-build-failed' : ''}"><div class="tracking-project-heading"><h3>${projectLink(item.project, item.environment)}</h3><span class="result-pill">${esc(labels[item.status] || item.status)}</span></div>${relationText ? `<p class="${correlationClass(relation?.match)}"><strong>${esc(relation?.match?.recovery ? '✓ ยืนยันการจับคู่' : '⚠ รอตรวจสอบ')}</strong> <span>${esc(relationText)}</span>${esc(relationDetail)}</p>` : ''}<p>${esc(item.projectType || 'ไม่ระบุประเภท')}</p><dl><dt>Build / งาน</dt><dd>${link ? `<a href="${esc(link)}" target="_blank" rel="noreferrer">${esc(item.id)}</a>` : esc(item.id)}</dd><dt>Commit</dt><dd title="${esc(commit || 'ไม่พบ Commit')}">${esc(commitLabel)}</dd><dt>Branch</dt><dd>${esc(item.branch.replace(/^refs\/heads\//, ''))}</dd><dt>ผู้ขอ</dt><dd>${esc(item.requestedBy || '-')}</dd><dt>Update</dt><dd>${esc(item.updatedText)}</dd><dt>ระยะเวลา</dt><dd>${esc(item.duration || '-')}</dd></dl></article>`;
+    const observationNote = Number(item.observationCount || 0) > 1 ? `<p class="company-observation-note">ข้อมูลล่าสุด · พบจาก Monitor ${esc(item.observationCount)} ครั้ง</p>` : '';
+    return `<article class="company-job company-${tone}${item.status === 'build fail' ? ' company-build-failed' : ''}"><div class="tracking-project-heading"><h3>${projectLink(item.project, item.environment)}</h3><span class="result-pill">${esc(labels[item.status] || item.status)}</span></div>${relationText ? `<p class="${correlationClass(relation?.match)}"><strong>${esc(relation?.match?.recovery ? '✓ ยืนยันการจับคู่' : '⚠ รอตรวจสอบ')}</strong> <span>${esc(relationText)}</span>${esc(relationDetail)}</p>` : ''}${observationNote}<p>${esc(item.projectType || 'ไม่ระบุประเภท')}</p><dl><dt>Build / งาน</dt><dd>${link ? `<a href="${esc(link)}" target="_blank" rel="noreferrer">${esc(item.id)}</a>` : esc(item.id)}</dd><dt>Commit</dt><dd title="${esc(commit || 'ไม่พบ Commit')}">${esc(commitLabel)}</dd><dt>Branch</dt><dd>${esc(item.branch.replace(/^refs\/heads\//, ''))}</dd><dt>ผู้ขอ</dt><dd>${esc(item.requestedBy || '-')}</dd><dt>Update</dt><dd>${esc(item.updatedText)}</dd><dt>ระยะเวลา</dt><dd>${esc(item.duration || '-')}</dd></dl></article>`;
   }
   function projectSummary(env, jobs) {
     if (!tracking) return '<p>ยังไม่มีข้อมูลติดตาม Project</p>';
@@ -75,9 +76,11 @@ export function initCompanyMonitor() {
     const filteredRows = items.filter(item => (!day || item.updatedAt.startsWith(day)) && (!search || [item.project, item.projectType, item.id, item.requestedBy, item.branch].join(' ').toLowerCase().includes(search)));
     const latest = new Map();
     for (const item of filteredRows) {
-      const key = [item.environment, item.project, item.projectType, item.branch, item.id].join('|');
+      const buildId = String(item.azureBuildId || item.id || '').replace(/_[MP]$/, '');
+      const key = [item.environment, item.project, item.projectType, item.branch, buildId].join('|');
       const previous = latest.get(key);
-      if (!previous || Date.parse(item.updatedAt) >= Date.parse(previous.updatedAt)) latest.set(key, item);
+      if (!previous || Date.parse(item.updatedAt) >= Date.parse(previous.updatedAt)) latest.set(key, { ...item, observationCount: (previous?.observationCount || 0) + 1 });
+      else previous.observationCount = (previous.observationCount || 0) + 1;
     }
     const rows = [...latest.values()];
     const recoveryPairs = new Map();
