@@ -772,7 +772,6 @@ async function getPendingReleaseApprovals(reviewerGroup, options) {
     'statusFilter=pending',
     'includeMyGroupApprovals=true',
     'top=200',
-    'typeFilter=preDeploy',
     'api-version=7.1'
   ].join('&');
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/approvals?${params}`;
