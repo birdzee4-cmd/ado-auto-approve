@@ -16,7 +16,14 @@ function buildReport(items, query = {}, now = new Date()) {
     throw Object.assign(new Error('Select a valid date and today, week or month period'), { status: 400, code: 'INVALID_REPORT_PERIOD' });
   }
   const start = new Date(anchor);
-  if (period === 'week') start.setUTCDate(start.getUTCDate() - (start.getUTCDay() + 6) % 7);
+  if (period === 'week') {
+    // The Bangkok midnight instant is the previous UTC date (17:00Z), so its
+    // UTC weekday is not the Bangkok weekday. Use a safe midday instant for
+    // weekday arithmetic, then return to Bangkok midnight for the range.
+    const bangkokNoon = new Date(`${selected}T12:00:00+07:00`);
+    bangkokNoon.setUTCDate(bangkokNoon.getUTCDate() - (bangkokNoon.getUTCDay() + 6) % 7);
+    start.setTime(bangkokMidnight(bangkokKey(bangkokNoon)).getTime());
+  }
   else if (period === 'month') start.setUTCDate(1);
   const next = new Date(start);
   if (period === 'week') next.setUTCDate(next.getUTCDate() + 7);
