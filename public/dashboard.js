@@ -347,7 +347,7 @@ async function checkPrs(isSilent) {
   }
 
   try {
-    const listPrsUrl = isSilent ? '/api/list-prs?scanOnly=true' : '/api/list-prs?diagnostic=true';
+    const listPrsUrl = isSilent ? '/api/list-prs?scanOnly=true' : '/api/list-prs';
     const r = await safeFetchJson(listPrsUrl, { timeoutMs: 55000 });
     if (handleBrowserAuthRedirect(r, isSilent)) {
       return false;
