@@ -142,8 +142,7 @@ module.exports = async function (context, req) {
     const allActivePrs = data.value || [];
     const targetPrs = allActivePrs
       .filter(pr => {
-        const targetRef = (pr.targetRefName || '').toLowerCase();
-        return targetRef.startsWith(stagingPrefix) || isMergeCodeBranch(targetRef);
+        return isTargetBranch(pr.targetRefName, stagingPrefix) || isMergeCodeBranch(pr.targetRefName);
       });
     const prs = [];
     const hiddenActionCompletePrs = [];
@@ -175,8 +174,7 @@ module.exports = async function (context, req) {
 
           context.log('Building virtual release row for approval ID:', app.id);
           const vRow = await buildVirtualReleaseRow(context, app, pat, org, project);
-          const targetRef = (vRow.targetBranch || '').toLowerCase();
-          if (targetRef.startsWith(stagingPrefix) || isMergeCodeBranch(targetRef)) {
+          if (isTargetBranch(vRow.targetBranch, stagingPrefix) || isMergeCodeBranch(vRow.targetBranch)) {
             prs.push(vRow);
           } else {
             context.log('Filtered out virtual release row with non-staging branch:', vRow.targetBranch);
@@ -399,6 +397,19 @@ function isMergeCodeBranch(refName) {
   return String(refName || '').toLowerCase().includes('mergecode');
 }
 
+// Azure DevOps returns branch names in both `refs/heads/staging/...` and
+// `Staging/...` forms depending on whether the value came from a PR or a
+// release artifact. Treat both forms as the same target branch.
+function isTargetBranch(refName, configuredPrefix) {
+  const actual = String(refName || '').trim().toLowerCase().replace(/^refs\/heads\//, '');
+  const prefix = String(configuredPrefix || 'refs/heads/staging')
+    .trim()
+    .toLowerCase()
+    .replace(/^refs\/heads\//, '')
+    .replace(/\/+$/, '');
+  return actual === prefix || actual.startsWith(prefix + '/');
+}
+
 async function buildRecentlyApprovedRows(context, options) {
   const meta = {
     ok: true,
@@ -512,8 +523,7 @@ async function buildRecentlyApprovedRows(context, options) {
           return null;
         }
         const pr = prResult.body;
-        const targetRef = String(pr.targetRefName || '').toLowerCase();
-        if (!targetRef.startsWith(options.stagingPrefix)) {
+        if (!isTargetBranch(pr.targetRefName, options.stagingPrefix)) {
           meta.skipped += 1;
           return null;
         }
@@ -702,8 +712,7 @@ async function lookupActivityReference(context, options) {
     };
   }
 
-  const targetRef = String(pr.targetRefName || '').toLowerCase();
-  lookup.targetBranchMatches = targetRef.startsWith(options.stagingPrefix);
+  lookup.targetBranchMatches = isTargetBranch(pr.targetRefName, options.stagingPrefix);
   lookup.reviewerGroupMatches = hasReviewerGroup(pr, options.reviewerGroup);
   if (!lookup.targetBranchMatches) lookup.reasons.push('target-branch-not-staging');
   if (!lookup.reviewerGroupMatches) lookup.reasons.push('reviewer-group-not-found');

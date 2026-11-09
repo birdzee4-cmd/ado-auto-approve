@@ -767,8 +767,8 @@ function hasReviewerGroup(pr, groupName) {
 async function getPendingReleaseApprovals(reviewerGroup) {
   const { org, project } = getConfig();
   const params = [
-    'status=pending',
-    'type=preDeploy',
+    'statusFilter=pending',
+    'includeMyGroupApprovals=true',
     'api-version=7.1'
   ].join('&');
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/release/approvals?${params}`;
