@@ -1947,10 +1947,13 @@ function getAutoApprovalStagingPrefix() {
 function isAutoApprovalStagingBranch(targetBranch) {
   const targetRef = String(targetBranch || '').toLowerCase();
   const configuredPrefix = getAutoApprovalStagingPrefix();
-  return targetRef.startsWith('refs/heads/staging') ||
-    targetRef.startsWith('refs/heads/stag') ||
-    targetRef.startsWith('refs/heads/stg') ||
-    (configuredPrefix && targetRef.startsWith(configuredPrefix));
+  if (/(^|[\/_-])(prd|prod|production)(?=$|[\/_-])/.test(targetRef)) return false;
+  return targetRef === 'refs/heads/staging' ||
+    /^refs\/heads\/staging[\/_-]/.test(targetRef) ||
+    targetRef.startsWith('refs/heads/stag/') ||
+    targetRef.startsWith('refs/heads/stg/') ||
+    (configuredPrefix && (targetRef === configuredPrefix ||
+      [ '/', '-', '_' ].some(separator => targetRef.startsWith(configuredPrefix + separator))));
 }
 
 function getAutoPrEligibility(pr) {

@@ -4,6 +4,18 @@ const listPrs = require('./index');
 
 const helpers = listPrs._test;
 
+test('isTargetBranch accepts staging branch family separators', () => {
+  assert.equal(helpers.isTargetBranch('refs/heads/staging-phase1', 'refs/heads/staging'), true);
+  assert.equal(helpers.isTargetBranch('refs/heads/Staging_PH/ImportUserDataWorker', 'refs/heads/staging'), true);
+  assert.equal(helpers.isTargetBranch('refs/heads/staging/api', 'refs/heads/staging'), true);
+});
+
+test('isTargetBranch rejects production branch names', () => {
+  assert.equal(helpers.isTargetBranch('refs/heads/staging-production', 'refs/heads/staging'), false);
+  assert.equal(helpers.isTargetBranch('refs/heads/staging/prd-hotfix', 'refs/heads/staging'), false);
+  assert.equal(helpers.isTargetBranch('refs/heads/production', 'refs/heads/staging'), false);
+});
+
 test('parseActivityReference detects Azure DevOps PR URLs', () => {
   assert.deepEqual(
     helpers.parseActivityReference(

@@ -418,7 +418,12 @@ function isTargetBranch(refName, configuredPrefix) {
     .toLowerCase()
     .replace(/^refs\/heads\//, '')
     .replace(/\/+$/, '');
-  return actual === prefix || actual.startsWith(prefix + '/');
+
+  // Staging branch families use more than one separator in practice:
+  // staging/..., staging-... and staging_.... Keep production branches out
+  // even when somebody names them below a staging-looking branch family.
+  if (/(^|[\/_-])(prd|prod|production)(?=$|[\/_-])/.test(actual)) return false;
+  return actual === prefix || [ '/', '-', '_' ].some(separator => actual.startsWith(prefix + separator));
 }
 
 function isStagingReleaseDefinition(name) {
@@ -1648,6 +1653,7 @@ function findCurrentUserReviewer(reviewers, currentUser) {
 }
 
 module.exports._test = {
+  isTargetBranch,
   normalizeActivityQueryType,
   parseActivityReference,
   getPullRequestIdFromBuild,
