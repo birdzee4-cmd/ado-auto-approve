@@ -6,7 +6,7 @@ const environments = ['Development', 'Staging', 'Production', 'Other'];
 export function initCompanyMonitor() {
   const host = document.createElement('section'); host.id = 'companyMonitor'; host.hidden = true;
   host.innerHTML = `<div class="deployment-heading"><div><p class="deployment-kicker">Company deployment monitor</p><h1>Monitor งานประจำวัน</h1><p>ข้อมูลจากระบบ Monitor บริษัท · จบทั้งหมดรวมงานสำเร็จ ล้มเหลว และยกเลิก</p></div><button type="button" class="primary-button" id="companyRefresh">Refresh</button></div>
-    <div class="deployment-card tracking-filters"><label>ค้นหา Project / ประเภท / Build / ผู้ขอ<input id="companySearch" type="search"></label><label>วันที่ข้อมูล<input id="companyDate" type="date" value="${bangkokToday()}" max="${bangkokToday()}"></label></div>
+    <div class="deployment-card tracking-filters"><label>ค้นหา Project / ประเภท / Build / Commit / ผู้ขอ<input id="companySearch" type="search"></label><label>วันที่ข้อมูล<input id="companyDate" type="date" value="${bangkokToday()}" max="${bangkokToday()}"></label></div>
     <p id="companyMessage" role="status" aria-live="polite">ยังไม่ได้โหลดข้อมูล</p><p id="companyCoverage" class="heading-help">อ่านประวัติจาก Azure ตามวัน Update ของ Monitor · เก็บเบื้องหลังทุก 1 นาที · หน้าจอ Refresh ด้วยตนเอง</p><p class="heading-help">กดชื่อ Project เพื่อดูทุกงานของวันนั้น · กลับมาสำเร็จอิง Monitor ใน Project / Environment / ประเภท / Branch เดียวกัน ยังไม่ยืนยัน Commit หรือ Artifact</p><div id="companyBoard" class="company-board"></div><dialog id="companyProjectDetail" class="company-project-detail" aria-labelledby="companyProjectTitle"><button type="button" id="companyProjectClose" class="secondary-button">ปิด</button><div id="companyProjectBody"></div></dialog>`;
   document.querySelector('.deployment-content').append(host);
   const developmentToggle = document.createElement('button');
@@ -75,7 +75,7 @@ export function initCompanyMonitor() {
   function render() {
     if (!items) return;
     const search = $('companySearch').value.trim().toLowerCase(), day = $('companyDate').value;
-    const filteredRows = items.filter(item => (!day || item.updatedAt.startsWith(day)) && (!search || [item.project, item.projectType, item.id, item.requestedBy, item.branch].join(' ').toLowerCase().includes(search)));
+    const filteredRows = items.filter(item => (!day || item.updatedAt.startsWith(day)) && (!search || [item.project, item.projectType, item.id, item.requestedBy, item.branch, item.commitId].join(' ').toLowerCase().includes(search)));
     const latest = new Map();
     for (const item of filteredRows) {
       const buildId = String(item.azureBuildId || item.id || '').replace(/_[MP]$/, '');
