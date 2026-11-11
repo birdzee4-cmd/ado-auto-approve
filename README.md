@@ -619,7 +619,7 @@ Body ตัวอย่าง:
 
 - Query Azure DevOps REST API หา build ที่ `completed` และ `failed` ในช่วงเวลาล่าสุด
 - Default lookback คือ 30 นาที และดึงสูงสุด 100 builds
-- กรองเฉพาะ pipeline ที่มีคำว่า `stg` และ branch ที่ขึ้นต้นด้วย `refs/heads/staging`
+- กรองเฉพาะ pipeline ที่มี environment token เป็น `stg` หรือ `prd` (ไม่แจ้ง `dev`/`uat`) โดยสามารถจำกัด branch เพิ่มได้ผ่าน `BUILD_FAILURE_SCAN_BRANCH_PREFIX`
 - สำหรับ build ที่ยังไม่เคยแจ้งเตือน ระบบจะดึง timeline/log แล้ววิเคราะห์ root cause ด้วย diagnostics catalog เดียวกับหน้า `/build-diagnostics.html?buildId=...`
 - Teams message จะแสดง root cause summary, error key, failed command, file/line/column, impact chain, warnings และแนวทางแก้ไขถ้าวิเคราะห์ได้
 - ส่ง Teams หนึ่งครั้งต่อ build ด้วย `Event_Key` รูปแบบ `teams:build-failed:<buildId>`

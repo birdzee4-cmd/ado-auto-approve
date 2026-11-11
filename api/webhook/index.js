@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const deploymentEvents = require('../shared/ado-deployment-event-service');
 const deploymentEventStore = require('../shared/ado-deployment-event-store');
 const { enrichBuildPullRequest } = require('../shared/build-pr-lineage');
+const { getBuildEnvironment } = require('../shared/build-environment');
 
 function escapeMarkdown(value) {
     return String(value == null ? '-' : value)
@@ -138,6 +139,13 @@ module.exports = async function (context, req) {
             ? resourceData.requests[0].requestedFor.displayName 
             : '';
         const buildUrl = (resourceData._links && resourceData._links.web && resourceData._links.web.href) || resourceData.url || '';
+
+        const buildEnvironment = getBuildEnvironment(definitionName);
+        if (!buildEnvironment) {
+            context.log(`webhook: ignored build.complete - unsupported build environment pipeline=${definitionName || '-'}`);
+            context.res = { status: 200, body: 'OK (ignored unsupported build environment)' };
+            return;
+        }
 
         let prTitle = '';
         let prAuthor = '';

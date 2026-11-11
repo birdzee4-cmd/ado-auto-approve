@@ -10,6 +10,7 @@ const ado = require('../shared/ado-client');
 const sp = require('../shared/sharepoint-client');
 const teams = require('../shared/teams-notifier');
 const diagnosticsService = require('../shared/build-diagnostics-service');
+const { isNotifiableBuildEnvironment } = require('../shared/build-environment');
 
 module.exports = async function (context, req) {
   function jsonResponse(status, payload) {
@@ -479,8 +480,8 @@ function parseOptions(body) {
   return {
     lookbackMinutes: Math.min(Math.max(Number(payload.lookbackMinutes || process.env.BUILD_FAILURE_SCAN_LOOKBACK_MINUTES || 30), 5), 1440),
     maxBuilds: Math.min(Math.max(Number(payload.maxBuilds || process.env.BUILD_FAILURE_SCAN_LIMIT || 100), 10), 1000),
-    branchPrefix: String(payload.branchPrefix || process.env.BUILD_FAILURE_SCAN_BRANCH_PREFIX || 'refs/heads/staging').toLowerCase(),
-    pipelineKeyword: String(payload.pipelineKeyword || process.env.BUILD_FAILURE_SCAN_PIPELINE_KEYWORD || 'stg').toLowerCase(),
+    branchPrefix: String(payload.branchPrefix || process.env.BUILD_FAILURE_SCAN_BRANCH_PREFIX || '').toLowerCase(),
+    pipelineKeyword: String(payload.pipelineKeyword || process.env.BUILD_FAILURE_SCAN_PIPELINE_KEYWORD || '').toLowerCase(),
     dryRun: payload.dryRun === true || String(payload.dryRun || '').toLowerCase() === 'true'
   };
 }
@@ -489,6 +490,7 @@ function isStagingBuild(build, options) {
   const pipelineName = String(build && build.definition && build.definition.name || '').toLowerCase();
   const branch = String(build && build.sourceBranch || '').toLowerCase();
   if (pipelineName.includes('schedule') || pipelineName.includes('scripts')) return false;
+  if (!isNotifiableBuildEnvironment(pipelineName)) return false;
   if (options.pipelineKeyword && !pipelineName.includes(options.pipelineKeyword)) return false;
   if (options.branchPrefix && !branch.startsWith(options.branchPrefix)) return false;
   return true;
