@@ -100,13 +100,14 @@ export function initCompanyMonitor() {
       return (Date.parse(a.updatedAt) || 0) - (Date.parse(b.updatedAt) || 0);
     });
     $('companyBoard').innerHTML = environments.filter(env => env !== 'Other' || rows.some(item => item.environment === env)).map(env => {
-      const jobs = rows.filter(item => item.environment === env), finished = jobs.filter(item => item.terminal), running = jobs.filter(item => !item.terminal);
+      const sourceJobs = filteredRows.filter(item => item.environment === env), jobs = rows.filter(item => item.environment === env), finished = jobs.filter(item => item.terminal), running = jobs.filter(item => !item.terminal);
       const count = status => jobs.filter(item => item.status === status).length;
       const selected = selectedStatuses.get(env) || '';
       const newestFirst = (a, b) => (Date.parse(b.updatedAt) || 0) - (Date.parse(a.updatedAt) || 0);
       const visible = (selected ? finished.filter(item => item.status === selected) : finished).sort(newestFirst);
       const statusButton = (status, label, number) => `<button type="button" class="company-status-link" data-env="${env}" data-status="${status}" aria-pressed="${selected === status}" aria-label="${esc(env)}: ${esc(label)} ${number} รายการ">${esc(label)} ${number}</button>`;
-      return `<section class="company-column company-env-${env.toLowerCase()}"><h2>${env}</h2><div class="deployment-card"><strong>${statusButton('', 'จบทั้งหมด', finished.length)}</strong><p class="company-status-links">${statusButton('complete', 'สำเร็จ', count('complete'))} · ${statusButton('build fail', 'Build fail', count('build fail'))} · ${statusButton('deploy fail', 'Deploy fail', count('deploy fail'))} · ${statusButton('cancel deploy', 'ยกเลิก', count('cancel deploy'))}</p><small>ยอดตามคำค้นหา/วันที่ · ${new Set(jobs.map(item => item.project)).size} Project · กดสถานะเพื่อดูรายการ</small></div>${projectSummary(env, jobs)}${selected ? '' : `<h3>กำลังทำ ${running.length}</h3>${running.sort(newestFirst).map(card).join('') || '<p>ไม่มีงานกำลังทำ</p>'}`}<h3 aria-live="polite">${esc(selected ? labels[selected] : 'จบแล้ว')} ${visible.length}</h3>${visible.map(card).join('') || '<p>ไม่พบรายการสถานะนี้</p>'}</section>`;
+      const duplicateCount = Math.max(0, sourceJobs.length - jobs.length);
+      return `<section class="company-column company-env-${env.toLowerCase()}"><h2>${env}</h2><div class="deployment-card"><strong>${statusButton('', 'จบทั้งหมด', finished.length)} Build ไม่ซ้ำ</strong><p class="company-status-links">${statusButton('complete', 'สำเร็จ', count('complete'))} · ${statusButton('build fail', 'Build fail', count('build fail'))} · ${statusButton('deploy fail', 'Deploy fail', count('deploy fail'))} · ${statusButton('cancel deploy', 'ยกเลิก', count('cancel deploy'))}</p><small>รายการจาก API: ${sourceJobs.length} · Build ไม่ซ้ำที่แสดง: ${jobs.length} · รวมรายการซ้ำ: ${duplicateCount}<br>${new Set(jobs.map(item => item.project)).size} Project · กดสถานะเพื่อดูรายการ</small></div>${projectSummary(env, jobs)}${selected ? '' : `<h3>กำลังทำ ${running.length}</h3>${running.sort(newestFirst).map(card).join('') || '<p>ไม่มีงานกำลังทำ</p>'}`}<h3 aria-live="polite">${esc(selected ? labels[selected] : 'จบแล้ว')} ${visible.length}</h3>${visible.map(card).join('') || '<p>ไม่พบรายการสถานะนี้</p>'}</section>`;
     }).join('');
   }
   async function load() {
@@ -122,7 +123,7 @@ export function initCompanyMonitor() {
       tracking = body.tracking || null;
       const info = body.archive || {};
       const time = value => value ? new Date(value).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }) : 'ยังไม่มี';
-      $('companyMessage').textContent = info.snapshotId ? `ประวัติวันที่ ${requestedDay} · ${items.length} รายการ · บันทึกล่าสุด ${time(info.savedAt)}` : `ยังไม่มีข้อมูลที่บันทึกไว้สำหรับวันที่ ${requestedDay} (ไม่ได้หมายความว่าวันนี้ไม่มีงาน)`;
+      $('companyMessage').textContent = info.snapshotId ? `ประวัติวันที่ ${requestedDay} · รายการจาก API ${items.length} รายการ · Card ใช้ Build ไม่ซ้ำ · บันทึกล่าสุด ${time(info.savedAt)}` : `ยังไม่มีข้อมูลที่บันทึกไว้สำหรับวันที่ ${requestedDay} (ไม่ได้หมายความว่าวันนี้ไม่มีงาน)`;
       const stale = !info.lastSuccessAt || Date.now() - Date.parse(info.lastSuccessAt) > 5 * 60000;
       $('companyCoverage').textContent = `${info.note || ''} · เริ่มเก็บ ${time(info.collectionStartedAt)} · เก็บสำเร็จล่าสุด ${time(info.lastSuccessAt)}${info.lastAttemptStatus === 'failed' || stale ? ' · ⚠ ข้อมูลอาจไม่ล่าสุด: งานเก็บข้อมูลขัดข้องหรือยังไม่สำเร็จใน 5 นาทีที่ผ่านมา' : ''}`;
       render();
