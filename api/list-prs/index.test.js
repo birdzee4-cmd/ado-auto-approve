@@ -20,6 +20,11 @@ test('isTargetBranch accepts the v1 staging branch family by default', () => {
   assert.equal(helpers.isTargetBranch('refs/heads/v1/Staging/Api', ''), true);
 });
 
+test('isTargetBranch accepts any namespace before the staging segment by default', () => {
+  assert.equal(helpers.isTargetBranch('refs/heads/v2/Staging/Api', ''), true);
+  assert.equal(helpers.isTargetBranch('refs/heads/x1/Staging/Api', ''), true);
+});
+
 test('parseActivityReference detects Azure DevOps PR URLs', () => {
   assert.deepEqual(
     helpers.parseActivityReference(
