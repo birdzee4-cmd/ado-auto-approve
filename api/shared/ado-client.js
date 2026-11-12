@@ -484,6 +484,12 @@ async function updateWorkItem(workItemId, patches, options) {
 async function addWorkItemComment(workItemId, comment, options) {
   const text = String(comment || '').trim();
   if (!text) throw new Error('Work Item comment cannot be empty');
+  const { org } = getConfig();
+  const commentsPath = `/${encodeURIComponent(org)}/_apis/wit/workItems/${encodeURIComponent(String(workItemId))}/comments?api-version=7.1-preview.4`;
+  const direct = await adoRequest('POST', commentsPath, { text }, options);
+  if (direct.ok || ![404, 405, 415].includes(Number(direct.status))) return direct;
+  // Keep compatibility with older process configurations that do not expose
+  // the Work Item Comments endpoint.
   return updateWorkItem(workItemId, [{ op: 'add', path: '/fields/System.History', value: text }], options);
 }
 
