@@ -346,7 +346,9 @@ function profileFields(supportTeam, incident, primaryWorkItem) {
   const team = normalizeTeam(supportTeam);
   if (team === 'APP_SUPPORT') {
     return {
-      'System.State': 'Assigned',
+      // Service Form does not support the generic "Assigned" state.  Create
+      // it in its initial state and let the App Support workflow move it on.
+      'System.State': 'New',
       // Verified against Production Service Form #881049 on 2026-09-25.
       'Custom.RequestType': 'Incident/Issue',
       'Custom.SeverityIncidentIssue': serviceFormSeverity(incident),
