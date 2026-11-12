@@ -16,6 +16,10 @@ test('isTargetBranch rejects production branch names', () => {
   assert.equal(helpers.isTargetBranch('refs/heads/production', 'refs/heads/staging'), false);
 });
 
+test('isTargetBranch accepts the v1 staging branch family by default', () => {
+  assert.equal(helpers.isTargetBranch('refs/heads/v1/Staging/Api', ''), true);
+});
+
 test('parseActivityReference detects Azure DevOps PR URLs', () => {
   assert.deepEqual(
     helpers.parseActivityReference(

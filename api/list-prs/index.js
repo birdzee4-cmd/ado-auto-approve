@@ -21,6 +21,7 @@ const ado = require('../shared/ado-client');
 const attentionUtil = require('../shared/attention');
 const mergePipelineMap = require('../shared/merge-pipeline-map');
 const approvalHold = require('../shared/approval-hold');
+const stagingBranch = require('../shared/staging-branch');
 
 module.exports = async function (context, req) {
   const responseHeaders = {};
@@ -412,18 +413,7 @@ function isMergeCodeBranch(refName) {
 // `Staging/...` forms depending on whether the value came from a PR or a
 // release artifact. Treat both forms as the same target branch.
 function isTargetBranch(refName, configuredPrefix) {
-  const actual = String(refName || '').trim().toLowerCase().replace(/^refs\/heads\//, '');
-  const prefix = String(configuredPrefix || 'refs/heads/staging')
-    .trim()
-    .toLowerCase()
-    .replace(/^refs\/heads\//, '')
-    .replace(/\/+$/, '');
-
-  // Staging branch families use more than one separator in practice:
-  // staging/..., staging-... and staging_.... Keep production branches out
-  // even when somebody names them below a staging-looking branch family.
-  if (/(^|[\/_-])(prd|prod|production)(?=$|[\/_-])/.test(actual)) return false;
-  return actual === prefix || [ '/', '-', '_' ].some(separator => actual.startsWith(prefix + separator));
+  return stagingBranch.isTargetBranch(refName, configuredPrefix);
 }
 
 function isStagingReleaseDefinition(name) {

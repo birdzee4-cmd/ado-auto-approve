@@ -43,6 +43,7 @@ module.exports = async function (context, req) {
     }
 
     const ado = require('../shared/ado-client');
+    const stagingBranch = require('../shared/staging-branch');
     const hold = require('../shared/approval-hold');
     const prResult = await ado.getPullRequest(prId);
     if (!prResult.ok || !prResult.body) {
@@ -53,7 +54,7 @@ module.exports = async function (context, req) {
     const pr = prResult.body;
     const targetBranch = pr.targetRefName || '';
     const expectedBranchPrefix = (process.env.ADO_TARGET_BRANCH || 'refs/heads/staging').toLowerCase();
-    if (!targetBranch.toLowerCase().startsWith(expectedBranchPrefix) && !isMergeCodeBranch(targetBranch)) {
+    if (!stagingBranch.isTargetBranch(targetBranch, process.env.ADO_TARGET_BRANCH) && !isMergeCodeBranch(targetBranch)) {
       jsonResponse(403, {
         ok: false,
         error: 'PR target is not eligible for Approval Hold',

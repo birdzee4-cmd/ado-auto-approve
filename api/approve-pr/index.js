@@ -60,6 +60,7 @@ module.exports = async function (context, req) {
     }
 
     const ado = require('../shared/ado-client');
+const stagingBranch = require('../shared/staging-branch');
 
     let approverUserId;
     try {
@@ -102,7 +103,7 @@ module.exports = async function (context, req) {
       });
       return;
     }
-    if (!actualTargetBranch.toLowerCase().startsWith(expectedBranchPrefix)) {
+    if (!stagingBranch.isTargetBranch(actualTargetBranch, process.env.ADO_TARGET_BRANCH)) {
       jsonResponse(403, {
         ok: false,
         error: 'PR target is not Staging - refuse to approve',
