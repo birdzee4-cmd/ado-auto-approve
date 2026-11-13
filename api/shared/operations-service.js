@@ -69,8 +69,26 @@ async function restartAppService(input, context, dependencies = {}) {
     ].join('\n');
     const comment = await ado.addWorkItemComment(primary.workItemId, detail, { accessToken: context.accessToken });
     if (!comment.ok) throw operationalError(comment.status || 502, 'ADO_COMMENT_FAILED', 'App Service restarted, but VSTS Discussion could not be added');
-    await audit(sp, context, { incidentId: incident.incidentId, workItemId: primary.workItemId, action: 'TIER1_RESTART_APP_SERVICE', result: 'SUCCEEDED', detail: `${resource}; VSTS Discussion added` });
-    return { incidentId: incident.incidentId, workItemId: primary.workItemId, resource, result: result || {}, discussionAdded: true };
+    const workItem = await ado.getWorkItem(primary.workItemId, { accessToken: context.accessToken });
+    if (!workItem || !workItem.ok) {
+      throw operationalError(workItem?.status || 502, 'ADO_TAG_LOOKUP_FAILED', 'App Service restarted and VSTS Discussion was added, but the VSTS Work Item tags could not be read');
+    }
+    const currentTags = String(workItem.body?.fields?.['System.Tags'] || '')
+      .split(';')
+      .map(tag => tag.trim())
+      .filter(Boolean);
+    const tags = Array.from(new Set([...currentTags, 'ITSupport_Tier1']));
+    const tagAdded = !currentTags.some(tag => tag.toLowerCase() === 'itsupport_tier1');
+    if (tagAdded) {
+      const tagUpdate = await ado.updateWorkItem(primary.workItemId, [
+        { op: 'add', path: '/fields/System.Tags', value: tags.join(';') }
+      ], { accessToken: context.accessToken });
+      if (!tagUpdate || !tagUpdate.ok) {
+        throw operationalError(tagUpdate?.status || 502, 'ADO_TAG_UPDATE_FAILED', 'App Service restarted and VSTS Discussion was added, but ITSupport_Tier1 could not be added');
+      }
+    }
+    await audit(sp, context, { incidentId: incident.incidentId, workItemId: primary.workItemId, action: 'TIER1_RESTART_APP_SERVICE', result: 'SUCCEEDED', detail: `${resource}; VSTS Discussion added; ITSupport_Tier1 tag ${tagAdded ? 'added' : 'already present'}` });
+    return { incidentId: incident.incidentId, workItemId: primary.workItemId, resource, result: result || {}, discussionAdded: true, tagAdded, tag: 'ITSupport_Tier1' };
   } catch (err) {
     const detail = `Restart App Service failed for ${resource}: ${err.message}`;
     await audit(sp, context, { incidentId: incident.incidentId, workItemId: primary.workItemId, action: 'TIER1_RESTART_APP_SERVICE', result: 'FAILED', detail }).catch(() => {});
