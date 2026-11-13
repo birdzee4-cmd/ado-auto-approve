@@ -194,17 +194,21 @@ function buildCandidateTokens(pr) {
     ...candidateParts(pr && pr.sourceRefName),
     ...candidateParts(pr && pr.targetRefName),
     ...candidateParts(pr && pr.title),
+    ...candidateParts(repo),
     repo.replace(/^net[_\-.]?project[_\-.]?/i, ''),
     repo.replace(/^node[_\-.]?project[_\-.]?/i, ''),
     repo.replace(/^react[_\-.]?web[_\-.]?/i, '')
   ];
-  return [...new Set(rawTokens
+  const tokens = [...new Set(rawTokens
     .map(normalizeForCandidate)
     .filter(token => token && token.length >= 4)
     .filter(token => !GENERIC_CANDIDATE_TOKENS.has(token))
     .filter(token => !/^\d+$/.test(token))
-    .filter(token => !/^[a-f0-9]{12,}$/.test(token)))]
-    .sort((a, b) => b.length - a.length);
+    .filter(token => !/^[a-f0-9]{12,}$/.test(token)))];
+  const componentText = normalize([repo, pr && pr.sourceRefName, pr && pr.targetRefName, pr && pr.title].join(' '));
+  if (/api/.test(componentText)) tokens.push('__component_api');
+  if (/web|website/.test(componentText)) tokens.push('__component_web');
+  return [...new Set(tokens)].sort((a, b) => b.length - a.length);
 }
 
 function scoreStagingCandidate(item, tokens, countryCode) {
@@ -214,10 +218,29 @@ function scoreStagingCandidate(item, tokens, countryCode) {
   const cd = normalizeForCandidate(item && item.cdName);
   if (!ci) return 0;
   let score = 0;
+  let matchedTokens = 0;
   for (const token of tokens) {
-    if (ci.includes(token)) score = Math.max(score, token.length + 20);
-    if (cd.includes(token)) score = Math.max(score, token.length + 10);
+    if (token === '__component_api') {
+      if (ci.includes('api')) score += 100;
+      if (ci.includes('web')) score -= 40;
+      continue;
+    }
+    if (token === '__component_web') {
+      if (ci.includes('web')) score += 5;
+      continue;
+    }
+    if (ci.includes(token)) {
+      score = Math.max(score, token.length + 20);
+      matchedTokens += 1;
+    } else if (cd.includes(token)) {
+      score = Math.max(score, token.length + 10);
+      matchedTokens += 1;
+    }
   }
+  // Multiple matching component tokens are stronger evidence than a single
+  // generic token such as "portal". This prevents Docker/Web variants from
+  // outranking an API pipeline that matches Sales + Portal.
+  score += matchedTokens * 8;
   if (ci.includes('stg')) score += 3;
   if (ci.includes('docker')) score += 2;
   if (countryCode && pipelineCountry.code === countryCode) score += 100;

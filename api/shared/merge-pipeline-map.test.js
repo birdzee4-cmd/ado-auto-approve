@@ -47,6 +47,20 @@ test('candidate tokens prioritize the component and exclude generic repository t
   assert.equal(tokens.includes('production'), false);
 });
 
+test('Sales Portal API candidate outranks generic Portal Web Docker candidate', () => {
+  const pr = {
+    title: '#380703 Commit code Merge Code PRD',
+    repository: { name: 'Net_Product_Sales_Portal_API' },
+    sourceRefName: 'refs/heads/Dev/Merge_20261113_1347_OP_API_Portal_Sales_FromVC53.02_Git_75977cb60b6504c1960841da4267617f9a2be7b6',
+    targetRefName: 'refs/heads/MergeCodeProduction/20261113_1347_OP_API_Portal_Sales_FromVC53.02_Git_75977cb60b6504c1960841da4267617f9a2be7b6'
+  };
+  const result = mapping.findPossibleStagingPipelineMapping(pr);
+  assert.equal(result.ciName, 'Stg_Sales_Portal_API-CI');
+  assert.equal(result.ciId, '5286');
+  assert.equal(result.cdName, 'stg api sales portal CD');
+  assert.equal(result.cdId, '4578');
+});
+
 test('partner country detection supports all configured country codes', () => {
   const countries = {
     TH: 'Thailand',

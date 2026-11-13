@@ -78,7 +78,7 @@ function renderMergeLookup(data) {
   }[result.status] || 'merge-info';
 
   const recommendationTitle = hasPossible
-    ? 'Not confirmed - verify before use'
+    ? 'Candidate only — verify before use'
     : recommended.source === 'historical-builds'
     ? 'Verified from historical builds'
     : data.mapping && data.mapping.label || 'No mapping rule';
@@ -145,9 +145,23 @@ function renderMergeLookup(data) {
         '</dl>' +
         '<div class="merge-actions">' + ciLink + '</div>' +
       '</div>' +
+      renderEvidence(data.evidence, pr, detected) +
       renderHistoricalEvidence(historical) +
       renderLookupErrors(lookupErrors) +
     '</div>';
+}
+
+function renderEvidence(evidence, pr, detected) {
+  const item = evidence || {};
+  const target = item.targetBranch || {};
+  const source = item.sourceBranch || {};
+  const state = value => value ? '<span class="evidence-state evidence-found">Found</span>' : '<span class="evidence-state evidence-missing">Not found</span>';
+  return '<div class="merge-card merge-card-full merge-info"><div class="merge-card-label">Evidence used</div><h3>Exact branch/build evidence is checked before component candidates</h3><div class="merge-evidence-summary">' +
+    '<div><span>Target branch</span><code>' + escapeHtml(target.branch || pr.targetBranch || '-') + '</code>' + state(target.buildFound) + '<small>' + escapeHtml(target.buildCount || 0) + ' build(s)' + (target.expectedCommit ? ' · commit ' + escapeHtml(target.expectedCommit) + (target.commitMatched ? ' matched' : '') : '') + '</small></div>' +
+    '<div><span>Source branch</span><code>' + escapeHtml(source.branch || pr.sourceBranch || '-') + '</code>' + state(source.buildFound) + '<small>' + escapeHtml(source.buildCount || 0) + ' build(s)</small></div>' +
+    '<div><span>PR status build</span>' + state(item.prStatus && item.prStatus.buildFound) + '<small>' + escapeHtml((item.prStatus && item.prStatus.buildIds || []).join(', ') || '-') + '</small></div>' +
+    '<div><span>Selected evidence</span><strong>' + escapeHtml(item.selected || 'none') + '</strong></div></div>' +
+    (detected && detected.sourceVersion ? '<p class="merge-card-note">Commit: <code>' + escapeHtml(detected.sourceVersion) + '</code></p>' : '') + '</div>';
 }
 
 function renderHistoricalEvidence(historical) {

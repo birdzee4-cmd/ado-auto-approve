@@ -5,6 +5,13 @@ const ado = require('../shared/ado-client');
 
 const helpers = lookup._test;
 
+test('commitFromBranch extracts the Git commit from a merge target branch', () => {
+  assert.equal(
+    helpers.commitFromBranch('MergeCodeProduction/20261113_1347_OP_API_Portal_Sales_FromVC53.02_Git_75977cb60b6504c1960841da4267617f9a2be7b6'),
+    '75977cb60b6504c1960841da4267617f9a2be7b6'
+  );
+});
+
 test('buildIdsFromStatuses extracts and deduplicates Azure DevOps build links', () => {
   assert.deepEqual(helpers.buildIdsFromStatuses([
     { targetUrl: 'https://dev.azure.com/example/_build/results?buildId=524855&view=results' },

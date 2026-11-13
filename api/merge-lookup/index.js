@@ -26,12 +26,18 @@ function getBuildDate(build) {
   return Date.parse(build && (build.queueTime || build.startTime || build.finishTime));
 }
 
+function commitFromBranch(branchName) {
+  const match = String(branchName || '').match(/(?:^|[_-])Git[_-]([a-f0-9]{7,40})(?:$|[_-])/i);
+  return match ? match[1].toLowerCase() : '';
+}
+
 function pickRelevantBuild(pr, builds, rule) {
   const values = Array.isArray(builds) ? builds : [];
   const openedAt = Date.parse(pr && pr.creationDate);
   const closedAt = Date.parse(pr && (pr.closedDate || pr.completionDate));
   const upperBound = Number.isFinite(closedAt) ? closedAt + 60 * 60 * 1000 : Date.now() + 60 * 60 * 1000;
   const expectedCiName = rule && rule.ci && rule.ci.name;
+  const expectedCommit = commitFromBranch(pr && pr.targetRefName);
 
   const relevant = values
     .filter(build => {
@@ -49,6 +55,14 @@ function pickRelevantBuild(pr, builds, rule) {
       .sort((a, b) => getBuildDate(b) - getBuildDate(a));
 
   if (!candidates.length) return null;
+
+  if (expectedCommit) {
+    const exactCommit = candidates.find(build =>
+      String(build && build.sourceVersion || '').toLowerCase().startsWith(expectedCommit) &&
+      (!expectedCiName || normalizeName(build && build.definition && build.definition.name) === normalizeName(expectedCiName))
+    );
+    if (exactCommit) return exactCommit;
+  }
 
   if (expectedCiName) {
     const exact = candidates.find(build =>
@@ -127,6 +141,7 @@ function buildToDto(build, branchName) {
     queueTime: build.queueTime || '',
     startTime: build.startTime || '',
     finishTime: build.finishTime || '',
+    sourceVersion: build.sourceVersion || '',
     branch: shortBranch(branchName),
     url: build._links && build._links.web && build._links.web.href || ''
   };
@@ -310,11 +325,16 @@ module.exports = async function (context, req) {
     const partnerCountry = getPartnerCountry(pr);
     const branchCandidate = !rule ? findPossibleStagingPipelineMapping(pr) : null;
 
-    let detectedTarget = await getDetectedBuild(repositoryId, pr.targetRefName, pr, rule, userAuth);
+    // Once a component candidate is known, prefer an exact build from the
+    // target branch that belongs to that CI. Without this constraint the
+    // latest build on a merge branch can belong to a different Web/API
+    // pipeline and contaminate the evidence shown to the user.
+    const buildExpectation = rule || (branchCandidate ? { ci: { name: branchCandidate.ciName } } : null);
+    let detectedTarget = await getDetectedBuild(repositoryId, pr.targetRefName, pr, buildExpectation, userAuth);
     let detectedSource = { branch: pr.sourceRefName, build: null, count: 0 };
     let detected = detectedTarget;
     if (!detectedTarget.build && pr.sourceRefName) {
-      detectedSource = await getDetectedBuild(repositoryId, pr.sourceRefName, pr, rule, userAuth);
+      detectedSource = await getDetectedBuild(repositoryId, pr.sourceRefName, pr, buildExpectation, userAuth);
       detected = detectedSource.build ? detectedSource : detectedTarget;
     }
 
@@ -463,6 +483,13 @@ module.exports = async function (context, req) {
           country: detectedCountry,
           origin: detected.origin || (detectedBuild ? 'branch' : '')
         },
+        evidence: {
+          searchOrder: ['target-branch', 'source-branch', 'pr-status', 'historical-builds', 'component-candidate'],
+          targetBranch: { branch: shortBranch(pr.targetRefName), expectedCommit: commitFromBranch(pr.targetRefName), buildCount: detectedTarget.count, buildFound: !!detectedTarget.build, commitMatched: !!(detectedBuild && commitFromBranch(pr.targetRefName) && String(detectedBuild.sourceVersion || '').toLowerCase().startsWith(commitFromBranch(pr.targetRefName))), error: detectedTarget.error || null },
+          sourceBranch: { branch: shortBranch(pr.sourceRefName), buildCount: detectedSource.count, buildFound: !!detectedSource.build, error: detectedSource.error || null },
+          prStatus: { buildIds: detectedPrStatus.buildIds, buildFound: !!detectedPrStatus.build },
+          selected: detectedBuild ? (detected.origin || 'branch') : historicalMatch ? 'historical-builds' : possible ? 'component-candidate' : 'none'
+        },
         historical: {
           count: historical.count,
           confidence: historical.confidence,
@@ -494,6 +521,7 @@ module.exports = async function (context, req) {
 };
 
 module.exports._test = {
+  commitFromBranch,
   parseBuildId,
   buildIdsFromStatuses,
   buildMatchesComponent,
