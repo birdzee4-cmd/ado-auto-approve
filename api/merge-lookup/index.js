@@ -35,13 +35,21 @@ function normalizeSearchText(value) {
   return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 }
 
+function searchFragments(value) {
+  const text = String(value || '').trim();
+  const fragments = [text];
+  const opIndex = text.toLowerCase().indexOf('_op_');
+  if (opIndex >= 0) fragments.push(text.slice(opIndex + 1));
+  return [...new Set(fragments.map(normalizeSearchText).filter(Boolean))];
+}
+
 function buildCiSearchRows(builds, fragment) {
-  const needle = normalizeSearchText(fragment);
+  const needles = searchFragments(fragment);
   return (Array.isArray(builds) ? builds : []).filter(build => {
     const haystack = [build && build.buildNumber, build && build.sourceBranch,
       build && build.definition && build.definition.name,
       build && build.repository && build.repository.name].map(normalizeSearchText).join(' ');
-    return needle && haystack.includes(needle);
+    return needles.some(needle => haystack.includes(needle));
   }).slice(0, 50).map(build => ({
     id: build.id || '',
     name: build.definition && build.definition.name || '',
@@ -327,7 +335,7 @@ module.exports = async function (context, req) {
       const exact = rows.find(item => String(item && item.targetRefName || '').replace(/^refs\/heads\//i, '') === mergeCode);
       resolvedPrId = exact && exact.pullRequestId ? String(exact.pullRequestId) : '';
       if (!resolvedPrId) {
-        const buildResult = await ado.listBuilds({ top: 500, accessToken: userAuth.accessToken });
+        const buildResult = await ado.listBuilds({ top: 2000, accessToken: userAuth.accessToken });
         const ciResults = buildResult.ok
           ? buildCiSearchRows(buildResult.body && buildResult.body.value, mergeCode)
           : [];
