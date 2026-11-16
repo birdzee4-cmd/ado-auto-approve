@@ -491,9 +491,15 @@ module.exports = async function (context, req) {
       ? 'unavailable'
       : 'not-found';
     const webUrl = getPrWebUrl(pr);
+    let ciSearch = [];
+    if (mergeCode) {
+      const buildSearch = await ado.listBuilds({ top: 2000, accessToken: userAuth.accessToken });
+      if (buildSearch.ok) ciSearch = buildCiSearchRows(buildSearch.body && buildSearch.body.value, mergeCode);
+    }
 
     jsonResponse(200, {
         ok: true,
+        ciSearch: mergeCode ? { query: mergeCode, results: ciSearch } : null,
         pr: {
           id: pr.pullRequestId,
           title: pr.title || '',

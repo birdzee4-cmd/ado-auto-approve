@@ -52,6 +52,9 @@ async function checkMergeLookup() {
     }
 
     renderMergeLookup(r.data);
+    if (r.data.ciSearch && Array.isArray(r.data.ciSearch.results) && r.data.ciSearch.results.length) {
+      renderCiSearchResults(r.data.ciSearch, true);
+    }
   } catch (err) {
     showBox('mergeResult', escapeHtml(err.message || 'Lookup failed'), 'error');
   } finally {
@@ -59,12 +62,13 @@ async function checkMergeLookup() {
   }
 }
 
-function renderCiSearchResults(data) {
+function renderCiSearchResults(data, append) {
   const details = document.getElementById('mergeLookupDetails');
-  showBox('mergeResult', '<strong>พบ CI จากการค้นหาในทุก repository</strong><br><small>ค้นหา: ' + escapeHtml(data.query || '-') + ' · ' + escapeHtml((data.results || []).length) + ' รายการ</small>', 'success');
+  if (!append) showBox('mergeResult', '<strong>พบ CI จากการค้นหาในทุก repository</strong><br><small>ค้นหา: ' + escapeHtml(data.query || '-') + ' · ' + escapeHtml((data.results || []).length) + ' รายการ</small>', 'success');
   details.hidden = false;
   const rows = (data.results || []).map(item => '<tr><td>' + escapeHtml(item.repository || '-') + '</td><td>' + escapeHtml(item.name || '-') + '</td><td>' + escapeHtml(item.buildNumber || item.id || '-') + '</td><td><code>' + escapeHtml(item.branch || '-') + '</code></td><td>' + escapeHtml(item.sourceVersion || '-') + '</td><td>' + (item.url ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener">Open Build</a>' : '-') + '</td></tr>').join('');
-  details.innerHTML = '<div class="merge-card merge-card-full merge-ok"><div class="merge-card-label">CI Search Across Repositories</div><h3>ผลลัพธ์จากชื่อ branch / build / pipeline</h3><div class="merge-table-wrap"><table class="merge-evidence-table"><thead><tr><th>Repository</th><th>Pipeline</th><th>Build</th><th>Branch</th><th>Commit</th><th>Link</th></tr></thead><tbody>' + (rows || '<tr><td colspan="6">ไม่พบข้อมูล</td></tr>') + '</tbody></table></div></div>';
+  const html = '<div class="merge-card merge-card-full merge-ok"><div class="merge-card-label">CI Search Across Repositories</div><h3>ผลลัพธ์จากชื่อ branch / build / pipeline</h3><div class="merge-table-wrap"><table class="merge-evidence-table"><thead><tr><th>Repository</th><th>Pipeline</th><th>Build</th><th>Branch</th><th>Commit</th><th>Link</th></tr></thead><tbody>' + (rows || '<tr><td colspan="6">ไม่พบข้อมูล</td></tr>') + '</tbody></table></div></div>';
+  details.innerHTML = append ? details.innerHTML + html : html;
 }
 
 function renderMergeLookup(data) {
