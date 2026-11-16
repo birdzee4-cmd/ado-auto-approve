@@ -45,7 +45,7 @@ function searchFragments(value) {
 
 function componentSearchName(value) {
   const text = String(value || '');
-  const match = text.match(/(?:moduleandplugin|moduleplugin|service)[_-]?([a-z0-9]+)/i);
+  const match = text.match(/_OP_.*_([^_]+)_From/i);
   return match ? match[1] : '';
 }
 
