@@ -55,6 +55,15 @@ export interface IncidentWorkItem {
   closedAt?: string;
   lastSyncedAt?: string;
   source: 'EXISTING_INCIDENT' | 'OPERATIONS_HUB_WORK_ITEMS';
+  discussions?: WorkItemDiscussion[];
+}
+
+export interface WorkItemDiscussion {
+  id?: number;
+  author: string;
+  createdAt: string;
+  text: string;
+  images?: Array<{ url: string }>;
 }
 
 export interface Incident {

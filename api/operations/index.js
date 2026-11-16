@@ -3,6 +3,7 @@ const sharePoint = require('../shared/operations-sharepoint-client');
 const operationsService = require('../shared/operations-service');
 const alertService = require('../shared/operations-alert-service');
 const crypto = require('crypto');
+const ado = require('../shared/ado-client');
 
 module.exports = async function (context, req) {
   const path = normalizePath(req.params && req.params.path);
@@ -37,6 +38,27 @@ module.exports = async function (context, req) {
     if (path === 'reports') {
       const data = require('../shared/operations-report').buildReport(await sharePoint.listReportIncidents(), req.query || {});
       return jsonResponse(context, 200, { ok: true, data });
+    }
+
+    const discussionMatch = /^work-items\/(\d+)\/discussions$/.exec(path);
+    if (method === 'GET' && discussionMatch) {
+      const workItemId = Number(discussionMatch[1]);
+      const incidents = await sharePoint.listReportIncidents();
+      const tracked = incidents.some(item => (item.workItems || []).some(ticket => ticket.workItemId === workItemId && ticket.role === 'RELATED' && ['APP_SUPPORT', 'TIER2'].includes(ticket.supportTeam)));
+      if (!tracked) return jsonResponse(context, 404, { ok: false, error: 'Work item is not a tracked App Support or IT Tier2 handoff' });
+      const result = await ado.listWorkItemComments(workItemId);
+      if (!result.ok) return jsonResponse(context, result.status || 502, { ok: false, error: 'ADO_DISCUSSION_UNAVAILABLE', detail: 'Azure DevOps discussion could not be loaded' });
+      const comments = Array.isArray(result.body && result.body.comments) ? result.body.comments : Array.isArray(result.body && result.body.value) ? result.body.value : [];
+      return jsonResponse(context, 200, { ok: true, data: {
+        workItemId,
+        comments: comments.map(comment => ({
+          id: comment.id,
+          text: String(comment.text || comment.renderedText || ''),
+          images: extractSafeAdoImages(comment.htmlContent || ''),
+          author: comment.createdBy && (comment.createdBy.displayName || comment.createdBy.uniqueName) || 'Unknown author',
+          createdAt: comment.createdDate || comment.createdDateTime || ''
+        }))
+      }});
     }
     if (path === 'dashboard') {
       const incidents = await sharePoint.listIncidents(1000);
@@ -307,6 +329,21 @@ async function handleWrite(context, req, path, principal) {
   return jsonResponse(context, 200, { ok: true, data }, token.setCookie);
 }
 
+function extractSafeAdoImages(html) {
+  const images = [];
+  const source = String(html || '');
+  const pattern = /<img\b[^>]*\bsrc=["'](https:\/\/[^"']+)["'][^>]*>/gi;
+  let match;
+  while ((match = pattern.exec(source)) && images.length < 20) {
+    try {
+      const url = new URL(match[1]);
+      const host = url.hostname.toLowerCase();
+      if (host === 'dev.azure.com' || host.endsWith('.visualstudio.com')) images.push({ url: url.toString() });
+    } catch (_) { /* ignore malformed image URLs */ }
+  }
+  return images;
+}
+
 function inLegacyRange(id, from = 180, to = 278) {
   const match = /^INC-\d{4}-(\d+)$/.exec(String(id || '').trim().toUpperCase());
   if (!match) return false;
@@ -451,7 +488,14 @@ function dashboardSummary(incidents, query = {}, now = new Date()) {
 }
 
 function isOperationsClosed(item) {
-  return String(item.operationsStatus || '').toUpperCase() === 'CLOSED';
+  if (String(item.operationsStatus || '').toUpperCase() !== 'CLOSED') return false;
+
+  // OperationsStatus is a historical/manual closure marker.  Do not let a
+  // stale closure event hide an open related work item from the dashboard.
+  // The work-item aggregate is the authoritative signal for outstanding team
+  // work, including App Support tickets.
+  if (workItemCount(item, 'open') > 0) return false;
+  return !(item.workItems || []).some(workItem => !isClosedWorkItemState(workItem.state));
 }
 
 function isWaitingForResolved(item) {

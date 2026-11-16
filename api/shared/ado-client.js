@@ -446,6 +446,12 @@ async function getWorkItem(workItemId, options) {
   return adoRequest('GET', path, null, options);
 }
 
+async function listWorkItemComments(workItemId, options) {
+  const { org } = getConfig();
+  const path = `/${encodeURIComponent(org)}/_apis/wit/workItems/${encodeURIComponent(String(workItemId))}/comments?$top=200&api-version=7.1-preview.4`;
+  return adoRequest('GET', path, null, options);
+}
+
 async function createWorkItem(project, workItemType, patches, options) {
   const { org } = getConfig();
   const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/workitems/$${encodeURIComponent(workItemType)}?api-version=7.1`;
@@ -911,6 +917,7 @@ module.exports = {
   listPullRequestsByStatus,
   getConnectionData,
   getWorkItem,
+  listWorkItemComments,
   createWorkItem,
   addRelatedWorkItemLink,
   updateWorkItem,
