@@ -50,30 +50,44 @@ function componentSearchName(value) {
   return match ? match[1] : '';
 }
 
+function componentSearchKind(value) {
+  const text = String(value || '').toLowerCase();
+  if (text.includes('_op_website_')) return 'web';
+  if (text.includes('_op_service_') || text.includes('moduleandplugin')) return 'module';
+  return '';
+}
+
+function pipelineMatchesKind(name, kind) {
+  if (!kind) return true;
+  const value = normalizeSearchText(name);
+  return kind === 'web' ? value.includes('web') : value.includes('service') || value.includes('moduleplugin');
+}
+
 async function searchCiAcrossDefinitions(fragment, authOptions) {
   const name = componentSearchName(fragment);
+  const kind = componentSearchKind(fragment);
   if (!name) return [];
   const definitions = await ado.listBuildDefinitions('', authOptions);
   const rows = definitions.ok && definitions.body && Array.isArray(definitions.body.value)
-    ? definitions.body.value.filter(item => normalizeSearchText(item && item.name).includes(normalizeSearchText(name))) : [];
+    ? definitions.body.value.filter(item => normalizeSearchText(item && item.name).includes(normalizeSearchText(name)) && pipelineMatchesKind(item && item.name, kind)) : [];
   const builds = [];
   for (const definition of rows.slice(0, 20)) {
     const result = await ado.listBuilds({ definitions: definition.id, top: 200, accessToken: authOptions.accessToken });
     if (result.ok && result.body && Array.isArray(result.body.value)) builds.push(...result.body.value);
   }
-  let matches = buildCiSearchRows(builds, fragment);
+  let matches = buildCiSearchRows(builds, fragment, kind);
   if (!matches.length) {
     const fallback = await ado.listBuilds({
       top: 10000,
       minTime: new Date(Date.now() - 730 * 24 * 60 * 60 * 1000).toISOString(),
       accessToken: authOptions.accessToken
     });
-    if (fallback.ok) matches = buildCiSearchRows(fallback.body && fallback.body.value, fragment);
+    if (fallback.ok) matches = buildCiSearchRows(fallback.body && fallback.body.value, fragment, kind);
   }
   if (!matches.length) {
     const needle = normalizeSearchText(componentSearchName(fragment));
     matches = (Array.isArray(STG_CI_CD_MAP) ? STG_CI_CD_MAP : [])
-      .filter(item => normalizeSearchText(item && item.ciName).includes(needle))
+      .filter(item => normalizeSearchText(item && item.ciName).includes(needle) && pipelineMatchesKind(item && item.ciName, kind))
       .slice(0, 20)
       .map(item => ({
         id: '', name: item.ciName || '', definitionId: item.ciId || '', buildNumber: '',
@@ -84,9 +98,10 @@ async function searchCiAcrossDefinitions(fragment, authOptions) {
   return matches;
 }
 
-function buildCiSearchRows(builds, fragment) {
+function buildCiSearchRows(builds, fragment, kind) {
   const needles = searchFragments(fragment);
   return (Array.isArray(builds) ? builds : []).filter(build => {
+    if (kind && !pipelineMatchesKind(build && build.definition && build.definition.name, kind)) return false;
     const haystack = [build && build.buildNumber, build && build.sourceBranch,
       build && build.definition && build.definition.name,
       build && build.repository && build.repository.name].map(normalizeSearchText).join(' ');
