@@ -54,7 +54,7 @@ module.exports = async function (context, req) {
         comments: comments.map(comment => ({
           id: comment.id,
           text: String(comment.text || comment.renderedText || ''),
-          images: extractSafeAdoImages(comment.htmlContent || ''),
+          images: extractSafeAdoImages(comment.renderedText || comment.htmlContent || ''),
           author: comment.createdBy && (comment.createdBy.displayName || comment.createdBy.uniqueName) || 'Unknown author',
           createdAt: comment.createdDate || comment.createdDateTime || ''
         }))

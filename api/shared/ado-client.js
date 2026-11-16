@@ -447,8 +447,8 @@ async function getWorkItem(workItemId, options) {
 }
 
 async function listWorkItemComments(workItemId, options) {
-  const { org } = getConfig();
-  const path = `/${encodeURIComponent(org)}/_apis/wit/workItems/${encodeURIComponent(String(workItemId))}/comments?$top=200&api-version=7.1-preview.4`;
+  const { org, project } = getConfig();
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/workItems/${encodeURIComponent(String(workItemId))}/comments?$top=200&$expand=renderedText&api-version=7.1-preview.4`;
   return adoRequest('GET', path, null, options);
 }
 
