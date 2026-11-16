@@ -31,6 +31,32 @@ function commitFromBranch(branchName) {
   return match ? match[1].toLowerCase() : '';
 }
 
+function normalizeSearchText(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+function buildCiSearchRows(builds, fragment) {
+  const needle = normalizeSearchText(fragment);
+  return (Array.isArray(builds) ? builds : []).filter(build => {
+    const haystack = [build && build.buildNumber, build && build.sourceBranch,
+      build && build.definition && build.definition.name,
+      build && build.repository && build.repository.name].map(normalizeSearchText).join(' ');
+    return needle && haystack.includes(needle);
+  }).slice(0, 50).map(build => ({
+    id: build.id || '',
+    name: build.definition && build.definition.name || '',
+    definitionId: build.definition && build.definition.id || '',
+    buildNumber: build.buildNumber || '',
+    branch: String(build.sourceBranch || '').replace(/^refs\/heads\//i, ''),
+    sourceVersion: build.sourceVersion || '',
+    repository: build.repository && (build.repository.name || build.repository.id) || '',
+    status: build.status || '',
+    result: build.result || '',
+    finishTime: build.finishTime || '',
+    url: build._links && build._links.web && build._links.web.href || ''
+  }));
+}
+
 function pickRelevantBuild(pr, builds, rule) {
   const values = Array.isArray(builds) ? builds : [];
   const openedAt = Date.parse(pr && pr.creationDate);
@@ -301,6 +327,14 @@ module.exports = async function (context, req) {
       const exact = rows.find(item => String(item && item.targetRefName || '').replace(/^refs\/heads\//i, '') === mergeCode);
       resolvedPrId = exact && exact.pullRequestId ? String(exact.pullRequestId) : '';
       if (!resolvedPrId) {
+        const buildResult = await ado.listBuilds({ top: 500, accessToken: userAuth.accessToken });
+        const ciResults = buildResult.ok
+          ? buildCiSearchRows(buildResult.body && buildResult.body.value, mergeCode)
+          : [];
+        if (ciResults.length) {
+          jsonResponse(200, { ok: true, mode: 'ci-search', query: mergeCode, results: ciResults });
+          return;
+        }
         jsonResponse(listResult.ok ? 404 : 502, {
           ok: false,
           error: listResult.ok ? 'No Pull Request found for this MergeCode target branch' : 'Azure DevOps MergeCode lookup failed',
