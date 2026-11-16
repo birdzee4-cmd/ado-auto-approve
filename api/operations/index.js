@@ -53,8 +53,8 @@ module.exports = async function (context, req) {
         workItemId,
         comments: comments.map(comment => ({
           id: comment.id,
-          text: String(comment.text || comment.renderedText || ''),
-          images: extractSafeAdoImages(comment.renderedText || comment.htmlContent || ''),
+          text: stripCommentHtml(comment.text || comment.renderedText || comment.htmlContent || ''),
+          images: extractSafeAdoImages([comment.text, comment.renderedText, comment.htmlContent].filter(Boolean).join('\n')),
           author: comment.createdBy && (comment.createdBy.displayName || comment.createdBy.uniqueName) || 'Unknown author',
           createdAt: comment.createdDate || comment.createdDateTime || ''
         }))
@@ -342,6 +342,19 @@ function extractSafeAdoImages(html) {
     } catch (_) { /* ignore malformed image URLs */ }
   }
   return images;
+}
+
+function stripCommentHtml(value) {
+  return String(value || '')
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<\/div\s*>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 function inLegacyRange(id, from = 180, to = 278) {
