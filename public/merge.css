@@ -367,6 +367,10 @@
   color: #000000 !important;
 }
 
+.merge-lookup-panel { grid-template-columns: minmax(180px, 260px) minmax(320px, 1fr) auto; }
+.merge-code-field input { height: 44px; background: #fff !important; color: #1f2937 !important; border: 1px solid rgba(230, 190, 100, 0.4) !important; }
+@media (max-width: 700px) { .merge-lookup-panel { grid-template-columns: 1fr; } }
+
 .merge-card {
   background: rgba(255, 255, 255, 0.75) !important;
   border: 1px solid rgba(230, 190, 100, 0.3) !important;

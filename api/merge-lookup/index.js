@@ -262,8 +262,10 @@ module.exports = async function (context, req) {
   }
 
   const prId = parsePrId(req.query && req.query.prId);
-  if (!prId) {
-    jsonResponse(400, { ok: false, error: 'PR ID is required' });
+  const mergeCodeInput = String(req.query && req.query.mergeCode || '').trim();
+  const mergeCode = mergeCodeInput.replace(/^refs\/heads\//i, '').trim();
+  if (!prId && !mergeCode) {
+    jsonResponse(400, { ok: false, error: 'PR ID or MergeCode target branch is required' });
     return;
   }
 
@@ -289,7 +291,26 @@ module.exports = async function (context, req) {
     if (userToken.setCookie) responseHeaders['Set-Cookie'] = userToken.setCookie;
     const userAuth = { accessToken: userToken.accessToken };
 
-    const prResp = await ado.getPullRequest(prId, userAuth);
+    let resolvedPrId = prId;
+    if (!resolvedPrId && mergeCode) {
+      const targetRef = 'refs/heads/' + mergeCode;
+      const listResult = await ado.getPullRequestsForTargetBranch('Net', targetRef, 100, userAuth);
+      const rows = listResult.ok && listResult.body && Array.isArray(listResult.body.value)
+        ? listResult.body.value
+        : [];
+      const exact = rows.find(item => String(item && item.targetRefName || '').replace(/^refs\/heads\//i, '') === mergeCode);
+      resolvedPrId = exact && exact.pullRequestId ? String(exact.pullRequestId) : '';
+      if (!resolvedPrId) {
+        jsonResponse(listResult.ok ? 404 : 502, {
+          ok: false,
+          error: listResult.ok ? 'No Pull Request found for this MergeCode target branch' : 'Azure DevOps MergeCode lookup failed',
+          mergeCode,
+          detail: listResult.ok ? null : listResult.body || null
+        });
+        return;
+      }
+    }
+    const prResp = await ado.getPullRequest(resolvedPrId, userAuth);
     if (!prResp.ok) {
       const adoStatus = Number(prResp.status);
       const status = adoStatus === 401

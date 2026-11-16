@@ -6,12 +6,14 @@ import {
 // ===== Merge PR CI/CD Lookup =====
 async function checkMergeLookup() {
   const input = document.getElementById('mergePrId');
+  const mergeCodeInput = document.getElementById('mergeCode');
   const details = document.getElementById('mergeLookupDetails');
   if (!input || !details) return;
 
   const prId = (input.value || '').match(/\d+/);
-  if (!prId) {
-    showBox('mergeResult', 'กรุณากรอกเลข PR เช่น 342520', 'error');
+  const mergeCode = (mergeCodeInput && mergeCodeInput.value || '').trim();
+  if (!prId && !mergeCode) {
+    showBox('mergeResult', 'กรุณากรอก PR ID หรือ MergeCode target branch', 'error');
     details.hidden = true;
     return;
   }
@@ -21,7 +23,10 @@ async function checkMergeLookup() {
   details.hidden = true;
 
   try {
-    const r = await safeFetchJson('/api/merge-lookup?prId=' + encodeURIComponent(prId[0]));
+    const params = mergeCode
+      ? 'mergeCode=' + encodeURIComponent(mergeCode)
+      : 'prId=' + encodeURIComponent(prId[0]);
+    const r = await safeFetchJson('/api/merge-lookup?' + params);
     if (r.parseError) {
       showBox('mergeResult', 'Backend response is not JSON (HTTP ' + r.status + ')', 'error');
       return;
@@ -223,6 +228,12 @@ function formatBuildRunState(build) {
   const input = document.getElementById('mergePrId');
   if (input) {
     input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') checkMergeLookup();
+    });
+  }
+  const mergeCode = document.getElementById('mergeCode');
+  if (mergeCode) {
+    mergeCode.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') checkMergeLookup();
     });
   }
