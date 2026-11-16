@@ -60,7 +60,16 @@ async function searchCiAcrossDefinitions(fragment, authOptions) {
     const result = await ado.listBuilds({ definitions: definition.id, top: 200, accessToken: authOptions.accessToken });
     if (result.ok && result.body && Array.isArray(result.body.value)) builds.push(...result.body.value);
   }
-  return buildCiSearchRows(builds, fragment);
+  let matches = buildCiSearchRows(builds, fragment);
+  if (!matches.length) {
+    const fallback = await ado.listBuilds({
+      top: 10000,
+      minTime: new Date(Date.now() - 730 * 24 * 60 * 60 * 1000).toISOString(),
+      accessToken: authOptions.accessToken
+    });
+    if (fallback.ok) matches = buildCiSearchRows(fallback.body && fallback.body.value, fragment);
+  }
+  return matches;
 }
 
 function buildCiSearchRows(builds, fragment) {
