@@ -52,9 +52,9 @@ function componentSearchName(value) {
 async function searchCiAcrossDefinitions(fragment, authOptions) {
   const name = componentSearchName(fragment);
   if (!name) return [];
-  const definitions = await ado.listBuildDefinitions(name, authOptions);
+  const definitions = await ado.listBuildDefinitions('', authOptions);
   const rows = definitions.ok && definitions.body && Array.isArray(definitions.body.value)
-    ? definitions.body.value : [];
+    ? definitions.body.value.filter(item => normalizeSearchText(item && item.name).includes(normalizeSearchText(name))) : [];
   const builds = [];
   for (const definition of rows.slice(0, 20)) {
     const result = await ado.listBuilds({ definitions: definition.id, top: 200, accessToken: authOptions.accessToken });
