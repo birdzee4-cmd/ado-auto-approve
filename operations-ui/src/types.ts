@@ -56,6 +56,17 @@ export interface IncidentWorkItem {
   lastSyncedAt?: string;
   source: 'EXISTING_INCIDENT' | 'OPERATIONS_HUB_WORK_ITEMS';
   discussions?: WorkItemDiscussion[];
+  discussionSummary?: DiscussionSummary;
+}
+
+export interface DiscussionSummary {
+  discussionCount: number;
+  hasDiscussion: boolean;
+  rootCauseStatus: 'IDENTIFIED' | 'PENDING' | 'UNAVAILABLE';
+  resolutionStatus: 'IDENTIFIED' | 'PENDING' | 'UNAVAILABLE';
+  rootCause: string;
+  resolution: string;
+  lastDiscussionAt?: string;
 }
 
 export interface WorkItemDiscussion {

@@ -37,6 +37,7 @@ module.exports = async function (context, req) {
 
     if (path === 'reports') {
       const data = require('../shared/operations-report').buildReport(await sharePoint.listReportIncidents(), req.query || {});
+      await enrichHandoffDiscussionSummaries(data);
       return jsonResponse(context, 200, { ok: true, data });
     }
 
@@ -355,6 +356,34 @@ function stripCommentHtml(value) {
     .replace(/&gt;/gi, '>')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+async function enrichHandoffDiscussionSummaries(report) {
+  const tickets = report && report.handoffs && report.handoffs.tickets || [];
+  await Promise.all(tickets.map(async ticket => {
+    try {
+      const result = await ado.listWorkItemComments(ticket.workItemId);
+      if (!result.ok) throw new Error(`ADO comments returned ${result.status}`);
+      const comments = Array.isArray(result.body && result.body.comments) ? result.body.comments : [];
+      const text = comments.map(comment => stripCommentHtml(comment.text || comment.renderedText || comment.htmlContent || '')).join('\n');
+      ticket.discussionSummary = buildDiscussionSummary(comments, text);
+    } catch (_) {
+      ticket.discussionSummary = { discussionCount: 0, hasDiscussion: false, rootCauseStatus: 'UNAVAILABLE', resolutionStatus: 'UNAVAILABLE', rootCause: '', resolution: '', lastDiscussionAt: '' };
+    }
+  }));
+}
+
+function buildDiscussionSummary(comments, text) {
+  const extract = (labels) => {
+    const label = labels.join('|');
+    const match = new RegExp(`(?:${label})\\s*[:：-]?\\s*([^\\n]+)`, 'i').exec(text);
+    const value = String(match && match[1] || '').trim();
+    return /^(\[?\s*(รอข้อมูล|ยังไม่ทราบ|ยังไม่มี|pending|n\/?a|unknown)\s*\]?)$/i.test(value) ? '' : value;
+  };
+  const rootCause = extract(['Root Cause', 'Root cause', 'สาเหตุ']);
+  const resolution = extract(['Issue Resolution', 'Resolution', 'วิธีแก้ไข', 'แก้ไข']);
+  const last = comments.slice().sort((a, b) => (Date.parse(b.createdDate || b.createdDateTime || '') || 0) - (Date.parse(a.createdDate || a.createdDateTime || '') || 0))[0];
+  return { discussionCount: comments.length, hasDiscussion: comments.length > 0, rootCauseStatus: rootCause ? 'IDENTIFIED' : 'PENDING', resolutionStatus: resolution ? 'IDENTIFIED' : 'PENDING', rootCause, resolution, lastDiscussionAt: last && (last.createdDate || last.createdDateTime) || '' };
 }
 
 function inLegacyRange(id, from = 180, to = 278) {
