@@ -43,6 +43,26 @@ function searchFragments(value) {
   return [...new Set(fragments.map(normalizeSearchText).filter(Boolean))];
 }
 
+function componentSearchName(value) {
+  const text = String(value || '');
+  const match = text.match(/(?:moduleandplugin|moduleplugin|service)[_-]?([a-z0-9]+)/i);
+  return match ? match[1] : '';
+}
+
+async function searchCiAcrossDefinitions(fragment, authOptions) {
+  const name = componentSearchName(fragment);
+  if (!name) return [];
+  const definitions = await ado.listBuildDefinitions(name, authOptions);
+  const rows = definitions.ok && definitions.body && Array.isArray(definitions.body.value)
+    ? definitions.body.value : [];
+  const builds = [];
+  for (const definition of rows.slice(0, 20)) {
+    const result = await ado.listBuilds({ definitions: definition.id, top: 200, accessToken: authOptions.accessToken });
+    if (result.ok && result.body && Array.isArray(result.body.value)) builds.push(...result.body.value);
+  }
+  return buildCiSearchRows(builds, fragment);
+}
+
 function buildCiSearchRows(builds, fragment) {
   const needles = searchFragments(fragment);
   return (Array.isArray(builds) ? builds : []).filter(build => {
@@ -335,10 +355,7 @@ module.exports = async function (context, req) {
       const exact = rows.find(item => String(item && item.targetRefName || '').replace(/^refs\/heads\//i, '') === mergeCode);
       resolvedPrId = exact && exact.pullRequestId ? String(exact.pullRequestId) : '';
       if (!resolvedPrId) {
-        const buildResult = await ado.listBuilds({ top: 2000, accessToken: userAuth.accessToken });
-        const ciResults = buildResult.ok
-          ? buildCiSearchRows(buildResult.body && buildResult.body.value, mergeCode)
-          : [];
+        const ciResults = await searchCiAcrossDefinitions(mergeCode, userAuth);
         if (ciResults.length) {
           jsonResponse(200, { ok: true, mode: 'ci-search', query: mergeCode, results: ciResults });
           return;
@@ -493,8 +510,7 @@ module.exports = async function (context, req) {
     const webUrl = getPrWebUrl(pr);
     let ciSearch = [];
     if (mergeCode) {
-      const buildSearch = await ado.listBuilds({ top: 2000, accessToken: userAuth.accessToken });
-      if (buildSearch.ok) ciSearch = buildCiSearchRows(buildSearch.body && buildSearch.body.value, mergeCode);
+      ciSearch = await searchCiAcrossDefinitions(mergeCode, userAuth);
     }
 
     jsonResponse(200, {

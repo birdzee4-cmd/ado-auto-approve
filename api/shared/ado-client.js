@@ -333,6 +333,14 @@ async function listBuilds(options) {
   return adoRequest('GET', path, null, authOptions);
 }
 
+async function listBuildDefinitions(name, options) {
+  const { org, project } = getConfig();
+  const params = ['api-version=7.0', '$top=1000'];
+  if (name) params.push('name=' + encodeURIComponent(String(name)));
+  const path = `/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/definitions?${params.join('&')}`;
+  return adoRequest('GET', path, null, options);
+}
+
 async function getPullRequestsForTargetBranch(repositoryId, targetRefName, top, options) {
   const { org, project } = getConfig();
   const params = [
@@ -911,6 +919,7 @@ module.exports = {
   getBuildChanges,
   getBuildsForBranch,
   listBuilds,
+  listBuildDefinitions,
   getPullRequestsForTargetBranch,
   getPolicyEvaluations,
   listActivePRs,
