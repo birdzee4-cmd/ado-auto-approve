@@ -1,4 +1,5 @@
 const ado = require('../shared/ado-client');
+const STG_CI_CD_MAP = require('../shared/stg-ci-cd-map.json');
 const {
   findMergePipelineRule,
   findStagingPipelineMappingByCi,
@@ -68,6 +69,17 @@ async function searchCiAcrossDefinitions(fragment, authOptions) {
       accessToken: authOptions.accessToken
     });
     if (fallback.ok) matches = buildCiSearchRows(fallback.body && fallback.body.value, fragment);
+  }
+  if (!matches.length) {
+    const needle = normalizeSearchText(componentSearchName(fragment));
+    matches = (Array.isArray(STG_CI_CD_MAP) ? STG_CI_CD_MAP : [])
+      .filter(item => normalizeSearchText(item && item.ciName).includes(needle))
+      .slice(0, 20)
+      .map(item => ({
+        id: '', name: item.ciName || '', definitionId: item.ciId || '', buildNumber: '',
+        branch: '', sourceVersion: '', repository: 'Mapping CSV', status: 'mapped', result: '',
+        finishTime: '', url: item.ciId ? 'https://dev.azure.com/Buzzebees/Buzzebees/_build?definitionId=' + encodeURIComponent(item.ciId) + '&_a=summary' : ''
+      }));
   }
   return matches;
 }
