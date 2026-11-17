@@ -663,6 +663,61 @@ async function synchronizeWorkItems(input, context, dependencies = {}) {
   return { incidentId: incident.incidentId, items: results };
 }
 
+async function reconcileMissingApprovalAssignees(options = {}, context, dependencies = {}) {
+  const sp = dependencies.sharePoint || defaultSharePoint;
+  const ado = dependencies.ado || defaultAdo;
+  const maximum = Math.max(1, Math.min(Number(options.maxItems) || 100, 250));
+  const dryRun = options.dryRun === true;
+  const incidents = (await sp.listIncidents(1000))
+    .filter(item => !options.incidentId || item.incidentId === options.incidentId || item.displayId === options.incidentId)
+    .filter(item => item.workItemId && item.approvalBy && /approve/i.test(String(item.approvalOutcome || '')) && !item.assignedTo)
+    .sort(reconciliationOrder)
+    .slice(0, maximum);
+  const results = [];
+  for (const incident of incidents) {
+    try {
+      const currentResponse = await ado.getWorkItem(incident.workItemId, { accessToken: context && context.accessToken });
+      if (!currentResponse.ok || !currentResponse.body) {
+        results.push({ incidentId: incident.incidentId, workItemId: incident.workItemId, ok: false, reason: 'ADO_READ_FAILED', status: currentResponse.status });
+        continue;
+      }
+      const current = normalizeAdoWorkItem(currentResponse.body);
+      if (current.assignedTo) {
+        if (!dryRun) await sp.updateIncidentRecord(incident.sharePointId, { AssignedTo: current.assignedTo, LastSyncedAt: new Date().toISOString() });
+        results.push({ incidentId: incident.incidentId, workItemId: incident.workItemId, ok: true, action: 'PERSISTED_EXISTING_ASSIGNEE', assignedTo: current.assignedTo });
+        continue;
+      }
+      const candidate = String(incident.approvalBy).trim();
+      if (dryRun) {
+        results.push({ incidentId: incident.incidentId, workItemId: incident.workItemId, ok: true, action: 'WOULD_ASSIGN', assignedTo: candidate });
+        continue;
+      }
+      const updateResponse = await ado.updateWorkItem(incident.workItemId, [
+        { op: 'test', path: '/rev', value: Number(currentResponse.body.rev) },
+        { op: 'add', path: '/fields/System.AssignedTo', value: candidate },
+        { op: 'add', path: '/fields/System.History', value: `<p><b>Operations Hub reconciliation: restored assignee</b></p><p>Approval responder: ${candidate}</p>` }
+      ], { accessToken: context && context.accessToken });
+      if (!updateResponse.ok) {
+        results.push({ incidentId: incident.incidentId, workItemId: incident.workItemId, ok: false, reason: 'ADO_WRITE_FAILED', status: updateResponse.status });
+        continue;
+      }
+      const verifiedResponse = await ado.getWorkItem(incident.workItemId, { accessToken: context && context.accessToken });
+      const verified = verifiedResponse.ok && verifiedResponse.body ? normalizeAdoWorkItem(verifiedResponse.body) : null;
+      if (!verified || !verified.assignedTo) throw new Error('Assignee verification failed after PATCH');
+      await sp.updateIncidentRecord(incident.sharePointId, { AssignedTo: verified.assignedTo, LastSyncedAt: new Date().toISOString(), ErrorDetail: '' });
+      await audit(sp, context, { incidentId: incident.incidentId, workItemId: incident.workItemId, action: 'RECONCILE_MISSING_APPROVAL_ASSIGNEE', result: 'SUCCEEDED', detail: `${candidate} -> ${verified.assignedTo}` });
+      results.push({ incidentId: incident.incidentId, workItemId: incident.workItemId, ok: true, action: 'ASSIGNED_AND_VERIFIED', assignedTo: verified.assignedTo });
+    } catch (error) {
+      results.push({ incidentId: incident.incidentId, workItemId: incident.workItemId, ok: false, reason: error.code || error.message });
+    }
+  }
+  return { scanned: incidents.length, fixed: results.filter(item => item.action === 'ASSIGNED_AND_VERIFIED').length, results };
+}
+
+function reconciliationOrder(left, right) {
+  return String(left.lastSyncedAt || '').localeCompare(String(right.lastSyncedAt || ''));
+}
+
 async function closeIncident(input, context, dependencies = {}) {
   requireFeature('OPERATIONS_CLOSE_ENABLED');
   const sp = dependencies.sharePoint || defaultSharePoint;
@@ -912,5 +967,6 @@ module.exports = {
   synchronize,
   closeResolvedPrimaryIfReady,
   previewWorkItemSynchronization,
-  synchronizeWorkItems
+  synchronizeWorkItems,
+  reconcileMissingApprovalAssignees
 };

@@ -34,6 +34,11 @@ module.exports = async function (context, req) {
     if (targetIncidentId && incidents.length === 0) {
       return respond(context, 404, { ok: false, error: 'INCIDENT_NOT_FOUND', incidentId: targetIncidentId });
     }
+    const assigneeReconciliation = await service.reconcileMissingApprovalAssignees({
+      maxItems: maximum,
+      dryRun,
+      incidentId: targetIncidentId
+    }, automationContext(req));
     if (dryRun) {
       const compareAdo = Boolean(req.body && req.body.compareAdo === true);
       const actionContext = automationContext(req);
@@ -50,6 +55,7 @@ module.exports = async function (context, req) {
         processed: incidents.length,
         writeOperations: 0,
         candidates,
+        assigneeReconciliation,
         alertEvents: pendingAlertEvents.map(event => ({ eventId: event.eventId, eventType: event.eventType, processingStatus: event.processingStatus, attemptCount: event.attemptCount, alertName: event.alertName, resource: event.resource, firstSeenAt: event.firstSeenAt, resolvedAt: event.resolvedAt }))
       });
     }
@@ -94,6 +100,7 @@ module.exports = async function (context, req) {
       succeeded: results.filter(item => item.ok).length,
       failed: results.filter(item => !item.ok).length,
       results,
+      assigneeReconciliation,
       alertEvents: alertEventResults
     });
   } catch (err) {
