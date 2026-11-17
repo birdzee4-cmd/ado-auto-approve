@@ -12,6 +12,7 @@ module.exports = async function (context, req) {
       return respond(context, 503, { ok: false, error: 'FEATURE_DISABLED' });
     }
     const maximum = Math.max(1, Math.min(Number(req.body && req.body.maxItems) || 100, 250));
+    const assigneeOnly = req.body && req.body.assigneeOnly === true;
     const targetIncidentId = String(req.body && req.body.incidentId || '').trim();
     const reconciliationScope = String(req.body && req.body.scope || '').trim().toUpperCase();
     const roles = reconciliationScope === 'RELATED'
@@ -39,6 +40,15 @@ module.exports = async function (context, req) {
       dryRun,
       incidentId: targetIncidentId
     }, automationContext(req));
+    if (assigneeOnly) {
+      return respond(context, assigneeReconciliation.results.some(item => !item.ok) ? 207 : 200, {
+        ok: assigneeReconciliation.results.every(item => item.ok),
+        assigneeOnly: true,
+        processed: assigneeReconciliation.scanned,
+        fixed: assigneeReconciliation.fixed,
+        assigneeReconciliation
+      });
+    }
     if (dryRun) {
       const compareAdo = Boolean(req.body && req.body.compareAdo === true);
       const actionContext = automationContext(req);
