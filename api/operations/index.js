@@ -4,6 +4,7 @@ const operationsService = require('../shared/operations-service');
 const alertService = require('../shared/operations-alert-service');
 const crypto = require('crypto');
 const ado = require('../shared/ado-client');
+const globalSettings = require('../shared/operations-global-settings');
 
 module.exports = async function (context, req) {
   const path = normalizePath(req.params && req.params.path);
@@ -67,6 +68,7 @@ module.exports = async function (context, req) {
     }
 
     if (path === 'capabilities') {
+      const autoRestart = await globalSettings.getAutoRestart(sharePoint);
       return jsonResponse(context, 200, {
         ok: true,
         data: {
@@ -77,9 +79,16 @@ module.exports = async function (context, req) {
           manualCloseIncident: operationsService.featureEnabled('OPERATIONS_MANUAL_CLOSE_ENABLED'),
           manualAlertStatus: operationsService.featureEnabled('OPERATIONS_MANUAL_ALERT_STATUS_ENABLED'),
           restartAppService: operationsService.featureEnabled('OPERATIONS_RESTART_ENABLED'),
+          globalAutoRestart: autoRestart.enabled,
+          globalAutoRestartChangedAt: autoRestart.changedAt,
+          globalAutoRestartChangedBy: autoRestart.changedBy,
           alertEventWrite: alertService.featureEnabled('OPERATIONS_ALERT_EVENT_WRITE_ENABLED')
         }
       });
+    }
+
+    if (path === 'settings/auto-restart') {
+      return jsonResponse(context, 200, { ok: true, data: await globalSettings.getAutoRestart(sharePoint) });
     }
 
     if (path === 'incidents') {
@@ -153,6 +162,14 @@ async function handleWrite(context, req, path, principal) {
   if (!writer.ok) return jsonResponse(context, writer.status, writer.body);
   const body = parseBody(req.body);
   const actionContext = userActionContext(req, principal);
+  if (path === 'settings/auto-restart') {
+    const admin = auth.requireAnyRole(context, req, ['admin']);
+    if (!admin.ok) return jsonResponse(context, admin.status, admin.body);
+    if (body.enabled !== true && body.enabled !== false) return jsonResponse(context, 400, { ok: false, error: 'INVALID_ENABLED', detail: 'enabled must be true or false' });
+    if (body.confirm !== true) return jsonResponse(context, 400, { ok: false, error: 'CONFIRMATION_REQUIRED', detail: 'confirm=true is required to change the global auto-restart setting' });
+    const setting = await globalSettings.setAutoRestart(sharePoint, actionContext, body.enabled);
+    return jsonResponse(context, 200, { ok: true, data: setting });
+  }
   if (path === 'alert-events') {
     return jsonResponse(context, 405, {
       ok: false,

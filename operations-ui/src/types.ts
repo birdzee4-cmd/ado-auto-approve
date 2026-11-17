@@ -37,6 +37,9 @@ export interface OperationsCapabilities {
   manualAlertStatus?: boolean;
   restartAppService: boolean;
   alertEventWrite?: boolean;
+  globalAutoRestart?: boolean;
+  globalAutoRestartChangedAt?: string;
+  globalAutoRestartChangedBy?: string;
 }
 
 export type WorkItemRole = 'PRIMARY' | 'RELATED';

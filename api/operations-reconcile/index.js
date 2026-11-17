@@ -2,7 +2,9 @@ const crypto = require('crypto');
 const sharePoint = require('../shared/operations-sharepoint-client');
 const service = require('../shared/operations-service');
 const alertService = require('../shared/operations-alert-service');
+const globalSettings = require('../shared/operations-global-settings');
 const READY_TO_CLOSE_DELAY_MS = 12 * 60 * 60 * 1000;
+const AUTO_RESTART_DELAY_MS = 5 * 60 * 1000;
 
 module.exports = async function (context, req) {
   try {
@@ -88,6 +90,7 @@ module.exports = async function (context, req) {
     for (const incident of incidents) {
       try {
         const actionContext = automationContext(req);
+        const autoRestart = await autoRestartIfDue(incident, actionContext);
         // Scheduled reconciliation has its own feature gate. It reads Azure DevOps
         // state and mirrors it to SharePoint; it must not depend on the manual Sync flag.
         const result = await service.synchronizeWorkItems({ incidentId: incident.incidentId, roles }, actionContext);
@@ -98,7 +101,7 @@ module.exports = async function (context, req) {
           : { closed: false, reason: 'synchronization-failed' };
         const afterClosure = primaryClosure.closed ? await sharePoint.getIncident(incident.incidentId) : refreshed;
         const notification = await notifyIfNeeded(afterClosure, failed, actionContext);
-        results.push({ incidentId: incident.incidentId, ok: failed === 0, synchronized: result.items.length, failed, primaryClosure, notification });
+        results.push({ incidentId: incident.incidentId, ok: failed === 0 && autoRestart.ok, synchronized: result.items.length, failed, autoRestart, primaryClosure, notification });
       } catch (err) {
         context.log.warn(`Operations reconciliation failed for ${incident.incidentId}: ${err.message}`);
         results.push({ incidentId: incident.incidentId, ok: false, error: err.code || err.message });
@@ -118,6 +121,72 @@ module.exports = async function (context, req) {
     return respond(context, 500, { ok: false, error: 'RECONCILIATION_FAILED', detail: err.message });
   }
 };
+
+async function autoRestartIfDue(incident, actionContext, nowMs = Date.now(), dependencies = {}) {
+  const targetService = dependencies.service || service;
+  const targetSharePoint = dependencies.sharePoint || sharePoint;
+  if (!targetService.featureEnabled('OPERATIONS_AUTO_RESTART_ENABLED')) return { ok: true, attempted: false, reason: 'disabled' };
+  const global = await globalSettings.getAutoRestart(targetSharePoint);
+  if (!global.enabled) return { ok: true, attempted: false, reason: 'global-disabled' };
+  if (!targetService.featureEnabled('OPERATIONS_RESTART_ENABLED')) return { ok: false, attempted: false, reason: 'restart-disabled' };
+  if (String(incident.status || '').toUpperCase() !== 'FIRING') return { ok: true, attempted: false, reason: 'not-firing' };
+  if (String(incident.operationsStatus || '').toUpperCase() === 'CLOSED') return { ok: true, attempted: false, reason: 'incident-closed' };
+  if (String(incident.priority || '').trim().toUpperCase() !== 'P1') return { ok: true, attempted: false, reason: 'not-p1' };
+  const appServiceSignals = [incident.platform, incident.service, incident.alertName, incident.resource]
+    .map(value => String(value || '').toLowerCase()).join(' ');
+  if (!appServiceSignals.includes('app service') && !appServiceSignals.includes('appservice')) return { ok: true, attempted: false, reason: 'not-app-service' };
+  const firstSeenMs = Date.parse(incident.firstSeen || '');
+  if (!Number.isFinite(firstSeenMs) || nowMs - firstSeenMs < AUTO_RESTART_DELAY_MS) {
+    return { ok: true, attempted: false, reason: 'waiting', dueAt: Number.isFinite(firstSeenMs) ? new Date(firstSeenMs + AUTO_RESTART_DELAY_MS).toISOString() : null };
+  }
+  const eventKey = `operations-auto-restart:${incident.incidentId}`;
+  const existing = typeof targetSharePoint.listAudit === 'function' ? await targetSharePoint.listAudit(incident.incidentId) : [];
+  if (existing.some(event => event.eventKey === eventKey)) return { ok: true, attempted: false, reason: 'already-attempted', eventKey };
+  const primary = (incident.workItems || []).find(item => item.role === 'PRIMARY') || {};
+  if (!primary.workItemId) return { ok: false, attempted: false, reason: 'primary-required', eventKey };
+  const resource = String(incident.resource || '').trim();
+  if (!resource) return { ok: false, attempted: false, reason: 'resource-required', eventKey };
+
+  // Record the attempt before calling Azure so a scheduler retry cannot issue
+  // a second production restart if the process is interrupted mid-action.
+  await targetService.audit(targetSharePoint, actionContext, {
+    incidentId: incident.incidentId,
+    workItemId: primary.workItemId,
+    action: 'TIER1_AUTO_RESTART_APP_SERVICE',
+    result: 'STARTED',
+    detail: `Automatic restart due after ${AUTO_RESTART_DELAY_MS / 60000} minutes; resource ${resource}`,
+    eventKey
+  });
+  try {
+    const result = await targetService.restartAppService({ incidentId: incident.incidentId, resource }, {
+      ...actionContext,
+      operationsIdentity: {
+        id: 'operations-auto-restart',
+        name: 'Operations Hub Automation',
+        email: String(process.env.OPERATIONS_AUTO_RESTART_ACTOR_EMAIL || '').trim()
+      }
+    });
+    await targetService.audit(targetSharePoint, actionContext, {
+      incidentId: incident.incidentId,
+      workItemId: primary.workItemId,
+      action: 'TIER1_AUTO_RESTART_APP_SERVICE',
+      result: 'SUCCEEDED',
+      detail: `Automatic Restart App Service completed for ${resource}; VSTS Discussion added.`,
+      eventKey: `${eventKey}:completed`
+    });
+    return { ok: true, attempted: true, result: 'SUCCEEDED', resource, workItemId: primary.workItemId, details: result };
+  } catch (err) {
+    await targetService.audit(targetSharePoint, actionContext, {
+      incidentId: incident.incidentId,
+      workItemId: primary.workItemId,
+      action: 'TIER1_AUTO_RESTART_APP_SERVICE',
+      result: 'FAILED',
+      detail: `Automatic Restart App Service failed for ${resource}: ${err.message}`,
+      eventKey: `${eventKey}:failed`
+    }).catch(() => {});
+    return { ok: false, attempted: true, result: 'FAILED', resource, workItemId: primary.workItemId, error: err.code || err.message };
+  }
+}
 
 function dryRunCandidate(incident) {
   const summary = incident.workItemSummary || {};
@@ -338,3 +407,4 @@ module.exports.notificationCandidate = notificationCandidate;
 module.exports.resolvedOpen24hReminderCandidate = resolvedOpen24hReminderCandidate;
 module.exports.notifyIfNeeded = notifyIfNeeded;
 module.exports.reconciliationOrder = reconciliationOrder;
+module.exports.autoRestartIfDue = autoRestartIfDue;

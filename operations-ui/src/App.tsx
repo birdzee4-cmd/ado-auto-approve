@@ -35,7 +35,7 @@ export function App() {
   }, []);
 
   const visibleRoutes = routes.filter(item => !item.hidden && (!item.adminOnly || user.isAdmin));
-  const content = route === 'reports' ? <Reports /> : route === 'incidents' ? <Incidents /> : route === 'alert-events' ? <AlertEvents /> : route === 'mappings' && user.isAdmin ? <Mappings /> : <Dashboard />;
+  const content = route === 'reports' ? <Reports /> : route === 'incidents' ? <Incidents isAdmin={user.isAdmin} /> : route === 'alert-events' ? <AlertEvents /> : route === 'mappings' && user.isAdmin ? <Mappings /> : <Dashboard />;
 
   return <div className="ops-app">
     <header className="ops-topbar">
