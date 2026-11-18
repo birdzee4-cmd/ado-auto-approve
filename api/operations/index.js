@@ -264,15 +264,14 @@ async function handleWrite(context, req, path, principal) {
     // Keep the repair read within the same practical range as the UI list.
     // The current store is just over 1,000 rows; asking Graph for 5,000 here
     // can time out even though the paged UI request succeeds.
-    // This migration is intentionally based on the primary incident list.
-    // Reading thousands of audit rows first made the admin operation exceed
-    // the SharePoint/Function execution window. The ADO state plus recovered
-    // status are the safe criteria for this one-time repair.
+    // Process a bounded batch so SharePoint/Function execution stays within
+    // its request window. Repaired rows are excluded using recent closure
+    // audit events; repeated invocations therefore advance through history.
     let incidents;
     let lastReadError;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        incidents = await sharePoint.listIncidentRecords(1200);
+        incidents = await sharePoint.listIncidentRecords(100);
         break;
       } catch (error) {
         lastReadError = error;
@@ -280,7 +279,8 @@ async function handleWrite(context, req, path, principal) {
       }
     }
     if (!incidents) throw lastReadError || new Error('Unable to read Operations Hub incidents from SharePoint');
-    const audits = [];
+    let audits = [];
+    try { audits = await sharePoint.listAllAudit(500); } catch (error) { audits = []; }
     const closedByIncident = new Map();
     for (const event of audits) {
       if (String(event.eventType || '').toUpperCase() !== 'INCIDENT_CLOSED' || String(event.result || '').toUpperCase() !== 'SUCCEEDED') continue;
