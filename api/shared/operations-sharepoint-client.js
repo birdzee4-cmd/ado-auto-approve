@@ -5,10 +5,6 @@ let cachedToken = null;
 let tokenExpiresAt = 0;
 let cachedSiteId = null;
 const cachedListIds = new Map();
-let incidentRowsCache = null;
-let incidentRowsRefresh = null;
-let workItemsCache = null;
-let workItemsRefresh = null;
 const incidentYearFormatter = new Intl.DateTimeFormat('en-US', {
   timeZone: 'Asia/Bangkok',
   year: 'numeric'
@@ -248,37 +244,30 @@ async function listIncidents(maxItems, options = {}) {
 }
 
 async function listIncidentRows(maxItems = 5000) {
-  const ttl = Math.max(5, Number(process.env.OPERATIONS_INCIDENT_CACHE_TTL_SECONDS || 20)) * 1000;
-  const now = Date.now();
-  if (incidentRowsCache && now - incidentRowsCache.createdAt < ttl) return incidentRowsCache.items;
-  // Single-flight protects a warm Function instance when the browser, a
-  // dashboard refresh, and a background action arrive together. Only one
-  // full SharePoint history read is allowed at a time.
-  if (incidentRowsRefresh) return incidentRowsRefresh;
-  incidentRowsRefresh = listIncidents(maxItems, { enrich: false })
-    .then(items => {
-      incidentRowsCache = { createdAt: Date.now(), items };
-      return items;
-    })
-    .finally(() => { incidentRowsRefresh = null; });
-  return incidentRowsRefresh;
+  return listIncidents(maxItems, { enrich: false });
 }
 
 // Cursor-based explorer read. The cursor is the opaque Graph nextLink; callers
 // must store and return it without attempting to construct skip/offset values.
 async function listIncidentPage(pageSize = 20, cursor = '') {
+  const config = getConfig();
+  const siteId = await getSiteId();
+  const listId = await getListId(config.listName);
+  const token = await getAccessToken();
   const size = Math.max(1, Math.min(Number(pageSize) || 20, 100));
-  // Graph does not consistently honor ordering by list item ID for expanded
-  // list rows. Read through the shared, single-flight history cache and apply
-  // the authoritative Incident-number order before slicing a cursor page.
-  const all = (await listIncidentRows(5000)).slice().sort((left, right) => Number(right.sharePointId || 0) - Number(left.sharePointId || 0));
-  let offset = 0;
-  if (cursor) {
-    try { offset = Math.max(0, Number(Buffer.from(String(cursor), 'base64url').toString('utf8')) || 0); } catch (err) { offset = 0; }
+  let url = cursor || `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?$expand=fields&$orderby=lastModifiedDateTime desc&$top=${size}`;
+  const result = await httpRequestWithRetry('GET', url, {
+    Authorization: 'Bearer ' + token,
+    Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly'
+  });
+  if (!result.ok) {
+    const graphError = result.body && result.body.error || {};
+    throw new Error(`Unable to read Operations Hub incidents page: HTTP ${result.status} (${graphError.code || 'GraphError'}) ${graphError.message || ''}`.trim());
   }
-  const items = all.slice(offset, offset + size);
-  const nextOffset = offset + items.length;
-  return { items, total: all.length, nextCursor: nextOffset < all.length ? Buffer.from(String(nextOffset)).toString('base64url') : '' };
+  return {
+    items: (result.body && Array.isArray(result.body.value) ? result.body.value : []).map(mapSharePointIncident),
+    nextCursor: result.body && result.body['@odata.nextLink'] || ''
+  };
 }
 
 // Used by administrative migrations that only need the primary incident
@@ -323,14 +312,7 @@ async function listWorkItems(maxItems, listName) {
 async function listConfiguredWorkItems(maxItems) {
   const config = getConfig();
   if (!config.workItemsListName) return [];
-  const ttl = Math.max(5, Number(process.env.OPERATIONS_WORK_ITEMS_CACHE_TTL_SECONDS || 30)) * 1000;
-  const now = Date.now();
-  if (workItemsCache && now - workItemsCache.createdAt < ttl) return workItemsCache.items;
-  if (workItemsRefresh) return workItemsRefresh;
-  workItemsRefresh = listWorkItems(maxItems || 1000, config.workItemsListName)
-    .then(items => { workItemsCache = { createdAt: Date.now(), items }; return items; })
-    .finally(() => { workItemsRefresh = null; });
-  return workItemsRefresh;
+  return listWorkItems(maxItems || 1000, config.workItemsListName);
 }
 
 async function graphListRequest(method, listName, suffix, body) {
@@ -579,13 +561,13 @@ async function getIncident(incidentId) {
   // Detail reads should use indexed equality filters first. The previous
   // contains/or query is rejected by some Graph/SharePoint list indexes and
   // caused a fallback scan of up to 1,000 incidents before the drawer opened.
-  // Do not issue both candidate queries at once. Batch actions can open many
-  // incidents in succession, and parallel Graph reads amplify SharePoint
-  // activityLimitReached throttling.
-  for (const filter of [`fields/IncidentId eq '${escaped}'`, `fields/CorrelationId eq '${escaped}'`]) {
-    let directItems;
-    try { directItems = await listItems(10, config.listName, filter); } catch (error) { directItems = []; }
-    const direct = directItems.map(mapSharePointIncident).find(item => item.incidentId.toLowerCase() === target);
+  const directResults = await Promise.allSettled([
+    listItems(10, config.listName, `fields/IncidentId eq '${escaped}'`),
+    listItems(10, config.listName, `fields/CorrelationId eq '${escaped}'`)
+  ]);
+  for (const result of directResults) {
+    if (result.status !== 'fulfilled') continue;
+    const direct = result.value.map(mapSharePointIncident).find(item => item.incidentId.toLowerCase() === target);
     if (direct) {
       // Detail responses must include related work items as well as the
       // primary item. This is especially important immediately after a

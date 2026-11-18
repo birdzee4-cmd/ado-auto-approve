@@ -97,11 +97,8 @@ module.exports = async function (context, req) {
     if (path === 'incidents') {
       const query = req.query || {};
       if (query.cursor || query.pageSize) {
-        const hasFilter = ['status', 'search', 'alertStatus', 'adoState', 'lifecycle', 'assignee'].some(key => String(query[key] || '').trim());
-        const page = hasFilter
-          ? filteredIncidentPage(await sharePoint.listIncidentRows(5000), query)
-          : await sharePoint.listIncidentPage(query.pageSize, query.cursor);
-        return jsonResponse(context, 200, { ok: true, data: { items: page.items, count: page.total, nextCursor: page.nextCursor, hasMore: Boolean(page.nextCursor) } });
+        const page = await sharePoint.listIncidentPage(query.pageSize, query.cursor);
+        return jsonResponse(context, 200, { ok: true, data: { items: page.items, nextCursor: page.nextCursor, hasMore: Boolean(page.nextCursor) } });
       }
       // The explorer does not need audit/work-item enrichment for every row.
       // Keep that enrichment for the detail endpoint and reports only.
@@ -567,16 +564,9 @@ function normalizePath(path) {
 function filterIncidents(items, query) {
   const status = String(query.status || '').trim().toUpperCase();
   const search = String(query.search || '').trim().toLowerCase();
-  const alertStatus = String(query.alertStatus || '').trim().toUpperCase();
-  const adoState = String(query.adoState || '').trim().toUpperCase();
-  const lifecycle = String(query.lifecycle || '').trim().toUpperCase();
-  const assignee = String(query.assignee || '').trim().toLowerCase();
   return (items || []).filter(item => {
-    const statusMatch = !status
-      || status === 'OPEN_INCIDENTS' && !isOperationsClosed(item)
-      || status === 'ATTENTION' && isFollowUpItem(item)
-      || status === 'ACTION_REQUIRED' && isActionRequired(item)
-      || [item.status, item.trackingStatus, item.workflowStatus, item.adoState].some(value => String(value || '').toUpperCase() === status);
+    const statusMatch = !status || [item.status, item.trackingStatus, item.workflowStatus, item.adoState]
+      .some(value => String(value || '').toUpperCase() === status);
     const workItemSearch = (item.workItems || []).flatMap(workItem => [
       workItem.workItemId,
       workItem.role,
@@ -586,25 +576,8 @@ function filterIncidents(items, query) {
     ]);
     const haystack = [item.displayId, item.sharePointId, item.incidentId, item.alertName, item.resource, item.service, item.environment, item.workItemId, item.assignedTo, ...workItemSearch]
       .join(' ').toLowerCase();
-    return statusMatch
-      && (!alertStatus || String(item.status || '').toUpperCase() === alertStatus)
-      && (!adoState || String(item.adoState || '').toUpperCase() === adoState)
-      && (!lifecycle || String(operationsStatus(item) || '').toUpperCase() === lifecycle)
-      && (!assignee || String(item.assignedTo || '').trim().toLowerCase() === assignee)
-      && (!search || haystack.includes(search));
+    return statusMatch && (!search || haystack.includes(search));
   });
-}
-
-function filteredIncidentPage(items, query) {
-  const filtered = filterIncidents(items, query).sort((left, right) => Number(right.sharePointId || 0) - Number(left.sharePointId || 0));
-  const size = Math.max(1, Math.min(Number(query.pageSize) || 20, 100));
-  let offset = 0;
-  if (query.cursor) {
-    try { offset = Math.max(0, Number(Buffer.from(String(query.cursor), 'base64url').toString('utf8')) || 0); } catch (err) { offset = 0; }
-  }
-  const page = filtered.slice(offset, offset + size);
-  const nextOffset = offset + page.length;
-  return { items: page, total: filtered.length, nextCursor: nextOffset < filtered.length ? Buffer.from(String(nextOffset)).toString('base64url') : '' };
 }
 
 function dashboardSummary(incidents, query = {}, now = new Date()) {

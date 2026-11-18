@@ -7,9 +7,9 @@ interface ApiEnvelope<T> {
   detail?: string;
 }
 
-async function request<T>(path: string, init?: RequestInit & { timeoutMs?: number }): Promise<T> {
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), init?.timeoutMs || 30000);
+  const timeoutId = window.setTimeout(() => controller.abort(), 30000);
   const response = await fetch(path, {
     ...init,
     signal: init?.signal || controller.signal,
@@ -92,17 +92,6 @@ export const operationsApi = {
     if (search) query.set('search', search);
     return request<{ items: Incident[]; count: number }>(`/api/operations/incidents?${query.toString()}`);
   },
-  incidentPage: (pageSize = 20, cursor = '', status = '', search = '', alertStatus = '', adoState = '', lifecycle = '', assignee = '') => {
-    const query = new URLSearchParams({ pageSize: String(pageSize) });
-    if (cursor) query.set('cursor', cursor);
-    if (status) query.set('status', status);
-    if (search) query.set('search', search);
-    if (alertStatus) query.set('alertStatus', alertStatus);
-    if (adoState) query.set('adoState', adoState);
-    if (lifecycle) query.set('lifecycle', lifecycle);
-    if (assignee) query.set('assignee', assignee);
-    return request<{ items: Incident[]; count?: number; nextCursor: string; hasMore: boolean }>(`/api/operations/incidents?${query.toString()}`);
-  },
   alertEvents: (status = '') => request<{ items: AlertEvent[]; count: number }>(`/api/operations/alert-events${status ? `?status=${encodeURIComponent(status)}` : ''}`),
   processAlertEvent: (eventId: string, dryRun = true) => request<AlertEvent>(`/api/operations/alert-events/${encodeURIComponent(eventId)}/process`, { method: 'POST', body: JSON.stringify({ dryRun }) }),
   confirmAlertEvent: (eventId: string, incidentId: string) => request<AlertEvent>(`/api/operations/alert-events/${encodeURIComponent(eventId)}/confirm`, { method: 'POST', body: JSON.stringify({ incidentId }) }),
@@ -118,7 +107,7 @@ export const operationsApi = {
   synchronize: (incidentId: string) => request<{ incidentId: string; items: Array<{ workItemId: number; ok: boolean; status?: number }> }>(`/api/operations/incidents/${encodeURIComponent(incidentId)}/synchronize`, { method: 'POST', body: '{}' }),
   close: (incidentId: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/close`, { method: 'POST', body: '{}' }),
   closeInBatch: (incidentId: string, batchId: string, note: string) => request<{ duplicate?: boolean }>(`/api/operations/incidents/${encodeURIComponent(incidentId)}/close`, { method: 'POST', body: JSON.stringify({ batchClose: true, batchId, note }) }),
-  manualClose: (incidentId: string, reason: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/manual-close`, { method: 'POST', body: JSON.stringify({ reason }), timeoutMs: 90000 }),
+  manualClose: (incidentId: string, reason: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/manual-close`, { method: 'POST', body: JSON.stringify({ reason }) }),
   manualAlertStatus: (incidentId: string, status: 'FIRING' | 'RESOLVED', reason: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/manual-alert-status`, { method: 'POST', body: JSON.stringify({ status, reason }) })
   ,restartAppService: (incidentId: string, resource: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/tier1/restart-app-service`, { method: 'POST', body: JSON.stringify({ resource }) })
 };
