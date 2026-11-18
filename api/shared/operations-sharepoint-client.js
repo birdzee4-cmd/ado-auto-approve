@@ -129,11 +129,12 @@ async function listItems(maxItems, listName, filter) {
     Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly'
   };
   const filterQuery = filter ? `&$filter=${encodeURIComponent(filter)}` : '';
+  const pageSize = maximum === Infinity ? 500 : Math.max(1, Math.min(500, maximum));
   let url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items` +
     // Keep large history reads to a small number of Graph pages. The old
     // 200-row page size required six or more sequential requests once the
     // list passed 1,000 rows and intermittently hit SharePoint throttling.
-    `?$expand=fields${filterQuery}&$orderby=lastModifiedDateTime desc&$top=500`;
+    `?$expand=fields${filterQuery}&$orderby=lastModifiedDateTime desc&$top=${pageSize}`;
   const items = [];
 
   while (url && items.length < maximum) {
@@ -154,7 +155,12 @@ async function listItems(maxItems, listName, filter) {
       const delay = Math.min(12000, Math.max(1000, retryAfter * 1000 || 1000 * (attempt + 1) * (attempt + 1)));
       await new Promise(resolve => setTimeout(resolve, delay));
     }
-    if (!result.ok) throw new Error('Unable to read Operations Hub incidents from SharePoint');
+    if (!result.ok) {
+      const graphError = result.body && result.body.error || {};
+      const code = String(graphError.code || '').trim();
+      const message = String(graphError.message || '').trim().replace(/[\r\n]+/g, ' ').slice(0, 240);
+      throw new Error(`Unable to read Operations Hub incidents from SharePoint: HTTP ${result.status}${code ? ` (${code})` : ''}${message ? ` ${message}` : ''}`);
+    }
     const page = result.body && Array.isArray(result.body.value) ? result.body.value : [];
     items.push(...page.slice(0, maximum - items.length));
     url = result.body && result.body['@odata.nextLink'] || '';

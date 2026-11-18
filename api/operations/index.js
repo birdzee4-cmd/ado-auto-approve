@@ -271,7 +271,7 @@ async function handleWrite(context, req, path, principal) {
     let lastReadError;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        incidents = await sharePoint.listIncidentRecords(20);
+        incidents = await sharePoint.listIncidentRecords(1200);
         break;
       } catch (error) {
         lastReadError = error;
@@ -280,7 +280,7 @@ async function handleWrite(context, req, path, principal) {
     }
     if (!incidents) throw lastReadError || new Error('Unable to read Operations Hub incidents from SharePoint');
     let audits = [];
-    try { audits = await sharePoint.listAllAudit(200); } catch (error) { audits = []; }
+    try { audits = await sharePoint.listAllAudit(500); } catch (error) { audits = []; }
     const closedByIncident = new Map();
     for (const event of audits) {
       if (String(event.eventType || '').toUpperCase() !== 'INCIDENT_CLOSED' || String(event.result || '').toUpperCase() !== 'SUCCEEDED') continue;
@@ -289,15 +289,16 @@ async function handleWrite(context, req, path, principal) {
       const previous = closedByIncident.get(key);
       if (!previous || Date.parse(event.timestamp || '') > Date.parse(previous.timestamp || '')) closedByIncident.set(key, event);
     }
-    const candidates = incidents.filter(item => {
+    const allCandidates = incidents.filter(item => {
       const key = String(item.incidentId || '').trim().toLowerCase();
       if (closedByIncident.has(key)) return false;
       return String(item.operationsStatus || '').toUpperCase() !== 'CLOSED' &&
         ['CLOSED', 'DONE', 'COMPLETED', 'RESOLVED'].includes(String(item.adoState || '').toUpperCase()) &&
         ['RESOLVED', 'RECOVERED', 'CLOSED'].includes(String(item.status || '').toUpperCase());
     });
+    const candidates = allCandidates.slice(0, 20);
     if (body.confirmWrite !== true) {
-      return jsonResponse(context, 200, { ok: true, dryRun: true, data: { scanned: incidents.length, auditEvents: audits.length, candidates: candidates.map(item => ({ incidentId: item.incidentId, sharePointId: item.sharePointId, currentStatus: item.operationsStatus || '', closedAt: closedByIncident.get(String(item.incidentId).toLowerCase())?.timestamp || '' })) } });
+      return jsonResponse(context, 200, { ok: true, dryRun: true, data: { scanned: incidents.length, auditEvents: audits.length, candidateCount: allCandidates.length, batchSize: candidates.length, candidates: candidates.map(item => ({ incidentId: item.incidentId, sharePointId: item.sharePointId, currentStatus: item.operationsStatus || '', closedAt: closedByIncident.get(String(item.incidentId).toLowerCase())?.timestamp || '' })) } });
     }
     const results = [];
     for (const incident of candidates) {
@@ -319,7 +320,7 @@ async function handleWrite(context, req, path, principal) {
         results.push({ incidentId: incident.incidentId, repaired: false, error: error.message || 'Update failed' });
       }
     }
-    return jsonResponse(context, 200, { ok: true, dryRun: false, data: { scanned: incidents.length, auditEvents: audits.length, candidates: candidates.length, repaired: results.filter(item => item.repaired).length, failed: results.filter(item => !item.repaired).length, results } });
+    return jsonResponse(context, 200, { ok: true, dryRun: false, data: { scanned: incidents.length, auditEvents: audits.length, candidateCount: allCandidates.length, batchSize: candidates.length, remaining: Math.max(0, allCandidates.length - candidates.length), repaired: results.filter(item => item.repaired).length, failed: results.filter(item => !item.repaired).length, results } });
   }
   // Alert Events is intentionally a read-only monitoring surface. Event
   // ingestion remains automation-only above; reconciliation is owned by the
