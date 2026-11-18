@@ -561,13 +561,13 @@ async function getIncident(incidentId) {
   // Detail reads should use indexed equality filters first. The previous
   // contains/or query is rejected by some Graph/SharePoint list indexes and
   // caused a fallback scan of up to 1,000 incidents before the drawer opened.
-  const directResults = await Promise.allSettled([
-    listItems(10, config.listName, `fields/IncidentId eq '${escaped}'`),
-    listItems(10, config.listName, `fields/CorrelationId eq '${escaped}'`)
-  ]);
-  for (const result of directResults) {
-    if (result.status !== 'fulfilled') continue;
-    const direct = result.value.map(mapSharePointIncident).find(item => item.incidentId.toLowerCase() === target);
+  // Do not issue both candidate queries at once. Batch actions can open many
+  // incidents in succession, and parallel Graph reads amplify SharePoint
+  // activityLimitReached throttling.
+  for (const filter of [`fields/IncidentId eq '${escaped}'`, `fields/CorrelationId eq '${escaped}'`]) {
+    let directItems;
+    try { directItems = await listItems(10, config.listName, filter); } catch (error) { directItems = []; }
+    const direct = directItems.map(mapSharePointIncident).find(item => item.incidentId.toLowerCase() === target);
     if (direct) {
       // Detail responses must include related work items as well as the
       // primary item. This is especially important immediately after a

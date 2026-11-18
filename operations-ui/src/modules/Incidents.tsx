@@ -338,7 +338,11 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
     setBatchResults(current => current.filter(result => !targets.some(item => item.incidentId === result.id)));
     const batchId = globalThis.crypto.randomUUID();
     try {
-      for (const item of targets) {
+      for (const [index, item] of targets.entries()) {
+        // Each manual close performs several SharePoint reads/writes. A small
+        // gap prevents a multi-close batch from bursting Graph requests and
+        // triggering activityLimitReached throttling.
+        if (index > 0) await new Promise(resolve => window.setTimeout(resolve, 1500));
         let result: string;
         let failed = false;
         try {
