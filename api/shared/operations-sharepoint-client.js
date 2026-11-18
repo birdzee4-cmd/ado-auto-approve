@@ -117,7 +117,7 @@ async function getListId(listName) {
 }
 
 async function listItems(maxItems, listName, filter) {
-  const maximum = maxItems === Infinity ? Infinity : Math.max(1, Math.min(Number(maxItems) || 500, 1000));
+  const maximum = maxItems === Infinity ? Infinity : Math.max(1, Math.min(Number(maxItems) || 500, 5000));
   const siteId = await getSiteId();
   const listId = await getListId(listName);
   const token = await getAccessToken();
@@ -459,7 +459,7 @@ async function getIncident(incidentId) {
   }
   // Legacy records may not be indexed under either exact field. Keep a
   // bounded authoritative fallback for those records only.
-  const items = await listIncidents(1000);
+  const items = await listIncidents(5000);
   return items.find(item => item.incidentId.toLowerCase() === target) || null;
 }
 

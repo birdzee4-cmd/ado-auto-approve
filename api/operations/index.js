@@ -63,7 +63,7 @@ module.exports = async function (context, req) {
       }});
     }
     if (path === 'dashboard') {
-      const incidents = await sharePoint.listIncidents(1000);
+      const incidents = await sharePoint.listIncidents(5000);
       return jsonResponse(context, 200, { ok: true, data: dashboardSummary(incidents, req.query || {}) });
     }
 
@@ -92,7 +92,7 @@ module.exports = async function (context, req) {
     }
 
     if (path === 'incidents') {
-      const incidents = filterIncidents(await sharePoint.listIncidents(1000), req.query || {});
+      const incidents = filterIncidents(await sharePoint.listIncidents(5000), req.query || {});
       return jsonResponse(context, 200, { ok: true, data: { items: incidents, count: incidents.length } });
     }
 
@@ -182,10 +182,10 @@ async function handleWrite(context, req, path, principal) {
     const admin = auth.requireAnyRole(context, req, ['admin']);
     if (!admin.ok) return jsonResponse(context, admin.status, admin.body);
     if (body.confirmWrite !== true) {
-      const incidents = (await sharePoint.listIncidents(1000)).filter(item => inLegacyRange(item.incidentId, body.from, body.to));
+      const incidents = (await sharePoint.listIncidents(5000)).filter(item => inLegacyRange(item.incidentId, body.from, body.to));
       return jsonResponse(context, 200, { ok: true, dryRun: true, data: incidents.map(legacyMigrationPreview) });
     }
-    const incidents = (await sharePoint.listIncidents(1000)).filter(item => inLegacyRange(item.incidentId, body.from, body.to));
+    const incidents = (await sharePoint.listIncidents(5000)).filter(item => inLegacyRange(item.incidentId, body.from, body.to));
     const results = [];
     for (const incident of incidents) {
       const resolvedAt = legacyResolvedAt(incident);
