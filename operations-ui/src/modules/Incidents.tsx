@@ -101,8 +101,11 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   const visibleItems = filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const canBatchClose = capabilities.closeIncident && connection?.connected;
   const eligibleVisible = visibleItems.filter(item => {
-    if (operationsStatus(item) === 'READY_TO_CLOSE' && item.status === 'RESOLVED' && !item.hasLifecycleConflict) return true;
-    return item.status === 'RESOLVED' && (Boolean(item.hasLifecycleConflict) || hasInvalidResolutionTimeline(item)) && Number(item.workItemSummary?.total || 0) > 0 && Number(item.workItemSummary?.open || 0) === 0;
+    // The row status is the canonical user-facing readiness signal. Legacy
+    // incidents may carry a lifecycle warning or incomplete historical
+    // timestamps, but the batch-close API still revalidates every item before
+    // writing, so do not hide the bulk tool for the whole page.
+    return operationsStatus(item) === 'READY_TO_CLOSE' && item.status === 'RESOLVED';
   });
   const checkedVisible = eligibleVisible.filter(item => checkedIds.includes(item.incidentId));
   useEffect(() => { setCheckedIds([]); }, [status, search, alertStatus, adoState, lifecycle, assignee, currentPage]);
