@@ -577,6 +577,15 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-evidence-status.is-identified { color: #147a4b; }
 .ops-evidence-status.is-pending { color: #a06000; }
 .ops-evidence-status.is-unavailable { color: #9b2c2c; }
+.ops-handoff-group-row td { padding: 0 !important; background: #202126; color: #fff; border-bottom: 0; }
+.ops-handoff-group { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 16px 20px; }
+.ops-handoff-group > div:first-child { display: grid; gap: 3px; min-width: 0; }
+.ops-handoff-group span { color: #f5a900; font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.ops-handoff-group a { color: #fff; font-size: 1rem; font-weight: 800; }
+.ops-handoff-group strong { color: #fff; font-size: .86rem; overflow-wrap: anywhere; }
+.ops-handoff-group small { color: rgba(255,255,255,.68); overflow-wrap: anywhere; }
+.ops-handoff-group-meta { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.ops-handoff-group-meta span { padding: 6px 9px; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; color: rgba(255,255,255,.84); font-size: .7rem; letter-spacing: 0; text-transform: none; white-space: nowrap; }
 .ops-report-link { border: 0; padding: 0; background: transparent; color: #946000; font: inherit; font-weight: 700; text-align: left; cursor: pointer; text-decoration: underline; }
 .ops-report-chart { display: flex; gap: 8px; padding: 24px; height: 230px; overflow-x: auto; align-items: end; }
 .ops-report-chart > div { min-width: 20px; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: .7rem; }
