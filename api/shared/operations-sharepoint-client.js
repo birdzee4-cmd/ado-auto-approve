@@ -239,15 +239,22 @@ async function graphListRequest(method, listName, suffix, body) {
   const siteId = await getSiteId();
   const listId = await getListId(listName);
   const token = await getAccessToken();
-  const result = await httpRequest(
-    method,
-    `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}${suffix || ''}`,
-    {
-      Authorization: 'Bearer ' + token,
-      ...(body == null ? {} : { 'Content-Type': 'application/json' })
-    },
-    body
-  );
+  let result;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    result = await httpRequest(
+      method,
+      `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}${suffix || ''}`,
+      {
+        Authorization: 'Bearer ' + token,
+        ...(body == null ? {} : { 'Content-Type': 'application/json' })
+      },
+      body
+    );
+    if (result.ok || ![408, 425, 429, 500, 502, 503, 504].includes(result.status) || attempt === 3) break;
+    const retryAfter = Number(result.body?.error?.innerError?.retryAfter || result.body?.retryAfter || 0);
+    const delay = Math.min(15000, Math.max(1000, retryAfter * 1000 || 1500 * (attempt + 1)));
+    await new Promise(resolve => setTimeout(resolve, delay));
+  }
   if (!result.ok) {
     const graphError = result.body && result.body.error || {};
     const code = String(graphError.code || '').trim();

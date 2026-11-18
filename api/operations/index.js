@@ -264,17 +264,23 @@ async function handleWrite(context, req, path, principal) {
     // Keep the repair read within the same practical range as the UI list.
     // The current store is just over 1,000 rows; asking Graph for 5,000 here
     // can time out even though the paged UI request succeeds.
-    const incidents = await sharePoint.listIncidentRecords(1200);
-    let audits = [];
-    let auditReadError = '';
-    try {
-      audits = await sharePoint.listAllAudit(5000);
-    } catch (error) {
-      // A large audit list can exceed the function's execution window. The
-      // primary incident record still contains the authoritative ADO state,
-      // so use the safe recovered + ADO-closed fallback below.
-      auditReadError = error.message || 'Audit read failed';
+    // This migration is intentionally based on the primary incident list.
+    // Reading thousands of audit rows first made the admin operation exceed
+    // the SharePoint/Function execution window. The ADO state plus recovered
+    // status are the safe criteria for this one-time repair.
+    let incidents;
+    let lastReadError;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        incidents = await sharePoint.listIncidentRecords(1200);
+        break;
+      } catch (error) {
+        lastReadError = error;
+        if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1)));
+      }
     }
+    if (!incidents) throw lastReadError || new Error('Unable to read Operations Hub incidents from SharePoint');
+    const audits = [];
     const closedByIncident = new Map();
     for (const event of audits) {
       if (String(event.eventType || '').toUpperCase() !== 'INCIDENT_CLOSED' || String(event.result || '').toUpperCase() !== 'SUCCEEDED') continue;
@@ -285,9 +291,8 @@ async function handleWrite(context, req, path, principal) {
     }
     const candidates = incidents.filter(item => {
       const key = String(item.incidentId || '').trim().toLowerCase();
-      if (closedByIncident.has(key)) return true;
-      return !auditReadError && false ||
-        String(item.operationsStatus || '').toUpperCase() !== 'CLOSED' &&
+      if (closedByIncident.has(key)) return false;
+      return String(item.operationsStatus || '').toUpperCase() !== 'CLOSED' &&
         ['CLOSED', 'DONE', 'COMPLETED', 'RESOLVED'].includes(String(item.adoState || '').toUpperCase()) &&
         ['RESOLVED', 'RECOVERED', 'CLOSED'].includes(String(item.status || '').toUpperCase());
     });
