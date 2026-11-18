@@ -596,7 +596,7 @@ function filterIncidents(items, query) {
 }
 
 function filteredIncidentPage(items, query) {
-  const filtered = filterIncidents(items, query);
+  const filtered = filterIncidents(items, query).sort((left, right) => Number(right.sharePointId || 0) - Number(left.sharePointId || 0));
   const size = Math.max(1, Math.min(Number(query.pageSize) || 20, 100));
   let offset = 0;
   if (query.cursor) {

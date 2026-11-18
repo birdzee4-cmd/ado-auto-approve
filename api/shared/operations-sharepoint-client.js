@@ -270,7 +270,10 @@ async function listIncidentPage(pageSize = 20, cursor = '') {
   const listId = await getListId(config.listName);
   const token = await getAccessToken();
   const size = Math.max(1, Math.min(Number(pageSize) || 20, 100));
-  let url = cursor || `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?$expand=fields&$orderby=lastModifiedDateTime desc&$top=${size}`;
+  // Incident display numbers are derived from the SharePoint item ID. Use
+  // that stable key for cursor ordering; lastModifiedDateTime can reorder
+  // older incidents between pages and makes page 2 appear out of sequence.
+  let url = cursor || `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?$expand=fields&$orderby=id desc&$top=${size}`;
   const result = await httpRequestWithRetry('GET', url, {
     Authorization: 'Bearer ' + token,
     Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly'
