@@ -16,6 +16,7 @@ function getConfig() {
     clientId: process.env.AAD_CLIENT_ID,
     clientSecret: process.env.AAD_CLIENT_SECRET,
     siteId: process.env.OPERATIONS_SHAREPOINT_SITE_ID || process.env.SHAREPOINT_SITE_ID,
+    incidentListId: process.env.OPERATIONS_SHAREPOINT_INCIDENT_LIST_ID || '',
     hostname: process.env.OPERATIONS_SHAREPOINT_HOSTNAME || process.env.SHAREPOINT_HOSTNAME,
     sitePath: process.env.OPERATIONS_SHAREPOINT_SITE_PATH || process.env.SHAREPOINT_SITE_PATH,
     listName: process.env.OPERATIONS_SHAREPOINT_LIST_NAME || 'Operations Hub Incidents',
@@ -134,6 +135,10 @@ async function getSiteId() {
 async function getListId(listName) {
   if (cachedListIds.has(listName)) return cachedListIds.get(listName);
   const config = getConfig();
+  if (listName === config.listName && config.incidentListId) {
+    cachedListIds.set(listName, config.incidentListId);
+    return config.incidentListId;
+  }
   const siteId = await getSiteId();
   const token = await getAccessToken();
   const result = await httpRequestWithRetry(
