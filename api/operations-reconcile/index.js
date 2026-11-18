@@ -245,6 +245,9 @@ async function notifyIfNeeded(incident, failedCount, actionContext, nowMs = Date
         || service.featureEnabled('OPERATIONS_NOTIFICATION_ENABLED')))
     : candidates[0];
   if (!candidate) return { sent: false, reason: 'duplicate', eventKey: candidates[0].eventKey };
+  // Temporarily pause ready-to-close reminders while the incident closure
+  // reconciliation is being reviewed. Other notification types remain active.
+  if (candidate.type === 'READY_TO_CLOSE') return { sent: false, reason: 'temporarily-disabled', eventKey: candidate.eventKey };
   const dedicatedRoom = candidate.type === 'READY_TO_CLOSE' || candidate.type === 'RESOLVED_OPEN_24H';
   const flag = candidate.type === 'RESOLVED_OPEN_24H'
     ? 'OPERATIONS_RESOLVED_OPEN_24H_NOTIFICATION_ENABLED'
