@@ -422,6 +422,12 @@ async function listAudit(incidentId) {
     .sort((left, right) => Date.parse(right.timestamp || '') - Date.parse(left.timestamp || ''));
 }
 
+async function listAllAudit(maxItems = 5000) {
+  const config = getConfig();
+  if (!config.auditListName) return [];
+  return (await listItems(maxItems, config.auditListName)).map(mapAuditEvent);
+}
+
 function mapAuditEvent(item) {
   const fields = item && item.fields || {};
   return {
@@ -728,6 +734,7 @@ module.exports = {
   mapAlertEventWriteFields,
   appendAudit,
   listAudit,
+  listAllAudit,
   mapAuditEvent,
   mapSharePointIncident,
   trackingStatus,

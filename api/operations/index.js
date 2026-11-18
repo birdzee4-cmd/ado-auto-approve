@@ -255,6 +255,39 @@ async function handleWrite(context, req, path, principal) {
     }
     return jsonResponse(context, 200, { ok: true, dryRun: false, data: results });
   }
+  if (path === 'repair-closed-incidents') {
+    const admin = auth.requireAnyRole(context, req, ['admin']);
+    if (!admin.ok) return jsonResponse(context, admin.status, admin.body);
+    const incidents = await sharePoint.listIncidents(5000);
+    const audits = await sharePoint.listAllAudit(5000);
+    const closedByIncident = new Map();
+    for (const event of audits) {
+      if (String(event.eventType || '').toUpperCase() !== 'INCIDENT_CLOSED' || String(event.result || '').toUpperCase() !== 'SUCCEEDED') continue;
+      const key = String(event.incidentId || '').trim().toLowerCase();
+      if (!key) continue;
+      const previous = closedByIncident.get(key);
+      if (!previous || Date.parse(event.timestamp || '') > Date.parse(previous.timestamp || '')) closedByIncident.set(key, event);
+    }
+    const candidates = incidents.filter(item => closedByIncident.has(String(item.incidentId || '').trim().toLowerCase()));
+    if (body.confirmWrite !== true) {
+      return jsonResponse(context, 200, { ok: true, dryRun: true, data: { scanned: incidents.length, auditEvents: audits.length, candidates: candidates.map(item => ({ incidentId: item.incidentId, sharePointId: item.sharePointId, currentStatus: item.operationsStatus || '', closedAt: closedByIncident.get(String(item.incidentId).toLowerCase())?.timestamp || '' })) } });
+    }
+    const results = [];
+    for (const incident of candidates) {
+      const event = closedByIncident.get(String(incident.incidentId || '').trim().toLowerCase());
+      try {
+        await sharePoint.updateIncidentRecord(incident.sharePointId, {
+          OperationsStatus: 'CLOSED',
+          OperationsClosedAt: event.timestamp || new Date().toISOString(),
+          OperationsClosedBy: event.operationsUserEmail || ''
+        });
+        results.push({ incidentId: incident.incidentId, repaired: true });
+      } catch (error) {
+        results.push({ incidentId: incident.incidentId, repaired: false, error: error.message || 'Update failed' });
+      }
+    }
+    return jsonResponse(context, 200, { ok: true, dryRun: false, data: { scanned: incidents.length, auditEvents: audits.length, candidates: candidates.length, repaired: results.filter(item => item.repaired).length, failed: results.filter(item => !item.repaired).length, results } });
+  }
   // Alert Events is intentionally a read-only monitoring surface. Event
   // ingestion remains automation-only above; reconciliation is owned by the
   // scheduled service and must not be triggered from the UI.
