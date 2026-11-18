@@ -39,7 +39,10 @@ function httpRequest(method, url, headers, body) {
       path: target.pathname + target.search,
       method,
       headers: Object.assign({ Accept: 'application/json' }, headers || {}),
-      timeout: 15000
+      // Large Operations Hub lists are read through Graph pagination.  A
+      // single page can occasionally take longer than the old 15s timeout
+      // once the list grows, so let the retry policy handle transient slowness.
+      timeout: 30000
     }, response => {
       let responseBody = '';
       response.setEncoding('utf8');
@@ -132,11 +135,20 @@ async function listItems(maxItems, listName, filter) {
 
   while (url && items.length < maximum) {
     let result;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      result = await httpRequest('GET', url, headers);
-      if (result.ok || ![429, 500, 502, 503, 504].includes(result.status) || attempt === 2) break;
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        result = await httpRequest('GET', url, headers);
+      } catch (error) {
+        // Network resets and request timeouts are transient with Graph. Keep
+        // the same bounded retry behavior as HTTP throttling responses.
+        if (attempt === 3) throw error;
+        const delay = Math.min(12000, 1000 * (attempt + 1) * (attempt + 1));
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      if (result.ok || ![408, 425, 429, 500, 502, 503, 504].includes(result.status) || attempt === 3) break;
       const retryAfter = Number(result.body?.error?.innerError?.retryAfter || result.body?.retryAfter || 0);
-      const delay = Math.min(15000, Math.max(1000, retryAfter * 1000 || 1000 * (attempt + 1) * (attempt + 1)));
+      const delay = Math.min(12000, Math.max(1000, retryAfter * 1000 || 1000 * (attempt + 1) * (attempt + 1)));
       await new Promise(resolve => setTimeout(resolve, delay));
     }
     if (!result.ok) throw new Error('Unable to read Operations Hub incidents from SharePoint');
@@ -157,8 +169,16 @@ async function listIncidents(maxItems) {
   // the entire incident load with HTTP 400.
   // Supporting lists are intentionally bounded per request so the dashboard
   // remains responsive; the primary incident list can still page up to 5,000.
-  const auditItems = config.auditListName ? await listItems(1000, config.auditListName) : [];
-  const related = config.workItemsListName ? await listWorkItems(1000, config.workItemsListName) : [];
+  let auditItems = [];
+  let related = [];
+  // Audit and handoff lists enrich the view, but should not make the primary
+  // Incident list unavailable during a transient SharePoint failure.
+  if (config.auditListName) {
+    try { auditItems = await listItems(1000, config.auditListName); } catch (error) { auditItems = []; }
+  }
+  if (config.workItemsListName) {
+    try { related = await listWorkItems(1000, config.workItemsListName); } catch (error) { related = []; }
+  }
   let incidents = incidentItems.map(mapSharePointIncident).sort(compareNewest);
   if (config.auditListName) {
     const closureEvents = auditItems
