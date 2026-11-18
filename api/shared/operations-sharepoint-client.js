@@ -15,6 +15,7 @@ function getConfig() {
     tenant: process.env.AAD_TENANT_ID,
     clientId: process.env.AAD_CLIENT_ID,
     clientSecret: process.env.AAD_CLIENT_SECRET,
+    siteId: process.env.OPERATIONS_SHAREPOINT_SITE_ID || process.env.SHAREPOINT_SITE_ID,
     hostname: process.env.OPERATIONS_SHAREPOINT_HOSTNAME || process.env.SHAREPOINT_HOSTNAME,
     sitePath: process.env.OPERATIONS_SHAREPOINT_SITE_PATH || process.env.SHAREPOINT_SITE_PATH,
     listName: process.env.OPERATIONS_SHAREPOINT_LIST_NAME || 'Operations Hub Incidents',
@@ -110,6 +111,10 @@ async function getAccessToken() {
 async function getSiteId() {
   if (cachedSiteId) return cachedSiteId;
   const config = getConfig();
+  if (config.siteId) {
+    cachedSiteId = config.siteId;
+    return cachedSiteId;
+  }
   const token = await getAccessToken();
   const result = await httpRequestWithRetry(
     'GET',
