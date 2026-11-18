@@ -130,7 +130,10 @@ async function listItems(maxItems, listName, filter) {
   };
   const filterQuery = filter ? `&$filter=${encodeURIComponent(filter)}` : '';
   let url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items` +
-    `?$expand=fields${filterQuery}&$orderby=lastModifiedDateTime desc&$top=200`;
+    // Keep large history reads to a small number of Graph pages. The old
+    // 200-row page size required six or more sequential requests once the
+    // list passed 1,000 rows and intermittently hit SharePoint throttling.
+    `?$expand=fields${filterQuery}&$orderby=lastModifiedDateTime desc&$top=500`;
   const items = [];
 
   while (url && items.length < maximum) {
