@@ -262,7 +262,16 @@ async function handleWrite(context, req, path, principal) {
     const admin = auth.requireAnyRole(context, req, ['admin']);
     if (!admin.ok) return jsonResponse(context, admin.status, admin.body);
     const incidents = await sharePoint.listIncidentRecords(5000);
-    const audits = await sharePoint.listAllAudit(5000);
+    let audits = [];
+    let auditReadError = '';
+    try {
+      audits = await sharePoint.listAllAudit(5000);
+    } catch (error) {
+      // A large audit list can exceed the function's execution window. The
+      // primary incident record still contains the authoritative ADO state,
+      // so use the safe recovered + ADO-closed fallback below.
+      auditReadError = error.message || 'Audit read failed';
+    }
     const closedByIncident = new Map();
     for (const event of audits) {
       if (String(event.eventType || '').toUpperCase() !== 'INCIDENT_CLOSED' || String(event.result || '').toUpperCase() !== 'SUCCEEDED') continue;
@@ -271,7 +280,14 @@ async function handleWrite(context, req, path, principal) {
       const previous = closedByIncident.get(key);
       if (!previous || Date.parse(event.timestamp || '') > Date.parse(previous.timestamp || '')) closedByIncident.set(key, event);
     }
-    const candidates = incidents.filter(item => closedByIncident.has(String(item.incidentId || '').trim().toLowerCase()));
+    const candidates = incidents.filter(item => {
+      const key = String(item.incidentId || '').trim().toLowerCase();
+      if (closedByIncident.has(key)) return true;
+      return !auditReadError && false ||
+        String(item.operationsStatus || '').toUpperCase() !== 'CLOSED' &&
+        ['CLOSED', 'DONE', 'COMPLETED', 'RESOLVED'].includes(String(item.adoState || '').toUpperCase()) &&
+        ['RESOLVED', 'RECOVERED', 'CLOSED'].includes(String(item.alertStatus || '').toUpperCase());
+    });
     if (body.confirmWrite !== true) {
       return jsonResponse(context, 200, { ok: true, dryRun: true, data: { scanned: incidents.length, auditEvents: audits.length, candidates: candidates.map(item => ({ incidentId: item.incidentId, sharePointId: item.sharePointId, currentStatus: item.operationsStatus || '', closedAt: closedByIncident.get(String(item.incidentId).toLowerCase())?.timestamp || '' })) } });
     }
@@ -279,10 +295,11 @@ async function handleWrite(context, req, path, principal) {
     for (const incident of candidates) {
       const event = closedByIncident.get(String(incident.incidentId || '').trim().toLowerCase());
       try {
+        const event = closedByIncident.get(String(incident.incidentId || '').trim().toLowerCase());
         await sharePoint.updateIncidentRecord(incident.sharePointId, {
           OperationsStatus: 'CLOSED',
-          OperationsClosedAt: event.timestamp || new Date().toISOString(),
-          OperationsClosedBy: event.operationsUserEmail || ''
+          OperationsClosedAt: event?.timestamp || new Date().toISOString(),
+          OperationsClosedBy: event?.operationsUserEmail || ''
         });
         results.push({ incidentId: incident.incidentId, repaired: true });
       } catch (error) {
