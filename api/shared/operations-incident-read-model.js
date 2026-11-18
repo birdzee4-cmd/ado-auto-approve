@@ -121,4 +121,11 @@ async function get(incidentId) {
   return null;
 }
 
-module.exports = { enabled, ensureTable, upsert, upsertMany, list, get, toEntity, fromEntity };
+async function syncFromSharePoint(sharePoint, maxItems = 5000) {
+  await ensureTable();
+  const incidents = await sharePoint.listIncidentRows(Math.max(1, Math.min(Number(maxItems) || 5000, 5000)));
+  const written = await upsertMany(incidents);
+  return { read: incidents.length, written, source: 'sharepoint', table: config().tableName };
+}
+
+module.exports = { enabled, ensureTable, upsert, upsertMany, list, get, syncFromSharePoint, toEntity, fromEntity };
