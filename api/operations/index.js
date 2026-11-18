@@ -97,7 +97,10 @@ module.exports = async function (context, req) {
     if (path === 'incidents') {
       const query = req.query || {};
       if (query.cursor || query.pageSize) {
-        const page = await sharePoint.listIncidentPage(query.pageSize, query.cursor);
+        const hasFilter = ['status', 'search'].some(key => String(query[key] || '').trim());
+        const page = hasFilter
+          ? filteredIncidentPage(await sharePoint.listIncidentRows(5000), query)
+          : await sharePoint.listIncidentPage(query.pageSize, query.cursor);
         return jsonResponse(context, 200, { ok: true, data: { items: page.items, nextCursor: page.nextCursor, hasMore: Boolean(page.nextCursor) } });
       }
       // The explorer does not need audit/work-item enrichment for every row.
@@ -578,6 +581,18 @@ function filterIncidents(items, query) {
       .join(' ').toLowerCase();
     return statusMatch && (!search || haystack.includes(search));
   });
+}
+
+function filteredIncidentPage(items, query) {
+  const filtered = filterIncidents(items, query);
+  const size = Math.max(1, Math.min(Number(query.pageSize) || 20, 100));
+  let offset = 0;
+  if (query.cursor) {
+    try { offset = Math.max(0, Number(Buffer.from(String(query.cursor), 'base64url').toString('utf8')) || 0); } catch (err) { offset = 0; }
+  }
+  const page = filtered.slice(offset, offset + size);
+  const nextOffset = offset + page.length;
+  return { items: page, nextCursor: nextOffset < filtered.length ? Buffer.from(String(nextOffset)).toString('base64url') : '' };
 }
 
 function dashboardSummary(incidents, query = {}, now = new Date()) {

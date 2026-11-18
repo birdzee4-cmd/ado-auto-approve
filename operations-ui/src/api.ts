@@ -92,9 +92,11 @@ export const operationsApi = {
     if (search) query.set('search', search);
     return request<{ items: Incident[]; count: number }>(`/api/operations/incidents?${query.toString()}`);
   },
-  incidentPage: (pageSize = 20, cursor = '') => {
+  incidentPage: (pageSize = 20, cursor = '', status = '', search = '') => {
     const query = new URLSearchParams({ pageSize: String(pageSize) });
     if (cursor) query.set('cursor', cursor);
+    if (status) query.set('status', status);
+    if (search) query.set('search', search);
     return request<{ items: Incident[]; nextCursor: string; hasMore: boolean }>(`/api/operations/incidents?${query.toString()}`);
   },
   alertEvents: (status = '') => request<{ items: AlertEvent[]; count: number }>(`/api/operations/alert-events${status ? `?status=${encodeURIComponent(status)}` : ''}`),
