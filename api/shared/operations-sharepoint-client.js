@@ -158,9 +158,9 @@ async function listIncidents(maxItems) {
       // Microsoft Graph rejects the field_6/field_7 filter for this list in
       // some tenants. Read the audit rows and filter after mapping instead of
       // failing the entire incident load with HTTP 400.
-      ? listItems(1000, config.auditListName)
+      ? listItems(5000, config.auditListName)
       : Promise.resolve([]),
-    config.workItemsListName ? listWorkItems(1000, config.workItemsListName) : Promise.resolve([])
+    config.workItemsListName ? listWorkItems(5000, config.workItemsListName) : Promise.resolve([])
   ]);
   let incidents = incidentItems.map(mapSharePointIncident).sort(compareNewest);
   if (config.auditListName) {
