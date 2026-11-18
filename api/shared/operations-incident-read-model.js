@@ -128,4 +128,11 @@ async function syncFromSharePoint(sharePoint, maxItems = 5000) {
   return { read: incidents.length, written, source: 'sharepoint', table: config().tableName };
 }
 
-module.exports = { enabled, ensureTable, upsert, upsertMany, list, get, syncFromSharePoint, toEntity, fromEntity };
+async function syncPageFromSharePoint(sharePoint, pageSize = 100, cursor = '') {
+  await ensureTable();
+  const page = await sharePoint.listIncidentPage(Math.max(1, Math.min(Number(pageSize) || 100, 100)), cursor);
+  const written = await upsertMany(page.items);
+  return { read: page.items.length, written, nextCursor: page.nextCursor || '', hasMore: Boolean(page.nextCursor), source: 'sharepoint', table: config().tableName };
+}
+
+module.exports = { enabled, ensureTable, upsert, upsertMany, list, get, syncFromSharePoint, syncPageFromSharePoint, toEntity, fromEntity };

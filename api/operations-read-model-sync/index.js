@@ -9,8 +9,9 @@ module.exports = async function (context, req) {
     return;
   }
   try {
-    const maxItems = Number(req.body?.maxItems || req.query?.maxItems || 5000);
-    const result = await readModel.syncFromSharePoint(sharePoint, maxItems);
+    const pageSize = Number(req.body?.pageSize || req.query?.pageSize || 100);
+    const cursor = String(req.body?.cursor || req.query?.cursor || '');
+    const result = await readModel.syncPageFromSharePoint(sharePoint, pageSize, cursor);
     context.res = { status: 200, body: JSON.stringify({ ok: true, data: result }), headers: { 'Content-Type': 'application/json' } };
   } catch (error) {
     context.log.error('Operations incident read-model sync failed:', error);
