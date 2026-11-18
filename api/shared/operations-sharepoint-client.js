@@ -5,6 +5,8 @@ let cachedToken = null;
 let tokenExpiresAt = 0;
 let cachedSiteId = null;
 const cachedListIds = new Map();
+let incidentRowsCache = null;
+let incidentRowsRefresh = null;
 const incidentYearFormatter = new Intl.DateTimeFormat('en-US', {
   timeZone: 'Asia/Bangkok',
   year: 'numeric'
@@ -244,7 +246,20 @@ async function listIncidents(maxItems, options = {}) {
 }
 
 async function listIncidentRows(maxItems = 5000) {
-  return listIncidents(maxItems, { enrich: false });
+  const ttl = Math.max(5, Number(process.env.OPERATIONS_INCIDENT_CACHE_TTL_SECONDS || 20)) * 1000;
+  const now = Date.now();
+  if (incidentRowsCache && now - incidentRowsCache.createdAt < ttl) return incidentRowsCache.items;
+  // Single-flight protects a warm Function instance when the browser, a
+  // dashboard refresh, and a background action arrive together. Only one
+  // full SharePoint history read is allowed at a time.
+  if (incidentRowsRefresh) return incidentRowsRefresh;
+  incidentRowsRefresh = listIncidents(maxItems, { enrich: false })
+    .then(items => {
+      incidentRowsCache = { createdAt: Date.now(), items };
+      return items;
+    })
+    .finally(() => { incidentRowsRefresh = null; });
+  return incidentRowsRefresh;
 }
 
 // Cursor-based explorer read. The cursor is the opaque Graph nextLink; callers
