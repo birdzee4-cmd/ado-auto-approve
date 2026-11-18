@@ -53,6 +53,7 @@ function httpRequest(method, url, headers, body) {
         resolve({
           ok: response.statusCode >= 200 && response.statusCode < 300,
           status: response.statusCode || 500,
+          retryAfter: response.headers['retry-after'] || '',
           body: parsed || responseBody
         });
       });
@@ -64,6 +65,24 @@ function httpRequest(method, url, headers, body) {
   });
 }
 
+async function httpRequestWithRetry(method, url, headers, body) {
+  let result;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      result = await httpRequest(method, url, headers, body);
+    } catch (error) {
+      if (attempt === 3) throw error;
+      await new Promise(resolve => setTimeout(resolve, Math.min(8000, 1000 * (attempt + 1))));
+      continue;
+    }
+    if (result.ok || ![408, 425, 429, 500, 502, 503, 504].includes(result.status) || attempt === 3) return result;
+    const retryAfter = Number(result.retryAfter || result.body?.error?.innerError?.retryAfter || result.body?.retryAfter || 0);
+    const delay = Math.min(15000, Math.max(1000, retryAfter * 1000 || 1000 * (attempt + 1)));
+    await new Promise(resolve => setTimeout(resolve, delay));
+  }
+  return result;
+}
+
 async function getAccessToken() {
   const now = Date.now();
   if (cachedToken && now < tokenExpiresAt - 60000) return cachedToken;
@@ -72,14 +91,16 @@ async function getAccessToken() {
     `&client_secret=${encodeURIComponent(config.clientSecret)}` +
     `&scope=${encodeURIComponent('https://graph.microsoft.com/.default')}` +
     '&grant_type=client_credentials';
-  const result = await httpRequest(
+  const result = await httpRequestWithRetry(
     'POST',
     `https://login.microsoftonline.com/${encodeURIComponent(config.tenant)}/oauth2/v2.0/token`,
     { 'Content-Type': 'application/x-www-form-urlencoded' },
     body
   );
   if (!result.ok || !result.body || !result.body.access_token) {
-    throw new Error('Unable to acquire Microsoft Graph token');
+    const code = String(result.body?.error || '').trim();
+    const description = String(result.body?.error_description || '').trim().replace(/[\r\n]+/g, ' ').slice(0, 240);
+    throw new Error(`Unable to acquire Microsoft Graph token: HTTP ${result.status}${code ? ` (${code})` : ''}${description ? ` ${description}` : ''}`);
   }
   cachedToken = result.body.access_token;
   tokenExpiresAt = now + (Number(result.body.expires_in || 3600) * 1000);
@@ -90,12 +111,17 @@ async function getSiteId() {
   if (cachedSiteId) return cachedSiteId;
   const config = getConfig();
   const token = await getAccessToken();
-  const result = await httpRequest(
+  const result = await httpRequestWithRetry(
     'GET',
     `https://graph.microsoft.com/v1.0/sites/${config.hostname}:${config.sitePath}`,
     { Authorization: 'Bearer ' + token }
   );
-  if (!result.ok || !result.body || !result.body.id) throw new Error('Operations SharePoint site was not found');
+  if (!result.ok || !result.body || !result.body.id) {
+    const graphError = result.body && result.body.error || {};
+    const code = String(graphError.code || '').trim();
+    const message = String(graphError.message || '').trim().replace(/[\r\n]+/g, ' ').slice(0, 240);
+    throw new Error(`Operations SharePoint site lookup failed: HTTP ${result.status}${code ? ` (${code})` : ''}${message ? ` ${message}` : ''}`);
+  }
   cachedSiteId = result.body.id;
   return cachedSiteId;
 }
@@ -105,12 +131,17 @@ async function getListId(listName) {
   const config = getConfig();
   const siteId = await getSiteId();
   const token = await getAccessToken();
-  const result = await httpRequest(
+  const result = await httpRequestWithRetry(
     'GET',
     `https://graph.microsoft.com/v1.0/sites/${siteId}/lists?$select=id,displayName,name`,
     { Authorization: 'Bearer ' + token }
   );
-  if (!result.ok) throw new Error('Unable to list SharePoint lists for Operations Hub');
+  if (!result.ok) {
+    const graphError = result.body && result.body.error || {};
+    const code = String(graphError.code || '').trim();
+    const message = String(graphError.message || '').trim().replace(/[\r\n]+/g, ' ').slice(0, 240);
+    throw new Error(`Unable to list SharePoint lists for Operations Hub: HTTP ${result.status}${code ? ` (${code})` : ''}${message ? ` ${message}` : ''}`);
+  }
   const list = (result.body && result.body.value || []).find(item =>
     item.displayName === listName || item.name === listName
   );
