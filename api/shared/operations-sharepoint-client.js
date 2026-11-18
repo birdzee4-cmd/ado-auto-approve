@@ -7,6 +7,8 @@ let cachedSiteId = null;
 const cachedListIds = new Map();
 let incidentRowsCache = null;
 let incidentRowsRefresh = null;
+let workItemsCache = null;
+let workItemsRefresh = null;
 const incidentYearFormatter = new Intl.DateTimeFormat('en-US', {
   timeZone: 'Asia/Bangkok',
   year: 'numeric'
@@ -331,7 +333,14 @@ async function listWorkItems(maxItems, listName) {
 async function listConfiguredWorkItems(maxItems) {
   const config = getConfig();
   if (!config.workItemsListName) return [];
-  return listWorkItems(maxItems || 1000, config.workItemsListName);
+  const ttl = Math.max(5, Number(process.env.OPERATIONS_WORK_ITEMS_CACHE_TTL_SECONDS || 30)) * 1000;
+  const now = Date.now();
+  if (workItemsCache && now - workItemsCache.createdAt < ttl) return workItemsCache.items;
+  if (workItemsRefresh) return workItemsRefresh;
+  workItemsRefresh = listWorkItems(maxItems || 1000, config.workItemsListName)
+    .then(items => { workItemsCache = { createdAt: Date.now(), items }; return items; })
+    .finally(() => { workItemsRefresh = null; });
+  return workItemsRefresh;
 }
 
 async function graphListRequest(method, listName, suffix, body) {

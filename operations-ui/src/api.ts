@@ -7,9 +7,9 @@ interface ApiEnvelope<T> {
   detail?: string;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit & { timeoutMs?: number }): Promise<T> {
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 30000);
+  const timeoutId = window.setTimeout(() => controller.abort(), init?.timeoutMs || 30000);
   const response = await fetch(path, {
     ...init,
     signal: init?.signal || controller.signal,
@@ -118,7 +118,7 @@ export const operationsApi = {
   synchronize: (incidentId: string) => request<{ incidentId: string; items: Array<{ workItemId: number; ok: boolean; status?: number }> }>(`/api/operations/incidents/${encodeURIComponent(incidentId)}/synchronize`, { method: 'POST', body: '{}' }),
   close: (incidentId: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/close`, { method: 'POST', body: '{}' }),
   closeInBatch: (incidentId: string, batchId: string, note: string) => request<{ duplicate?: boolean }>(`/api/operations/incidents/${encodeURIComponent(incidentId)}/close`, { method: 'POST', body: JSON.stringify({ batchClose: true, batchId, note }) }),
-  manualClose: (incidentId: string, reason: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/manual-close`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  manualClose: (incidentId: string, reason: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/manual-close`, { method: 'POST', body: JSON.stringify({ reason }), timeoutMs: 90000 }),
   manualAlertStatus: (incidentId: string, status: 'FIRING' | 'RESOLVED', reason: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/manual-alert-status`, { method: 'POST', body: JSON.stringify({ status, reason }) })
   ,restartAppService: (incidentId: string, resource: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/tier1/restart-app-service`, { method: 'POST', body: JSON.stringify({ resource }) })
 };
