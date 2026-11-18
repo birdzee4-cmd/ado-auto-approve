@@ -271,7 +271,7 @@ async function handleWrite(context, req, path, principal) {
     let lastReadError;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        incidents = await sharePoint.listIncidentRecords(100);
+        incidents = await sharePoint.listIncidentRecords(20);
         break;
       } catch (error) {
         lastReadError = error;
@@ -280,7 +280,7 @@ async function handleWrite(context, req, path, principal) {
     }
     if (!incidents) throw lastReadError || new Error('Unable to read Operations Hub incidents from SharePoint');
     let audits = [];
-    try { audits = await sharePoint.listAllAudit(500); } catch (error) { audits = []; }
+    try { audits = await sharePoint.listAllAudit(200); } catch (error) { audits = []; }
     const closedByIncident = new Map();
     for (const event of audits) {
       if (String(event.eventType || '').toUpperCase() !== 'INCIDENT_CLOSED' || String(event.result || '').toUpperCase() !== 'SUCCEEDED') continue;
