@@ -752,9 +752,12 @@ async function closeIncident(input, context, dependencies = {}) {
     throw error;
   }
   const now = new Date().toISOString();
-  // The append-only audit list is the closure source of truth. This keeps the
-  // operation within the existing item-write permission and avoids requiring
-  // SharePoint schema-management permission in Production.
+  await sp.updateIncidentRecord(incident.sharePointId, {
+    OperationsStatus: 'CLOSED',
+    OperationsClosedAt: now,
+    OperationsClosedBy: context?.user?.displayName || context?.user?.email || context?.actor || 'Operations Hub',
+    LastSyncedAt: now
+  });
   await audit(sp, context, {
     incidentId: incident.incidentId,
     action: 'INCIDENT_CLOSED',
@@ -781,6 +784,12 @@ async function manualCloseIncident(input, context, dependencies = {}) {
   const now = new Date().toISOString();
   const resolvedAt = incident.resolvedAt || input.resolvedAt || now;
   if (String(incident.status || '').toUpperCase() !== 'RESOLVED' || !incident.resolvedAt) await sp.updateIncidentRecord(incident.sharePointId, { AlertStatus: 'RESOLVED', ResolvedAt: resolvedAt, LastSyncedAt: now });
+  await sp.updateIncidentRecord(incident.sharePointId, {
+    OperationsStatus: 'CLOSED',
+    OperationsClosedAt: now,
+    OperationsClosedBy: context?.user?.displayName || context?.user?.email || context?.actor || 'Operations Hub',
+    LastSyncedAt: now
+  });
   // Use the canonical closure event so list/detail reconciliation marks the
   // incident CLOSED. Preserve the manual-override context in the audit detail.
   await audit(sp, context, { incidentId: incident.incidentId, action: 'INCIDENT_CLOSED', result: 'SUCCEEDED', detail: `Legacy timeline override closed at ${now}; reason: ${reason}; all VSTS Work Items verified closed` });
