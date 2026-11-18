@@ -103,6 +103,15 @@ module.exports = async function (context, req) {
       }
       // The explorer does not need audit/work-item enrichment for every row.
       // Keep that enrichment for the detail endpoint and reports only.
+      if (incidentReadModel.enabled()) {
+        try {
+          const cached = await incidentReadModel.list({ limit: 1000, partitionKey: query.partitionKey });
+          const filtered = filterIncidents(cached, query);
+          return jsonResponse(context, 200, { ok: true, data: { items: filtered, count: filtered.length, source: 'azure-table-read-model' } });
+        } catch (error) {
+          context.log.warn('Operations incident read model unavailable; falling back to SharePoint:', error.message);
+        }
+      }
       const incidents = filterIncidents(await sharePoint.listIncidentRows(5000), query);
       return jsonResponse(context, 200, { ok: true, data: { items: incidents, count: incidents.length } });
     }
