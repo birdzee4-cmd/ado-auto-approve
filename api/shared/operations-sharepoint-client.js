@@ -155,8 +155,10 @@ async function listIncidents(maxItems) {
   // Microsoft Graph rejects the field_6/field_7 filter for this list in some
   // tenants. Read the audit rows and filter after mapping instead of failing
   // the entire incident load with HTTP 400.
-  const auditItems = config.auditListName ? await listItems(5000, config.auditListName) : [];
-  const related = config.workItemsListName ? await listWorkItems(5000, config.workItemsListName) : [];
+  // Supporting lists are intentionally bounded per request so the dashboard
+  // remains responsive; the primary incident list can still page up to 5,000.
+  const auditItems = config.auditListName ? await listItems(1000, config.auditListName) : [];
+  const related = config.workItemsListName ? await listWorkItems(1000, config.workItemsListName) : [];
   let incidents = incidentItems.map(mapSharePointIncident).sort(compareNewest);
   if (config.auditListName) {
     const closureEvents = auditItems
