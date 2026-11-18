@@ -4,6 +4,7 @@ const { TableClient } = require('@azure/data-tables');
 // record; this module must never be required by a write path unless the
 // feature flag is explicitly enabled.
 let client;
+let stateClient;
 
 function config() {
   const connectionString = process.env.OPERATIONS_INCIDENT_TABLE_CONNECTION_STRING ||
@@ -25,6 +26,14 @@ function table() {
     client = TableClient.fromConnectionString(cfg.connectionString, cfg.tableName);
   }
   return client;
+}
+
+function stateTable() {
+  if (!stateClient) {
+    const cfg = config();
+    stateClient = TableClient.fromConnectionString(cfg.connectionString, process.env.OPERATIONS_INCIDENT_SYNC_STATE_TABLE || 'OperationsIncidentSyncState');
+  }
+  return stateClient;
 }
 
 function partitionKey(incident) {
@@ -89,6 +98,7 @@ function fromEntity(entity) {
 
 async function ensureTable() {
   await table().createTable();
+  await stateTable().createTable();
 }
 
 async function upsert(incident) {
@@ -130,9 +140,23 @@ async function syncFromSharePoint(sharePoint, maxItems = 5000) {
 
 async function syncPageFromSharePoint(sharePoint, pageSize = 100, cursor = '') {
   await ensureTable();
-  const page = await sharePoint.listIncidentPage(Math.max(1, Math.min(Number(pageSize) || 100, 100)), cursor);
+  const state = await getSyncState();
+  const effectiveCursor = cursor || state.cursor || '';
+  const page = await sharePoint.listIncidentPage(Math.max(1, Math.min(Number(pageSize) || 100, 100)), effectiveCursor);
   const written = await upsertMany(page.items);
-  return { read: page.items.length, written, nextCursor: page.nextCursor || '', hasMore: Boolean(page.nextCursor), source: 'sharepoint', table: config().tableName };
+  await setSyncState(page.nextCursor || '');
+  return { read: page.items.length, written, nextCursor: page.nextCursor || '', hasMore: Boolean(page.nextCursor), source: 'sharepoint', table: config().tableName, resumed: Boolean(effectiveCursor) };
+}
+
+async function getSyncState() {
+  try { return await stateTable().getEntity('incidents', 'primary'); } catch (error) {
+    if (error.statusCode === 404) return { cursor: '' };
+    throw error;
+  }
+}
+
+async function setSyncState(cursor) {
+  await stateTable().upsertEntity({ partitionKey: 'incidents', rowKey: 'primary', cursor: String(cursor || ''), updatedAt: new Date().toISOString() }, 'Merge');
 }
 
 module.exports = { enabled, ensureTable, upsert, upsertMany, list, get, syncFromSharePoint, syncPageFromSharePoint, toEntity, fromEntity };
