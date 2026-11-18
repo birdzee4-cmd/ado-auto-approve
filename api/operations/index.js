@@ -261,7 +261,10 @@ async function handleWrite(context, req, path, principal) {
   if (path === 'repair-closed-incidents') {
     const admin = auth.requireAnyRole(context, req, ['admin']);
     if (!admin.ok) return jsonResponse(context, admin.status, admin.body);
-    const incidents = await sharePoint.listIncidentRecords(5000);
+    // Keep the repair read within the same practical range as the UI list.
+    // The current store is just over 1,000 rows; asking Graph for 5,000 here
+    // can time out even though the paged UI request succeeds.
+    const incidents = await sharePoint.listIncidentRecords(1200);
     let audits = [];
     let auditReadError = '';
     try {
