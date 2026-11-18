@@ -31,7 +31,7 @@ module.exports = async function (context, req) {
   }
   try {
     if (method === 'GET' && path === 'repair-closed-incidents') {
-      return handleWrite(context, { ...req, method: 'POST', body: { confirmWrite: String(req.query?.confirmWrite || '').toLowerCase() === 'true' } }, path, roleCheck.principal);
+      return await handleWrite(context, { ...req, method: 'POST', body: { confirmWrite: String(req.query?.confirmWrite || '').toLowerCase() === 'true' } }, path, roleCheck.principal);
     }
     if (method === 'POST') {
       // Await inside this try/catch so rejected write operations are converted
