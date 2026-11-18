@@ -306,6 +306,12 @@ async function handleWrite(context, req, path, principal) {
       try {
         const event = closedByIncident.get(String(incident.incidentId || '').trim().toLowerCase());
         const occurredAt = event?.timestamp || new Date().toISOString();
+        await sharePoint.updateIncidentRecord(incident.sharePointId, {
+          OperationsStatus: 'CLOSED',
+          OperationsClosedAt: occurredAt,
+          OperationsClosedBy: event?.operationsUserEmail || principal.userDetails || '',
+          LastSyncedAt: new Date().toISOString()
+        });
         await sharePoint.appendAudit({
           Title: 'INCIDENT_CLOSED', EventId: crypto.randomUUID(),
           EventKey: `INCIDENT_CLOSED:${incident.incidentId}:REPAIR`,
