@@ -299,10 +299,15 @@ async function handleWrite(context, req, path, principal) {
       const event = closedByIncident.get(String(incident.incidentId || '').trim().toLowerCase());
       try {
         const event = closedByIncident.get(String(incident.incidentId || '').trim().toLowerCase());
-        await sharePoint.updateIncidentRecord(incident.sharePointId, {
-          OperationsStatus: 'CLOSED',
-          OperationsClosedAt: event?.timestamp || new Date().toISOString(),
-          OperationsClosedBy: event?.operationsUserEmail || ''
+        const occurredAt = event?.timestamp || new Date().toISOString();
+        await sharePoint.appendAudit({
+          Title: 'INCIDENT_CLOSED', EventId: crypto.randomUUID(),
+          EventKey: `INCIDENT_CLOSED:${incident.incidentId}:REPAIR`,
+          CorrelationId: crypto.randomUUID(), IncidentId: incident.incidentId,
+          Action: 'INCIDENT_CLOSED', Result: 'SUCCEEDED',
+          OperationsUserEmail: event?.operationsUserEmail || principal.userDetails || '',
+          Detail: JSON.stringify({ repair: true, source: event ? 'closure-audit' : 'recovered-ado-closed' }),
+          OccurredAt: occurredAt
         });
         results.push({ incidentId: incident.incidentId, repaired: true });
       } catch (error) {
