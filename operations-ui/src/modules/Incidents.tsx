@@ -20,6 +20,8 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   const [lifecycle, setLifecycle] = useState('');
   const [assignee, setAssignee] = useState('');
   const [page, setPage] = useState(1);
+  const [pageCursors, setPageCursors] = useState<Record<number, string>>({ 1: '' });
+  const [pageHasMore, setPageHasMore] = useState(false);
   const pageSize = 20;
   const [error, setError] = useState('');
   const [actionError, setActionError] = useState('');
@@ -96,9 +98,10 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
     if (lifecycle && operationsStatus(item) !== lifecycle) return false;
     return true;
   });
-  const pageCount = Math.max(1, Math.ceil(filteredItems.length / pageSize));
+  const cursorMode = !search && !alertStatus && !adoState && !lifecycle && !assignee && !status;
+  const pageCount = cursorMode ? Math.max(1, Math.ceil(overviewItems.length / pageSize)) : Math.max(1, Math.ceil(filteredItems.length / pageSize));
   const currentPage = Math.min(page, pageCount);
-  const visibleItems = filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const visibleItems = cursorMode ? filteredItems : filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const canBatchClose = capabilities.closeIncident && connection?.connected;
   const eligibleVisible = visibleItems.filter(item => {
     // The row status is the canonical user-facing readiness signal. Legacy
@@ -169,10 +172,19 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
         return !status || operationsStatus(item) === status;
       }));
       setOverviewItems(inventory?.items || sourceItems);
+      // For the unfiltered explorer, replace the full history rows with one
+      // Graph cursor page. The full result remains the summary/filter source,
+      // while table navigation reads only the current page.
+      if (!search && !alertStatus && !adoState && !lifecycle && !assignee && !status) {
+        const pageResult = await operationsApi.incidentPage(pageSize, pageCursors[preservePage ? currentPage : 1] || '');
+        setItems(pageResult.items);
+        setPageHasMore(pageResult.hasMore);
+        setPageCursors(current => ({ ...current, [(preservePage ? currentPage : 1) + 1]: pageResult.nextCursor }));
+      }
       if (allResult.status === 'rejected' || inventoryResult.status === 'rejected') {
         setError('บางข้อมูลอาจอัปเดตไม่ครบ กรุณากด Refresh now เพื่อลองใหม่');
       }
-      if (!preservePage) setPage(1);
+      if (!preservePage) { setPage(1); setPageCursors({ 1: '' }); }
       setLastUpdatedAt(new Date());
     } catch (err) {
       setError((err as Error).message);
@@ -182,6 +194,25 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
     }
   };
   useEffect(() => { void load(false); }, [status]);
+  useEffect(() => {
+    if (page === 1 || search || alertStatus || adoState || lifecycle || assignee || status) return;
+    void (async () => {
+      try {
+        let cursor = pageCursors[page] || '';
+        if (page > 2 && !cursor) {
+          cursor = pageCursors[2] || '';
+          for (let index = 2; index < page && cursor; index += 1) {
+            const step = await operationsApi.incidentPage(pageSize, cursor);
+            cursor = step.nextCursor;
+          }
+        }
+        const result = await operationsApi.incidentPage(pageSize, cursor);
+        setItems(result.items);
+        setPageHasMore(result.hasMore);
+        setPageCursors(current => ({ ...current, [page + 1]: result.nextCursor }));
+      } catch (err) { setError((err as Error).message); }
+    })();
+  }, [page]);
   useEffect(() => {
     const refreshWhenSafe = () => {
       if (document.visibilityState === 'visible' && !busy && !selected && !batchReview) void load();
@@ -395,7 +426,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
     {!items && !error && <LoadingState />}
     {items && filteredItems.length === 0 && <EmptyState title="No matching incidents" detail="Change the filter or wait for Power Automate to write an incident to SharePoint." />}
     {items && filteredItems.length > 0 && <div className="ops-incident-results">
-      <div className="ops-results-head"><div><strong>{filteredItems.length} incidents</strong><span>Sorted by Incident number, newest first</span></div><small>Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredItems.length)} of {filteredItems.length}</small></div>
+      <div className="ops-results-head"><div><strong>{cursorMode ? overviewItems.length : filteredItems.length} incidents</strong><span>Sorted by Incident number, newest first</span></div><small>Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, cursorMode ? overviewItems.length : filteredItems.length)} of {cursorMode ? overviewItems.length : filteredItems.length}</small></div>
       <div className="ops-incident-columns" aria-hidden="true"><span>Incident / alert</span><span>Resource</span><span>ADO state</span><span>Operations status</span><span>Related</span><span>First seen</span><span>Owner</span><span /></div>
       {canBatchClose && <details className="ops-bulk-panel">
         <summary>Close multiple ready/legacy incidents · {eligibleVisible.length} eligible on this page</summary>
