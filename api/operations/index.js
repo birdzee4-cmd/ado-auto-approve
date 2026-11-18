@@ -5,6 +5,7 @@ const alertService = require('../shared/operations-alert-service');
 const crypto = require('crypto');
 const ado = require('../shared/ado-client');
 const globalSettings = require('../shared/operations-global-settings');
+const incidentReadModel = require('../shared/operations-incident-read-model');
 
 module.exports = async function (context, req) {
   const path = normalizePath(req.params && req.params.path);
@@ -104,6 +105,14 @@ module.exports = async function (context, req) {
       // Keep that enrichment for the detail endpoint and reports only.
       const incidents = filterIncidents(await sharePoint.listIncidentRows(5000), query);
       return jsonResponse(context, 200, { ok: true, data: { items: incidents, count: incidents.length } });
+    }
+
+    // Additive read-model route. It is deliberately opt-in so existing
+    // Operations Hub, Power Automate and API behaviour remains unchanged.
+    if (path === 'incidents-read-model') {
+      if (!incidentReadModel.enabled()) return jsonResponse(context, 404, { ok: false, error: 'READ_MODEL_DISABLED' });
+      const items = await incidentReadModel.list({ limit: req.query && req.query.limit, partitionKey: req.query && req.query.partitionKey });
+      return jsonResponse(context, 200, { ok: true, data: { items, count: items.length, source: 'azure-table-read-model' } });
     }
 
     if (path === 'alert-events') {
