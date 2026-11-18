@@ -406,7 +406,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
         <span className="ops-incident-owner">{item.assignedTo || 'Unassigned'}</span>
         <span className="ops-row-arrow" aria-hidden="true">→</span>
       </button>)}</div>
-      {pageCount > 1 && <div className="ops-pagination"><button className="ops-button ops-button-secondary" disabled={currentPage === 1} onClick={() => setPage(value => Math.max(1, value - 1))}>Previous</button><span>Page {currentPage} of {pageCount}</span><button className="ops-button ops-button-secondary" disabled={currentPage === pageCount} onClick={() => setPage(value => Math.min(pageCount, value + 1))}>Next</button></div>}
+      {pageCount > 1 && <div className="ops-pagination"><button className="ops-button ops-button-secondary" disabled={currentPage === 1} onClick={() => setPage(1)}>First</button><button className="ops-button ops-button-secondary" disabled={currentPage === 1} onClick={() => setPage(value => Math.max(1, value - 1))}>Previous</button><span>Page {currentPage} of {pageCount}</span><button className="ops-button ops-button-secondary" disabled={currentPage === pageCount} onClick={() => setPage(value => Math.min(pageCount, value + 1))}>Next</button><button className="ops-button ops-button-secondary" disabled={currentPage === pageCount} onClick={() => setPage(pageCount)}>Last</button></div>}
     </div>}
     {batchReview && <div className="ops-drawer-backdrop"><aside ref={batchDialog} tabIndex={-1} className="ops-detail-drawer ops-bulk-review" role="dialog" aria-modal="true" aria-labelledby="bulk-close-title">
       <div className="ops-bulk-review-content">
