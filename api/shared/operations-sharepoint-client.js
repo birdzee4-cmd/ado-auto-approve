@@ -281,6 +281,7 @@ async function listIncidentPage(pageSize = 20, cursor = '') {
   }
   return {
     items: (result.body && Array.isArray(result.body.value) ? result.body.value : []).map(mapSharePointIncident),
+    total: undefined,
     nextCursor: result.body && result.body['@odata.nextLink'] || ''
   };
 }

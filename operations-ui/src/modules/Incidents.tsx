@@ -22,6 +22,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   const [page, setPage] = useState(1);
   const [pageCursors, setPageCursors] = useState<Record<number, string>>({ 1: '' });
   const [pageHasMore, setPageHasMore] = useState(false);
+  const [pageTotal, setPageTotal] = useState(0);
   const pageSize = 20;
   const [error, setError] = useState('');
   const [actionError, setActionError] = useState('');
@@ -98,8 +99,8 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
     if (lifecycle && operationsStatus(item) !== lifecycle) return false;
     return true;
   });
-  const cursorMode = !alertStatus && !adoState && !lifecycle && !assignee && status !== 'OPEN_INCIDENTS' && status !== 'ATTENTION' && status !== 'ACTION_REQUIRED';
-  const pageCount = cursorMode ? Math.max(1, Math.ceil(overviewItems.length / pageSize)) : Math.max(1, Math.ceil(filteredItems.length / pageSize));
+  const cursorMode = true;
+  const pageCount = cursorMode ? Math.max(1, Math.ceil((pageTotal || overviewItems.length) / pageSize)) : Math.max(1, Math.ceil(filteredItems.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visibleItems = cursorMode ? filteredItems : filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const canBatchClose = capabilities.closeIncident && connection?.connected;
@@ -176,8 +177,9 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
       // Graph cursor page. The full result remains the summary/filter source,
       // while table navigation reads only the current page.
       if (cursorMode) {
-        const pageResult = await operationsApi.incidentPage(pageSize, pageCursors[preservePage ? currentPage : 1] || '', status, search);
+        const pageResult = await operationsApi.incidentPage(pageSize, pageCursors[preservePage ? currentPage : 1] || '', status, search, alertStatus, adoState, lifecycle, assignee);
         setItems(pageResult.items);
+        setPageTotal(pageResult.count || overviewItems.length);
         setPageHasMore(pageResult.hasMore);
         setPageCursors(current => ({ ...current, [(preservePage ? currentPage : 1) + 1]: pageResult.nextCursor }));
       }
@@ -202,12 +204,13 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
         if (page > 2 && !cursor) {
           cursor = pageCursors[2] || '';
           for (let index = 2; index < page && cursor; index += 1) {
-            const step = await operationsApi.incidentPage(pageSize, cursor, status, search);
+            const step = await operationsApi.incidentPage(pageSize, cursor, status, search, alertStatus, adoState, lifecycle, assignee);
             cursor = step.nextCursor;
           }
         }
-        const result = await operationsApi.incidentPage(pageSize, cursor, status, search);
+        const result = await operationsApi.incidentPage(pageSize, cursor, status, search, alertStatus, adoState, lifecycle, assignee);
         setItems(result.items);
+        setPageTotal(result.count || overviewItems.length);
         setPageHasMore(result.hasMore);
         setPageCursors(current => ({ ...current, [page + 1]: result.nextCursor }));
       } catch (err) { setError((err as Error).message); }

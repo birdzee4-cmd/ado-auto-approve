@@ -92,12 +92,16 @@ export const operationsApi = {
     if (search) query.set('search', search);
     return request<{ items: Incident[]; count: number }>(`/api/operations/incidents?${query.toString()}`);
   },
-  incidentPage: (pageSize = 20, cursor = '', status = '', search = '') => {
+  incidentPage: (pageSize = 20, cursor = '', status = '', search = '', alertStatus = '', adoState = '', lifecycle = '', assignee = '') => {
     const query = new URLSearchParams({ pageSize: String(pageSize) });
     if (cursor) query.set('cursor', cursor);
     if (status) query.set('status', status);
     if (search) query.set('search', search);
-    return request<{ items: Incident[]; nextCursor: string; hasMore: boolean }>(`/api/operations/incidents?${query.toString()}`);
+    if (alertStatus) query.set('alertStatus', alertStatus);
+    if (adoState) query.set('adoState', adoState);
+    if (lifecycle) query.set('lifecycle', lifecycle);
+    if (assignee) query.set('assignee', assignee);
+    return request<{ items: Incident[]; count?: number; nextCursor: string; hasMore: boolean }>(`/api/operations/incidents?${query.toString()}`);
   },
   alertEvents: (status = '') => request<{ items: AlertEvent[]; count: number }>(`/api/operations/alert-events${status ? `?status=${encodeURIComponent(status)}` : ''}`),
   processAlertEvent: (eventId: string, dryRun = true) => request<AlertEvent>(`/api/operations/alert-events/${encodeURIComponent(eventId)}/process`, { method: 'POST', body: JSON.stringify({ dryRun }) }),
