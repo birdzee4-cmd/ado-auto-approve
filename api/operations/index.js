@@ -289,7 +289,7 @@ async function handleWrite(context, req, path, principal) {
       return !auditReadError && false ||
         String(item.operationsStatus || '').toUpperCase() !== 'CLOSED' &&
         ['CLOSED', 'DONE', 'COMPLETED', 'RESOLVED'].includes(String(item.adoState || '').toUpperCase()) &&
-        ['RESOLVED', 'RECOVERED', 'CLOSED'].includes(String(item.alertStatus || '').toUpperCase());
+        ['RESOLVED', 'RECOVERED', 'CLOSED'].includes(String(item.status || '').toUpperCase());
     });
     if (body.confirmWrite !== true) {
       return jsonResponse(context, 200, { ok: true, dryRun: true, data: { scanned: incidents.length, auditEvents: audits.length, candidates: candidates.map(item => ({ incidentId: item.incidentId, sharePointId: item.sharePointId, currentStatus: item.operationsStatus || '', closedAt: closedByIncident.get(String(item.incidentId).toLowerCase())?.timestamp || '' })) } });
