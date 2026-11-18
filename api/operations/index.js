@@ -30,6 +30,9 @@ module.exports = async function (context, req) {
     return handleWrite(context, { ...req, method: 'POST', body: { ...query, confirmWrite: String(query.confirmWrite || '').toLowerCase() === 'true' } }, path, roleCheck.principal);
   }
   try {
+    if (method === 'GET' && path === 'repair-closed-incidents') {
+      return handleWrite(context, { ...req, method: 'POST', body: { confirmWrite: String(req.query?.confirmWrite || '').toLowerCase() === 'true' } }, path, roleCheck.principal);
+    }
     if (method === 'POST') {
       // Await inside this try/catch so rejected write operations are converted
       // into the same sanitized JSON error contract as read operations.
