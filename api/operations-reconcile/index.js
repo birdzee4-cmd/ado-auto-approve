@@ -246,9 +246,11 @@ async function notifyIfNeeded(incident, failedCount, actionContext, nowMs = Date
     : candidates[0];
   if (!candidate) return { sent: false, reason: 'duplicate', eventKey: candidates[0].eventKey };
   const dedicatedRoom = candidate.type === 'READY_TO_CLOSE' || candidate.type === 'RESOLVED_OPEN_24H';
-  const flag = dedicatedRoom
-    ? 'OPERATIONS_READY_TO_CLOSE_NOTIFICATION_ENABLED'
-    : 'OPERATIONS_NOTIFICATION_ENABLED';
+  const flag = candidate.type === 'RESOLVED_OPEN_24H'
+    ? 'OPERATIONS_RESOLVED_OPEN_24H_NOTIFICATION_ENABLED'
+    : dedicatedRoom
+      ? 'OPERATIONS_READY_TO_CLOSE_NOTIFICATION_ENABLED'
+      : 'OPERATIONS_NOTIFICATION_ENABLED';
   if (!service.featureEnabled(flag)) return { sent: false, reason: 'disabled' };
   const readyWebhookUrl = dedicatedRoom
     ? String(process.env.TEAMS_READY_TO_CLOSE_WEBHOOK_URL || '').trim()
