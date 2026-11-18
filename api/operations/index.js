@@ -95,7 +95,14 @@ module.exports = async function (context, req) {
     }
 
     if (path === 'incidents') {
-      const incidents = filterIncidents(await sharePoint.listIncidents(5000), req.query || {});
+      const query = req.query || {};
+      if (query.cursor || query.pageSize) {
+        const page = await sharePoint.listIncidentPage(query.pageSize, query.cursor);
+        return jsonResponse(context, 200, { ok: true, data: { items: page.items, nextCursor: page.nextCursor, hasMore: Boolean(page.nextCursor) } });
+      }
+      // The explorer does not need audit/work-item enrichment for every row.
+      // Keep that enrichment for the detail endpoint and reports only.
+      const incidents = filterIncidents(await sharePoint.listIncidentRows(5000), query);
       return jsonResponse(context, 200, { ok: true, data: { items: incidents, count: incidents.length } });
     }
 

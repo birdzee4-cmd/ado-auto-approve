@@ -199,7 +199,7 @@ async function listItems(maxItems, listName, filter) {
   return items;
 }
 
-async function listIncidents(maxItems) {
+async function listIncidents(maxItems, options = {}) {
   const config = getConfig();
   // Keep the large reads sequential. Running three multi-page Graph reads in
   // parallel causes activityLimitReached throttling once the history grows.
@@ -209,6 +209,10 @@ async function listIncidents(maxItems) {
   // the entire incident load with HTTP 400.
   // Supporting lists are intentionally bounded per request so the dashboard
   // remains responsive; the primary incident list can still page up to 5,000.
+  // The incidents explorer can opt out of enrichment because it only needs
+  // primary incident rows. Loading audit and work-item lists for every search
+  // multiplied Graph traffic and made SharePoint throttling much more likely.
+  if (options.enrich === false) return incidentItems.map(mapSharePointIncident).sort(compareNewest);
   let auditItems = [];
   let related = [];
   // Audit and handoff lists enrich the view, but should not make the primary
@@ -227,6 +231,33 @@ async function listIncidents(maxItems) {
     incidents = attachIncidentClosureEvents(incidents, closureEvents);
   }
   return workItems.attachWorkItems(incidents, related);
+}
+
+async function listIncidentRows(maxItems = 5000) {
+  return listIncidents(maxItems, { enrich: false });
+}
+
+// Cursor-based explorer read. The cursor is the opaque Graph nextLink; callers
+// must store and return it without attempting to construct skip/offset values.
+async function listIncidentPage(pageSize = 20, cursor = '') {
+  const config = getConfig();
+  const siteId = await getSiteId();
+  const listId = await getListId(config.listName);
+  const token = await getAccessToken();
+  const size = Math.max(1, Math.min(Number(pageSize) || 20, 100));
+  let url = cursor || `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?$expand=fields&$orderby=lastModifiedDateTime desc&$top=${size}`;
+  const result = await httpRequestWithRetry('GET', url, {
+    Authorization: 'Bearer ' + token,
+    Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly'
+  });
+  if (!result.ok) {
+    const graphError = result.body && result.body.error || {};
+    throw new Error(`Unable to read Operations Hub incidents page: HTTP ${result.status} (${graphError.code || 'GraphError'}) ${graphError.message || ''}`.trim());
+  }
+  return {
+    items: (result.body && Array.isArray(result.body.value) ? result.body.value : []).map(mapSharePointIncident),
+    nextCursor: result.body && result.body['@odata.nextLink'] || ''
+  };
 }
 
 // Used by administrative migrations that only need the primary incident
@@ -616,7 +647,9 @@ function mapSharePointIncident(item) {
     operationsStatus: textField(fields, ['OperationsStatus']),
     operationsClosedBy: textField(fields, ['OperationsClosedBy']),
     operationsClosedAt: dateField(fields, ['OperationsClosedAt']),
-    source: 'Power Automate / SharePoint'
+    source: 'Power Automate / SharePoint',
+    workItems: [],
+    workItemSummary: { total: workItemId ? 1 : 0, open: workItemId && !isClosedAdoState(adoState) ? 1 : 0, closed: workItemId && isClosedAdoState(adoState) ? 1 : 0 }
   };
 }
 
@@ -770,6 +803,8 @@ module.exports = {
     return workItems.attachWorkItems(incidents, related);
   },
   listIncidents,
+  listIncidentRows,
+  listIncidentPage,
   listIncidentRecords,
   listWorkItems,
   listConfiguredWorkItems,

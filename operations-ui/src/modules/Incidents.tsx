@@ -149,8 +149,11 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
       // Do not let the inventory refresh hide a successful incident-list read.
       // Both requests hit SharePoint and a transient failure in the second one
       // previously caused the whole page to show an error while retaining stale rows.
+      // The API returns primary incident rows without loading audit and
+      // supporting work-item lists for every explorer refresh. Reusing one
+      // request also prevents search from doubling SharePoint traffic.
       const allPromise = operationsApi.incidents('', search);
-      const inventoryPromise = search ? operationsApi.incidents() : allPromise;
+      const inventoryPromise = allPromise;
       const [allResult, inventoryResult] = await Promise.allSettled([allPromise, inventoryPromise]);
       const all = allResult.status === 'fulfilled' ? allResult.value : null;
       const inventory = inventoryResult.status === 'fulfilled' ? inventoryResult.value : all;
