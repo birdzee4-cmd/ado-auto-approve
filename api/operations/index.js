@@ -258,7 +258,7 @@ async function handleWrite(context, req, path, principal) {
   if (path === 'repair-closed-incidents') {
     const admin = auth.requireAnyRole(context, req, ['admin']);
     if (!admin.ok) return jsonResponse(context, admin.status, admin.body);
-    const incidents = await sharePoint.listIncidents(5000);
+    const incidents = await sharePoint.listIncidentRecords(5000);
     const audits = await sharePoint.listAllAudit(5000);
     const closedByIncident = new Map();
     for (const event of audits) {

@@ -189,6 +189,14 @@ async function listIncidents(maxItems) {
   return workItems.attachWorkItems(incidents, related);
 }
 
+// Used by administrative migrations that only need the primary incident
+// records. Avoid enriching every row with supporting lists during a repair;
+// those lists are independent and can be temporarily throttled by Graph.
+async function listIncidentRecords(maxItems = 5000) {
+  const config = getConfig();
+  return (await listItems(maxItems, config.listName)).map(mapSharePointIncident).sort(compareNewest);
+}
+
 function attachIncidentClosureEvents(incidents, events) {
   const latestByIncident = new Map();
   for (const event of events || []) {
@@ -715,6 +723,7 @@ module.exports = {
     return workItems.attachWorkItems(incidents, related);
   },
   listIncidents,
+  listIncidentRecords,
   listWorkItems,
   listConfiguredWorkItems,
   listMappings,
