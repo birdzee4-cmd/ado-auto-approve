@@ -267,28 +267,18 @@ async function listIncidentRows(maxItems = 5000) {
 // Cursor-based explorer read. The cursor is the opaque Graph nextLink; callers
 // must store and return it without attempting to construct skip/offset values.
 async function listIncidentPage(pageSize = 20, cursor = '') {
-  const config = getConfig();
-  const siteId = await getSiteId();
-  const listId = await getListId(config.listName);
-  const token = await getAccessToken();
   const size = Math.max(1, Math.min(Number(pageSize) || 20, 100));
-  // Incident display numbers are derived from the SharePoint item ID. Use
-  // that stable key for cursor ordering; lastModifiedDateTime can reorder
-  // older incidents between pages and makes page 2 appear out of sequence.
-  let url = cursor || `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?$expand=fields&$orderby=id desc&$top=${size}`;
-  const result = await httpRequestWithRetry('GET', url, {
-    Authorization: 'Bearer ' + token,
-    Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly'
-  });
-  if (!result.ok) {
-    const graphError = result.body && result.body.error || {};
-    throw new Error(`Unable to read Operations Hub incidents page: HTTP ${result.status} (${graphError.code || 'GraphError'}) ${graphError.message || ''}`.trim());
+  // Graph does not consistently honor ordering by list item ID for expanded
+  // list rows. Read through the shared, single-flight history cache and apply
+  // the authoritative Incident-number order before slicing a cursor page.
+  const all = (await listIncidentRows(5000)).slice().sort((left, right) => Number(right.sharePointId || 0) - Number(left.sharePointId || 0));
+  let offset = 0;
+  if (cursor) {
+    try { offset = Math.max(0, Number(Buffer.from(String(cursor), 'base64url').toString('utf8')) || 0); } catch (err) { offset = 0; }
   }
-  return {
-    items: (result.body && Array.isArray(result.body.value) ? result.body.value : []).map(mapSharePointIncident),
-    total: undefined,
-    nextCursor: result.body && result.body['@odata.nextLink'] || ''
-  };
+  const items = all.slice(offset, offset + size);
+  const nextOffset = offset + items.length;
+  return { items, total: all.length, nextCursor: nextOffset < all.length ? Buffer.from(String(nextOffset)).toString('base64url') : '' };
 }
 
 // Used by administrative migrations that only need the primary incident
