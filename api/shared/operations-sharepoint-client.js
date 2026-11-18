@@ -136,7 +136,7 @@ async function listItems(maxItems, listName, filter) {
       result = await httpRequest('GET', url, headers);
       if (result.ok || ![429, 500, 502, 503, 504].includes(result.status) || attempt === 2) break;
       const retryAfter = Number(result.body?.error?.innerError?.retryAfter || result.body?.retryAfter || 0);
-      const delay = Math.min(5000, Math.max(500, retryAfter * 1000 || 500 * (attempt + 1)));
+      const delay = Math.min(15000, Math.max(1000, retryAfter * 1000 || 1000 * (attempt + 1) * (attempt + 1)));
       await new Promise(resolve => setTimeout(resolve, delay));
     }
     if (!result.ok) throw new Error('Unable to read Operations Hub incidents from SharePoint');
@@ -149,19 +149,14 @@ async function listItems(maxItems, listName, filter) {
 
 async function listIncidents(maxItems) {
   const config = getConfig();
-  // These reads are independent. Running them in parallel avoids making the
-  // incident list wait for the full audit and supporting-work-item lists in
-  // sequence, which was especially noticeable with 700+ historical records.
-  const [incidentItems, auditItems, related] = await Promise.all([
-    listItems(maxItems, config.listName),
-    config.auditListName
-      // Microsoft Graph rejects the field_6/field_7 filter for this list in
-      // some tenants. Read the audit rows and filter after mapping instead of
-      // failing the entire incident load with HTTP 400.
-      ? listItems(5000, config.auditListName)
-      : Promise.resolve([]),
-    config.workItemsListName ? listWorkItems(5000, config.workItemsListName) : Promise.resolve([])
-  ]);
+  // Keep the large reads sequential. Running three multi-page Graph reads in
+  // parallel causes activityLimitReached throttling once the history grows.
+  const incidentItems = await listItems(maxItems, config.listName);
+  // Microsoft Graph rejects the field_6/field_7 filter for this list in some
+  // tenants. Read the audit rows and filter after mapping instead of failing
+  // the entire incident load with HTTP 400.
+  const auditItems = config.auditListName ? await listItems(5000, config.auditListName) : [];
+  const related = config.workItemsListName ? await listWorkItems(5000, config.workItemsListName) : [];
   let incidents = incidentItems.map(mapSharePointIncident).sort(compareNewest);
   if (config.auditListName) {
     const closureEvents = auditItems
