@@ -141,7 +141,12 @@ async function autoRestartIfDue(incident, actionContext, nowMs = Date.now(), dep
   }
   const eventKey = `operations-auto-restart:${incident.incidentId}`;
   const existing = typeof targetSharePoint.listAudit === 'function' ? await targetSharePoint.listAudit(incident.incidentId) : [];
-  if (existing.some(event => event.eventKey === eventKey)) return { ok: true, attempted: false, reason: 'already-attempted', eventKey };
+  // A STARTED/FAILED audit is not a completed restart.  Allow the scheduler
+  // to retry after transient authentication/network failures, while keeping
+  // successful restarts idempotent.
+  const completed = existing.some(event => event.eventKey === `${eventKey}:completed`
+    || (event.eventKey === eventKey && String(event.result || '').toUpperCase() === 'SUCCEEDED'));
+  if (completed) return { ok: true, attempted: false, reason: 'already-attempted', eventKey };
   const primary = (incident.workItems || []).find(item => item.role === 'PRIMARY') || {};
   if (!primary.workItemId) return { ok: false, attempted: false, reason: 'primary-required', eventKey };
   const resource = String(incident.resource || '').trim();

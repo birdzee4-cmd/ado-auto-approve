@@ -65,3 +65,29 @@ test('Portal displays inferred PRD only when an older Hub row has no environment
     audit.getRecentAuditItems = original;
   }
 });
+
+test('Operations Hub automation is accepted only with the proxy secret', () => {
+  const previous = process.env.APP_SERVICE_PROXY_SECRET;
+  process.env.APP_SERVICE_PROXY_SECRET = 'proxy-secret';
+  try {
+    const accepted = handlers.trustedOperationsAutomation({ headers: {
+      'x-appservice-source': 'Operations Hub',
+      'x-appservice-portal-proxy-secret': 'proxy-secret'
+    } });
+    assert.equal(accepted.ok, true);
+    assert.equal(accepted.automation, true);
+    assert.deepEqual(accepted.userRoles, ['admin']);
+
+    assert.equal(handlers.trustedOperationsAutomation({ headers: {
+      'x-appservice-source': 'Operations Hub',
+      'x-appservice-portal-proxy-secret': 'wrong-secret'
+    } }), null);
+    assert.equal(handlers.trustedOperationsAutomation({ headers: {
+      'x-appservice-source': 'App Service Portal',
+      'x-appservice-portal-proxy-secret': 'proxy-secret'
+    } }), null);
+  } finally {
+    if (previous == null) delete process.env.APP_SERVICE_PROXY_SECRET;
+    else process.env.APP_SERVICE_PROXY_SECRET = previous;
+  }
+});

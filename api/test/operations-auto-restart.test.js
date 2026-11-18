@@ -45,8 +45,17 @@ test('auto restart runs once for an active P1 App Service incident', async () =>
 
 test('auto restart does not repeat an existing attempt', async () => {
   const calls = [];
-  const result = await reconcile.autoRestartIfDue(baseIncident, {}, Date.parse(baseIncident.firstSeen) + 10 * 60 * 1000, deps([{ eventKey: 'operations-auto-restart:INC-AUTO-1' }], calls));
+  const result = await reconcile.autoRestartIfDue(baseIncident, {}, Date.parse(baseIncident.firstSeen) + 10 * 60 * 1000, deps([{ eventKey: 'operations-auto-restart:INC-AUTO-1:completed' }], calls));
   assert.equal(result.attempted, false);
   assert.equal(result.reason, 'already-attempted');
   assert.equal(calls.length, 0);
+});
+
+test('auto restart retries after a previous failed attempt', async () => {
+  const audits = [{ eventKey: 'operations-auto-restart:INC-AUTO-1', result: 'STARTED' }, { eventKey: 'operations-auto-restart:INC-AUTO-1:failed', result: 'FAILED' }];
+  const calls = [];
+  const result = await reconcile.autoRestartIfDue(baseIncident, {}, Date.parse(baseIncident.firstSeen) + 10 * 60 * 1000, deps(audits, calls));
+  assert.equal(result.attempted, true);
+  assert.equal(result.ok, true);
+  assert.equal(calls.length, 1);
 });

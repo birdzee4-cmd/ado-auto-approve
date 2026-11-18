@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+
 function jsonResponse(context, status, payload, extraHeaders) {
   context.res = {
     status,
@@ -16,12 +18,31 @@ function requirePortalRole(context, req) {
 }
 
 function requireRestartRole(context, req) {
+  const automation = trustedOperationsAutomation(req);
+  if (automation) return automation;
   const auth = require('./auth');
   const configured = String(process.env.APP_SERVICE_RESTART_ROLES || '').split(',')
     .map(role => role.trim()).filter(Boolean);
   const roles = configured.length ? configured : [process.env.APP_SERVICE_PORTAL_ROLE || 'tester_appservice_manager'];
   if (!roles.includes('admin')) roles.push('admin');
   return auth.requireAnyRole(context, req, roles);
+}
+
+function trustedOperationsAutomation(req) {
+  const headers = req && req.headers || {};
+  const source = String(headers['x-appservice-source'] || '').trim();
+  const supplied = String(headers['x-appservice-portal-proxy-secret'] || '');
+  const expected = String(process.env.APP_SERVICE_PROXY_SECRET || '');
+  if (source !== 'Operations Hub' || !supplied || !expected || supplied.length !== expected.length) return null;
+  if (!crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) return null;
+  const email = String(process.env.OPERATIONS_AUTO_RESTART_ACTOR_EMAIL || '').trim();
+  return {
+    ok: true,
+    principal: { userDetails: email || 'Operations Hub Automation', userRoles: ['admin'] },
+    userRoles: ['admin'],
+    requiredRoles: ['admin'],
+    automation: true
+  };
 }
 
 async function handleList(context, req) {
@@ -398,6 +419,7 @@ module.exports = {
   jsonResponse,
   requirePortalRole,
   requireRestartRole,
+  trustedOperationsAutomation,
   handleList,
   handleSettings,
   handleRestart,
