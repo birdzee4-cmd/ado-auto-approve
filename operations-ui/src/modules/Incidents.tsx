@@ -251,7 +251,13 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
         setActionMessage('');
       }
       setMappingPreviews({});
-    } catch (err) { setError((err as Error).message); }
+    } catch (err) {
+      if (preserveFeedback) {
+        setActionError(`Action completed, but the detail refresh failed: ${(err as Error).message}`);
+      } else {
+        setError((err as Error).message);
+      }
+    }
     finally { setSelectedLoading(false); }
   };
   const closeIncidentDetails = () => {
