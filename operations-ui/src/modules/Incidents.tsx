@@ -222,7 +222,27 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
     setSelectedLoading(true);
     try {
       const detail = await operationsApi.incident(id);
-      setSelected(detail);
+      // Read-model detail is intentionally lightweight. Preserve the primary
+      // Work Item shown by the row even when the enriched workItems array is
+      // unavailable because SharePoint is slow or throttled.
+      const incident = detail.incident;
+      if ((!incident.workItems || incident.workItems.length === 0) && incident.workItemId) {
+        incident.workItems = [{
+          workItemId: incident.workItemId,
+          incidentId: incident.incidentId,
+          role: 'PRIMARY',
+          state: incident.adoState || 'Unknown',
+          url: incident.workItemUrl,
+          assignedTo: incident.assignedTo,
+          source: 'EXISTING_INCIDENT'
+        }];
+        incident.workItemSummary = {
+          total: Math.max(1, incident.workItemSummary?.total || 0),
+          closed: incident.workItemSummary?.closed || 0,
+          open: incident.workItemSummary?.open || (String(incident.adoState || '').toUpperCase() === 'CLOSED' ? 0 : 1)
+        };
+      }
+      setSelected({ ...detail, incident });
       setShowTechnicalEvents(false);
       setEscalationTargets([]);
       if (!preserveFeedback) {
