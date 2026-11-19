@@ -41,7 +41,13 @@ module.exports = async function (context, req) {
     }
 
     if (path === 'reports') {
-      const data = require('../shared/operations-report').buildReport(await sharePoint.listReportIncidents(), req.query || {});
+      let reportIncidents;
+      if (incidentReadModel.enabled()) {
+        try { reportIncidents = await incidentReadModel.list({ limit: 1000 }); }
+        catch (error) { context.log.warn('Operations report read model unavailable; falling back to SharePoint:', error.message); }
+      }
+      if (!reportIncidents) reportIncidents = await sharePoint.listReportIncidents();
+      const data = require('../shared/operations-report').buildReport(reportIncidents, req.query || {});
       await enrichHandoffDiscussionSummaries(data);
       return jsonResponse(context, 200, { ok: true, data });
     }
