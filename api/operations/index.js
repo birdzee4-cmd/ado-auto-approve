@@ -19,6 +19,13 @@ async function recentIncidentHead() {
   return recentIncidentHeadCache.items;
 }
 
+async function recentIncidentHeadFast() {
+  return Promise.race([
+    recentIncidentHead(),
+    new Promise(resolve => setTimeout(() => resolve([]), 1500))
+  ]);
+}
+
 function mergeIncidentHead(cached, recent) {
   const byId = new Map((cached || []).map(item => [String(item.incidentId || item.displayId || '').toLowerCase(), item]));
   for (const item of recent || []) {
@@ -96,7 +103,7 @@ module.exports = async function (context, req) {
       if (incidentReadModel.enabled()) {
         try {
           incidents = await incidentReadModel.list({ limit: 1000 });
-          incidents = mergeIncidentHead(incidents, await recentIncidentHead()).slice(0, 1000);
+          incidents = mergeIncidentHead(incidents, await recentIncidentHeadFast()).slice(0, 1000);
         } catch (error) {
           context.log.warn('Operations dashboard read model unavailable; falling back to SharePoint:', error.message);
         }
@@ -145,7 +152,7 @@ module.exports = async function (context, req) {
       if (incidentReadModel.enabled()) {
         try {
           const cached = await incidentReadModel.list({ limit: 1000, partitionKey: query.partitionKey });
-          const recent = query.partitionKey ? [] : await recentIncidentHead();
+          const recent = query.partitionKey ? [] : await recentIncidentHeadFast();
           const filtered = filterIncidents(mergeIncidentHead(cached, recent).slice(0, 1000), query);
           return jsonResponse(context, 200, { ok: true, data: { items: filtered, count: filtered.length, source: 'azure-table-read-model' } });
         } catch (error) {
