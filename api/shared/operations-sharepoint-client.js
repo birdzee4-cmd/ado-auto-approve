@@ -5,6 +5,19 @@ let cachedToken = null;
 let tokenExpiresAt = 0;
 let cachedSiteId = null;
 const cachedListIds = new Map();
+// Graph throttling is tenant/list-wide. Keep a short process-local cooldown so
+// sequential bulk operations do not immediately re-enter the throttled window.
+let graphThrottleUntil = 0;
+
+async function waitForGraphCooldown() {
+  const remaining = graphThrottleUntil - Date.now();
+  if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
+}
+
+function noteGraphThrottle(retryAfterSeconds) {
+  const requested = Number(retryAfterSeconds || 0) * 1000;
+  graphThrottleUntil = Math.max(graphThrottleUntil, Date.now() + Math.min(30000, Math.max(3000, requested || 3000)));
+}
 const incidentYearFormatter = new Intl.DateTimeFormat('en-US', {
   timeZone: 'Asia/Bangkok',
   year: 'numeric'
@@ -69,16 +82,18 @@ function httpRequest(method, url, headers, body) {
 
 async function httpRequestWithRetry(method, url, headers, body) {
   let result;
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    await waitForGraphCooldown();
     try {
       result = await httpRequest(method, url, headers, body);
     } catch (error) {
-      if (attempt === 3) throw error;
+      if (attempt === 5) throw error;
       await new Promise(resolve => setTimeout(resolve, Math.min(8000, 1000 * (attempt + 1))));
       continue;
     }
-    if (result.ok || ![408, 425, 429, 500, 502, 503, 504].includes(result.status) || attempt === 3) return result;
+    if (result.ok || ![408, 425, 429, 500, 502, 503, 504].includes(result.status) || attempt === 5) return result;
     const retryAfter = Number(result.retryAfter || result.body?.error?.innerError?.retryAfter || result.body?.retryAfter || 0);
+    if (result.status === 429) noteGraphThrottle(retryAfter);
     const delay = Math.min(15000, Math.max(1000, retryAfter * 1000 || 1000 * (attempt + 1)));
     await new Promise(resolve => setTimeout(resolve, delay));
   }
@@ -180,19 +195,21 @@ async function listItems(maxItems, listName, filter) {
 
   while (url && items.length < maximum) {
     let result;
-    for (let attempt = 0; attempt < 4; attempt += 1) {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      await waitForGraphCooldown();
       try {
         result = await httpRequest('GET', url, headers);
       } catch (error) {
         // Network resets and request timeouts are transient with Graph. Keep
         // the same bounded retry behavior as HTTP throttling responses.
-        if (attempt === 3) throw error;
+        if (attempt === 5) throw error;
         const delay = Math.min(12000, 1000 * (attempt + 1) * (attempt + 1));
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
-      if (result.ok || ![408, 425, 429, 500, 502, 503, 504].includes(result.status) || attempt === 3) break;
+      if (result.ok || ![408, 425, 429, 500, 502, 503, 504].includes(result.status) || attempt === 5) break;
       const retryAfter = Number(result.body?.error?.innerError?.retryAfter || result.body?.retryAfter || 0);
+      if (result.status === 429) noteGraphThrottle(retryAfter);
       const delay = Math.min(12000, Math.max(1000, retryAfter * 1000 || 1000 * (attempt + 1) * (attempt + 1)));
       await new Promise(resolve => setTimeout(resolve, delay));
     }
@@ -321,7 +338,8 @@ async function graphListRequest(method, listName, suffix, body) {
   const listId = await getListId(listName);
   const token = await getAccessToken();
   let result;
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    await waitForGraphCooldown();
     result = await httpRequest(
       method,
       `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}${suffix || ''}`,
@@ -331,8 +349,9 @@ async function graphListRequest(method, listName, suffix, body) {
       },
       body
     );
-    if (result.ok || ![408, 425, 429, 500, 502, 503, 504].includes(result.status) || attempt === 3) break;
+    if (result.ok || ![408, 425, 429, 500, 502, 503, 504].includes(result.status) || attempt === 5) break;
     const retryAfter = Number(result.body?.error?.innerError?.retryAfter || result.body?.retryAfter || 0);
+    if (result.status === 429) noteGraphThrottle(retryAfter);
     const delay = Math.min(15000, Math.max(1000, retryAfter * 1000 || 1500 * (attempt + 1)));
     await new Promise(resolve => setTimeout(resolve, delay));
   }
