@@ -6,6 +6,30 @@ const crypto = require('crypto');
 const ado = require('../shared/ado-client');
 const globalSettings = require('../shared/operations-global-settings');
 const incidentReadModel = require('../shared/operations-incident-read-model');
+let recentIncidentHeadCache = { expiresAt: 0, items: [] };
+
+async function recentIncidentHead() {
+  if (recentIncidentHeadCache.expiresAt > Date.now()) return recentIncidentHeadCache.items;
+  try {
+    const page = await sharePoint.listIncidentPage(100, '');
+    recentIncidentHeadCache = { expiresAt: Date.now() + 60000, items: page.items || [] };
+  } catch (_) {
+    recentIncidentHeadCache = { expiresAt: Date.now() + 10000, items: [] };
+  }
+  return recentIncidentHeadCache.items;
+}
+
+function mergeIncidentHead(cached, recent) {
+  const byId = new Map((cached || []).map(item => [String(item.incidentId || item.displayId || '').toLowerCase(), item]));
+  for (const item of recent || []) {
+    const key = String(item.incidentId || item.displayId || '').toLowerCase();
+    if (key) byId.set(key, { ...byId.get(key), ...item });
+  }
+  return [...byId.values()].sort((a, b) => {
+    const date = (Date.parse(b.firstSeen || '') || 0) - (Date.parse(a.firstSeen || '') || 0);
+    return date || String(b.incidentId || '').localeCompare(String(a.incidentId || ''), undefined, { numeric: true });
+  });
+}
 
 module.exports = async function (context, req) {
   const path = normalizePath(req.params && req.params.path);
@@ -72,6 +96,7 @@ module.exports = async function (context, req) {
       if (incidentReadModel.enabled()) {
         try {
           incidents = await incidentReadModel.list({ limit: 1000 });
+          incidents = mergeIncidentHead(incidents, await recentIncidentHead()).slice(0, 1000);
         } catch (error) {
           context.log.warn('Operations dashboard read model unavailable; falling back to SharePoint:', error.message);
         }
@@ -120,7 +145,8 @@ module.exports = async function (context, req) {
       if (incidentReadModel.enabled()) {
         try {
           const cached = await incidentReadModel.list({ limit: 1000, partitionKey: query.partitionKey });
-          const filtered = filterIncidents(cached, query);
+          const recent = query.partitionKey ? [] : await recentIncidentHead();
+          const filtered = filterIncidents(mergeIncidentHead(cached, recent).slice(0, 1000), query);
           return jsonResponse(context, 200, { ok: true, data: { items: filtered, count: filtered.length, source: 'azure-table-read-model' } });
         } catch (error) {
           context.log.warn('Operations incident read model unavailable; falling back to SharePoint:', error.message);
