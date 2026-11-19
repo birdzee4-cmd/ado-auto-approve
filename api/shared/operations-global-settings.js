@@ -66,8 +66,10 @@ async function setAutoRestart(sharePoint, context, enabled) {
   const now = new Date().toISOString();
   const setting = { enabled: Boolean(enabled), configured: true, changedAt: now, changedBy: operations.email || operations.name || '' };
   const tablePersisted = await writeTableSetting(setting);
-  try {
-    await sharePoint.appendAudit({
+  // The Azure Table is the authoritative setting store. Do not hold the
+  // browser request open while SharePoint Audit is throttled; audit history is
+  // best-effort and can be retried/observed independently.
+  void sharePoint.appendAudit({
       Title: AUTO_RESTART_ACTION,
       EventId: crypto.randomUUID(),
       EventKey: `${AUTO_RESTART_ACTION}:${now}`,
@@ -81,11 +83,8 @@ async function setAutoRestart(sharePoint, context, enabled) {
       AdoIdentityId: '', AdoIdentityName: '', AdoIdentityEmail: '',
       Detail: enabled ? 'Global automatic P1 App Service restart enabled from Operations Hub.' : 'Global automatic P1 App Service restart disabled from Operations Hub.',
       OccurredAt: now
-    });
-  } catch (error) {
-    console.warn('Operations global setting audit write deferred:', error.message);
-    if (!tablePersisted) throw Object.assign(new Error('Unable to persist global Auto-Restart setting'), { status: 503, code: 'GLOBAL_SETTING_UNAVAILABLE' });
-  }
+    }).catch(error => console.warn('Operations global setting audit write deferred:', error.message));
+  if (!tablePersisted) throw Object.assign(new Error('Unable to persist global Auto-Restart setting'), { status: 503, code: 'GLOBAL_SETTING_UNAVAILABLE' });
   cachedSetting = setting;
   cachedAt = Date.now();
   return cachedSetting;
