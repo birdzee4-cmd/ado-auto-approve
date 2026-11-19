@@ -187,10 +187,22 @@ module.exports = async function (context, req) {
 
     const detailMatch = /^incidents\/([A-Za-z0-9._:-]+)$/.exec(path);
     if (detailMatch) {
-      let [incident, audit] = await Promise.all([
-        sharePoint.getIncident(detailMatch[1]),
-        sharePoint.listAudit(detailMatch[1])
+      // Detail is opened from the explorer and must not be held hostage by a
+      // throttled Audit/Work Items read. Use the read model as the fast
+      // skeleton, then enrich opportunistically within a bounded deadline.
+      const cached = incidentReadModel.enabled()
+        ? await incidentReadModel.get(detailMatch[1]).catch(() => null)
+        : null;
+      const bounded = (promise, fallback, timeoutMs) => Promise.race([
+        Promise.resolve(promise).catch(() => fallback),
+        new Promise(resolve => setTimeout(() => resolve(fallback), timeoutMs))
       ]);
+      let [incident, audit] = await Promise.all([
+        bounded(sharePoint.getIncident(detailMatch[1]), cached, 8000),
+        bounded(sharePoint.listAudit(detailMatch[1]), [], 5000)
+      ]);
+      incident = incident || cached;
+      audit = Array.isArray(audit) ? audit : [];
       if (!incident) return jsonResponse(context, 404, { ok: false, error: 'Incident not found' });
       const closure = audit
         .filter(event => ['INCIDENT_CLOSED', 'INCIDENT_MANUAL_OVERRIDE_CLOSED'].includes(String(event.eventType || '').toUpperCase()) && String(event.result || '').toUpperCase() === 'SUCCEEDED')
