@@ -136,6 +136,16 @@ export const operationsApi = {
       } catch (error) {
         const typed = error as Error & { status?: number; name?: string };
         const retryable = [429, 500, 502, 503, 504].includes(Number(typed.status || 0)) || typed.name === 'AbortError';
+        if (typed.name === 'AbortError') {
+          // The server may have committed the SharePoint write before the
+          // browser lost the response. Confirm the desired state before
+          // retrying, so the user does not see a false failure.
+          await new Promise(resolve => window.setTimeout(resolve, 1500));
+          try {
+            const current = await request<{ incident: Incident; timeline: AuditEvent[] }>(`/api/operations/incidents/${encodeURIComponent(incidentId)}`);
+            if (String(current.incident.status || '').toUpperCase() === status) return { confirmedAfterAbort: true };
+          } catch (_) { /* continue with the bounded retry */ }
+        }
         if (attempt === 2 || !retryable) throw error;
         await new Promise(resolve => window.setTimeout(resolve, 2000 * (attempt + 1)));
       }
