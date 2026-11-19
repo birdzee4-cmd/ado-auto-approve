@@ -12,7 +12,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   // SharePoint-backed closure calls may legitimately wait through a Graph
   // throttling cooldown and retry window. Keep the normal API timeout short,
   // but give close operations enough time to complete without browser abort.
-  const timeoutMs = /\/incidents\/[^/]+\/(?:close|manual-close)$/.test(path) ? 120000 : 30000;
+  const timeoutMs = /\/incidents\/[^/]+\/(?:close|manual-close)$/.test(path) || /\/settings\/auto-restart$/.test(path) ? 120000 : 30000;
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
   const response = await fetch(path, {
     ...init,

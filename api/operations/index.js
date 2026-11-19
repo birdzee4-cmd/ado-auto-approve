@@ -81,7 +81,12 @@ module.exports = async function (context, req) {
     }
 
     if (path === 'capabilities') {
-      const autoRestart = await globalSettings.getAutoRestart(sharePoint);
+      // Capabilities must not block the entire page on a slow Audit read.
+      // The setting is refreshed opportunistically and defaults safely to OFF.
+      const autoRestart = await Promise.race([
+        globalSettings.getAutoRestart(sharePoint),
+        new Promise(resolve => setTimeout(() => resolve({ enabled: false, configured: false, changedAt: '', changedBy: '' }), 5000))
+      ]);
       return jsonResponse(context, 200, {
         ok: true,
         data: {

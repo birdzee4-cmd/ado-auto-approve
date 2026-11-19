@@ -2,14 +2,20 @@ const crypto = require('crypto');
 
 const SYSTEM_INCIDENT_ID = '__OPERATIONS_HUB_GLOBAL__';
 const AUTO_RESTART_ACTION = 'GLOBAL_AUTO_RESTART_CONFIG';
+let cachedSetting = null;
+let cachedAt = 0;
+const CACHE_TTL_MS = 60 * 1000;
 
 async function getAutoRestart(sharePoint) {
   if (!sharePoint || typeof sharePoint.listAudit !== 'function') return { enabled: false, configured: false, changedAt: '', changedBy: '' };
+  if (cachedSetting && Date.now() - cachedAt < CACHE_TTL_MS) return cachedSetting;
   const events = await sharePoint.listAudit(SYSTEM_INCIDENT_ID);
   const latest = events
     .filter(event => String(event.eventType || '').toUpperCase() === AUTO_RESTART_ACTION)
     .sort((a, b) => (Date.parse(b.timestamp || '') || 0) - (Date.parse(a.timestamp || '') || 0))[0];
-  return { enabled: String(latest?.result || '').toUpperCase() === 'ENABLED', configured: Boolean(latest), changedAt: latest?.timestamp || '', changedBy: latest?.operationsUserEmail || latest?.operationsUserName || '' };
+  cachedSetting = { enabled: String(latest?.result || '').toUpperCase() === 'ENABLED', configured: Boolean(latest), changedAt: latest?.timestamp || '', changedBy: latest?.operationsUserEmail || latest?.operationsUserName || '' };
+  cachedAt = Date.now();
+  return cachedSetting;
 }
 
 async function setAutoRestart(sharePoint, context, enabled) {
@@ -32,7 +38,9 @@ async function setAutoRestart(sharePoint, context, enabled) {
     Detail: enabled ? 'Global automatic P1 App Service restart enabled from Operations Hub.' : 'Global automatic P1 App Service restart disabled from Operations Hub.',
     OccurredAt: now
   });
-  return getAutoRestart(sharePoint);
+  cachedSetting = { enabled: Boolean(enabled), configured: true, changedAt: now, changedBy: operations.email || operations.name || '' };
+  cachedAt = Date.now();
+  return cachedSetting;
 }
 
 module.exports = { SYSTEM_INCIDENT_ID, AUTO_RESTART_ACTION, getAutoRestart, setAutoRestart };
