@@ -15,6 +15,7 @@ module.exports = async function (context, req) {
     }
     const maximum = Math.max(1, Math.min(Number(req.body && req.body.maxItems) || 100, 250));
     const assigneeOnly = req.body && req.body.assigneeOnly === true;
+    const skipAssigneeReconciliation = req.body && req.body.skipAssigneeReconciliation === true;
     const targetIncidentId = String(req.body && req.body.incidentId || '').trim();
     const reconciliationScope = String(req.body && req.body.scope || '').trim().toUpperCase();
     const roles = reconciliationScope === 'RELATED'
@@ -37,11 +38,13 @@ module.exports = async function (context, req) {
     if (targetIncidentId && incidents.length === 0) {
       return respond(context, 404, { ok: false, error: 'INCIDENT_NOT_FOUND', incidentId: targetIncidentId });
     }
-    const assigneeReconciliation = await service.reconcileMissingApprovalAssignees({
-      maxItems: maximum,
-      dryRun,
-      incidentId: targetIncidentId
-    }, automationContext(req));
+    const assigneeReconciliation = skipAssigneeReconciliation
+      ? { skipped: true, reason: 'scheduler-mode' }
+      : await service.reconcileMissingApprovalAssignees({
+        maxItems: maximum,
+        dryRun,
+        incidentId: targetIncidentId
+      }, automationContext(req));
     if (assigneeOnly) {
       return respond(context, assigneeReconciliation.results.some(item => !item.ok) ? 207 : 200, {
         ok: assigneeReconciliation.results.every(item => item.ok),
