@@ -32,9 +32,14 @@ module.exports = async function (context, req) {
       .filter(event => (alertService.RETRYABLE.has(event.processingStatus) || (alertWritesEnabled && event.processingStatus === 'MATCHED')) && Number(event.attemptCount || 0) < 5)
       .filter(event => !targetIncidentId || event.incidentId === targetIncidentId || event.matchedIncidentId === targetIncidentId)
       .slice(0, Math.min(maximum, 20));
-    const loadIncidents = async () => (await sharePoint.listIncidents(maximum))
+    const loadIncidents = async () => (await (schedulerMode && typeof sharePoint.listIncidentRecords === 'function'
+      ? sharePoint.listIncidentRecords(maximum)
+      : sharePoint.listIncidents(maximum)))
       .filter(item => !targetIncidentId || item.incidentId === targetIncidentId || item.displayId === targetIncidentId)
-      .filter(item => item.operationsStatus !== 'CLOSED' && item.workItemSummary && item.workItemSummary.total > 0)
+      .filter(item => item.operationsStatus !== 'CLOSED' && (schedulerMode || (item.workItemSummary && item.workItemSummary.total > 0)))
+      .map(item => schedulerMode && item.workItemId && !item.workItems
+        ? { ...item, workItems: [{ workItemId: item.workItemId, role: 'PRIMARY' }] }
+        : item)
       .sort((left, right) => reconciliationOrder(left, right))
       .slice(0, maximum);
     let incidents = await loadIncidents();
@@ -97,6 +102,10 @@ module.exports = async function (context, req) {
       try {
         const actionContext = automationContext(req);
         const autoRestart = await autoRestartIfDue(incident, actionContext);
+        if (schedulerMode) {
+          results.push({ incidentId: incident.incidentId, ok: autoRestart.ok, synchronized: 0, failed: autoRestart.ok ? 0 : 1, autoRestart });
+          continue;
+        }
         // Scheduled reconciliation has its own feature gate. It reads Azure DevOps
         // state and mirrors it to SharePoint; it must not depend on the manual Sync flag.
         const result = await service.synchronizeWorkItems({ incidentId: incident.incidentId, roles }, actionContext);
