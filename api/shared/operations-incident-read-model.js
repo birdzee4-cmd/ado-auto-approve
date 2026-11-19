@@ -115,13 +115,22 @@ async function upsertMany(incidents) {
 
 async function list(options = {}) {
   const limit = Math.max(1, Math.min(Number(options.limit) || 200, 1000));
+  // Azure Table does not guarantee entity enumeration order. Do not stop the
+  // scan at `limit`, otherwise an arbitrary subset can hide newer incidents.
+  // The read model is intentionally bounded, then sorted client-side.
+  const scanLimit = Math.max(limit, Math.min(Number(options.scanLimit) || 5000, 10000));
   const filter = options.partitionKey ? `PartitionKey eq '${String(options.partitionKey).replace(/'/g, "''")}'` : '';
   const result = [];
   for await (const entity of table().listEntities({ queryOptions: filter ? { filter } : undefined })) {
     result.push(fromEntity(entity));
-    if (result.length >= limit) break;
+    if (result.length >= scanLimit) break;
   }
-  return result.sort((a, b) => (Date.parse(b.firstSeen || '') || 0) - (Date.parse(a.firstSeen || '') || 0));
+  return result
+    .sort((a, b) => {
+      const byDate = (Date.parse(b.firstSeen || '') || 0) - (Date.parse(a.firstSeen || '') || 0);
+      return byDate || String(b.incidentId || b.displayId || '').localeCompare(String(a.incidentId || a.displayId || ''), undefined, { numeric: true });
+    })
+    .slice(0, limit);
 }
 
 async function get(incidentId) {
