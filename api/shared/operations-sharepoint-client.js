@@ -574,7 +574,7 @@ function plainText(value) {
     .trim();
 }
 
-async function getIncident(incidentId) {
+async function getIncident(incidentId, options = {}) {
   const target = String(incidentId || '').trim().toLowerCase();
   if (!target) return null;
   const config = getConfig();
@@ -582,14 +582,13 @@ async function getIncident(incidentId) {
   // Detail reads should use indexed equality filters first. The previous
   // contains/or query is rejected by some Graph/SharePoint list indexes and
   // caused a fallback scan of up to 1,000 incidents before the drawer opened.
-  const directResults = await Promise.allSettled([
-    listItems(10, config.listName, `fields/IncidentId eq '${escaped}'`),
-    listItems(10, config.listName, `fields/CorrelationId eq '${escaped}'`)
-  ]);
-  for (const result of directResults) {
-    if (result.status !== 'fulfilled') continue;
-    const direct = result.value.map(mapSharePointIncident).find(item => item.incidentId.toLowerCase() === target);
+  const directQueries = [`fields/IncidentId eq '${escaped}'`, `fields/CorrelationId eq '${escaped}'`];
+  for (const query of directQueries) {
+    let result;
+    try { result = await listItems(10, config.listName, query); } catch (_) { continue; }
+    const direct = result.map(mapSharePointIncident).find(item => item.incidentId.toLowerCase() === target);
     if (direct) {
+      if (options.enrich === false) return direct;
       // Detail responses must include related work items as well as the
       // primary item. This is especially important immediately after a
       // related ticket is created, when the UI reloads the incident detail.

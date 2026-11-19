@@ -770,11 +770,19 @@ async function closeIncident(input, context, dependencies = {}) {
 async function manualCloseIncident(input, context, dependencies = {}) {
   requireFeature('OPERATIONS_MANUAL_CLOSE_ENABLED');
   const sp = dependencies.sharePoint || defaultSharePoint;
-  const incident = await requireIncident(sp, input.incidentId);
+  // Bulk legacy closure only needs the primary incident row. The full detail
+  // path loads all supporting Work Items and is too expensive per item.
+  const incident = typeof sp.getIncident === 'function'
+    ? await sp.getIncident(input.incidentId, { enrich: false })
+    : await requireIncident(sp, input.incidentId);
   const reason = String(input.reason || '').trim();
   if (reason.length < 10) throw operationalError(422, 'MANUAL_CLOSE_REASON_REQUIRED', 'A manual closure reason of at least 10 characters is required');
   if (String(incident.operationsStatus || '').toUpperCase() === 'CLOSED') return { incidentId: incident.incidentId, closed: true, duplicate: true, closedAt: incident.operationsClosedAt || null };
-  const workItems = incident.workItems || [];
+  const workItems = incident.workItems && incident.workItems.length
+    ? incident.workItems
+    : incident.workItemId
+      ? [{ workItemId: incident.workItemId, state: incident.adoState, role: 'PRIMARY' }]
+      : [];
   if (String(incident.status || '').toUpperCase() !== 'RESOLVED') {
     throw operationalError(409, 'LEGACY_CLOSE_ALERT_NOT_RECOVERED', 'Legacy closure requires a recovered alert');
   }
