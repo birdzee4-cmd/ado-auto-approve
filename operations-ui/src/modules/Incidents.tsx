@@ -231,6 +231,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
           workItemId: incident.workItemId,
           incidentId: incident.incidentId,
           role: 'PRIMARY',
+          supportTeam: 'TIER1',
           state: incident.adoState || 'Unknown',
           url: incident.workItemUrl,
           assignedTo: incident.assignedTo,
