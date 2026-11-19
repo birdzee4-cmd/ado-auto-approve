@@ -129,6 +129,18 @@ export const operationsApi = {
     }
     throw new Error('Manual closure failed');
   },
-  manualAlertStatus: (incidentId: string, status: 'FIRING' | 'RESOLVED', reason: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/manual-alert-status`, { method: 'POST', body: JSON.stringify({ status, reason }) })
+  manualAlertStatus: async (incidentId: string, status: 'FIRING' | 'RESOLVED', reason: string) => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/manual-alert-status`, { method: 'POST', body: JSON.stringify({ status, reason }) });
+      } catch (error) {
+        const typed = error as Error & { status?: number; name?: string };
+        const retryable = [429, 500, 502, 503, 504].includes(Number(typed.status || 0)) || typed.name === 'AbortError';
+        if (attempt === 2 || !retryable) throw error;
+        await new Promise(resolve => window.setTimeout(resolve, 2000 * (attempt + 1)));
+      }
+    }
+    throw new Error('Alert status update failed');
+  }
   ,restartAppService: (incidentId: string, resource: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/tier1/restart-app-service`, { method: 'POST', body: JSON.stringify({ resource }) })
 };

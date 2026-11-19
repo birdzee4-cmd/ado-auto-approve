@@ -270,8 +270,15 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
     try {
       await action();
       setActionMessage(success);
-      await openIncident(selected.incident.incidentId, true);
-      load();
+      // The write and the follow-up refresh are separate operations. A slow
+      // SharePoint/read-model refresh must not make a successful button
+      // action appear to have failed.
+      try {
+        await openIncident(selected.incident.incidentId, true);
+        await load();
+      } catch (refreshError) {
+        setActionError(`Action completed, but the display refresh failed: ${(refreshError as Error).message}`);
+      }
     } catch (err) {
       const typed = err as Error & { status?: number; connectUrl?: string };
       setActionError(typed.message);
