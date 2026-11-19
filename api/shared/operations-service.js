@@ -791,8 +791,11 @@ async function manualCloseIncident(input, context, dependencies = {}) {
     LastSyncedAt: now
   });
   // Use the canonical closure event so list/detail reconciliation marks the
-  // incident CLOSED. Preserve the manual-override context in the audit detail.
-  await audit(sp, context, { incidentId: incident.incidentId, action: 'INCIDENT_CLOSED', result: 'SUCCEEDED', detail: `Legacy timeline override closed at ${now}; reason: ${reason}; all VSTS Work Items verified closed` });
+  // incident CLOSED. Audit is best-effort here: waiting for a throttled
+  // SharePoint Audit list would hold the browser request open and make a
+  // multi-close batch fail after the primary incident write already succeeded.
+  void audit(sp, context, { incidentId: incident.incidentId, action: 'INCIDENT_CLOSED', result: 'SUCCEEDED', detail: `Legacy timeline override closed at ${now}; reason: ${reason}; all VSTS Work Items verified closed` })
+    .catch(error => console.warn('Manual closure audit write deferred:', error.message));
   return { incidentId: incident.incidentId, closed: true, manualOverride: true, closedAt: now, resolvedAt };
 }
 
