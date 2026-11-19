@@ -9,7 +9,11 @@ interface ApiEnvelope<T> {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 30000);
+  // SharePoint-backed closure calls may legitimately wait through a Graph
+  // throttling cooldown and retry window. Keep the normal API timeout short,
+  // but give close operations enough time to complete without browser abort.
+  const timeoutMs = /\/incidents\/[^/]+\/(?:close|manual-close)$/.test(path) ? 120000 : 30000;
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
   const response = await fetch(path, {
     ...init,
     signal: init?.signal || controller.signal,
@@ -107,7 +111,18 @@ export const operationsApi = {
   synchronize: (incidentId: string) => request<{ incidentId: string; items: Array<{ workItemId: number; ok: boolean; status?: number }> }>(`/api/operations/incidents/${encodeURIComponent(incidentId)}/synchronize`, { method: 'POST', body: '{}' }),
   close: (incidentId: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/close`, { method: 'POST', body: '{}' }),
   closeInBatch: (incidentId: string, batchId: string, note: string) => request<{ duplicate?: boolean }>(`/api/operations/incidents/${encodeURIComponent(incidentId)}/close`, { method: 'POST', body: JSON.stringify({ batchClose: true, batchId, note }) }),
-  manualClose: (incidentId: string, reason: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/manual-close`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  manualClose: async (incidentId: string, reason: string) => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/manual-close`, { method: 'POST', body: JSON.stringify({ reason }) });
+      } catch (error) {
+        const status = Number((error as Error & { status?: number }).status || 0);
+        if (attempt === 2 || ![429, 500, 502, 503, 504].includes(status)) throw error;
+        await new Promise(resolve => window.setTimeout(resolve, 2000 * (attempt + 1)));
+      }
+    }
+    throw new Error('Manual closure failed');
+  },
   manualAlertStatus: (incidentId: string, status: 'FIRING' | 'RESOLVED', reason: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/manual-alert-status`, { method: 'POST', body: JSON.stringify({ status, reason }) })
   ,restartAppService: (incidentId: string, resource: string) => request(`/api/operations/incidents/${encodeURIComponent(incidentId)}/tier1/restart-app-service`, { method: 'POST', body: JSON.stringify({ resource }) })
 };
