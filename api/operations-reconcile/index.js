@@ -16,6 +16,7 @@ module.exports = async function (context, req) {
     const maximum = Math.max(1, Math.min(Number(req.body && req.body.maxItems) || 100, 250));
     const assigneeOnly = req.body && req.body.assigneeOnly === true;
     const skipAssigneeReconciliation = req.body && req.body.skipAssigneeReconciliation === true;
+    const schedulerMode = req.body && req.body.schedulerMode === true;
     const targetIncidentId = String(req.body && req.body.incidentId || '').trim();
     const reconciliationScope = String(req.body && req.body.scope || '').trim().toUpperCase();
     const roles = reconciliationScope === 'RELATED'
@@ -24,12 +25,14 @@ module.exports = async function (context, req) {
         ? ['PRIMARY']
         : undefined;
     const alertWritesEnabled = alertService.featureEnabled('OPERATIONS_ALERT_EVENT_WRITE_ENABLED');
-    const storedAlertEvents = typeof sharePoint.listAlertEvents === 'function' ? await sharePoint.listAlertEvents(1000) : [];
+    const storedAlertEvents = schedulerMode
+      ? []
+      : typeof sharePoint.listAlertEvents === 'function' ? await sharePoint.listAlertEvents(Math.min(maximum, 20)) : [];
     const pendingAlertEvents = storedAlertEvents
       .filter(event => (alertService.RETRYABLE.has(event.processingStatus) || (alertWritesEnabled && event.processingStatus === 'MATCHED')) && Number(event.attemptCount || 0) < 5)
       .filter(event => !targetIncidentId || event.incidentId === targetIncidentId || event.matchedIncidentId === targetIncidentId)
       .slice(0, Math.min(maximum, 20));
-    const loadIncidents = async () => (await sharePoint.listIncidents(1000))
+    const loadIncidents = async () => (await sharePoint.listIncidents(maximum))
       .filter(item => !targetIncidentId || item.incidentId === targetIncidentId || item.displayId === targetIncidentId)
       .filter(item => item.operationsStatus !== 'CLOSED' && item.workItemSummary && item.workItemSummary.total > 0)
       .sort((left, right) => reconciliationOrder(left, right))
