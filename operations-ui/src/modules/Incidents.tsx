@@ -335,7 +335,11 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
     setBatchResults(current => current.filter(result => !targets.some(item => item.incidentId === result.id)));
     const batchId = globalThis.crypto.randomUUID();
     try {
-      for (const item of targets) {
+      for (const [index, item] of targets.entries()) {
+        // Give SharePoint/ADO a short recovery window between closure writes.
+        // Bulk close remains sequential; pacing prevents a burst of Graph
+        // writes from turning a partially successful batch into HTTP 429s.
+        if (index > 0) await new Promise(resolve => setTimeout(resolve, 1200));
         let result: string;
         let failed = false;
         try {
