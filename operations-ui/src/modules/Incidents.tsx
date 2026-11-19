@@ -344,7 +344,9 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
         // Give SharePoint/ADO a short recovery window between closure writes.
         // Bulk close remains sequential; pacing prevents a burst of Graph
         // writes from turning a partially successful batch into HTTP 429s.
-        if (index > 0) await new Promise(resolve => setTimeout(resolve, 1200));
+        // Keep a wider recovery window, especially when this is a retry of
+        // failed items after SharePoint returned 429/5xx responses.
+        if (index > 0) await new Promise(resolve => setTimeout(resolve, 3000));
         let result: string;
         let failed = false;
         try {
@@ -423,7 +425,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
       <p>Latest Work Item and alert states will be checked before each closure. Incidents that no longer qualify will be skipped.</p>
       <ul>{batchReview.map(item => <li key={item.incidentId}><strong>{item.displayId || item.incidentId}</strong> · {item.resource || item.service}<br /><small>Recovered: {formatBangkokTimestamp(item.resolvedAt, 'en-GB')} · ADO: {item.adoState || 'Unknown'}</small></li>)}</ul>
       <label>Closure note (optional)<textarea maxLength={1000} disabled={busy || batchResults.length > 0} value={batchNote} onChange={e => setBatchNote(e.target.value)} /></label>
-      <div role="status" aria-live="polite">{busy ? `Processing ${batchResults.length} / ${batchReview.length}` : batchResults.length > 0 ? `${batchResults.filter(item => item.result === 'Closed').length} closed · ${batchResults.filter(item => item.result === 'Already closed').length} already closed · ${batchResults.filter(item => item.failed).length} failed / skipped` : ''}</div>
+      <div role="status" aria-live="polite">{busy ? `Processing ${batchResults.length} / ${batchReview.length}` : batchResults.length > 0 ? `${batchResults.filter(item => !item.failed && /closed/i.test(item.result)).length} closed · ${batchResults.filter(item => /already closed/i.test(item.result)).length} already closed · ${batchResults.filter(item => item.failed).length} failed / skipped` : ''}</div>
       {batchResults.length > 0 && <ul>{batchResults.map(item => <li key={item.id}>{item.label}: {item.result}</li>)}</ul>}
       </div>
       <div className="ops-card-actions">
