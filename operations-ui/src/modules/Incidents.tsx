@@ -59,6 +59,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const refreshInFlight = useRef(false);
+  const hasLoadedOnce = useRef(false);
   const detailReturnScrollTop = useRef(0);
   const [connection, setConnection] = useState<AdoConnectionStatus | null>(null);
   const [capabilities, setCapabilities] = useState<OperationsCapabilities>({ createRelated: false, linkExisting: false, synchronize: false, closeIncident: false, manualCloseIncident: false, manualAlertStatus: false, restartAppService: false, globalAutoRestart: false });
@@ -174,6 +175,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
       }
       if (!preservePage) setPage(1);
       setLastUpdatedAt(new Date());
+      hasLoadedOnce.current = true;
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -184,7 +186,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   useEffect(() => { void load(false); }, [status]);
   useEffect(() => {
     const refreshWhenSafe = () => {
-      if (document.visibilityState === 'visible' && !busy && !selected && !batchReview) void load();
+      if (hasLoadedOnce.current && document.visibilityState === 'visible' && !busy && !selected && !batchReview) void load();
     };
     const intervalId = window.setInterval(refreshWhenSafe, 30 * 60_000);
     const handleVisibilityChange = () => {
