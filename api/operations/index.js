@@ -67,7 +67,15 @@ module.exports = async function (context, req) {
       }});
     }
     if (path === 'dashboard') {
-      const incidents = await sharePoint.listIncidents(5000);
+      let incidents;
+      if (incidentReadModel.enabled()) {
+        try {
+          incidents = await incidentReadModel.list({ limit: 1000 });
+        } catch (error) {
+          context.log.warn('Operations dashboard read model unavailable; falling back to SharePoint:', error.message);
+        }
+      }
+      if (!incidents) incidents = await sharePoint.listIncidents(5000);
       return jsonResponse(context, 200, { ok: true, data: dashboardSummary(incidents, req.query || {}) });
     }
 
