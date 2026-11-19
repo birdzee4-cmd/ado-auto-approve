@@ -16,7 +16,9 @@ async function waitForGraphCooldown() {
 
 function noteGraphThrottle(retryAfterSeconds) {
   const requested = Number(retryAfterSeconds || 0) * 1000;
-  graphThrottleUntil = Math.max(graphThrottleUntil, Date.now() + Math.min(30000, Math.max(3000, requested || 3000)));
+  const cooldown = Math.min(30000, Math.max(3000, requested || 3000));
+  graphThrottleUntil = Math.max(graphThrottleUntil, Date.now() + cooldown);
+  console.warn(JSON.stringify({ event: 'operations_sharepoint_throttled', status: 429, retryAfterSeconds: Number(retryAfterSeconds || 0), cooldownMs: cooldown }));
 }
 const incidentYearFormatter = new Intl.DateTimeFormat('en-US', {
   timeZone: 'Asia/Bangkok',
