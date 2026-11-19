@@ -99,7 +99,10 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   const pageCount = Math.max(1, Math.ceil(filteredItems.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visibleItems = filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const canBatchClose = capabilities.closeIncident && connection?.connected;
+  // The batch action uses the guarded manual-close endpoint for recovered
+  // legacy incidents. It must remain visible when manual close is enabled
+  // even if the standard close capability is disabled.
+  const canBatchClose = (capabilities.closeIncident || capabilities.manualCloseIncident) && connection?.connected;
   const eligibleVisible = visibleItems.filter(item => {
     if (operationsStatus(item) === 'READY_TO_CLOSE' && item.status === 'RESOLVED' && !item.hasLifecycleConflict) return true;
     return item.status === 'RESOLVED' && (Boolean(item.hasLifecycleConflict) || hasInvalidResolutionTimeline(item)) && Number(item.workItemSummary?.total || 0) > 0 && Number(item.workItemSummary?.open || 0) === 0;
