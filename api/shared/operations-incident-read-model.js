@@ -150,11 +150,29 @@ async function syncFromSharePoint(sharePoint, maxItems = 5000) {
 async function syncPageFromSharePoint(sharePoint, pageSize = 100, cursor = '') {
   await ensureTable();
   const state = await getSyncState();
+  const size = Math.max(1, Math.min(Number(pageSize) || 100, 100));
+  // Always refresh the newest page first. A single long-running cursor walk
+  // can otherwise spend hours in history and hide newly-created incidents.
+  const head = await sharePoint.listIncidentPage(size, '');
+  let written = await upsertMany(head.items);
+  let backfill = null;
   const effectiveCursor = cursor || state.cursor || '';
-  const page = await sharePoint.listIncidentPage(Math.max(1, Math.min(Number(pageSize) || 100, 100)), effectiveCursor);
-  const written = await upsertMany(page.items);
-  await setSyncState(page.nextCursor || '');
-  return { read: page.items.length, written, nextCursor: page.nextCursor || '', hasMore: Boolean(page.nextCursor), source: 'sharepoint', table: config().tableName, resumed: Boolean(effectiveCursor) };
+  if (effectiveCursor) {
+    backfill = await sharePoint.listIncidentPage(size, effectiveCursor);
+    written += await upsertMany(backfill.items);
+  }
+  const nextCursor = backfill ? (backfill.nextCursor || '') : (effectiveCursor || head.nextCursor || '');
+  await setSyncState(nextCursor);
+  return {
+    read: head.items.length + (backfill ? backfill.items.length : 0),
+    written,
+    nextCursor,
+    hasMore: Boolean(nextCursor),
+    source: 'sharepoint',
+    table: config().tableName,
+    refreshedHead: true,
+    resumed: Boolean(effectiveCursor)
+  };
 }
 
 async function getSyncState() {
