@@ -818,7 +818,12 @@ async function manualCloseIncident(input, context, dependencies = {}) {
 async function manualAlertStatus(input, context, dependencies = {}) {
   requireFeature('OPERATIONS_MANUAL_ALERT_STATUS_ENABLED');
   const sp = dependencies.sharePoint || defaultSharePoint;
-  const incident = await requireIncident(sp, input.incidentId);
+  // This override only changes the primary incident row. Do not load the
+  // complete Work Item list before making the status write.
+  const incident = await (typeof sp.getIncident === 'function'
+    ? sp.getIncident(input.incidentId, { enrich: false })
+    : requireIncident(sp, input.incidentId));
+  if (!incident) throw operationalError(404, 'INCIDENT_NOT_FOUND', 'Incident not found');
   const status = String(input.status || '').trim().toUpperCase();
   if (!['FIRING', 'RESOLVED'].includes(status)) throw operationalError(422, 'INVALID_ALERT_STATUS', 'Alert status must be Active or Recovered');
   const reason = String(input.reason || '').trim();
@@ -830,7 +835,10 @@ async function manualAlertStatus(input, context, dependencies = {}) {
   if (status === 'RESOLVED') fields.ResolvedAt = input.resolvedAt || now;
   else fields.ResolvedAt = null;
   await sp.updateIncidentRecord(incident.sharePointId, fields);
-  await audit(sp, context, { incidentId: incident.incidentId, action: 'ALERT_STATUS_MANUAL_OVERRIDE', result: 'SUCCEEDED', detail: `Alert status changed from ${previous || 'UNKNOWN'} to ${status}; reason: ${reason}` });
+  // Audit must not make the user-facing status override fail when the Audit
+  // list is throttled. The incident row is the authoritative write.
+  void audit(sp, context, { incidentId: incident.incidentId, action: 'ALERT_STATUS_MANUAL_OVERRIDE', result: 'SUCCEEDED', detail: `Alert status changed from ${previous || 'UNKNOWN'} to ${status}; reason: ${reason}` })
+    .catch(error => console.warn('Manual alert-status audit write deferred:', error.message));
   return { incidentId: incident.incidentId, status, previousStatus: previous, overriddenAt: now };
 }
 

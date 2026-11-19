@@ -13,6 +13,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   // throttling cooldown and retry window. Keep the normal API timeout short,
   // but give close operations enough time to complete without browser abort.
   const timeoutMs = /\/incidents\/[^/]+\/(?:close|manual-close)$/.test(path)
+    || /\/incidents\/[^/]+\/manual-alert-status$/.test(path)
     || /\/settings\/auto-restart$/.test(path)
     || /\/incidents\/[^/]+\/work-items\/related\/(?:preview|batch)$/.test(path)
     ? 120000 : 30000;
