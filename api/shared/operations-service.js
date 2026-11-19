@@ -207,12 +207,17 @@ async function createRelated(input, context, dependencies = {}) {
   requireFeature('OPERATIONS_CREATE_ENABLED');
   const sp = dependencies.sharePoint || defaultSharePoint;
   const ado = dependencies.ado || defaultAdo;
-  const incident = await requireIncident(sp, input.incidentId);
+  const incident = await (typeof sp.getIncident === 'function'
+    ? sp.getIncident(input.incidentId, { enrich: false })
+    : requireIncident(sp, input.incidentId));
+  if (!incident) throw operationalError(404, 'INCIDENT_NOT_FOUND', 'Incident not found');
   if (!incident.workItemId) throw operationalError(409, 'PRIMARY_REQUIRED', 'The incident does not have a primary work item');
   const mappings = await sp.listMappings();
   const mapping = resolveMapping(mappings, incident, input.supportTeam);
   const idempotencyKey = makeIdempotencyKey(input.incidentId, mapping.supportTeam, input.idempotencyKey);
-  const stored = await sp.listConfiguredWorkItems(1000);
+  const stored = typeof sp.listConfiguredWorkItemsForIncident === 'function'
+    ? await sp.listConfiguredWorkItemsForIncident(input.incidentId, 100)
+    : await sp.listConfiguredWorkItems(1000);
   const existingForTeam = stored.find(item =>
     normalize(item.incidentId) === normalize(input.incidentId) &&
     normalizeOptionalTeam(item.supportTeam) === normalizeTeam(mapping.supportTeam)
@@ -329,7 +334,10 @@ async function createRelatedBatch(input, context, dependencies = {}) {
 async function previewRelatedBatch(input, context, dependencies = {}) {
   const sp = dependencies.sharePoint || defaultSharePoint;
   const ado = dependencies.ado || defaultAdo;
-  const incident = await requireIncident(sp, input.incidentId);
+  const incident = await (typeof sp.getIncident === 'function'
+    ? sp.getIncident(input.incidentId, { enrich: false })
+    : requireIncident(sp, input.incidentId));
+  if (!incident) throw operationalError(404, 'INCIDENT_NOT_FOUND', 'Incident not found');
   if (!incident.workItemId) throw operationalError(409, 'PRIMARY_REQUIRED', 'The incident does not have a primary work item');
   const teams = [...new Set((input.supportTeams || []).map(normalizeTeam))];
   if (!teams.length) throw operationalError(400, 'SUPPORT_TEAMS_REQUIRED', 'Select at least one support team');

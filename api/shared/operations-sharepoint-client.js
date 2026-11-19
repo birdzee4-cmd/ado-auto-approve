@@ -334,6 +334,15 @@ async function listConfiguredWorkItems(maxItems) {
   return listWorkItems(maxItems || 1000, config.workItemsListName);
 }
 
+async function listConfiguredWorkItemsForIncident(incidentId, maxItems = 100) {
+  const config = getConfig();
+  if (!config.workItemsListName) return [];
+  const escaped = String(incidentId || '').replace(/'/g, "''");
+  return (await listItems(maxItems, config.workItemsListName, `fields/IncidentId eq '${escaped}'`))
+    .map(item => workItems.mapSharePointWorkItem(item, { textField, dateField, safeAdoUrl }))
+    .filter(Boolean);
+}
+
 async function graphListRequest(method, listName, suffix, body) {
   if (!listName) throw new Error('Operations supporting SharePoint List is not configured');
   const siteId = await getSiteId();
@@ -838,6 +847,7 @@ module.exports = {
   listIncidentRecords,
   listWorkItems,
   listConfiguredWorkItems,
+  listConfiguredWorkItemsForIncident,
   listMappings,
   mapServiceMapping,
   attachIncidentClosureEvents,
