@@ -15,6 +15,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   const routeParams = incidentRouteParams();
   const [items, setItems] = useState<Incident[] | null>(null);
   const [overviewItems, setOverviewItems] = useState<Incident[]>([]);
+  const [followUpTotal, setFollowUpTotal] = useState(0);
   const [selected, setSelected] = useState<{ incident: Incident; timeline: AuditEvent[] } | null>(null);
   const [selectedLoading, setSelectedLoading] = useState(false);
   const [showTechnicalEvents, setShowTechnicalEvents] = useState(false);
@@ -94,7 +95,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
     { value: 'ACTION_REQUIRED', label: 'Needs action', count: overviewItems.filter(isActionRequired).length },
     { value: 'WAITING_RESOLVED', label: 'Waiting for alert recovery', count: overviewItems.filter(item => operationsStatus(item) === 'WAITING_RESOLVED').length },
     { value: 'READY_TO_CLOSE', label: 'Ready to close', count: overviewItems.filter(item => operationsStatus(item) === 'READY_TO_CLOSE').length },
-    { value: 'FOLLOW_UP', label: 'Follow up', count: overviewItems.filter(isFollowUpItem).length },
+    { value: 'FOLLOW_UP', label: 'Follow up', count: followUpTotal },
     { value: '', label: 'All incidents', count: overviewItems.length },
   ];
   const filteredItems = sortedItems.filter(item => {
@@ -145,7 +146,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   };
   const overview = {
     total: overviewItems.length,
-    open: overviewItems.filter(isFollowUpItem).length,
+    open: followUpTotal,
     actionRequired: overviewItems.filter(isActionRequired).length,
     waiting: overviewItems.filter(item => operationsStatus(item) === 'WAITING_RESOLVED').length,
     readyToClose: overviewItems.filter(item => operationsStatus(item) === 'READY_TO_CLOSE').length,
@@ -166,8 +167,9 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
       // request also prevents search from doubling SharePoint traffic.
       const range = periodScope === 'current-month' ? incidentMonthRange() : {};
       const allPromise = operationsApi.incidents('', search, { limit: resultLimit, ...range });
+      const followUpSummaryPromise = operationsApi.incidents('', '', { summary: 'follow-up' });
       const inventoryPromise = allPromise;
-      const [allResult, inventoryResult] = await Promise.allSettled([allPromise, inventoryPromise]);
+      const [allResult, inventoryResult, followUpResult] = await Promise.allSettled([allPromise, inventoryPromise, followUpSummaryPromise]);
       const all = allResult.status === 'fulfilled' ? allResult.value : null;
       const inventory = inventoryResult.status === 'fulfilled' ? inventoryResult.value : all;
       if (!all && !inventory) throw (allResult.status === 'rejected' ? allResult.reason : inventoryResult.status === 'rejected' ? inventoryResult.reason : new Error('Unable to read Operations Hub incidents'));
@@ -179,7 +181,8 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
         return !status || operationsStatus(item) === status;
       }));
       setOverviewItems(inventory?.items || sourceItems);
-      if (allResult.status === 'rejected' || inventoryResult.status === 'rejected') {
+      if (followUpResult.status === 'fulfilled') setFollowUpTotal(followUpResult.value.count || 0);
+      if (allResult.status === 'rejected' || inventoryResult.status === 'rejected' || followUpResult.status === 'rejected') {
         setError('บางข้อมูลอาจอัปเดตไม่ครบ กรุณากด Refresh now เพื่อลองใหม่');
       }
       if (!preservePage) setPage(1);
@@ -422,7 +425,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
       <button className={status === 'ACTION_REQUIRED' ? 'is-active is-warning' : overview.actionRequired > 0 ? 'is-warning is-critical' : ''} onClick={() => setStatus('ACTION_REQUIRED')}><span>Needs action</span><strong>{overview.actionRequired}</strong><small>Review or take action</small></button>
       <button className={status === 'WAITING_RESOLVED' ? 'is-active' : ''} onClick={() => setStatus('WAITING_RESOLVED')}><span>Waiting for alert recovery</span><strong>{overview.waiting}</strong><small>Alert still firing</small></button>
       <button className={status === 'READY_TO_CLOSE' ? 'is-active' : ''} onClick={() => setStatus('READY_TO_CLOSE')}><span>Ready to close</span><strong>{overview.readyToClose}</strong><small>Alert recovered, tickets closed</small></button>
-      <button className={status === 'FOLLOW_UP' || status === 'OPEN_INCIDENTS' ? 'is-active' : ''} onClick={() => setStatus('FOLLOW_UP')}><span>Follow up</span><strong>{overview.open}</strong><small>Work is in progress or waiting for support</small></button>
+      <button className={status === 'FOLLOW_UP' || status === 'OPEN_INCIDENTS' ? 'is-active' : ''} onClick={() => { setStatus('FOLLOW_UP'); setPeriodScope('all'); setResultLimit('all'); setPage(1); }}><span>Follow up</span><strong>{overview.open}</strong><small>All open follow-up work</small></button>
       <button className={status === '' ? 'is-active' : ''} onClick={() => setStatus('')}><span>All incidents</span><strong>{overview.total}</strong><small>Active and closed history</small></button>
     </div>
     <div className="ops-incident-data-controls" aria-label="Incident data scope">

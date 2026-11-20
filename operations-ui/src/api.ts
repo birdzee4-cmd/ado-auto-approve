@@ -96,14 +96,15 @@ export const operationsApi = {
   capabilities: () => request<OperationsCapabilities>('/api/operations/capabilities'),
   setGlobalAutoRestart: (enabled: boolean) => request('/api/operations/settings/auto-restart', { method: 'POST', body: JSON.stringify({ enabled, confirm: true }) }),
   dashboard: (date = '') => request<DashboardData>(`/api/operations/dashboard${date ? `?date=${encodeURIComponent(date)}` : ''}`),
-  incidents: (status = '', search = '', options: { limit?: string; from?: string; to?: string } = {}) => {
+  incidents: (status = '', search = '', options: { limit?: string; from?: string; to?: string; summary?: string } = {}) => {
     const query = new URLSearchParams();
     if (status) query.set('status', status);
     if (search) query.set('search', search);
     if (options.limit) query.set('limit', options.limit);
     if (options.from) query.set('from', options.from);
     if (options.to) query.set('to', options.to);
-    return request<{ items: Incident[]; count: number }>(`/api/operations/incidents?${query.toString()}`);
+    if (options.summary) query.set('summary', options.summary);
+    return request<{ items?: Incident[]; count: number }>(`/api/operations/incidents?${query.toString()}`);
   },
   alertEvents: (status = '') => request<{ items: AlertEvent[]; count: number }>(`/api/operations/alert-events${status ? `?status=${encodeURIComponent(status)}` : ''}`),
   processAlertEvent: (eventId: string, dryRun = true) => request<AlertEvent>(`/api/operations/alert-events/${encodeURIComponent(eventId)}/process`, { method: 'POST', body: JSON.stringify({ dryRun }) }),
