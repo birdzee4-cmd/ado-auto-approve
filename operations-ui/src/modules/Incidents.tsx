@@ -82,14 +82,12 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   const adoStateOptions = [...new Set(overviewItems.map(item => item.adoState?.trim()).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b));
   const operationsStatusOptions = [...new Set(overviewItems.map(operationsStatus))].sort((a, b) => a.localeCompare(b));
   const queueOptions = [
-    { value: '', label: 'All incidents', count: overviewItems.length },
     { value: 'ACTION_REQUIRED', label: 'Needs action', count: overviewItems.filter(isActionRequired).length },
-    { value: 'OPEN_INCIDENTS', label: 'Active incidents', count: overviewItems.filter(item => !isOperationsClosed(item)).length },
-    { value: 'WAITING_SUPPORT', label: 'Waiting for support', count: overviewItems.filter(item => operationsStatus(item) === 'WAITING_SUPPORT').length },
     { value: 'WAITING_RESOLVED', label: 'Waiting for alert recovery', count: overviewItems.filter(item => operationsStatus(item) === 'WAITING_RESOLVED').length },
     { value: 'READY_TO_CLOSE', label: 'Ready to close', count: overviewItems.filter(item => operationsStatus(item) === 'READY_TO_CLOSE').length },
-    { value: 'CLOSED', label: 'Closed incidents', count: overviewItems.filter(isOperationsClosed).length },
-  ].filter(option => !option.value || option.count > 0 || option.value === status);
+    { value: 'OPEN_INCIDENTS', label: 'Active incidents', count: overviewItems.filter(item => !isOperationsClosed(item)).length },
+    { value: '', label: 'All incidents', count: overviewItems.length },
+  ];
   const filteredItems = sortedItems.filter(item => {
     if (alertStatus && item.status !== alertStatus) return false;
     if (adoState === 'NOT_CREATED' && item.workItemId) return false;
@@ -421,12 +419,12 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
     <div className="ops-incident-controls">
       <form className="ops-incident-search" onSubmit={e => { e.preventDefault(); void load(false); }}><span aria-hidden="true">⌕</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search incidents…" aria-label="Search incidents" /><button className="ops-button" type="submit">Search</button></form>
       <div className="ops-filter-grid">
-        <label className={`ops-filter-control${status ? ' is-selected' : ''}`}><span>QUEUE</span><select value={status} onChange={e => setStatus(e.target.value)} aria-label="Filter by queue">{queueOptions.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
+        <label className={`ops-filter-control${status ? ' is-selected' : ''}`}><span>QUEUE</span><select value={status} onChange={e => setStatus(e.target.value)} aria-label="Filter by queue">{queueOptions.map(option => <option value={option.value} key={option.value}>{option.label} ({option.count})</option>)}</select></label>
         <label className={`ops-filter-control${alertStatus ? ' is-selected' : ''}`}><span>ALERT</span><select value={alertStatus} onChange={e => { setAlertStatus(e.target.value); setPage(1); }}><option value="">All</option>{alertOptions.map(value => <option value={value} key={value}>{displayStatus(value)}</option>)}</select></label>
         <label className={`ops-filter-control${adoState ? ' is-selected' : ''}`}><span>ADO STATE</span><select value={adoState} onChange={e => { setAdoState(e.target.value); setPage(1); }}><option value="">All</option>{adoStateOptions.map(value => <option value={value} key={value}>{value}</option>)}{overviewItems.some(item => !item.workItemId) && <option value="NOT_CREATED">Not created</option>}{overviewItems.some(item => item.workItemId && !item.adoState) && <option value="UNKNOWN">Unknown</option>}</select></label>
         <label className={`ops-filter-control${lifecycle ? ' is-selected' : ''}`}><span>OPERATIONS STATUS</span><select value={lifecycle} onChange={e => { setLifecycle(e.target.value); setPage(1); }}><option value="">All</option>{operationsStatusOptions.map(value => <option value={value} key={value}>{displayStatus(value)}</option>)}</select></label>
         <label className={`ops-filter-control${assignee ? ' is-selected' : ''}`}><span>ASSIGNEE</span><select value={assignee} onChange={e => { setAssignee(e.target.value); setPage(1); }}><option value="">All</option>{assigneeOptions.map(value => <option value={value} key={value}>{value}</option>)}</select></label>
-        <button className="ops-button ops-button-secondary ops-clear-filters" type="button" onClick={() => { setStatus(''); setAlertStatus(''); setAdoState(''); setLifecycle(''); setAssignee(''); setSearch(''); setPage(1); }}>Clear filters</button>
+        <button className="ops-button ops-button-secondary ops-clear-filters" type="button" onClick={() => { setStatus('OPEN_INCIDENTS'); setAlertStatus(''); setAdoState(''); setLifecycle(''); setAssignee(''); setSearch(''); setPage(1); }}>Clear filters</button>
       </div>
     </div>
     {error && <ErrorState message={error} onRetry={load} />}
