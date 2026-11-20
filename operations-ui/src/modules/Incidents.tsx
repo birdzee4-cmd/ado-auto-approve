@@ -93,7 +93,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   const operationsStatusOptions = [...new Set(overviewItems.map(operationsStatus))].sort((a, b) => a.localeCompare(b));
   const queueOptions = [
     { value: 'ACTION_REQUIRED', label: 'Needs action', count: overviewItems.filter(isActionRequired).length },
-    { value: 'WAITING_RESOLVED', label: 'Waiting for alert recovery', count: overviewItems.filter(item => operationsStatus(item) === 'WAITING_RESOLVED').length },
+    { value: 'WAITING_RESOLVED', label: 'Awaiting alert recovery', count: overviewItems.filter(item => operationsStatus(item) === 'WAITING_RESOLVED').length },
     { value: 'READY_TO_CLOSE', label: 'Ready to close', count: overviewItems.filter(item => operationsStatus(item) === 'READY_TO_CLOSE').length },
     { value: 'FOLLOW_UP', label: 'Follow up', count: followUpTotal },
     { value: '', label: 'All incidents', count: overviewItems.length },
@@ -423,7 +423,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
 
     <div className="ops-incident-overview" aria-label="Incident overview">
       <button className={status === 'ACTION_REQUIRED' ? 'is-active is-warning' : overview.actionRequired > 0 ? 'is-warning is-critical' : ''} onClick={() => setStatus('ACTION_REQUIRED')}><span>Needs action</span><strong>{overview.actionRequired}</strong><small>Review or take action</small></button>
-      <button className={status === 'WAITING_RESOLVED' ? 'is-active' : ''} onClick={() => setStatus('WAITING_RESOLVED')}><span>Waiting for alert recovery</span><strong>{overview.waiting}</strong><small>Alert still firing</small></button>
+      <button className={status === 'WAITING_RESOLVED' ? 'is-active' : ''} onClick={() => setStatus('WAITING_RESOLVED')}><span>Awaiting alert recovery</span><strong>{overview.waiting}</strong><small>Alert still firing</small></button>
       <button className={status === 'READY_TO_CLOSE' ? 'is-active' : ''} onClick={() => setStatus('READY_TO_CLOSE')}><span>Ready to close</span><strong>{overview.readyToClose}</strong><small>Alert recovered, tickets closed</small></button>
       <button className={status === 'FOLLOW_UP' || status === 'OPEN_INCIDENTS' ? 'is-active' : ''} onClick={() => { setStatus('FOLLOW_UP'); setPeriodScope('all'); setResultLimit('all'); setPage(1); }}><span>Follow up</span><strong>{overview.open}</strong><small>All open follow-up work</small></button>
       <button className={status === '' ? 'is-active' : ''} onClick={() => setStatus('')}><span>All incidents</span><strong>{overview.total}</strong><small>Active and closed history</small></button>
@@ -621,8 +621,7 @@ function isActionRequired(item: Incident) {
   // work that has not started or has an integrity/creation problem.
   if (isOperationsClosed(item) || isWaitingForSupport(item) || isReadyToClose(item) || isWaitingForAlertRecovery(item)) return false;
   const status = operationsStatus(item);
-  return ['NEEDS_REVIEW', 'PENDING', 'FAILED', 'NOT_CREATED', 'NEW'].includes(status)
-    || approvalStatus(item) === 'APPROVED';
+  return ['NEEDS_REVIEW', 'PENDING', 'FAILED', 'NOT_CREATED', 'NEW'].includes(status);
 }
 
 function isFollowUpItem(item: Incident) {

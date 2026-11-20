@@ -40,7 +40,7 @@ export function displayStatus(value?: string) {
     RECEIVED: 'Received', AWAITING_APPROVAL: 'Awaiting approval', CREATED: 'Work item created',
     REJECTED: 'Rejected', FAILED: 'Automation failed', CANCELLED: 'Cancelled',
     NEW: 'New', OPEN: 'In progress', IN_PROGRESS: 'In progress', CLOSED: 'Closed', PENDING: 'Awaiting action', NOT_CREATED: 'Work item not created',
-    WAITING_RESOLVED: 'Waiting for alert recovery', WAITING_SUPPORT: 'Follow up', FOLLOW_UP: 'Follow up',
+    WAITING_RESOLVED: 'Awaiting alert recovery', WAITING_SUPPORT: 'Follow up', FOLLOW_UP: 'Follow up',
     READY_TO_CLOSE: 'Ready to close', NEEDS_REVIEW: 'Needs review',
     APPROVED: 'Approved', NOT_REQUESTED: 'Not requested', COMPLETED: 'Completed',
     HISTORICAL_RESPONSE: 'Historical response', NO_LONGER_REQUIRED: 'No longer required',
