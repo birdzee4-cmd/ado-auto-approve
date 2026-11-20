@@ -35,7 +35,10 @@ function getConfig() {
     hostname: process.env.OPERATIONS_SHAREPOINT_HOSTNAME || process.env.SHAREPOINT_HOSTNAME,
     sitePath: process.env.OPERATIONS_SHAREPOINT_SITE_PATH || process.env.SHAREPOINT_SITE_PATH,
     listName: process.env.OPERATIONS_SHAREPOINT_LIST_NAME || 'Operations Hub Incidents',
-    workItemsListName: process.env.OPERATIONS_WORK_ITEMS_LIST_NAME || '',
+    // Keep the supporting list discoverable after deployments where the
+    // optional app setting was omitted. Environments may still override this
+    // when they use a different provisioned list name.
+    workItemsListName: process.env.OPERATIONS_WORK_ITEMS_LIST_NAME || 'OperationsHubWorkItems',
     mappingsListName: process.env.OPERATIONS_MAPPINGS_LIST_NAME || '',
     auditListName: process.env.OPERATIONS_AUDIT_LIST_NAME || '',
     alertEventsListName: process.env.OPERATIONS_ALERT_EVENTS_LIST_NAME || ''
