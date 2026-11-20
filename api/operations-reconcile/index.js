@@ -5,6 +5,12 @@ const alertService = require('../shared/operations-alert-service');
 const globalSettings = require('../shared/operations-global-settings');
 const READY_TO_CLOSE_DELAY_MS = 12 * 60 * 60 * 1000;
 const AUTO_RESTART_DELAY_MS = 5 * 60 * 1000;
+// The scheduler receives a small processing batch, but must discover active
+// incidents across the whole list. SharePoint Graph ordering is by the list
+// item's modified timestamp and can place an older still-FIRING incident
+// outside the first 20 rows. Read a bounded full queue, then process only the
+// requested batch below.
+const SCHEDULER_DISCOVERY_LIMIT = 5000;
 
 module.exports = async function (context, req) {
   try {
@@ -33,7 +39,7 @@ module.exports = async function (context, req) {
       .filter(event => !targetIncidentId || event.incidentId === targetIncidentId || event.matchedIncidentId === targetIncidentId)
       .slice(0, Math.min(maximum, 20));
     const loadIncidents = async () => (await (schedulerMode && typeof sharePoint.listIncidentRecords === 'function'
-      ? sharePoint.listIncidentRecords(maximum)
+      ? sharePoint.listIncidentRecords(SCHEDULER_DISCOVERY_LIMIT)
       : sharePoint.listIncidents(maximum)))
       .filter(item => !targetIncidentId || item.incidentId === targetIncidentId || item.displayId === targetIncidentId)
       .filter(item => item.operationsStatus !== 'CLOSED' && (schedulerMode || (item.workItemSummary && item.workItemSummary.total > 0)))

@@ -1,8 +1,8 @@
-# Ready to close: รอ 1 ชั่วโมงก่อนแจ้งครั้งแรก
+# Ready to close: รอ 12 ชั่วโมงก่อนแจ้งครั้งแรก
 
 ปรับ `api/operations-reconcile/index.js` ให้บันทึก Audit `RECONCILIATION_NOTIFICATION_SCHEDULED` เมื่อ reconciliation พบครั้งแรกว่า monitoring เป็น RESOLVED และ Work Item ทุกใบอยู่ในสถานะปลายทาง แต่ Incident ใน Operations Hub ยังไม่ CLOSED
 
-- ไม่ส่ง Teams ทันที โดยกำหนดเวลาแจ้งครั้งแรกเป็นเวลา Audit + 1 ชั่วโมง
+- ไม่ส่ง Teams ทันที โดยกำหนดเวลาแจ้งครั้งแรกเป็นเวลา Audit + 12 ชั่วโมง
 - รอบ reconciliation ก่อนครบเวลาจะใช้กำหนดเวลาเดิม ไม่เลื่อนออกไปทุกครั้ง และอ่านกำหนดเวลาเดิมได้หลัง API restart
 - เมื่อครบเวลา จะส่งในรอบ reconciliation ถัดไป เฉพาะเมื่อ Incident ยังเข้าเงื่อนไขพร้อมปิดและยังไม่ CLOSED
 - ใช้ EventKey แจ้งสำเร็จเดิมเพื่อป้องกันส่งซ้ำ ส่วน Audit กำหนดเวลาใช้ suffix `:scheduled` แยกกัน
@@ -10,6 +10,8 @@
 - การแจ้งเตือน RESOLVED ค้างเปิด 24 ชั่วโมงยังใช้เงื่อนไขเดิม
 
 Incident ที่เคยส่ง ready-to-close สำเร็จแล้วจะไม่ส่งใหม่ ส่วน Incident ที่ยังไม่เคยส่งจะเริ่มนับจากรอบที่ตรวจพบหลัง deploy
+
+ปรับจาก 1 ชั่วโมงเป็น 12 ชั่วโมง: Incident ที่มี Audit กำหนดเวลาเดิมแต่ยังไม่ส่ง จะใช้เวลา Audit เดิม + 12 ชั่วโมง โดยไม่เริ่มนับใหม่หลัง deploy
 
 ต้อง deploy API เพื่อเปิดใช้การเปลี่ยนแปลงนี้ ไม่ต้อง import Power Automate ZIP ใหม่ เนื่องจากจุดส่งข้อความอยู่ใน API
 
