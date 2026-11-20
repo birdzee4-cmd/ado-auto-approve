@@ -143,6 +143,15 @@ module.exports = async function (context, req) {
 
     if (path === 'incidents') {
       const query = req.query || {};
+      if (String(query.summary || '').toLowerCase() === 'follow-up') {
+        const requestedLimit = 10000;
+        let incidents = incidentReadModel.enabled()
+          ? await incidentReadModel.list({ limit: requestedLimit, scanLimit: requestedLimit, partitionKey: query.partitionKey })
+          : await sharePoint.listIncidentRows(requestedLimit);
+        try { incidents = await sharePoint.attachConfiguredWorkItems(incidents, Infinity); }
+        catch (error) { context.log.warn('Operations follow-up summary enrichment unavailable:', error.message); }
+        return jsonResponse(context, 200, { ok: true, data: { count: incidents.filter(isFollowUpItem).length, source: 'all-time-follow-up-summary' } });
+      }
       if (query.cursor || query.pageSize) {
         const page = await sharePoint.listIncidentPage(query.pageSize, query.cursor);
         return jsonResponse(context, 200, { ok: true, data: { items: page.items, nextCursor: page.nextCursor, hasMore: Boolean(page.nextCursor) } });
@@ -787,6 +796,13 @@ function isActionRequired(item) {
     && !isReadyToClose(item)
     && (['PENDING', 'FAILED', 'NOT_CREATED'].includes(item.trackingStatus)
       || Boolean(item.hasLifecycleConflict));
+}
+
+function isFollowUpItem(item) {
+  return !isOperationsClosed(item)
+    && !isActionRequired(item)
+    && !isWaitingForResolved(item)
+    && !isReadyToClose(item);
 }
 
 function isBacklogItem(item) {
