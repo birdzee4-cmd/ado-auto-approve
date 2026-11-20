@@ -153,7 +153,20 @@ module.exports = async function (context, req) {
         try {
           const cached = await incidentReadModel.list({ limit: 1000, partitionKey: query.partitionKey });
           const recent = query.partitionKey ? [] : await recentIncidentHeadFast();
-          const filtered = filterIncidents(mergeIncidentHead(cached, recent).slice(0, 1000), query);
+          const merged = mergeIncidentHead(cached, recent).slice(0, 1000);
+          // The read model intentionally stores lightweight incident rows, but
+          // the explorer still needs the authoritative related-work mapping.
+          // Without this enrichment, incidents with child tickets appear to
+          // have no related work and can be misread as fully closed.
+          let enriched = merged;
+          try {
+            enriched = await sharePoint.attachConfiguredWorkItems(merged);
+          } catch (error) {
+            // Keep the read-model response available during a transient
+            // supporting-list failure; detail can still retry enrichment.
+            context.log.warn('Operations related-work enrichment unavailable:', error.message);
+          }
+          const filtered = filterIncidents(enriched, query);
           return jsonResponse(context, 200, { ok: true, data: { items: filtered, count: filtered.length, source: 'azure-table-read-model' } });
         } catch (error) {
           context.log.warn('Operations incident read model unavailable; falling back to SharePoint:', error.message);

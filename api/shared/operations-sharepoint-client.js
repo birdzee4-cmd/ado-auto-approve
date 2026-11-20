@@ -334,6 +334,11 @@ async function listConfiguredWorkItems(maxItems) {
   return listWorkItems(maxItems || 1000, config.workItemsListName);
 }
 
+async function attachConfiguredWorkItems(incidents, maxItems = 1000) {
+  const related = await listConfiguredWorkItems(maxItems);
+  return workItems.attachWorkItems(incidents, related);
+}
+
 async function listConfiguredWorkItemsForIncident(incidentId, maxItems = 100) {
   const config = getConfig();
   if (!config.workItemsListName) return [];
@@ -868,6 +873,7 @@ module.exports = {
   listIncidentRecords,
   listWorkItems,
   listConfiguredWorkItems,
+  attachConfiguredWorkItems,
   listConfiguredWorkItemsForIncident,
   listMappings,
   mapServiceMapping,
