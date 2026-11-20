@@ -239,6 +239,8 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-incident-overview button.is-active strong { color: #fff; }
 .ops-incident-overview button.is-active::after { border-color: rgba(255,255,255,.1); }
 .ops-incident-overview button.is-warning strong { color: #a42828; }
+.ops-incident-overview button.is-warning.is-critical { border-color: #e9abab; background: #fff0f0; }
+.ops-incident-overview button.is-warning.is-critical span { color: #9d2929; }
 .ops-incident-overview span { align-self: center; color: var(--ops-muted); font-size: .76rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .ops-incident-overview strong { grid-row: span 2; font-size: 2rem; line-height: 1; }
 .ops-incident-overview small { color: #918c82; }

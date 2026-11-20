@@ -11,9 +11,9 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   const [selected, setSelected] = useState<{ incident: Incident; timeline: AuditEvent[] } | null>(null);
   const [selectedLoading, setSelectedLoading] = useState(false);
   const [showTechnicalEvents, setShowTechnicalEvents] = useState(false);
-  // Open the Incident page with the complete list by default. Explicit
-  // status links (for example, Needs review) still apply their filter.
-  const [status, setStatus] = useState(routeParams.get('status') === 'ACTIVE' ? 'OPEN_INCIDENTS' : routeParams.get('status') || '');
+  // Open the Incident page on actionable work by default. Explicit status
+  // links still apply their requested filter.
+  const [status, setStatus] = useState(routeParams.get('status') === 'ACTIVE' ? 'OPEN_INCIDENTS' : routeParams.get('status') || 'OPEN_INCIDENTS');
   const [search, setSearch] = useState(routeParams.get('search') || '');
   const [alertStatus, setAlertStatus] = useState('');
   const [adoState, setAdoState] = useState('');
@@ -83,10 +83,12 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   const operationsStatusOptions = [...new Set(overviewItems.map(operationsStatus))].sort((a, b) => a.localeCompare(b));
   const queueOptions = [
     { value: '', label: 'All incidents', count: overviewItems.length },
-    { value: 'OPEN_INCIDENTS', label: 'Active incidents', count: overviewItems.filter(item => !isOperationsClosed(item)).length },
-    { value: 'ATTENTION', label: 'Follow-up queue', count: overviewItems.filter(isFollowUpItem).length },
     { value: 'ACTION_REQUIRED', label: 'Needs action', count: overviewItems.filter(isActionRequired).length },
-    ...operationsStatusOptions.map(value => ({ value, label: displayStatus(value), count: overviewItems.filter(item => operationsStatus(item) === value).length }))
+    { value: 'OPEN_INCIDENTS', label: 'Active incidents', count: overviewItems.filter(item => !isOperationsClosed(item)).length },
+    { value: 'WAITING_SUPPORT', label: 'Waiting for support', count: overviewItems.filter(item => operationsStatus(item) === 'WAITING_SUPPORT').length },
+    { value: 'WAITING_RESOLVED', label: 'Waiting for alert recovery', count: overviewItems.filter(item => operationsStatus(item) === 'WAITING_RESOLVED').length },
+    { value: 'READY_TO_CLOSE', label: 'Ready to close', count: overviewItems.filter(item => operationsStatus(item) === 'READY_TO_CLOSE').length },
+    { value: 'CLOSED', label: 'Closed incidents', count: overviewItems.filter(isOperationsClosed).length },
   ].filter(option => !option.value || option.count > 0 || option.value === status);
   const filteredItems = sortedItems.filter(item => {
     if (alertStatus && item.status !== alertStatus) return false;
@@ -410,13 +412,11 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
     {syncResults.length > 0 && <div className="ops-sync-summary"><p role="status">{syncProgress ? 'Synchronization progress:' : 'Synchronization complete:'} {syncResults.filter(item => item.ok && !item.skipped).length} succeeded · {syncResults.filter(item => item.skipped).length} skipped · {syncResults.filter(item => !item.ok).length} failed.</p>{syncResults.some(item => !item.ok) && <><button className="ops-button ops-button-secondary" disabled={busy || refreshing || !connection?.connected || !capabilities.synchronize} onClick={() => void synchronizeIncidents(syncResults.filter(item => !item.ok).map(item => item.incidentId))}>Retry failed incidents</button><ul>{syncResults.filter(item => !item.ok).map(item => <li key={item.incidentId}>{overviewItems.find(incident => incident.incidentId === item.incidentId)?.displayId || item.incidentId}: {item.detail}</li>)}</ul></>}</div>}
 
     <div className="ops-incident-overview" aria-label="Incident overview">
-      <button className={status === 'ACTION_REQUIRED' ? 'is-active is-warning' : 'is-warning'} onClick={() => setStatus('ACTION_REQUIRED')}><span>Needs action</span><strong>{overview.actionRequired}</strong><small>Review or take action</small></button>
-      <button className={status === 'WAITING_SUPPORT' ? 'is-active' : ''} onClick={() => setStatus('WAITING_SUPPORT')}><span>Waiting for support</span><strong>{overview.waitingSupport}</strong><small>Child tickets still open</small></button>
-      <button className={status === 'WAITING_RESOLVED' ? 'is-active' : ''} onClick={() => setStatus('WAITING_RESOLVED')}><span>Waiting for alert recovery</span><strong>{overview.waiting}</strong><small>All tickets closed, alert active</small></button>
+      <button className={status === 'ACTION_REQUIRED' ? 'is-active is-warning' : overview.actionRequired > 0 ? 'is-warning is-critical' : ''} onClick={() => setStatus('ACTION_REQUIRED')}><span>Needs action</span><strong>{overview.actionRequired}</strong><small>Review or take action</small></button>
+      <button className={status === 'WAITING_RESOLVED' ? 'is-active' : ''} onClick={() => setStatus('WAITING_RESOLVED')}><span>Waiting for alert recovery</span><strong>{overview.waiting}</strong><small>Alert still firing</small></button>
       <button className={status === 'READY_TO_CLOSE' ? 'is-active' : ''} onClick={() => setStatus('READY_TO_CLOSE')}><span>Ready to close</span><strong>{overview.readyToClose}</strong><small>Alert recovered, tickets closed</small></button>
-      <button className={status === 'OPEN_INCIDENTS' ? 'is-active' : ''} onClick={() => setStatus('OPEN_INCIDENTS')}><span>Active incidents</span><strong>{overview.open}</strong><small>All queues not closed</small></button>
-      <button className={status === 'CLOSED' ? 'is-active' : ''} onClick={() => setStatus('CLOSED')}><span>Closed</span><strong>{overview.closed}</strong><small>Completed incidents</small></button>
-      <button className={status === '' ? 'is-active' : ''} onClick={() => setStatus('')}><span>All incidents</span><strong>{overview.total}</strong><small>Full history</small></button>
+      <button className={status === 'OPEN_INCIDENTS' ? 'is-active' : ''} onClick={() => setStatus('OPEN_INCIDENTS')}><span>Active incidents</span><strong>{overview.open}</strong><small>Includes incidents waiting for support</small></button>
+      <button className={status === '' ? 'is-active' : ''} onClick={() => setStatus('')}><span>All incidents</span><strong>{overview.total}</strong><small>Active and closed history</small></button>
     </div>
     <div className="ops-incident-controls">
       <form className="ops-incident-search" onSubmit={e => { e.preventDefault(); void load(false); }}><span aria-hidden="true">⌕</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search incidents…" aria-label="Search incidents" /><button className="ops-button" type="submit">Search</button></form>
