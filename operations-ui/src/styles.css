@@ -590,7 +590,7 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-report-page .ops-panel-heading input[type="checkbox"] { accent-color: #f5a400; }
 .ops-report-page .ops-panel-heading .ops-button-secondary { border-color: rgba(255,255,255,.45); background: transparent; color: #fff; }
 .ops-report-count { color: #946000; font-size: .75rem; font-weight: 700; }
-.ops-report-page .ops-report-table th { background: #202126; color: #f5a400; font-size: .65rem; letter-spacing: .08em; text-transform: uppercase; }
+.ops-report-page .ops-report-table th { background: #f1ede4; color: #625c53; font-size: .65rem; letter-spacing: .08em; text-transform: uppercase; border-bottom: 1px solid #d4ccbe; }
 .ops-report-page .ops-report-table td { color: #3c3933; font-size: .82rem; }
 .ops-report-page .ops-report-table tbody tr:nth-child(odd) { background: #fffdf8; }
 .ops-report-page .ops-report-table tbody tr:nth-child(even) { background: #f1ede4; }
