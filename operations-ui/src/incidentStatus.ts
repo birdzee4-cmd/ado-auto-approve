@@ -9,8 +9,9 @@ export function isWaitingForAlertRecovery(item: Incident) {
 }
 
 export function isWaitingForSupport(item: Incident) {
+  // An open child ticket is the authoritative signal that a support team is
+  // still working. Legacy primary metadata must not hide this queue.
   return !isOperationsClosed(item)
-    && !['PENDING', 'FAILED', 'NOT_CREATED'].includes(item.trackingStatus)
     && item.workItems.some(workItem => workItem.role === 'RELATED' && !['CLOSED', 'DONE', 'REMOVED', 'RESOLVED', 'REJECT', 'REJECTED'].includes(String(workItem.state || '').trim().toUpperCase()));
 }
 
