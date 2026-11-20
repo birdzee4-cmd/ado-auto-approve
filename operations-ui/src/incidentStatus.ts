@@ -31,6 +31,6 @@ export function operationsStatus(item: Incident) {
   if (item.hasLifecycleConflict && !isWaitingForAlertRecovery(item)) return 'NEEDS_REVIEW';
   if (isReadyToClose(item)) return 'READY_TO_CLOSE';
   if (isWaitingForAlertRecovery(item)) return 'WAITING_RESOLVED';
-  if (isWaitingForSupport(item)) return 'WAITING_SUPPORT';
+  if (isWaitingForSupport(item)) return 'FOLLOW_UP';
   return item.trackingStatus;
 }

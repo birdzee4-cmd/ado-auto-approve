@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { loadAdoConnection, operationsApi } from '../api';
 import { AdoStateBadge, displayStatus, EmptyState, ErrorState, formatBangkokTimestamp, LoadingState, PageHeading, parseUtcTimestamp, StatusBadge } from '../components';
 import type { AdoConnectionStatus, AuditEvent, Incident, OperationsCapabilities, RelatedTicketPreview } from '../types';
-import { isOperationsClosed, isReadyToClose, isWaitingForAlertRecovery, operationsStatus } from '../incidentStatus';
+import { isOperationsClosed, isReadyToClose, isWaitingForAlertRecovery, isWaitingForSupport, operationsStatus } from '../incidentStatus';
 
 export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   const routeParams = incidentRouteParams();
@@ -139,7 +139,6 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
     open: overviewItems.filter(isFollowUpItem).length,
     actionRequired: overviewItems.filter(isActionRequired).length,
     waiting: overviewItems.filter(item => operationsStatus(item) === 'WAITING_RESOLVED').length,
-    waitingSupport: overviewItems.filter(item => operationsStatus(item) === 'WAITING_SUPPORT').length,
     readyToClose: overviewItems.filter(item => operationsStatus(item) === 'READY_TO_CLOSE').length,
     closed: overviewItems.filter(isOperationsClosed).length
   };
@@ -600,7 +599,10 @@ function hasInvalidResolutionTimeline(incident: Incident) {
 }
 
 function isActionRequired(item: Incident) {
-  if (isOperationsClosed(item) || isReadyToClose(item) || isWaitingForAlertRecovery(item)) return false;
+  // An assigned open child ticket is follow-up work, even when the incident
+  // already has an Approved workflow outcome. Needs action is reserved for
+  // work that has not started or has an integrity/creation problem.
+  if (isOperationsClosed(item) || isWaitingForSupport(item) || isReadyToClose(item) || isWaitingForAlertRecovery(item)) return false;
   const status = operationsStatus(item);
   return ['NEEDS_REVIEW', 'PENDING', 'FAILED', 'NOT_CREATED', 'NEW'].includes(status)
     || approvalStatus(item) === 'APPROVED';
