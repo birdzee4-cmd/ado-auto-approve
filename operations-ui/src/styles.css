@@ -236,7 +236,7 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-incident-overview button:hover, .ops-incident-overview button.is-active { border-color: var(--ops-yellow); box-shadow: 0 9px 24px rgba(214,140,0,.13); }
 .ops-incident-overview button.is-active { border-color: #161616; background: #161616; color: #fff; box-shadow: 0 9px 24px rgba(22,22,22,.2); }
 .ops-incident-overview button.is-active span, .ops-incident-overview button.is-active small { color: rgba(255,255,255,.78); }
-.ops-incident-overview button.is-active strong { color: #fff; }
+.ops-incident-overview button.is-active strong { color: var(--ops-yellow); }
 .ops-incident-overview button.is-active::after { border-color: rgba(255,255,255,.1); }
 .ops-incident-overview button.is-warning strong { color: #a42828; }
 .ops-incident-overview button.is-warning.is-critical { border-color: #e9abab; background: #fff0f0; }
