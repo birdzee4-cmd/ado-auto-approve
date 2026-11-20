@@ -338,9 +338,30 @@ async function listConfiguredWorkItemsForIncident(incidentId, maxItems = 100) {
   const config = getConfig();
   if (!config.workItemsListName) return [];
   const escaped = String(incidentId || '').replace(/'/g, "''");
-  return (await listItems(maxItems, config.workItemsListName, `fields/IncidentId eq '${escaped}'`))
+  // Provisioned lists may expose generated Graph internal names (field_1,
+  // field_2, ...), while manually-created lists can expose semantic names.
+  // Filtering with the wrong name makes Graph return HTTP 400
+  // `invalidRequest` and prevents creating either support ticket. Try the
+  // semantic name first, then use the generated alias, and finally fall back
+  // to an unfiltered bounded read so schema differences cannot block create.
+  const queries = [
+    `fields/IncidentId eq '${escaped}'`,
+    `fields/field_1 eq '${escaped}'`
+  ];
+  let items;
+  for (const query of queries) {
+    try {
+      items = await listItems(maxItems, config.workItemsListName, query);
+      break;
+    } catch (error) {
+      if (!/HTTP 400/i.test(String(error && error.message || ''))) throw error;
+    }
+  }
+  if (!items) items = await listItems(maxItems, config.workItemsListName);
+  const target = String(incidentId || '').trim().toLowerCase();
+  return items
     .map(item => workItems.mapSharePointWorkItem(item, { textField, dateField, safeAdoUrl }))
-    .filter(Boolean);
+    .filter(item => item && String(item.incidentId || '').trim().toLowerCase() === target);
 }
 
 async function graphListRequest(method, listName, suffix, body) {
