@@ -151,9 +151,12 @@ module.exports = async function (context, req) {
       // Keep that enrichment for the detail endpoint and reports only.
       if (incidentReadModel.enabled()) {
         try {
-          const cached = await incidentReadModel.list({ limit: 1000, partitionKey: query.partitionKey });
+          const requestedLimit = String(query.limit || '').toLowerCase() === 'all'
+            ? 10000
+            : Math.max(1, Math.min(Number(query.limit) || 1000, 2000));
+          const cached = await incidentReadModel.list({ limit: requestedLimit, scanLimit: requestedLimit, partitionKey: query.partitionKey });
           const recent = query.partitionKey ? [] : await recentIncidentHeadFast();
-          const merged = mergeIncidentHead(cached, recent).slice(0, 1000);
+          const merged = mergeIncidentHead(cached, recent).slice(0, requestedLimit);
           // The read model intentionally stores lightweight incident rows, but
           // the explorer still needs the authoritative related-work mapping.
           // Without this enrichment, incidents with child tickets appear to
@@ -172,7 +175,10 @@ module.exports = async function (context, req) {
           context.log.warn('Operations incident read model unavailable; falling back to SharePoint:', error.message);
         }
       }
-      let incidents = await sharePoint.listIncidentRows(5000);
+      const requestedLimit = String(query.limit || '').toLowerCase() === 'all'
+        ? 10000
+        : Math.max(1, Math.min(Number(query.limit) || 1000, 2000));
+      let incidents = await sharePoint.listIncidentRows(requestedLimit);
       try {
         incidents = await sharePoint.attachConfiguredWorkItems(incidents, Infinity);
       } catch (error) {
@@ -676,7 +682,12 @@ function normalizePath(path) {
 function filterIncidents(items, query) {
   const status = String(query.status || '').trim().toUpperCase();
   const search = String(query.search || '').trim().toLowerCase();
+  const from = Date.parse(String(query.from || ''));
+  const to = Date.parse(String(query.to || ''));
   return (items || []).filter(item => {
+    const firstSeen = Date.parse(item.firstSeen || item.receivedAt || item.createdAt || '');
+    if (Number.isFinite(from) && (!Number.isFinite(firstSeen) || firstSeen < from)) return false;
+    if (Number.isFinite(to) && (!Number.isFinite(firstSeen) || firstSeen >= to)) return false;
     const statusMatch = !status || [item.status, item.trackingStatus, item.workflowStatus, item.adoState]
       .some(value => String(value || '').toUpperCase() === status);
     const workItemSearch = (item.workItems || []).flatMap(workItem => [

@@ -4,6 +4,13 @@ import { AdoStateBadge, displayStatus, EmptyState, ErrorState, formatBangkokTime
 import type { AdoConnectionStatus, AuditEvent, Incident, OperationsCapabilities, RelatedTicketPreview } from '../types';
 import { isOperationsClosed, isReadyToClose, isWaitingForAlertRecovery, isWaitingForSupport, operationsStatus } from '../incidentStatus';
 
+function incidentMonthRange() {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const [year, month] = today.slice(0, 7).split('-').map(Number);
+  const nextMonth = month === 12 ? `${year + 1}-01` : `${year}-${String(month + 1).padStart(2, '0')}`;
+  return { from: `${today.slice(0, 7)}-01T00:00:00+07:00`, to: `${nextMonth}-01T00:00:00+07:00` };
+}
+
 export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   const routeParams = incidentRouteParams();
   const [items, setItems] = useState<Incident[] | null>(null);
@@ -15,6 +22,8 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   // links still apply their requested filter.
   const [status, setStatus] = useState(routeParams.get('status') === 'ACTIVE' ? 'FOLLOW_UP' : routeParams.get('status') || 'FOLLOW_UP');
   const [search, setSearch] = useState(routeParams.get('search') || '');
+  const [periodScope, setPeriodScope] = useState('current-month');
+  const [resultLimit, setResultLimit] = useState('1000');
   const [alertStatus, setAlertStatus] = useState('');
   const [adoState, setAdoState] = useState('');
   const [lifecycle, setLifecycle] = useState('');
@@ -155,7 +164,8 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
       // The API returns primary incident rows without loading audit and
       // supporting work-item lists for every explorer refresh. Reusing one
       // request also prevents search from doubling SharePoint traffic.
-      const allPromise = operationsApi.incidents('', search);
+      const range = periodScope === 'current-month' ? incidentMonthRange() : {};
+      const allPromise = operationsApi.incidents('', search, { limit: resultLimit, ...range });
       const inventoryPromise = allPromise;
       const [allResult, inventoryResult] = await Promise.allSettled([allPromise, inventoryPromise]);
       const all = allResult.status === 'fulfilled' ? allResult.value : null;
@@ -182,7 +192,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
       setRefreshing(false);
     }
   };
-  useEffect(() => { void load(false); }, [status]);
+  useEffect(() => { void load(false); }, [status, periodScope, resultLimit]);
   useEffect(() => {
     const refreshWhenSafe = () => {
       if (hasLoadedOnce.current && document.visibilityState === 'visible' && !busy && !selected && !batchReview) void load();
@@ -418,12 +428,14 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
     <div className="ops-incident-controls">
       <form className="ops-incident-search" onSubmit={e => { e.preventDefault(); void load(false); }}><span aria-hidden="true">⌕</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search incidents…" aria-label="Search incidents" /><button className="ops-button" type="submit">Search</button></form>
       <div className="ops-filter-grid">
+        <label className={`ops-filter-control${periodScope !== 'current-month' ? ' is-selected' : ''}`}><span>PERIOD</span><select value={periodScope} onChange={e => { setPeriodScope(e.target.value); setPage(1); }} aria-label="Filter by period"><option value="current-month">Current month</option><option value="all">All time</option></select></label>
+        <label className={`ops-filter-control${resultLimit !== '1000' ? ' is-selected' : ''}`}><span>LOAD</span><select value={resultLimit} onChange={e => { setResultLimit(e.target.value); setPage(1); }} aria-label="Number of incidents to load"><option value="1000">1,000</option><option value="2000">2,000</option><option value="all">All</option></select></label>
         <label className={`ops-filter-control${status ? ' is-selected' : ''}`}><span>QUEUE</span><select value={status} onChange={e => setStatus(e.target.value)} aria-label="Filter by queue">{queueOptions.map(option => <option value={option.value} key={option.value}>{option.label} ({option.count})</option>)}</select></label>
         <label className={`ops-filter-control${alertStatus ? ' is-selected' : ''}`}><span>ALERT</span><select value={alertStatus} onChange={e => { setAlertStatus(e.target.value); setPage(1); }}><option value="">All</option>{alertOptions.map(value => <option value={value} key={value}>{displayStatus(value)}</option>)}</select></label>
         <label className={`ops-filter-control${adoState ? ' is-selected' : ''}`}><span>ADO STATE</span><select value={adoState} onChange={e => { setAdoState(e.target.value); setPage(1); }}><option value="">All</option>{adoStateOptions.map(value => <option value={value} key={value}>{value}</option>)}{overviewItems.some(item => !item.workItemId) && <option value="NOT_CREATED">Not created</option>}{overviewItems.some(item => item.workItemId && !item.adoState) && <option value="UNKNOWN">Unknown</option>}</select></label>
         <label className={`ops-filter-control${lifecycle ? ' is-selected' : ''}`}><span>OPERATIONS STATUS</span><select value={lifecycle} onChange={e => { setLifecycle(e.target.value); setPage(1); }}><option value="">All</option>{operationsStatusOptions.map(value => <option value={value} key={value}>{displayStatus(value)}</option>)}</select></label>
         <label className={`ops-filter-control${assignee ? ' is-selected' : ''}`}><span>ASSIGNEE</span><select value={assignee} onChange={e => { setAssignee(e.target.value); setPage(1); }}><option value="">All</option>{assigneeOptions.map(value => <option value={value} key={value}>{value}</option>)}</select></label>
-        <button className="ops-button ops-button-secondary ops-clear-filters" type="button" onClick={() => { setStatus('FOLLOW_UP'); setAlertStatus(''); setAdoState(''); setLifecycle(''); setAssignee(''); setSearch(''); setPage(1); }}>Clear filters</button>
+        <button className="ops-button ops-button-secondary ops-clear-filters" type="button" onClick={() => { setStatus('FOLLOW_UP'); setPeriodScope('current-month'); setResultLimit('1000'); setAlertStatus(''); setAdoState(''); setLifecycle(''); setAssignee(''); setSearch(''); setPage(1); }}>Clear filters</button>
       </div>
     </div>
     {error && <ErrorState message={error} onRetry={load} />}

@@ -181,7 +181,7 @@ async function getListId(listName) {
 }
 
 async function listItems(maxItems, listName, filter) {
-  const maximum = maxItems === Infinity ? Infinity : Math.max(1, Math.min(Number(maxItems) || 500, 5000));
+  const maximum = maxItems === Infinity ? Infinity : Math.max(1, Math.min(Number(maxItems) || 500, 10000));
   const siteId = await getSiteId();
   const listId = await getListId(listName);
   const token = await getAccessToken();
