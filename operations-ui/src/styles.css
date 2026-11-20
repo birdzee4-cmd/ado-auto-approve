@@ -244,6 +244,12 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-incident-overview span { align-self: center; color: var(--ops-muted); font-size: .76rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .ops-incident-overview strong { grid-row: span 2; font-size: 2rem; line-height: 1; }
 .ops-incident-overview small { color: #918c82; }
+.ops-incident-data-controls { display: flex; justify-content: flex-end; align-items: end; gap: 8px; margin: 0 2px 6px; }
+.ops-incident-data-controls .ops-filter-control { width: 174px; }
+.ops-incident-data-controls .ops-filter-control:last-child { width: 96px; }
+.ops-incident-data-controls .ops-filter-control > span { color: #9b9488; font-size: .58rem; }
+.ops-incident-data-controls .ops-filter-control select { min-height: 34px; padding: 6px 9px; border-color: #d9d1c2; color: #625d55; font-size: .78rem; background: rgba(255,254,250,.7); }
+.ops-incident-data-controls .ops-filter-control.is-selected select { border-color: #b8ae9e; background: #f3efe6; color: #4c473f; box-shadow: none; }
 .ops-incident-controls { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, 3.5fr); align-items: end; gap: 12px; margin-bottom: 14px; padding: 13px; border: 1px solid var(--ops-line); border-radius: 10px; background: rgba(255,254,250,.75); }
 .ops-incident-search { min-width: 0; display: flex; align-items: center; gap: 8px; }
 .ops-incident-search > span { margin-left: 4px; color: #888176; font-size: 1.3rem; }
