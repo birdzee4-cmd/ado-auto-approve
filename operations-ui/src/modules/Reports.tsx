@@ -99,8 +99,8 @@ export function Reports() {
   }
   return <section>
     <PageHeading eyebrow="Daily, weekly & monthly insights" title="Incident Report" actions={<>
-      <label className="ops-date-control"><span>Period</span><select value={period} onChange={event => setPeriod(event.target.value)}><option value="today">Today</option><option value="week">Weekly</option><option value="month">Monthly</option></select></label>
-      <label className="ops-date-control"><span>{period === 'today' ? 'Today · Bangkok' : 'Date within period'}</span><input type="date" disabled={period === 'today'} required value={date} onChange={event => { if (event.target.value) setDate(event.target.value); }} /></label>
+      <label className="ops-date-control"><span>Period</span><select value={period} onChange={event => { const value = event.target.value; setPeriod(value); if (value === 'today') setDate(bangkokToday()); else if (value === 'month') setDate(`${date.slice(0, 7)}-01`); }}><option value="today">Today</option><option value="week">Weekly</option><option value="month">Monthly</option></select></label>
+      <label className="ops-date-control"><span>{period === 'today' ? 'Today · Bangkok' : period === 'month' ? 'Month · Bangkok' : 'Date within period'}</span><input type={period === 'month' ? 'month' : 'date'} disabled={period === 'today'} required value={period === 'month' ? date.slice(0, 7) : date} onChange={event => { if (event.target.value) setDate(period === 'month' ? `${event.target.value}-01` : event.target.value); }} /></label>
       <button className="ops-button" onClick={() => setRefresh(value => value + 1)}>Refresh</button>
       <button className="ops-button ops-button-secondary" disabled={!data} onClick={exportCsv}>Export CSV</button>
     </>} />
