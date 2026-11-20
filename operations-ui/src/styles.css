@@ -583,9 +583,12 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-report-page .ops-report-frequency { border-top: 4px solid #202126; }
 .ops-report-page .ops-report-reliability { border-top: 4px solid #b87900; }
 .ops-report-page .ops-investigation { border-top: 4px solid #202126; }
-.ops-report-page .ops-panel-heading { padding: 20px 22px; border-bottom: 1px solid #ded7ca; background: #fff; }
-.ops-report-page .ops-panel-heading p { margin: 0 0 6px; color: #b27600; font-size: .68rem; font-weight: 800; letter-spacing: .1em; }
-.ops-report-page .ops-panel-heading h2 { margin: 0; color: #202126; font-size: 1.15rem; }
+.ops-report-page .ops-panel-heading { padding: 18px 22px; border-bottom: 1px solid #38393f; background: #202126; color: #fff; }
+.ops-report-page .ops-panel-heading p { margin: 0 0 6px; color: #f5a400; font-size: .68rem; font-weight: 800; letter-spacing: .1em; }
+.ops-report-page .ops-panel-heading h2 { margin: 0; color: #fff; font-size: 1.15rem; }
+.ops-report-page .ops-panel-heading label { color: rgba(255,255,255,.9); }
+.ops-report-page .ops-panel-heading input[type="checkbox"] { accent-color: #f5a400; }
+.ops-report-page .ops-panel-heading .ops-button-secondary { border-color: rgba(255,255,255,.45); background: transparent; color: #fff; }
 .ops-report-count { color: #946000; font-size: .75rem; font-weight: 700; }
 .ops-report-page .ops-report-table th { background: #202126; color: #f5a400; font-size: .65rem; letter-spacing: .08em; text-transform: uppercase; }
 .ops-report-page .ops-report-table td { color: #3c3933; font-size: .82rem; }
