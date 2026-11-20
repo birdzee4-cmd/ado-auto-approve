@@ -153,6 +153,18 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
     closed: overviewItems.filter(isOperationsClosed).length
   };
 
+  const selectQueue = (nextStatus: string) => {
+    setStatus(nextStatus);
+    if (nextStatus === 'FOLLOW_UP' || nextStatus === 'OPEN_INCIDENTS') {
+      setPeriodScope('all');
+      setResultLimit('all');
+    } else {
+      setPeriodScope('current-month');
+      setResultLimit('1000');
+    }
+    setPage(1);
+  };
+
   const load = async (preservePage = true) => {
     if (refreshInFlight.current) return;
     refreshInFlight.current = true;
@@ -422,11 +434,11 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
     {syncResults.length > 0 && <div className="ops-sync-summary"><p role="status">{syncProgress ? 'Synchronization progress:' : 'Synchronization complete:'} {syncResults.filter(item => item.ok && !item.skipped).length} succeeded · {syncResults.filter(item => item.skipped).length} skipped · {syncResults.filter(item => !item.ok).length} failed.</p>{syncResults.some(item => !item.ok) && <><button className="ops-button ops-button-secondary" disabled={busy || refreshing || !connection?.connected || !capabilities.synchronize} onClick={() => void synchronizeIncidents(syncResults.filter(item => !item.ok).map(item => item.incidentId))}>Retry failed incidents</button><ul>{syncResults.filter(item => !item.ok).map(item => <li key={item.incidentId}>{overviewItems.find(incident => incident.incidentId === item.incidentId)?.displayId || item.incidentId}: {item.detail}</li>)}</ul></>}</div>}
 
     <div className="ops-incident-overview" aria-label="Incident overview">
-      <button className={status === 'ACTION_REQUIRED' ? 'is-active is-warning' : overview.actionRequired > 0 ? 'is-warning is-critical' : ''} onClick={() => setStatus('ACTION_REQUIRED')}><span>Needs action</span><strong>{overview.actionRequired}</strong><small>Review or take action</small></button>
-      <button className={status === 'WAITING_RESOLVED' ? 'is-active' : ''} onClick={() => setStatus('WAITING_RESOLVED')}><span>Awaiting alert recovery</span><strong>{overview.waiting}</strong><small>Alert still firing</small></button>
-      <button className={status === 'READY_TO_CLOSE' ? 'is-active' : ''} onClick={() => setStatus('READY_TO_CLOSE')}><span>Ready to close</span><strong>{overview.readyToClose}</strong><small>Alert recovered, tickets closed</small></button>
-      <button className={status === 'FOLLOW_UP' || status === 'OPEN_INCIDENTS' ? 'is-active' : ''} onClick={() => { setStatus('FOLLOW_UP'); setPeriodScope('all'); setResultLimit('all'); setPage(1); }}><span>Follow up</span><strong>{overview.open}</strong><small>All open follow-up work</small></button>
-      <button className={status === '' ? 'is-active' : ''} onClick={() => setStatus('')}><span>All incidents</span><strong>{overview.total}</strong><small>Active and closed history</small></button>
+      <button className={status === 'ACTION_REQUIRED' ? 'is-active is-warning' : overview.actionRequired > 0 ? 'is-warning is-critical' : ''} onClick={() => selectQueue('ACTION_REQUIRED')}><span>Needs action</span><strong>{overview.actionRequired}</strong><small>Review or take action</small></button>
+      <button className={status === 'WAITING_RESOLVED' ? 'is-active' : ''} onClick={() => selectQueue('WAITING_RESOLVED')}><span>Awaiting alert recovery</span><strong>{overview.waiting}</strong><small>Alert still firing</small></button>
+      <button className={status === 'READY_TO_CLOSE' ? 'is-active' : ''} onClick={() => selectQueue('READY_TO_CLOSE')}><span>Ready to close</span><strong>{overview.readyToClose}</strong><small>Alert recovered, tickets closed</small></button>
+      <button className={status === 'FOLLOW_UP' || status === 'OPEN_INCIDENTS' ? 'is-active' : ''} onClick={() => selectQueue('FOLLOW_UP')}><span>Follow up</span><strong>{overview.open}</strong><small>All open follow-up work</small></button>
+      <button className={status === '' ? 'is-active' : ''} onClick={() => selectQueue('')}><span>All incidents</span><strong>{overview.total}</strong><small>Active and closed history</small></button>
     </div>
     <div className="ops-incident-data-controls" aria-label="Incident data scope">
       <label className={`ops-filter-control${periodScope !== 'current-month' ? ' is-selected' : ''}`}><span>PERIOD</span><select value={periodScope} onChange={e => { setPeriodScope(e.target.value); setPage(1); }} aria-label="Filter by period"><option value="current-month">Current month</option><option value="all">All time</option></select></label>
@@ -435,7 +447,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
     <div className="ops-incident-controls">
       <form className="ops-incident-search" onSubmit={e => { e.preventDefault(); void load(false); }}><span aria-hidden="true">⌕</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search incidents…" aria-label="Search incidents" /><button className="ops-button" type="submit">Search</button></form>
       <div className="ops-filter-grid">
-        <label className={`ops-filter-control${status ? ' is-selected' : ''}`}><span>QUEUE</span><select value={status} onChange={e => setStatus(e.target.value)} aria-label="Filter by queue">{queueOptions.map(option => <option value={option.value} key={option.value}>{option.label} ({option.count})</option>)}</select></label>
+        <label className={`ops-filter-control${status ? ' is-selected' : ''}`}><span>QUEUE</span><select value={status} onChange={e => selectQueue(e.target.value)} aria-label="Filter by queue">{queueOptions.map(option => <option value={option.value} key={option.value}>{option.label} ({option.count})</option>)}</select></label>
         <label className={`ops-filter-control${alertStatus ? ' is-selected' : ''}`}><span>ALERT</span><select value={alertStatus} onChange={e => { setAlertStatus(e.target.value); setPage(1); }}><option value="">All</option>{alertOptions.map(value => <option value={value} key={value}>{displayStatus(value)}</option>)}</select></label>
         <label className={`ops-filter-control${adoState ? ' is-selected' : ''}`}><span>ADO STATE</span><select value={adoState} onChange={e => { setAdoState(e.target.value); setPage(1); }}><option value="">All</option>{adoStateOptions.map(value => <option value={value} key={value}>{value}</option>)}{overviewItems.some(item => !item.workItemId) && <option value="NOT_CREATED">Not created</option>}{overviewItems.some(item => item.workItemId && !item.adoState) && <option value="UNKNOWN">Unknown</option>}</select></label>
         <label className={`ops-filter-control${lifecycle ? ' is-selected' : ''}`}><span>OPERATIONS STATUS</span><select value={lifecycle} onChange={e => { setLifecycle(e.target.value); setPage(1); }}><option value="">All</option>{operationsStatusOptions.map(value => <option value={value} key={value}>{displayStatus(value)}</option>)}</select></label>
