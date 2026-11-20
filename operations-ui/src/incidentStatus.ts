@@ -1,7 +1,14 @@
 import type { Incident } from './types';
 
 export function isOperationsClosed(item: Incident) {
-  return String(item.operationsStatus || '').toUpperCase() === 'CLOSED';
+  // A stale OperationsStatus=CLOSED must not hide an open child ticket.
+  // Supporting work is authoritative for whether the incident can be treated
+  // as completed in the explorer.
+  return String(item.operationsStatus || '').toUpperCase() === 'CLOSED' && !hasOpenRelatedWork(item);
+}
+
+function hasOpenRelatedWork(item: Incident) {
+  return item.workItems.some(workItem => workItem.role === 'RELATED' && !['CLOSED', 'DONE', 'REMOVED', 'RESOLVED', 'REJECT', 'REJECTED'].includes(String(workItem.state || '').trim().toUpperCase()));
 }
 
 export function isWaitingForAlertRecovery(item: Incident) {
@@ -12,7 +19,7 @@ export function isWaitingForSupport(item: Incident) {
   // An open child ticket is the authoritative signal that a support team is
   // still working. Legacy primary metadata must not hide this queue.
   return !isOperationsClosed(item)
-    && item.workItems.some(workItem => workItem.role === 'RELATED' && !['CLOSED', 'DONE', 'REMOVED', 'RESOLVED', 'REJECT', 'REJECTED'].includes(String(workItem.state || '').trim().toUpperCase()));
+    && hasOpenRelatedWork(item);
 }
 
 export function isReadyToClose(item: Incident) {
