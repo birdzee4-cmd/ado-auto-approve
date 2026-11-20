@@ -224,10 +224,11 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 
 .ops-live-label { display: inline-flex; align-items: center; gap: 8px; color: var(--ops-muted); font-size: .78rem; font-weight: 700; }
 .ops-live-label i { width: 8px; height: 8px; border-radius: 50%; background: var(--ops-green); box-shadow: 0 0 0 4px rgba(19,138,98,.12); }
-.ops-refresh-status { display: grid; grid-template-columns: minmax(180px, 1fr) auto; align-items: center; gap: 5px 16px; min-width: min(100%, 760px); padding: 14px 16px; border: 1px solid var(--ops-line); border-radius: 10px; background: rgba(255,254,250,.78); box-shadow: 0 8px 22px rgba(42,37,27,.045); }
-.ops-refresh-status .ops-live-label { grid-column: 1; grid-row: 1; justify-self: start; }
-.ops-refresh-status > small { grid-column: 1; grid-row: 2; justify-self: start; color: var(--ops-muted); font-size: .7rem; }
-.ops-refresh-status > .ops-sync-controls { grid-column: 2; grid-row: 1 / span 2; }
+.ops-refresh-status { display: grid; grid-template-columns: minmax(180px, 1fr) auto; grid-template-rows: auto auto; align-items: center; gap: 10px 16px; min-width: min(100%, 760px); padding: 13px 16px; border: 1px solid var(--ops-line); border-radius: 10px; background: rgba(255,254,250,.78); box-shadow: 0 8px 22px rgba(42,37,27,.045); }
+.ops-system-status { grid-column: 1; grid-row: 1 / span 2; display: grid; gap: 6px; align-content: center; justify-items: start; }
+.ops-system-status > small { color: var(--ops-muted); font-size: .7rem; }
+.ops-refresh-status > .ops-sync-controls { grid-column: 2; grid-row: 1; }
+.ops-admin-controls { grid-column: 2; grid-row: 2; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .ops-refreshing-indicator { grid-column: 1; display: inline-flex; align-items: center; justify-self: start; gap: 6px; color: #75613a; font-size: .7rem; font-weight: 700; }
 .ops-refreshing-indicator .ops-spinner { width: 12px; height: 12px; border-width: 2px; border-top-color: var(--ops-yellow-deep); }
 .ops-incident-overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 11px; margin-bottom: 14px; }
@@ -493,10 +494,12 @@ td small { margin-top: 3px; color: var(--ops-muted); }
   .ops-kpi-grid, .ops-integration-grid { grid-template-columns: 1fr; }
   .ops-kpi { min-height: 125px; }
   .ops-live-label { display: none; }
-  .ops-refresh-status { grid-template-columns: 1fr; justify-items: end; }
-  .ops-refresh-status > button { grid-column: 1; grid-row: 1; min-width: 104px; }
-  .ops-refresh-status > small { grid-row: 2; }
-  .ops-refreshing-indicator { grid-row: 3; justify-self: end; }
+  .ops-refresh-status { grid-template-columns: 1fr; justify-items: stretch; }
+  .ops-system-status, .ops-refresh-status > .ops-sync-controls, .ops-admin-controls { grid-column: 1; }
+  .ops-system-status { grid-row: 1; }
+  .ops-refresh-status > .ops-sync-controls { grid-row: 2; justify-content: flex-start; }
+  .ops-admin-controls { grid-row: 3; justify-content: flex-start; }
+  .ops-refreshing-indicator { justify-self: start; }
   .ops-incident-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ops-incident-overview button { min-height: 96px; padding: 14px; }
   .ops-incident-overview strong { font-size: 1.65rem; }
@@ -616,7 +619,7 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-refresh-status > .ops-sync-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 .ops-sync-controls select { max-width: 230px; padding: 10px; border: 1px solid var(--ops-border); border-radius: 6px; background: #fff; color: inherit; }
 .ops-sync-summary { margin: 12px 0; padding: 12px; border: 1px solid var(--ops-border); border-radius: 8px; }
-@media (max-width: 760px) { .ops-refresh-status > .ops-sync-controls { grid-column: 1; grid-row: auto; justify-content: flex-end; } }
+@media (max-width: 760px) { .ops-refresh-status > .ops-sync-controls { grid-column: 1; grid-row: 2; justify-content: flex-start; } }
 
 .ops-investigation { scroll-margin-top: 100px; }
 .ops-investigation-summary { padding: 0 20px 20px; overflow-wrap: anywhere; }
