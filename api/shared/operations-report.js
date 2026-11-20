@@ -24,10 +24,14 @@ function buildReport(items, query = {}, now = new Date()) {
     bangkokNoon.setUTCDate(bangkokNoon.getUTCDate() - (bangkokNoon.getUTCDay() + 6) % 7);
     start.setTime(bangkokMidnight(bangkokKey(bangkokNoon)).getTime());
   }
-  else if (period === 'month') start.setUTCDate(1);
+  else if (period === 'month') start.setTime(bangkokMidnight(`${selected.slice(0, 7)}-01`).getTime());
   const next = new Date(start);
   if (period === 'week') next.setUTCDate(next.getUTCDate() + 7);
-  else if (period === 'month') next.setUTCMonth(next.getUTCMonth() + 1);
+  else if (period === 'month') {
+    const nextMonth = new Date(Date.UTC(Number(selected.slice(0, 4)), Number(selected.slice(5, 7)) - 1, 1));
+    nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1);
+    next.setTime(bangkokMidnight(`${nextMonth.getUTCFullYear()}-${String(nextMonth.getUTCMonth() + 1).padStart(2, '0')}-01`).getTime());
+  }
   else next.setUTCDate(next.getUTCDate() + 1);
   const startKey = bangkokKey(start), nextKey = bangkokKey(next);
   const dated = items.map(item => ({ item, date: dateKey(item.firstSeen || item.receivedAt || item.createdAt) }));
@@ -68,10 +72,14 @@ function buildReport(items, query = {}, now = new Date()) {
     if (item.status === 'FIRING') row.active++;
   }
   const daily = [];
-  for (const day = new Date(start); day < next; day.setUTCDate(day.getUTCDate() + 1)) {
+  // Iterate using Bangkok calendar dates. Incrementing UTC dates from a
+  // Bangkok-midnight instant shifts the displayed day by one at UTC+07.
+  const dailyStart = new Date(`${startKey}T12:00:00+07:00`);
+  const dailyEnd = new Date(`${nextKey}T12:00:00+07:00`);
+  for (const day = dailyStart; day < dailyEnd; day.setUTCDate(day.getUTCDate() + 1)) {
     const date = bangkokKey(day); daily.push({ date, count: dated.filter(row => row.date === date).length });
   }
-  const end = new Date(next); end.setUTCDate(end.getUTCDate() - 1);
+  const end = new Date(dailyEnd); end.setUTCDate(end.getUTCDate() - 1);
   return { handoffs, period, start: startKey, end: bangkokKey(end), generatedAt: now.toISOString(), total: incidents.length,
     recovered: incidents.filter(item => item.status === 'RESOLVED').length,
     active: incidents.filter(item => item.status === 'FIRING').length,
