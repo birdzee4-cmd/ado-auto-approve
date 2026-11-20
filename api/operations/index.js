@@ -506,14 +506,30 @@ async function handleWrite(context, req, path, principal) {
 
 function extractSafeAdoImages(html) {
   const images = [];
-  const source = String(html || '');
-  const pattern = /<img\b[^>]*\bsrc=["'](https:\/\/[^"']+)["'][^>]*>/gi;
+  // ADO returns comment rich text in several forms depending on how the
+  // image was added: HTML, HTML-encoded HTML, or Markdown. Normalize the
+  // common entity encoding first, then inspect all supported forms.
+  const source = String(html || '')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#34;/gi, '"')
+    .replace(/&#x22;/gi, '"')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>');
+  const candidates = [];
+  const htmlPattern = /<img\b[^>]*\bsrc\s*=\s*["'](https:\/\/[^"']+)["'][^>]*>/gi;
+  const markdownPattern = /!\[[^\]]*\]\(\s*<?(https:\/\/[^\s)>]+)>?\s*\)/gi;
   let match;
-  while ((match = pattern.exec(source)) && images.length < 20) {
+  while ((match = htmlPattern.exec(source))) candidates.push(match[1]);
+  while ((match = markdownPattern.exec(source))) candidates.push(match[1]);
+  for (const candidate of candidates) {
+    if (images.length >= 20) break;
     try {
-      const url = new URL(match[1]);
+      const url = new URL(candidate);
       const host = url.hostname.toLowerCase();
-      if (host === 'dev.azure.com' || host.endsWith('.visualstudio.com')) images.push({ url: url.toString() });
+      if ((host === 'dev.azure.com' || host.endsWith('.visualstudio.com')) && !images.some(image => image.url === url.toString())) {
+        images.push({ url: url.toString() });
+      }
     } catch (_) { /* ignore malformed image URLs */ }
   }
   return images;
