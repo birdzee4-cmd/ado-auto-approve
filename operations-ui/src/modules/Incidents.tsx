@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { loadAdoConnection, operationsApi } from '../api';
 import { AdoStateBadge, displayStatus, EmptyState, ErrorState, formatBangkokTimestamp, LoadingState, PageHeading, parseUtcTimestamp, StatusBadge } from '../components';
 import type { AdoConnectionStatus, AuditEvent, Incident, OperationsCapabilities, RelatedTicketPreview } from '../types';
-import { isOperationsClosed, operationsStatus } from '../incidentStatus';
+import { isOperationsClosed, isReadyToClose, isWaitingForAlertRecovery, operationsStatus } from '../incidentStatus';
 
 export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   const routeParams = incidentRouteParams();
@@ -13,7 +13,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   const [showTechnicalEvents, setShowTechnicalEvents] = useState(false);
   // Open the Incident page on actionable work by default. Explicit status
   // links still apply their requested filter.
-  const [status, setStatus] = useState(routeParams.get('status') === 'ACTIVE' ? 'OPEN_INCIDENTS' : routeParams.get('status') || 'OPEN_INCIDENTS');
+  const [status, setStatus] = useState(routeParams.get('status') === 'ACTIVE' ? 'FOLLOW_UP' : routeParams.get('status') || 'FOLLOW_UP');
   const [search, setSearch] = useState(routeParams.get('search') || '');
   const [alertStatus, setAlertStatus] = useState('');
   const [adoState, setAdoState] = useState('');
@@ -85,7 +85,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
     { value: 'ACTION_REQUIRED', label: 'Needs action', count: overviewItems.filter(isActionRequired).length },
     { value: 'WAITING_RESOLVED', label: 'Waiting for alert recovery', count: overviewItems.filter(item => operationsStatus(item) === 'WAITING_RESOLVED').length },
     { value: 'READY_TO_CLOSE', label: 'Ready to close', count: overviewItems.filter(item => operationsStatus(item) === 'READY_TO_CLOSE').length },
-    { value: 'OPEN_INCIDENTS', label: 'Active incidents', count: overviewItems.filter(item => !isOperationsClosed(item)).length },
+    { value: 'FOLLOW_UP', label: 'Follow up', count: overviewItems.filter(isFollowUpItem).length },
     { value: '', label: 'All incidents', count: overviewItems.length },
   ];
   const filteredItems = sortedItems.filter(item => {
@@ -136,7 +136,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   };
   const overview = {
     total: overviewItems.length,
-    open: overviewItems.filter(item => !isOperationsClosed(item)).length,
+    open: overviewItems.filter(isFollowUpItem).length,
     actionRequired: overviewItems.filter(isActionRequired).length,
     waiting: overviewItems.filter(item => operationsStatus(item) === 'WAITING_RESOLVED').length,
     waitingSupport: overviewItems.filter(item => operationsStatus(item) === 'WAITING_SUPPORT').length,
@@ -164,7 +164,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
       if (!all && !inventory) throw (allResult.status === 'rejected' ? allResult.reason : inventoryResult.status === 'rejected' ? inventoryResult.reason : new Error('Unable to read Operations Hub incidents'));
       const sourceItems = all?.items || [];
       setItems(sourceItems.filter(item => {
-        if (status === 'OPEN_INCIDENTS') return !isOperationsClosed(item);
+        if (status === 'OPEN_INCIDENTS' || status === 'FOLLOW_UP') return isFollowUpItem(item);
         if (status === 'ATTENTION') return isFollowUpItem(item);
         if (status === 'ACTION_REQUIRED') return isActionRequired(item);
         return !status || operationsStatus(item) === status;
@@ -413,7 +413,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
       <button className={status === 'ACTION_REQUIRED' ? 'is-active is-warning' : overview.actionRequired > 0 ? 'is-warning is-critical' : ''} onClick={() => setStatus('ACTION_REQUIRED')}><span>Needs action</span><strong>{overview.actionRequired}</strong><small>Review or take action</small></button>
       <button className={status === 'WAITING_RESOLVED' ? 'is-active' : ''} onClick={() => setStatus('WAITING_RESOLVED')}><span>Waiting for alert recovery</span><strong>{overview.waiting}</strong><small>Alert still firing</small></button>
       <button className={status === 'READY_TO_CLOSE' ? 'is-active' : ''} onClick={() => setStatus('READY_TO_CLOSE')}><span>Ready to close</span><strong>{overview.readyToClose}</strong><small>Alert recovered, tickets closed</small></button>
-      <button className={status === 'OPEN_INCIDENTS' ? 'is-active' : ''} onClick={() => setStatus('OPEN_INCIDENTS')}><span>Active incidents</span><strong>{overview.open}</strong><small>Includes incidents waiting for support</small></button>
+      <button className={status === 'FOLLOW_UP' || status === 'OPEN_INCIDENTS' ? 'is-active' : ''} onClick={() => setStatus('FOLLOW_UP')}><span>Follow up</span><strong>{overview.open}</strong><small>Work is in progress or waiting for support</small></button>
       <button className={status === '' ? 'is-active' : ''} onClick={() => setStatus('')}><span>All incidents</span><strong>{overview.total}</strong><small>Active and closed history</small></button>
     </div>
     <div className="ops-incident-controls">
@@ -424,7 +424,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
         <label className={`ops-filter-control${adoState ? ' is-selected' : ''}`}><span>ADO STATE</span><select value={adoState} onChange={e => { setAdoState(e.target.value); setPage(1); }}><option value="">All</option>{adoStateOptions.map(value => <option value={value} key={value}>{value}</option>)}{overviewItems.some(item => !item.workItemId) && <option value="NOT_CREATED">Not created</option>}{overviewItems.some(item => item.workItemId && !item.adoState) && <option value="UNKNOWN">Unknown</option>}</select></label>
         <label className={`ops-filter-control${lifecycle ? ' is-selected' : ''}`}><span>OPERATIONS STATUS</span><select value={lifecycle} onChange={e => { setLifecycle(e.target.value); setPage(1); }}><option value="">All</option>{operationsStatusOptions.map(value => <option value={value} key={value}>{displayStatus(value)}</option>)}</select></label>
         <label className={`ops-filter-control${assignee ? ' is-selected' : ''}`}><span>ASSIGNEE</span><select value={assignee} onChange={e => { setAssignee(e.target.value); setPage(1); }}><option value="">All</option>{assigneeOptions.map(value => <option value={value} key={value}>{value}</option>)}</select></label>
-        <button className="ops-button ops-button-secondary ops-clear-filters" type="button" onClick={() => { setStatus('OPEN_INCIDENTS'); setAlertStatus(''); setAdoState(''); setLifecycle(''); setAssignee(''); setSearch(''); setPage(1); }}>Clear filters</button>
+        <button className="ops-button ops-button-secondary ops-clear-filters" type="button" onClick={() => { setStatus('FOLLOW_UP'); setAlertStatus(''); setAdoState(''); setLifecycle(''); setAssignee(''); setSearch(''); setPage(1); }}>Clear filters</button>
       </div>
     </div>
     {error && <ErrorState message={error} onRetry={load} />}
@@ -600,11 +600,17 @@ function hasInvalidResolutionTimeline(incident: Incident) {
 }
 
 function isActionRequired(item: Incident) {
-  return ['NEEDS_REVIEW', 'PENDING', 'FAILED', 'NOT_CREATED'].includes(operationsStatus(item));
+  if (isOperationsClosed(item) || isReadyToClose(item) || isWaitingForAlertRecovery(item)) return false;
+  const status = operationsStatus(item);
+  return ['NEEDS_REVIEW', 'PENDING', 'FAILED', 'NOT_CREATED', 'NEW'].includes(status)
+    || approvalStatus(item) === 'APPROVED';
 }
 
 function isFollowUpItem(item: Incident) {
-  return isActionRequired(item) || ['NEW', 'OPEN', 'IN_PROGRESS', 'WAITING_SUPPORT', 'WAITING_RESOLVED', 'READY_TO_CLOSE'].includes(operationsStatus(item));
+  return !isOperationsClosed(item)
+    && !isActionRequired(item)
+    && !isWaitingForAlertRecovery(item)
+    && !isReadyToClose(item);
 }
 
 function timelineForDisplay(events: AuditEvent[], showTechnical: boolean) {
