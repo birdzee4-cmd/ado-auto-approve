@@ -172,7 +172,13 @@ module.exports = async function (context, req) {
           context.log.warn('Operations incident read model unavailable; falling back to SharePoint:', error.message);
         }
       }
-      const incidents = filterIncidents(await sharePoint.listIncidentRows(5000), query);
+      let incidents = await sharePoint.listIncidentRows(5000);
+      try {
+        incidents = await sharePoint.attachConfiguredWorkItems(incidents, Infinity);
+      } catch (error) {
+        context.log.warn('Operations related-work fallback enrichment unavailable:', error.message);
+      }
+      incidents = filterIncidents(incidents, query);
       return jsonResponse(context, 200, { ok: true, data: { items: incidents, count: incidents.length } });
     }
 

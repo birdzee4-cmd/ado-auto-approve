@@ -337,7 +337,10 @@ async function listConfiguredWorkItems(maxItems) {
   return listWorkItems(maxItems || 1000, config.workItemsListName);
 }
 
-async function attachConfiguredWorkItems(incidents, maxItems = 1000) {
+// The Incident explorer must not silently lose older child tickets when the
+// supporting list grows beyond the normal bounded dashboard read. Report and
+// explorer views need the complete relationship set to classify incidents.
+async function attachConfiguredWorkItems(incidents, maxItems = Infinity) {
   const related = await listConfiguredWorkItems(maxItems);
   return workItems.attachWorkItems(incidents, related);
 }
