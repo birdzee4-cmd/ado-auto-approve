@@ -573,6 +573,7 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-report-page .ops-date-control span { display: block; margin-bottom: 5px; color: #766f64; font-size: .65rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .ops-report-page .ops-date-control select, .ops-report-page .ops-date-control input { min-height: 38px; padding: 8px 11px; border: 1px solid #c9c0af; border-radius: 7px; background: #fff; color: #25231f; font: inherit; }
 .ops-report-page .ops-day-banner { border: 1px solid #202126; background: #202126; box-shadow: 0 12px 26px rgba(32,33,38,.16); }
+.ops-report-page .ops-day-banner { margin-bottom: 0; }
 .ops-report-page .ops-day-banner span { color: #f5a400; font-size: .68rem; font-weight: 800; letter-spacing: .1em; }
 .ops-report-page .ops-day-banner strong { color: #fff; font-size: 1.25rem; }
 .ops-report-page .ops-kpi { min-height: 116px; border: 1px solid #d8d0c2; background: #fffdf8; box-shadow: 0 7px 18px rgba(42,37,27,.06); }
