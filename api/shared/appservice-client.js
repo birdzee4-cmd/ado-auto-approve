@@ -10,7 +10,9 @@ const restartCooldowns = new Map();
 function parseTargetConfig() {
   const raw = String(process.env.APP_SERVICE_TARGETS_JSON || '').trim();
   if (!raw) {
-    try { return require('../../config/appservice-targets.json'); } catch (err) { return null; }
+    try { return require('../../config/appservice-targets.json'); } catch (err) {
+      try { return require('../config/appservice-targets.json'); } catch (packageErr) { return null; }
+    }
   }
   try { return JSON.parse(raw); } catch (err) {
     throw createPublicError(503, 'APP_SERVICE_TARGETS_JSON is invalid');
