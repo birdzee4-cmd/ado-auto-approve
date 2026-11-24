@@ -86,6 +86,8 @@ export interface Incident {
   incidentId: string;
   alertName: string;
   resource: string;
+  country?: string;
+  countryCode?: string;
   environment?: string;
   metric: string;
   severity: string;
@@ -121,6 +123,8 @@ export interface Incident {
   lastSourceMessageId?: string;
   flowRunId?: string;
   subscription?: string;
+  subscriptionId?: string;
+  azureResourceId?: string;
   resourceGroup?: string;
   appServicePlan?: string;
   defaultHost?: string;

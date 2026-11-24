@@ -12,6 +12,9 @@ import {
 let allApps = [];
 let currentSettings = [];
 let selectedRestartApp = null;
+let selectedRestartMeta = null;
+let selectedCountry = 'TH';
+let selectedEnvironment = 'ALL';
 let currentPage = 1;
 let pageSize = 100;
 const cooldowns = {};
@@ -78,7 +81,10 @@ async function loadApps(forceRefresh) {
   setButtonLoading('btnRefreshApps', true, 'Loading...');
   setStatus('Loading App Services. Subscription-wide scope can take up to a few minutes on the first load...', '');
   try {
-    const url = '/api/appservices' + (forceRefresh ? '?refresh=true' : '');
+    const params = new URLSearchParams({ country: selectedCountry });
+    if (selectedEnvironment !== 'ALL') params.set('environment', selectedEnvironment);
+    if (forceRefresh) params.set('refresh', 'true');
+    const url = '/api/appservices?' + params.toString();
     const r = await safeFetchJson(url, { timeoutMs: APP_SERVICE_LIST_TIMEOUT_MS });
     if (!r.ok || !r.data || !r.data.ok) {
       const d = r.data || {};
@@ -148,6 +154,7 @@ function renderApps() {
     const restartClass = 'portal-action-btn restart' + (cooldownText ? ' cooldown' : '');
     return '<tr>' +
       '<td><strong>' + escapeHtml(app.name) + '</strong>' + (app.defaultHostName ? '<br><small>' + escapeHtml(app.defaultHostName) + '</small>' : '') + '</td>' +
+      '<td>' + escapeHtml(app.country || selectedCountry) + ' / ' + escapeHtml(app.environment || '-') + '</td>' +
       '<td><span class="status-badge ' + statusClass + '">' + escapeHtml(status) + '</span></td>' +
       '<td><span class="type-badge ' + typeClass + '">' + escapeHtml(typeText) + '</span></td>' +
       '<td>' + escapeHtml(app.resourceGroup || '-') + '</td>' +
@@ -297,7 +304,10 @@ async function openSettings(name) {
   focusSettingsSearch();
 
   try {
-    const r = await safeFetchJson('/api/appservice-settings?name=' + encodeURIComponent(name), { timeoutMs: 45000 });
+    const settingsParams = new URLSearchParams({ name, country: selectedCountry, environment: selectedEnvironment });
+    const app = allApps.find(item => item.name === name);
+    if (app && app.resourceGroup) settingsParams.set('resourceGroup', app.resourceGroup);
+    const r = await safeFetchJson('/api/appservice-settings?' + settingsParams.toString(), { timeoutMs: 45000 });
     if (!r.ok || !r.data || !r.data.ok) {
       const d = r.data || {};
       if (tbody) tbody.innerHTML = '';
@@ -470,7 +480,9 @@ function downloadBlob(content, fileName, mimeType) {
 
 function openRestart(name) {
   selectedRestartApp = name;
+  selectedRestartMeta = allApps.find(app => app.name === name) || { name };
   setText('restartTarget', name || '-');
+  setText('restartMetadata', [selectedRestartMeta.country || selectedCountry, selectedRestartMeta.environment || selectedEnvironment, selectedRestartMeta.resourceGroup || ''].filter(Boolean).join(' · '));
   openModal('restartModal');
 }
 
@@ -482,7 +494,7 @@ async function restartSelectedApp() {
     const r = await safeFetchJson('/api/restart-appservice', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, country: selectedRestartMeta.country || selectedCountry, environment: selectedRestartMeta.environment || selectedEnvironment, resourceGroup: selectedRestartMeta.resourceGroup || '' }),
       timeoutMs: 45000
     });
     if (!r.ok || !r.data || !r.data.ok) {
@@ -555,6 +567,10 @@ function formatDiagnostics(diagnostics) {
     });
 
     bind('btnRefreshApps', () => loadApps(true));
+    const countrySelect = document.getElementById('countrySelect');
+    const environmentSelect = document.getElementById('environmentSelect');
+    if (countrySelect) countrySelect.addEventListener('change', () => { selectedCountry = countrySelect.value; currentPage = 1; loadApps(false); });
+    if (environmentSelect) environmentSelect.addEventListener('change', () => { selectedEnvironment = environmentSelect.value; currentPage = 1; loadApps(false); });
     bind('btnConfirmRestart', restartSelectedApp);
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {

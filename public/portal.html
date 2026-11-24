@@ -55,6 +55,8 @@
     </section>
 
     <section class="portal-toolbar">
+      <label class="portal-search"><span>Country</span><select id="countrySelect"><option value="TH">Thailand</option><option value="MY">Malaysia</option><option value="ID">Indonesia</option><option value="PH">Philippines</option><option value="VN">Vietnam</option></select></label>
+      <label class="portal-search"><span>Environment</span><select id="environmentSelect"><option value="ALL">All</option><option value="STG">STG</option><option value="PRD">PRD</option></select></label>
       <label class="portal-search">
         <span>Search</span>
         <input id="searchInput" type="search" placeholder="Search App Service..." autocomplete="off" />
@@ -72,6 +74,7 @@
         <thead>
           <tr>
             <th>App Service Name</th>
+            <th>Country / Environment</th>
             <th>Status</th>
             <th>Type</th>
             <th>Resource Group</th>
@@ -148,6 +151,7 @@
       <div class="modal-body">
         <p>You are about to restart:</p>
         <div class="restart-target" id="restartTarget">-</div>
+        <div id="restartMetadata" class="portal-muted"></div>
         <p class="modal-warning">This action may interrupt active staging tests briefly.</p>
       </div>
       <div class="modal-actions">

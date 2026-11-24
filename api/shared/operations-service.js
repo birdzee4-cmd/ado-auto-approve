@@ -32,12 +32,24 @@ async function restartAppService(input, context, dependencies = {}) {
   const actor = context.operationsIdentity?.email || context.operationsIdentity?.name || 'Operations Hub';
   let result;
   try {
-    const subscriptionId = String(incident.environment || '').toLowerCase().includes('prod')
+    let subscriptionId = String(incident.environment || '').toLowerCase().includes('prod')
       ? process.env.APP_SERVICE_PROD_SUBSCRIPTION_ID
       : process.env.APP_SERVICE_SUBSCRIPTION_ID;
+    const country = String(incident.country || incident.countryCode || '').trim().toUpperCase();
+    const environment = String(incident.environment || '').trim().toUpperCase();
+    if (country) {
+      try {
+        const client = require('./appservice-client');
+        subscriptionId = client.getTarget(country, environment).subscriptionId;
+      } catch (targetError) {
+        throw operationalError(targetError.statusCode || 422, 'AZURE_TARGET_INVALID', targetError.message);
+      }
+    }
     result = await appService.restartAppService(resource, incident.resourceGroup, subscriptionId, context.principalHeader, {
       incidentId: incident.incidentId,
-      workItemId: primary.workItemId
+      workItemId: primary.workItemId,
+      country,
+      environment
     });
     if (!result || result.auditLogged !== true) {
       const fallback = await auditLog.safeAudit(context, {
@@ -52,6 +64,8 @@ async function restartAppService(input, context, dependencies = {}) {
         sourcePage: '/operations.html#/incidents',
         environment: incident.environment || 'PRD',
         subscriptionId,
+        country,
+        environment,
         incidentId: incident.incidentId,
         workItemId: primary.workItemId,
         eventKey: `restart:${resource}:${Date.now()}`

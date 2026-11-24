@@ -7,6 +7,44 @@ let cachedApps = null;
 let cachedAppsAt = 0;
 const restartCooldowns = new Map();
 
+function parseTargetConfig() {
+  const raw = String(process.env.APP_SERVICE_TARGETS_JSON || '').trim();
+  if (!raw) {
+    try { return require('../../config/appservice-targets.json'); } catch (err) { return null; }
+  }
+  try { return JSON.parse(raw); } catch (err) {
+    throw createPublicError(503, 'APP_SERVICE_TARGETS_JSON is invalid');
+  }
+}
+
+function normalizeCountry(value) { return String(value || '').trim().toUpperCase(); }
+function normalizeEnvironment(value) { return String(value || '').trim().toUpperCase(); }
+
+function getTarget(country, environment, subscriptionId) {
+  const cfg = getConfig();
+  const targets = cfg.targets;
+  if (!targets) return { country: 'TH', environment: normalizeEnvironment(environment) || 'STG', subscriptionId: subscriptionId || cfg.subscriptionId, tenantId: cfg.tenantId, resourceGroup: cfg.resourceGroup, allResourceGroups: cfg.allResourceGroups, namePrefix: cfg.namePrefix, allowedNames: cfg.allowedNames, allowAll: cfg.allowAll };
+  const c = normalizeCountry(country) || inferCountryFromSubscription(subscriptionId, targets) || 'TH';
+  const e = normalizeEnvironment(environment) || inferEnvironmentFromName('', cfg) || 'STG';
+  const target = targets[c] && targets[c].environments && targets[c].environments[e];
+  if (!target && c === 'TH') return { country: 'TH', environment: e, subscriptionId: subscriptionId || (e === 'PRD' ? cfg.productionSubscriptionId : cfg.subscriptionId), tenantId: cfg.tenantId, resourceGroup: cfg.resourceGroup, allResourceGroups: cfg.allResourceGroups, namePrefix: cfg.namePrefix, allowedNames: cfg.allowedNames, allowAll: cfg.allowAll };
+  if (!target) throw createPublicError(400, `Unsupported Azure target: ${c}/${e}`);
+  return { ...target, country: c, environment: e, subscriptionId: target.subscriptionId, tenantId: target.tenantId || cfg.tenantId, resourceGroup: target.resourceGroup || 'ALL', allResourceGroups: isAllResourceGroupsScope(target.resourceGroup || 'ALL'), namePrefix: target.namePrefix || '', allowedNames: target.allowedNames || [], allowAll: target.allowAll === true };
+}
+
+function inferCountryFromSubscription(subscriptionId, targets) {
+  const id = String(subscriptionId || '').toLowerCase();
+  for (const [country, value] of Object.entries(targets || {})) for (const target of Object.values(value.environments || {})) if (String(target.subscriptionId || '').toLowerCase() === id) return country;
+  return '';
+}
+
+function inferEnvironmentFromName(name, cfg) {
+  const value = String(name || '').toLowerCase();
+  if (value.startsWith('prd-')) return 'PRD';
+  if (value.startsWith('stg-')) return 'STG';
+  return '';
+}
+
 function getConfig() {
   const subscriptionId = process.env.APP_SERVICE_SUBSCRIPTION_ID || DEFAULT_SUBSCRIPTION_ID;
   const productionSubscriptionId = String(process.env.APP_SERVICE_PROD_SUBSCRIPTION_ID || '').trim();
@@ -17,6 +55,7 @@ function getConfig() {
   const allowAll = String(process.env.APP_SERVICE_ALLOW_ALL || '').trim().toLowerCase() === 'true';
   const allResourceGroups = isAllResourceGroupsScope(resourceGroup);
   const tenantId = process.env.AZURE_TENANT_ID || '36f04887-ce29-484c-900e-f23ad3f60b77';
+  const targets = parseTargetConfig();
   const cacheTtlMs = Math.max(5000, Number(process.env.APP_SERVICE_CACHE_TTL_SECONDS || 60) * 1000);
   const restartCooldownMs = Math.max(0, Number(process.env.APP_SERVICE_RESTART_COOLDOWN_SECONDS || 300) * 1000);
   if (!subscriptionId) throw new Error('Missing APP_SERVICE_SUBSCRIPTION_ID');
@@ -30,6 +69,7 @@ function getConfig() {
     allowedNames,
     allowAll,
     tenantId,
+    targets,
     cacheTtlMs,
     restartCooldownMs
   };
@@ -42,18 +82,23 @@ function createPublicError(statusCode, message) {
   return err;
 }
 
-function getClient(subscriptionId) {
+function getClient(subscriptionId, target) {
   const cfg = getConfig();
-  const target = subscriptionId || cfg.subscriptionId;
-  if (cachedClients.has(target)) return cachedClients.get(target);
+  const clientKey = subscriptionId || cfg.subscriptionId;
+  if (cachedClients.has(clientKey)) return cachedClients.get(clientKey);
   const { WebSiteManagementClient } = require('@azure/arm-appservice');
-  const credential = getCredential(cfg, target);
-  const client = new WebSiteManagementClient(credential, target);
-  cachedClients.set(target, client);
+  const credential = getCredential(cfg, clientKey, target);
+  const client = new WebSiteManagementClient(credential, clientKey);
+  cachedClients.set(clientKey, client);
   return client;
 }
 
-function getCredential(cfg, subscriptionId) {
+function getCredential(cfg, subscriptionId, targetConfig) {
+  const configuredSecret = targetConfig && targetConfig.clientSecretEnv ? process.env[targetConfig.clientSecretEnv] : targetConfig && targetConfig.clientSecret;
+  if (targetConfig && targetConfig.clientId && configuredSecret) {
+    const { ClientSecretCredential } = require('@azure/identity');
+    return new ClientSecretCredential(targetConfig.tenantId, targetConfig.clientId, configuredSecret);
+  }
   if (subscriptionId === cfg.productionSubscriptionId) {
     const tenantId = String(process.env.AZURE_PROD_TENANT_ID || '').trim();
     const clientId = String(process.env.AZURE_PROD_CLIENT_ID || '').trim();
@@ -203,24 +248,34 @@ function requestJson(url, headers) {
   });
 }
 
-async function listAllowedAppServices(forceRefresh) {
+async function listAllowedAppServices(forceRefresh, country, environment) {
   const cfg = getConfig();
+  if (cfg.targets && !normalizeEnvironment(environment)) {
+    const selectedCountry = normalizeCountry(country) || 'TH';
+    const environments = Object.keys((cfg.targets[selectedCountry] || {}).environments || {});
+    if (selectedCountry === 'TH' && environments.length === 0) environments.push('STG', 'PRD');
+    const results = [];
+    for (const env of environments) results.push(...await listAllowedAppServices(forceRefresh, country, env));
+    return results.sort((a, b) => a.name.localeCompare(b.name));
+  }
+  const target = getTarget(country, environment);
+  const cacheKey = `${target.country}:${target.environment}`;
   const now = Date.now();
-  if (!forceRefresh && cachedApps && now - cachedAppsAt < cfg.cacheTtlMs) {
-    return cachedApps;
+  if (!forceRefresh && cachedApps && cachedApps.cacheKey === cacheKey && now - cachedAppsAt < cfg.cacheTtlMs) {
+    return cachedApps.apps;
   }
 
-  const apps = cfg.allResourceGroups
-    ? await listSubscriptionAppServices(cfg)
-    : await listResourceGroupAppServices(cfg);
+  const apps = target.allResourceGroups
+    ? await listSubscriptionAppServices({ ...cfg, ...target })
+    : await listResourceGroupAppServices({ ...cfg, ...target });
   apps.sort((a, b) => a.name.localeCompare(b.name));
-  cachedApps = apps;
+  cachedApps = { cacheKey, apps: apps.map(app => ({ ...app, country: target.country, environment: target.environment, subscriptionId: target.subscriptionId })) };
   cachedAppsAt = now;
-  return apps;
+  return cachedApps.apps;
 }
 
 async function listResourceGroupAppServices(cfg) {
-  const client = getClient();
+  const client = getClient(cfg.subscriptionId, cfg);
   const apps = [];
   for await (const app of client.webApps.listByResourceGroup(cfg.resourceGroup)) {
     const row = mapApp(app, cfg.resourceGroup);
@@ -314,7 +369,7 @@ async function listSubscriptionAppServicesFromArmResources(cfg) {
 }
 
 async function getArmAccessToken(cfg) {
-  const credential = getCredential(cfg);
+  const credential = getCredential(cfg, cfg.subscriptionId, cfg);
   const token = await credential.getToken('https://management.azure.com/.default');
   if (!token || !token.token) {
     const err = new Error('Managed Identity did not return an ARM access token');
@@ -380,45 +435,48 @@ function getArmRequestTimeoutMs() {
   return Math.max(5, seconds) * 1000;
 }
 
-async function getAllowedApp(name, requestedResourceGroup, requestedSubscriptionId) {
+async function getAllowedApp(name, requestedResourceGroup, requestedSubscriptionId, targetOverride) {
   const target = normalizeName(name);
   if (!target) {
     throw createPublicError(400, 'Missing app service name');
   }
 
   const cfg = getConfig();
+  const targetCfg = targetOverride || getTarget('', '', requestedSubscriptionId);
   const subscriptionId = requestedSubscriptionId || cfg.subscriptionId;
-  if (![cfg.subscriptionId, cfg.productionSubscriptionId].filter(Boolean).includes(subscriptionId)) {
+  const configuredSubscriptions = cfg.targets ? Object.values(cfg.targets).flatMap(value => Object.values(value.environments || {}).map(target => target.subscriptionId)) : [];
+  if (![cfg.subscriptionId, cfg.productionSubscriptionId, ...configuredSubscriptions].filter(Boolean).includes(subscriptionId)) {
     throw createPublicError(403, 'Subscription is outside the configured allow-list');
   }
-  if (!isAllowedAppName(target, cfg.namePrefix, cfg.allowedNames, cfg.allowAll)) {
+  if (!isAllowedAppName(target, targetCfg.namePrefix, targetCfg.allowedNames, targetCfg.allowAll)) {
     throw createPublicError(403, 'App Service is outside the configured allow-list scope');
   }
 
-  if (subscriptionId !== cfg.subscriptionId && cfg.allowAll && requestedResourceGroup) {
-    const direct = await getClient(subscriptionId).webApps.get(String(requestedResourceGroup), target);
+  if (requestedResourceGroup) {
+    const direct = await getClient(subscriptionId, targetCfg).webApps.get(String(requestedResourceGroup), target);
     if (direct) return mapApp(direct, String(requestedResourceGroup));
   }
-  const apps = await listAllowedAppServices(false);
+  const apps = await listAllowedAppServices(false, targetCfg.country, targetCfg.environment);
   const found = apps.find(app => app.name.toLowerCase() === target.toLowerCase());
   if (found) return found;
 
-  const refreshed = await listAllowedAppServices(true);
+  const refreshed = await listAllowedAppServices(true, targetCfg.country, targetCfg.environment);
   const fresh = refreshed.find(app => app.name.toLowerCase() === target.toLowerCase());
   if (fresh) return fresh;
-  if (cfg.allowAll && requestedResourceGroup) {
-    const direct = await getClient(subscriptionId).webApps.get(String(requestedResourceGroup), target);
+  if (requestedResourceGroup) {
+    const direct = await getClient(subscriptionId, targetCfg).webApps.get(String(requestedResourceGroup), target);
     if (direct) return mapApp(direct, String(requestedResourceGroup));
   }
 
   throw createPublicError(404, 'App Service not found in allowed staging scope');
 }
 
-async function getAppSettings(name) {
+async function getAppSettings(name, country, environment, resourceGroup) {
   const cfg = getConfig();
-  const app = await getAllowedApp(name);
-  const client = getClient();
-  const result = await client.webApps.listApplicationSettings(app.resourceGroup || cfg.resourceGroup, app.name);
+  const target = getTarget(country, environment);
+  const app = await getAllowedApp(name, resourceGroup, target.subscriptionId, target);
+  const client = getClient(target.subscriptionId, target);
+  const result = await client.webApps.listApplicationSettings(app.resourceGroup || target.resourceGroup, app.name);
   const properties = result && result.properties || {};
   const settings = Object.keys(properties)
     .sort((a, b) => a.localeCompare(b))
@@ -430,10 +488,11 @@ async function getAppSettings(name) {
   };
 }
 
-async function restartAppService(name, actor, resourceGroup, subscriptionId) {
+async function restartAppService(name, actor, resourceGroup, subscriptionId, country, environment) {
   const cfg = getConfig();
-  const app = await getAllowedApp(name, resourceGroup, subscriptionId);
-  const key = app.name.toLowerCase();
+  const target = getTarget(country, environment, subscriptionId);
+  const app = await getAllowedApp(name, resourceGroup, target.subscriptionId, target);
+  const key = [target.country, target.environment, target.subscriptionId, app.resourceGroup, app.name].join(':').toLowerCase();
   const now = Date.now();
   const cooldown = restartCooldowns.get(key);
   if (cooldown && cooldown.until > now) {
@@ -449,12 +508,13 @@ async function restartAppService(name, actor, resourceGroup, subscriptionId) {
   });
 
   try {
-    const client = getClient(subscriptionId || cfg.subscriptionId);
+    const client = getClient(target.subscriptionId, target);
     await client.webApps.restart(app.resourceGroup || cfg.resourceGroup, app.name);
     return {
       app,
-      subscriptionId: subscriptionId || cfg.subscriptionId,
-      environment: resolveEnvironment(subscriptionId || cfg.subscriptionId, cfg),
+      subscriptionId: target.subscriptionId,
+      country: target.country,
+      environment: target.environment || resolveEnvironment(target.subscriptionId, cfg),
       cooldownSeconds: Math.ceil(cfg.restartCooldownMs / 1000)
     };
   } catch (err) {
@@ -559,9 +619,19 @@ function getScope() {
   };
 }
 
+function getCountries() {
+  const cfg = getConfig();
+  if (!cfg.targets) return [{ code: 'TH', name: 'Thailand', environments: ['STG', 'PRD'] }];
+  const countries = Object.entries(cfg.targets).map(([code, value]) => ({ code, name: value.displayName || code, environments: Object.keys(value.environments || {}) }));
+  if (!countries.some(item => item.code === 'TH')) countries.unshift({ code: 'TH', name: 'Thailand', environments: ['STG', 'PRD'] });
+  return countries;
+}
+
 module.exports = {
   getConfig,
   getScope,
+  getTarget,
+  getCountries,
   listAllowedAppServices,
   getAllowedApp,
   getAppSettings,

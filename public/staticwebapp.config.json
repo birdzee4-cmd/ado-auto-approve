@@ -79,6 +79,7 @@
     { "route": "/api/test-daily-summary", "methods": ["POST"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/test-exception-scan", "methods": ["POST"], "allowedRoles": ["it_support_approve", "admin"] },
     { "route": "/api/appservices", "methods": ["GET"], "allowedRoles": ["tester_appservice_manager", "admin"] },
+    { "route": "/api/appservice-countries", "methods": ["GET"], "allowedRoles": ["tester_appservice_manager", "admin"] },
     { "route": "/api/appservice-settings", "methods": ["GET"], "allowedRoles": ["tester_appservice_manager", "admin"] },
     { "route": "/api/restart-appservice", "methods": ["POST"], "allowedRoles": ["tester_appservice_manager", "admin"] },
     { "route": "/api/appservice-logs", "methods": ["GET"], "allowedRoles": ["tester_appservice_manager", "admin"] },

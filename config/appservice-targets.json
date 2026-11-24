@@ -1,0 +1,30 @@
+{
+  "MY": {
+    "displayName": "Malaysia",
+    "environments": {
+      "STG": { "subscriptionId": "a8760c0b-5fd8-4a55-b7fa-9510c0319a42", "tenantId": "1363baeb-7867-4686-be13-9a2dd9e20f77", "clientId": "97918a08-1e84-4336-88ec-7dd803dc2b79", "clientSecretEnv": "AZURE_MY_CLIENT_SECRET", "resourceGroup": "ALL", "namePrefix": "stg-" },
+      "PRD": { "subscriptionId": "a8760c0b-5fd8-4a55-b7fa-9510c0319a42", "tenantId": "1363baeb-7867-4686-be13-9a2dd9e20f77", "clientId": "97918a08-1e84-4336-88ec-7dd803dc2b79", "clientSecretEnv": "AZURE_MY_CLIENT_SECRET", "resourceGroup": "ALL", "namePrefix": "prd-" }
+    }
+  },
+  "ID": {
+    "displayName": "Indonesia",
+    "environments": {
+      "STG": { "subscriptionId": "87d1a80d-e89c-4b85-ad2d-fb723e8d1d78", "tenantId": "4df107ec-47a3-4224-b6a0-a0160c24277d", "clientId": "87d1a80d-e89c-4b85-ad2d-fb723e8d1d78", "clientSecretEnv": "AZURE_ID_CLIENT_SECRET", "resourceGroup": "ALL", "namePrefix": "stg-" },
+      "PRD": { "subscriptionId": "87d1a80d-e89c-4b85-ad2d-fb723e8d1d78", "tenantId": "4df107ec-47a3-4224-b6a0-a0160c24277d", "clientId": "87d1a80d-e89c-4b85-ad2d-fb723e8d1d78", "clientSecretEnv": "AZURE_ID_CLIENT_SECRET", "resourceGroup": "ALL", "namePrefix": "prd-" }
+    }
+  },
+  "PH": {
+    "displayName": "Philippines",
+    "environments": {
+      "STG": { "subscriptionId": "091c7bf3-33eb-4fe0-b9b8-7d024ed4b397", "tenantId": "8208b452-7a5f-417b-8425-e512dad7e948", "clientId": "091c7bf3-33eb-4fe0-b9b8-7d024ed4b397", "clientSecretEnv": "AZURE_PH_CLIENT_SECRET", "resourceGroup": "ALL", "namePrefix": "stg-" },
+      "PRD": { "subscriptionId": "091c7bf3-33eb-4fe0-b9b8-7d024ed4b397", "tenantId": "8208b452-7a5f-417b-8425-e512dad7e948", "clientId": "091c7bf3-33eb-4fe0-b9b8-7d024ed4b397", "clientSecretEnv": "AZURE_PH_CLIENT_SECRET", "resourceGroup": "ALL", "namePrefix": "prd-" }
+    }
+  },
+  "VN": {
+    "displayName": "Vietnam",
+    "environments": {
+      "STG": { "subscriptionId": "115f46a0-804e-4ecc-892c-a7aabcf25f39", "tenantId": "54c57e24-e3c9-4506-afc4-b330b744a7ed", "clientId": "115f46a0-804e-4ecc-892c-a7aabcf25f39", "clientSecretEnv": "AZURE_VN_CLIENT_SECRET", "resourceGroup": "ALL", "namePrefix": "stg-" },
+      "PRD": { "subscriptionId": "115f46a0-804e-4ecc-892c-a7aabcf25f39", "tenantId": "54c57e24-e3c9-4506-afc4-b330b744a7ed", "clientId": "115f46a0-804e-4ecc-892c-a7aabcf25f39", "clientSecretEnv": "AZURE_VN_CLIENT_SECRET", "resourceGroup": "ALL", "namePrefix": "prd-" }
+    }
+  }
+}

@@ -55,7 +55,9 @@ async function handleList(context, req) {
   try {
     const client = require('./appservice-client');
     const forceRefresh = String(req.query && req.query.refresh || '').toLowerCase() === 'true';
-    const apps = await client.listAllowedAppServices(forceRefresh);
+    const country = String(req.query && req.query.country || '').trim().toUpperCase();
+    const environment = String(req.query && req.query.environment || '').trim().toUpperCase();
+    const apps = await client.listAllowedAppServices(forceRefresh, country, environment);
     jsonResponse(context, 200, {
       ok: true,
       apps,
@@ -88,7 +90,10 @@ async function handleSettings(context, req) {
 
   try {
     const client = require('./appservice-client');
-    const result = await client.getAppSettings(name);
+    const country = String(req.query && req.query.country || '').trim().toUpperCase();
+    const environment = String(req.query && req.query.environment || '').trim().toUpperCase();
+    const resourceGroup = String(req.query && req.query.resourceGroup || '').trim();
+    const result = await client.getAppSettings(name, country, environment, resourceGroup);
     const maskedSettings = maskSettingsForRoles(result.settings, roles);
 
     jsonResponse(context, 200, {
@@ -126,6 +131,8 @@ async function handleRestart(context, req) {
   }
   const name = String(body && body.name || '').trim();
   const resourceGroup = String(body && body.resourceGroup || '').trim();
+  const country = String(body && body.country || '').trim().toUpperCase();
+  const environment = String(body && body.environment || '').trim().toUpperCase();
   const source = String(req.headers && req.headers['x-appservice-source'] || 'App Service Portal');
   const sourcePage = String(req.headers && req.headers['x-appservice-source-page'] || '/portal.html');
 
@@ -137,7 +144,7 @@ async function handleRestart(context, req) {
         body.subscriptionId !== scope.subscriptionId) {
       throw Object.assign(new Error('App Service Portal is limited to STG App Services'), { statusCode: 403, expose: true });
     }
-    const result = await client.restartAppService(name, user, resourceGroup, body && body.subscriptionId);
+    const result = await client.restartAppService(name, user, resourceGroup, body && body.subscriptionId, country, environment);
     const auditResult = await audit.safeAudit(context, {
       action: 'RestartAppService',
       user,
@@ -150,6 +157,8 @@ async function handleRestart(context, req) {
       sourcePage,
       environment: result.environment,
       subscriptionId: result.subscriptionId,
+      country: result.country,
+      environment: result.environment,
       incidentId: body && body.incidentId,
       workItemId: body && body.workItemId,
       eventKey: 'restart:' + result.app.name + ':' + Date.now()

@@ -77,6 +77,7 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   const [mappingPreviews, setMappingPreviews] = useState<Partial<Record<'APP_SUPPORT' | 'TIER2', RelatedTicketPreview>>>({});
   const alertDetails: Array<{ label: string; value: string }> = selected ? [
     { label: 'Resource', value: selected.incident.resource },
+    { label: 'Country', value: selected.incident.country || selected.incident.countryCode },
     { label: 'Subscription', value: selected.incident.subscription },
     { label: 'Resource Group', value: selected.incident.resourceGroup },
     { label: 'Plan', value: selected.incident.appServicePlan },
@@ -384,7 +385,8 @@ export function Incidents({ isAdmin = false }: { isAdmin?: boolean }) {
   const restartSelectedAppService = async () => {
     if (!selected) return;
     const resource = selected.incident.resource || selected.incident.service || '';
-    if (!resource || !window.confirm(`Restart ${resource} in ${selected.incident.environment || 'the current environment'}?\n\nThis may cause a short service interruption.`)) return;
+    const country = selected.incident.country || selected.incident.countryCode || 'UNKNOWN';
+    if (!resource || country === 'UNKNOWN' || !selected.incident.environment || !window.confirm(`Restart ${resource} in ${country} / ${selected.incident.environment}?\n\nThis may cause a short service interruption.`)) return;
     await runAction(
       () => operationsApi.restartAppService(selected.incident.incidentId, resource),
       `Restart App Service completed: ${resource}`

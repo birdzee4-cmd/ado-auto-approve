@@ -30,8 +30,9 @@ jobs:
       - name: Prepare Function package
         run: |
           rm -rf .function-package
-          mkdir -p .function-package/shared
+          mkdir -p .function-package/shared .function-package/config
           cp -R appservice-api/. .function-package/
+          cp config/appservice-targets.json .function-package/config/appservice-targets.json
           cp api/shared/auth.js .function-package/shared/auth.js
           cp api/shared/appservice-client.js .function-package/shared/appservice-client.js
           cp api/shared/appservice-audit-client.js .function-package/shared/appservice-audit-client.js

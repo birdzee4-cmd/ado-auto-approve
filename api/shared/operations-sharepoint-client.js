@@ -673,6 +673,7 @@ function mapSharePointIncident(item) {
     alertName: textField(fields, ['AlertName', 'Title']) || 'Untitled alert',
     resource,
     service: textField(fields, ['Service', 'Resource']) || '-',
+    country: textField(fields, ['CountryCode', 'Country']) || inferCountry(resource),
     environment: textField(fields, ['Environment']) || inferEnvironment(resource),
     metric: textField(fields, ['Metric']),
     severity: textField(fields, ['Severity']),
@@ -811,6 +812,12 @@ function inferEnvironment(resource) {
   if (value.startsWith('uat-')) return 'UAT';
   if (value.startsWith('dev-')) return 'Development';
   return 'Unknown';
+}
+
+function inferCountry(resource) {
+  const value = String(resource || '').toLowerCase();
+  const match = value.match(/(?:^|-)(th|my|id|ph|vn)(?:-|$)/);
+  return match ? match[1].toUpperCase() : '';
 }
 
 function latestDate(values) {
