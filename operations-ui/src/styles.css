@@ -568,7 +568,11 @@ td small { margin-top: 3px; color: var(--ops-muted); }
   .ops-target-selector { grid-template-columns: 1fr; }
 }
 .ops-report-panel { margin-top: 20px; overflow: hidden; }
-.ops-report-page { color: #24231f; }
+.ops-report-page { display: flex; flex-direction: column; color: #24231f; }
+.ops-report-page .ops-report-frequency { order: 1; }
+.ops-report-page .ops-report-reliability { order: 2; }
+.ops-report-page .ops-report-handoffs { order: 3; }
+.ops-report-page .ops-investigation { order: 4; }
 .ops-report-page .ops-page-heading { margin-bottom: 20px; }
 .ops-report-page .ops-date-control span { display: block; margin-bottom: 5px; color: #766f64; font-size: .65rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .ops-report-page .ops-date-control select, .ops-report-page .ops-date-control input { min-height: 38px; padding: 8px 11px; border: 1px solid #c9c0af; border-radius: 7px; background: #fff; color: #25231f; font: inherit; }
