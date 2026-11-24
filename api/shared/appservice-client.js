@@ -29,7 +29,7 @@ function getTarget(country, environment, subscriptionId) {
   const c = normalizeCountry(country) || inferCountryFromSubscription(subscriptionId, targets) || 'TH';
   const e = normalizeEnvironment(environment) || inferEnvironmentFromName('', cfg) || 'STG';
   const target = targets[c] && targets[c].environments && targets[c].environments[e];
-  if (!target && c === 'TH') return { country: 'TH', environment: e, subscriptionId: subscriptionId || (e === 'PRD' ? cfg.productionSubscriptionId : cfg.subscriptionId), tenantId: cfg.tenantId, resourceGroup: cfg.resourceGroup, allResourceGroups: cfg.allResourceGroups, namePrefix: cfg.namePrefix, allowedNames: cfg.allowedNames, allowAll: cfg.allowAll };
+  if (!target && c === 'TH') return { country: 'TH', environment: e, subscriptionId: subscriptionId || (e === 'PRD' ? cfg.productionSubscriptionId : cfg.subscriptionId), tenantId: cfg.tenantId, clientId: e === 'STG' ? String(process.env.APP_SERVICE_CLIENT_ID || '').trim() : '', clientSecretEnv: e === 'STG' ? String(process.env.APP_SERVICE_CLIENT_SECRET_ENV || 'APP_SERVICE_CLIENT_SECRET').trim() : '', resourceGroup: cfg.resourceGroup, allResourceGroups: cfg.allResourceGroups, namePrefix: cfg.namePrefix, allowedNames: cfg.allowedNames, allowAll: cfg.allowAll };
   if (!target) throw createPublicError(400, `Unsupported Azure target: ${c}/${e}`);
   return { ...target, country: c, environment: e, subscriptionId: target.subscriptionId, tenantId: target.tenantId || cfg.tenantId, resourceGroup: target.resourceGroup || 'ALL', allResourceGroups: isAllResourceGroupsScope(target.resourceGroup || 'ALL'), namePrefix: target.namePrefix || '', allowedNames: target.allowedNames || [], allowAll: target.allowAll === true };
 }
