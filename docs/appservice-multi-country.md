@@ -16,8 +16,8 @@ Keep this value in Function App configuration or Key Vault-backed app settings; 
   "MY": {
     "displayName": "Malaysia",
     "environments": {
-      "STG": { "subscriptionId": "...", "tenantId": "...", "clientId": "...", "clientSecretEnv": "APP_SERVICE_CLIENT_SECRET", "resourceGroup": "ALL", "namePrefix": "stg-" },
-      "PRD": { "subscriptionId": "...", "tenantId": "...", "clientId": "...", "clientSecretEnv": "APP_SERVICE_CLIENT_SECRET", "resourceGroup": "ALL", "namePrefix": "prd-" }
+      "STG": { "subscriptionId": "...", "tenantId": "...", "clientId": "...", "clientSecretEnv": "AAD_CLIENT_SECRET", "resourceGroup": "ALL", "namePrefix": "stg-" },
+      "PRD": { "subscriptionId": "...", "tenantId": "...", "clientId": "...", "clientSecretEnv": "AAD_CLIENT_SECRET", "resourceGroup": "ALL", "namePrefix": "prd-" }
     }
   }
 }

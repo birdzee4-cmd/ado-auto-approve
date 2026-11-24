@@ -2,8 +2,8 @@
   "MY": {
     "displayName": "Malaysia",
     "environments": {
-      "STG": { "subscriptionId": "a8760c0b-5fd8-4a55-b7fa-9510c0319a42", "tenantId": "36f04887-ce29-484c-900e-f23ad3f60b77", "clientId": "1bcfa2d9-f923-4ea3-9bb7-c0c5a2371964", "clientSecretEnv": "APP_SERVICE_CLIENT_SECRET", "resourceGroup": "ALL", "namePrefix": "stg-" },
-      "PRD": { "subscriptionId": "a8760c0b-5fd8-4a55-b7fa-9510c0319a42", "tenantId": "36f04887-ce29-484c-900e-f23ad3f60b77", "clientId": "1bcfa2d9-f923-4ea3-9bb7-c0c5a2371964", "clientSecretEnv": "APP_SERVICE_CLIENT_SECRET", "resourceGroup": "ALL", "namePrefix": "prd-" }
+      "STG": { "subscriptionId": "a8760c0b-5fd8-4a55-b7fa-9510c0319a42", "tenantId": "36f04887-ce29-484c-900e-f23ad3f60b77", "clientId": "1bcfa2d9-f923-4ea3-9bb7-c0c5a2371964", "clientSecretEnv": "AAD_CLIENT_SECRET", "resourceGroup": "ALL", "namePrefix": "stg-" },
+      "PRD": { "subscriptionId": "a8760c0b-5fd8-4a55-b7fa-9510c0319a42", "tenantId": "36f04887-ce29-484c-900e-f23ad3f60b77", "clientId": "1bcfa2d9-f923-4ea3-9bb7-c0c5a2371964", "clientSecretEnv": "AAD_CLIENT_SECRET", "resourceGroup": "ALL", "namePrefix": "prd-" }
     }
   },
   "ID": {
