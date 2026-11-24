@@ -11,6 +11,7 @@ on:
       - "api/shared/appservice-client.js"
       - "api/shared/appservice-audit-client.js"
       - "api/shared/appservice-portal-handlers.js"
+      - "config/**"
       - ".github/workflows/azure-functions-appservice-api.yml"
   workflow_dispatch:
 
