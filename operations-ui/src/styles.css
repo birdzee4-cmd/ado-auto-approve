@@ -589,6 +589,10 @@ td small { margin-top: 3px; color: var(--ops-muted); }
 .ops-report-page .ops-panel-heading label { color: rgba(255,255,255,.9); }
 .ops-report-page .ops-panel-heading input[type="checkbox"] { accent-color: #f5a400; }
 .ops-report-page .ops-panel-heading .ops-button-secondary { border-color: rgba(255,255,255,.45); background: transparent; color: #fff; }
+.ops-report-page .ops-report-handoffs .ops-handoff-controls { border-bottom-color: #e1dbcf; background: #fffdf8; color: #24231f; }
+.ops-report-page .ops-report-handoffs .ops-handoff-controls label { color: #24231f; }
+.ops-report-page .ops-report-handoffs .ops-handoff-controls select { border: 1px solid #c9c0af; border-radius: 4px; background: #fff; color: #25231f; font: inherit; }
+.ops-report-page .ops-report-handoffs .ops-handoff-controls .ops-button-secondary { border-color: #bdb3a3; background: #fffdf8; color: #24231f; }
 .ops-report-count { color: #946000; font-size: .75rem; font-weight: 700; }
 .ops-report-page .ops-report-table th { background: #f1ede4; color: #625c53; font-size: .65rem; letter-spacing: .08em; text-transform: uppercase; border-bottom: 1px solid #d4ccbe; }
 .ops-report-page .ops-report-table td { color: #3c3933; font-size: .82rem; }
