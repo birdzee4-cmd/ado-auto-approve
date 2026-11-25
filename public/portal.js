@@ -304,8 +304,8 @@ async function openSettings(name) {
   focusSettingsSearch();
 
   try {
-    const settingsParams = new URLSearchParams({ name, country: selectedCountry, environment: selectedEnvironment });
     const app = allApps.find(item => item.name === name);
+    const settingsParams = new URLSearchParams({ name, country: app?.country || selectedCountry, environment: app?.environment || (selectedEnvironment === 'ALL' ? '' : selectedEnvironment) });
     if (app && app.resourceGroup) settingsParams.set('resourceGroup', app.resourceGroup);
     const r = await safeFetchJson('/api/appservice-settings?' + settingsParams.toString(), { timeoutMs: 45000 });
     if (!r.ok || !r.data || !r.data.ok) {
