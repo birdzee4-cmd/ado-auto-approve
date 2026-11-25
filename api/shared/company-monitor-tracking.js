@@ -49,7 +49,10 @@ function trackDay(events, day, now = new Date(), overrides = {}) {
       if (!['build fail', 'deploy fail'].includes(failed.status)) continue;
       const manual = overrides[String(failed.azureBuildId || failed.id).replace(/_[MP]$/, '')];
       const following = project.timeline.slice(index + 1).filter(item => laneKey(item) === laneKey(failed));
-      const sameLaneSuccess = following.find(item => item.status === 'complete' && later(item, failed) && !usedRecoveries.has(item.eventKey) &&
+      // A rerun with the same commit is sufficient evidence when the monitor
+      // recorded the success after the failure. Some Azure responses omit the
+      // start time, so do not require startText for this exact-lane match.
+      const sameLaneSuccess = following.find(item => item.status === 'complete' && Date.parse(item.updatedAt) > Date.parse(failed.updatedAt) && !usedRecoveries.has(item.eventKey) &&
         (!failed.commitId && !item.commitId || (failed.commitId && item.commitId && failed.commitId === item.commitId && (!failed.repository || !item.repository || failed.repository.toLowerCase() === item.repository.toLowerCase()))));
       const match = sameLaneSuccess
         ? { recovery: sameLaneSuccess, candidate: null, ambiguous: false, correlation: { type: failed.id === sameLaneSuccess.id ? 'same-build' : pipeline(failed) === pipeline(sameLaneSuccess) ? 'same-pipeline' : 'same-commit-cross-pipeline', confidence: 'high', matchedBy: ['pipeline', 'branch', 'environment', 'projectType'] } }
