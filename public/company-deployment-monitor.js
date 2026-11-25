@@ -67,7 +67,8 @@ export function initCompanyMonitor() {
       const latestFailure = project.failures.find(failure => failure.failed && !failure.recovery && !failure.replacement && !failure.manual) || project.failures[0];
       const latestRecovery = project.failures.find(failure => failure.recovery)?.recovery;
       const failedCommit = String(latestFailure?.failed?.commitId || '').trim().toLowerCase();
-      const sameCommitSuccesses = failedCommit ? items.filter(item => !['build fail', 'deploy fail', 'cancel deploy'].includes(String(item.status || '').toLowerCase()) && String(item.commitId || '').trim().toLowerCase() === failedCommit).sort((a, b) => (Date.parse(b.updatedAt) || 0) - (Date.parse(a.updatedAt) || 0)) : [];
+      const projectSourceItems = [...(project.timeline || []), project.latest].filter(Boolean);
+      const sameCommitSuccesses = failedCommit ? [...items, ...projectSourceItems].filter(item => !['build fail', 'deploy fail', 'cancel deploy'].includes(String(item.status || '').trim().toLowerCase()) && String(item.commitId || '').trim().toLowerCase() === failedCommit).sort((a, b) => (Date.parse(b.updatedAt) || 0) - (Date.parse(a.updatedAt) || 0)).filter((item, index, list) => list.findIndex(candidate => String(candidate.azureBuildId || candidate.id) === String(item.azureBuildId || item.id)) === index) : [];
       const relationText = latestFailure?.manual ? 'ยืนยันโดยผู้ดูแล' : latestFailure?.recovery ? correlationText(latestFailure) : latestFailure?.failed?.status?.includes('fail') ? 'รอตรวจสอบ Build Success' : '';
       const relationDetail = latestFailure?.recovery ? ` · ${latestFailure.recovery.id}` : '';
       const manualAction = latestFailure?.failed?.status?.includes('fail') && !latestFailure.recovery && !latestFailure.manual ? `<button type="button" class="company-manual-confirm" data-manual-confirm="${esc(latestFailure.failed.azureBuildId || latestFailure.failed.id)}">ยืนยันโดยผู้ดูแล</button>` : '';
