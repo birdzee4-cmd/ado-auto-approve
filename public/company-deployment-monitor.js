@@ -67,7 +67,7 @@ export function initCompanyMonitor() {
       const latestFailure = project.failures.find(failure => failure.failed && !failure.recovery && !failure.replacement && !failure.manual) || project.failures[0];
       const latestRecovery = project.failures.find(failure => failure.recovery)?.recovery;
       const failedCommit = String(latestFailure?.failed?.commitId || '').trim().toLowerCase();
-      const sameCommitSuccesses = failedCommit ? jobs.filter(item => item.status === 'complete' && String(item.commitId || '').trim().toLowerCase() === failedCommit && String(item.branch || '').replace(/^refs\/heads\//, '').toLowerCase() === String(latestFailure?.failed?.branch || '').replace(/^refs\/heads\//, '').toLowerCase()).sort((a, b) => (Date.parse(b.updatedAt) || 0) - (Date.parse(a.updatedAt) || 0)) : [];
+      const sameCommitSuccesses = failedCommit ? jobs.filter(item => item.status === 'complete' && String(item.commitId || '').trim().toLowerCase() === failedCommit).sort((a, b) => (Date.parse(b.updatedAt) || 0) - (Date.parse(a.updatedAt) || 0)) : [];
       const relationText = latestFailure?.manual ? 'ยืนยันโดยผู้ดูแล' : latestFailure?.recovery ? correlationText(latestFailure) : latestFailure?.failed?.status?.includes('fail') ? 'รอตรวจสอบ Build Success' : '';
       const relationDetail = latestFailure?.recovery ? ` · ${latestFailure.recovery.id}` : '';
       const manualAction = latestFailure?.failed?.status?.includes('fail') && !latestFailure.recovery && !latestFailure.manual ? `<button type="button" class="company-manual-confirm" data-manual-confirm="${esc(latestFailure.failed.azureBuildId || latestFailure.failed.id)}">ยืนยันโดยผู้ดูแล</button>` : '';
