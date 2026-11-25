@@ -50,6 +50,8 @@ keep.Filter_Closed_In_Period = query("@body('Get_Closure_Audit')?['value']", "@a
 keep.Initialize_Queue_Records = variable('QueueRecords', 'array', [], ['Get_All_Incidents','Get_All_Related_Work_Items','Get_Closure_Audit','Filter_Resolved_In_Period','Filter_Closed_In_Period','Filter_Today_P1','Filter_Today_Firing','Filter_Today_Failed']);
 keep.Initialize_Backlog_Rows = variable('BacklogRows', 'string', '', ['Initialize_Queue_Records']);
 keep.Initialize_Backlog_Count = variable('BacklogCount', 'integer', 0, ['Initialize_Backlog_Rows']);
+keep.Initialize_FollowUp_Rows = variable('FollowUpRows', 'string', '', ['Initialize_Backlog_Count']);
+keep.Initialize_FollowUp_Count = variable('FollowUpCount', 'integer', 0, ['Initialize_FollowUp_Rows']);
 
 // Make the intake section describe the incident lifecycle explicitly.
 const todayRowAction = keep.For_each_Today_Incident?.actions?.Append_Today_Row;
@@ -60,7 +62,7 @@ if (todayRowAction) {
 keep.For_each_Current_Incident = {
   type: 'Foreach',
   foreach: "@body('Get_All_Incidents')?['value']",
-  runAfter: { Initialize_Backlog_Count: ['Succeeded'] },
+  runAfter: { Initialize_FollowUp_Count: ['Succeeded'] },
   runtimeConfiguration: { concurrency: { repetitions: 1 } },
   actions: {
     Filter_Related_Items: query("@body('Get_All_Related_Work_Items')?['value']", "@equals(toLower(string(coalesce(item()?['field_1'],item()?['IncidentId'],''))),toLower(string(items('For_each_Current_Incident')?['IncidentId'])))"),
@@ -69,15 +71,32 @@ keep.For_each_Current_Incident = {
     Filter_Tier2_Items: query("@body('Filter_Open_Related_Items')", "@equals(toUpper(string(coalesce(item()?['field_4'],item()?['SupportTeam'],''))),'TIER2')", 'Filter_App_Support_Items'),
     Filter_Incident_Closure: query("@body('Get_Closure_Audit')?['value']", "@equals(toLower(string(coalesce(item()?['field_4'],item()?['IncidentId'],''))),toLower(string(items('For_each_Current_Incident')?['IncidentId'])))", 'Filter_Open_Related_Items'),
     Compose_Primary_Closed: compose("@contains(createArray('CLOSED','DONE','REMOVED','RESOLVED','REJECT','REJECTED'),toUpper(string(coalesce(items('For_each_Current_Incident')?['AdoState'],''))))", 'Filter_Incident_Closure'),
-    Compose_Incident_Queue: compose("@if(greater(length(body('Filter_Incident_Closure')),0),'CLOSED',if(or(equals(toUpper(string(coalesce(items('For_each_Current_Incident')?['WorkflowStatus']?['Value'],items('For_each_Current_Incident')?['WorkflowStatus'],''))),'FAILED'),contains(createArray('RECEIVED','AWAITING_APPROVAL'),toUpper(string(coalesce(items('For_each_Current_Incident')?['WorkflowStatus']?['Value'],items('For_each_Current_Incident')?['WorkflowStatus'],'')))),equals(string(coalesce(items('For_each_Current_Incident')?['AdoWorkItemId'],'')),''),not(empty(string(coalesce(items('For_each_Current_Incident')?['ErrorDetail'],''))))),'NEEDS_ATTENTION',if(greater(length(body('Filter_Open_Related_Items')),0),'WAITING_SUPPORT',if(and(outputs('Compose_Primary_Closed'),equals(toUpper(string(coalesce(items('For_each_Current_Incident')?['AlertStatus']?['Value'],items('For_each_Current_Incident')?['AlertStatus'],''))),'FIRING')),'WAITING_RESOLVED',if(and(outputs('Compose_Primary_Closed'),equals(toUpper(string(coalesce(items('For_each_Current_Incident')?['AlertStatus']?['Value'],items('For_each_Current_Incident')?['AlertStatus'],''))),'RESOLVED')),'READY_TO_CLOSE','ACTIVE')))))", 'Compose_Primary_Closed'),
+    Compose_Operations_Closed: compose("@equals(toUpper(string(coalesce(items('For_each_Current_Incident')?['OperationsStatus'],''))),'CLOSED')", 'Compose_Primary_Closed'),
+    Compose_Incident_Closed: compose("@and(or(outputs('Compose_Operations_Closed'),greater(length(body('Filter_Incident_Closure')),0)),equals(length(body('Filter_Open_Related_Items')),0))", 'Compose_Operations_Closed'),
+    Compose_Incident_Queue: compose("@if(outputs('Compose_Incident_Closed'),'CLOSED',if(or(equals(toUpper(string(coalesce(items('For_each_Current_Incident')?['WorkflowStatus']?['Value'],items('For_each_Current_Incident')?['WorkflowStatus'],''))),'FAILED'),contains(createArray('RECEIVED','AWAITING_APPROVAL'),toUpper(string(coalesce(items('For_each_Current_Incident')?['WorkflowStatus']?['Value'],items('For_each_Current_Incident')?['WorkflowStatus'],'')))),equals(string(coalesce(items('For_each_Current_Incident')?['AdoWorkItemId'],'')),''),not(empty(string(coalesce(items('For_each_Current_Incident')?['ErrorDetail'],''))))),'NEEDS_ATTENTION',if(greater(length(body('Filter_Open_Related_Items')),0),'WAITING_SUPPORT',if(and(outputs('Compose_Primary_Closed'),equals(toUpper(string(coalesce(items('For_each_Current_Incident')?['AlertStatus']?['Value'],items('For_each_Current_Incident')?['AlertStatus'],''))),'FIRING')),'WAITING_RESOLVED',if(and(outputs('Compose_Primary_Closed'),equals(toUpper(string(coalesce(items('For_each_Current_Incident')?['AlertStatus']?['Value'],items('For_each_Current_Incident')?['AlertStatus'],''))),'RESOLVED')),'READY_TO_CLOSE','ACTIVE')))))", 'Compose_Incident_Closed'),
     Append_Queue_Record: {
       type: 'AppendToArrayVariable', runAfter: { Compose_Incident_Queue: ['Succeeded'] },
       inputs: { name: 'QueueRecords', value: { queue: "@outputs('Compose_Incident_Queue')", incidentId: "@items('For_each_Current_Incident')?['IncidentId']" } }
+    },
+    Condition_Append_FollowUp_Row: {
+      type: 'If', runAfter: { Append_Queue_Record: ['Succeeded'], Filter_Tier2_Items: ['Succeeded'] },
+      expression: { and: [
+        { equals: ["@outputs('Compose_Incident_Queue')", 'WAITING_SUPPORT'] },
+        { less: ["@variables('FollowUpCount')", 20] }
+      ] },
+      actions: {
+        Append_FollowUp_Row: {
+          type: 'AppendToStringVariable',
+          inputs: { name: 'FollowUpRows', value: "<br>• <a href=\"https://mango-wave-09cff3700.7.azurestaticapps.net/operations.html#/incidents?id=@{uriComponent(items('For_each_Current_Incident')?['IncidentId'])}\"><b>@{concat('INC-',formatDateTime(convertTimeZone(coalesce(items('For_each_Current_Incident')?['Created'],utcNow()),'UTC','SE Asia Standard Time'),'yyyy'),'-',formatNumber(int(items('For_each_Current_Incident')?['ID']),'000000'))}</b></a> | @{coalesce(items('For_each_Current_Incident')?['Resource'],'-')} | @{coalesce(items('For_each_Current_Incident')?['AdoState'],'-')} #@{coalesce(items('For_each_Current_Incident')?['AdoWorkItemId'],'-')} | App Support: @{coalesce(first(body('Filter_App_Support_Items'))?['field_5'],first(body('Filter_App_Support_Items'))?['State'],'-')} #@{coalesce(first(body('Filter_App_Support_Items'))?['field_2'],first(body('Filter_App_Support_Items'))?['WorkItemId'],'-')} | IT Tier2: @{coalesce(first(body('Filter_Tier2_Items'))?['field_5'],first(body('Filter_Tier2_Items'))?['State'],'-')} #@{coalesce(first(body('Filter_Tier2_Items'))?['field_2'],first(body('Filter_Tier2_Items'))?['WorkItemId'],'-')}" }
+        },
+        Increment_FollowUp_Count: { type: 'IncrementVariable', runAfter: { Append_FollowUp_Row: ['Succeeded'] }, inputs: { name: 'FollowUpCount', value: 1 } }
+      }, else: { actions: {} }
     },
     Condition_Append_Backlog_Row: {
       type: 'If', runAfter: { Append_Queue_Record: ['Succeeded'], Filter_Tier2_Items: ['Succeeded'] },
       expression: { and: [
         { not: { equals: ["@outputs('Compose_Incident_Queue')", 'CLOSED'] } },
+        { not: { equals: ["@outputs('Compose_Incident_Queue')", 'WAITING_SUPPORT'] } },
         { less: ["@variables('BacklogCount')", 20] }
       ] },
       actions: {
@@ -101,6 +120,10 @@ keep.Compose_Report_Message = {
   runAfter: Object.fromEntries(['ACTIVE','NEEDS_ATTENTION','WAITING_SUPPORT','WAITING_RESOLVED','READY_TO_CLOSE','CLOSED'].map(q => [`Filter_Queue_${q}`, ['Succeeded']]).concat([['Filter_Open_Tier2', ['Succeeded']]])),
   inputs: "<p><b>📊 OPERATIONS HUB — DAILY INCIDENT REPORT</b><br><small>🕒 @{formatDateTime(convertTimeZone(outputs('Compose_Start_UTC'),'UTC','SE Asia Standard Time'),'dd/MM HH:mm')}–@{formatDateTime(convertTimeZone(outputs('Compose_Effective_End_UTC'),'UTC','SE Asia Standard Time'),'dd/MM HH:mm')} น. (Asia/Bangkok)</small></p><p><b>📌 กิจกรรมที่เกิดขึ้นทั้งหมด</b><br><small>Received: </small><b>@{length(body('Get_Todays_Incidents')?['value'])}</b>@{if(greater(length(body('Filter_Today_Resolved')),0),concat('<br><small>Resolved: </small><b>',length(body('Filter_Today_Resolved')),'</b>'),'')}@{if(greater(length(body('Filter_Closed_In_Period')),0),concat('<br><small>Closed work items during period: </small><b>',length(body('Filter_Closed_In_Period')),'</b>'),'')}@{if(greater(length(body('Filter_Today_Failed')),0),concat('<br><small>Automation errors: </small><b>',length(body('Filter_Today_Failed')),'</b>'),'')}</p><p><b>🧩 งานที่ยังค้างไม่ถูกปิด</b><br><small>Total Incident: </small><b>@{add(length(body('Filter_Open_App_Support')),length(body('Filter_Open_Tier2')))}</b>@{if(greater(length(body('Filter_Open_App_Support')),0),concat('<br><small>App Support: </small><b>',length(body('Filter_Open_App_Support')),'</b>'),'')}@{if(greater(length(body('Filter_Open_Tier2')),0),concat('<br><small>IT Tier2: </small><b>',length(body('Filter_Open_Tier2')),'</b>'),'')}@{if(greater(length(body('Filter_Queue_ACTIVE')),0),concat('<br><small>Active: </small><b>',length(body('Filter_Queue_ACTIVE')),'</b>'),'')}@{if(greater(length(body('Filter_Queue_NEEDS_ATTENTION')),0),concat('<br><small>Needs attention: </small><b>',length(body('Filter_Queue_NEEDS_ATTENTION')),'</b>'),'')}@{if(greater(length(body('Filter_Queue_WAITING_SUPPORT')),0),concat('<br><small>Waiting support: </small><b>',length(body('Filter_Queue_WAITING_SUPPORT')),'</b>'),'')}@{if(greater(length(body('Filter_Queue_WAITING_RESOLVED')),0),concat('<br><small>Waiting resolved: </small><b>',length(body('Filter_Queue_WAITING_RESOLVED')),'</b>'),'')}@{if(greater(length(body('Filter_Queue_READY_TO_CLOSE')),0),concat('<br><small>Ready to close: </small><b>',length(body('Filter_Queue_READY_TO_CLOSE')),'</b>'),'')}</p><p><b>🆕 Incident ที่เกิดขึ้นระหว่างช่วงเวลา</b>@{if(empty(variables('TodayRows')),'<br><small>• ไม่มีรายการ</small>',variables('TodayRows'))}</p><p><b>🚧 งานที่ยังต้องดำเนินการ</b>@{if(empty(variables('BacklogRows')),'<br><small>• ไม่มีรายการ</small>',variables('BacklogRows'))}</p><p>🔗 <a href=\"https://mango-wave-09cff3700.7.azurestaticapps.net/operations.html#/incidents\"><b>เปิด Operations Hub</b></a></p>"
 };
+keep.Compose_Report_Message.inputs = keep.Compose_Report_Message.inputs.replace(
+  '<p><b>🚧 งานที่ยังต้องดำเนินการ</b>',
+  "<p><b>🔎 Follow up — Incident ที่มีใบงานลูกกำลังดำเนินการ</b>@{if(empty(variables('FollowUpRows')),'<br><small>• ไม่มีรายการ</small>',variables('FollowUpRows'))}</p><p><b>🚧 งานที่ยังต้องดำเนินการ</b>"
+);
 // Add visual breathing room between report sections in Teams HTML rendering.
 keep.Compose_Report_Message.inputs = keep.Compose_Report_Message.inputs.replaceAll('</p><p>', '</p><br><p>');
 // Team totals already explain the open work; avoid repeating the queue count here.
@@ -111,10 +134,10 @@ keep.Post_Daily_Report_to_AzureAppServiceHigh5xxRateCritical.runAfter = { Compos
 keep.Post_Daily_Report_to_IT_Support_Team_2025 = old.Post_Daily_Report_to_IT_Support_Team_2025;
 keep.Post_Daily_Report_to_IT_Support_Team_2025.runAfter = { Compose_Report_Message: ['Succeeded'] };
 workflow.actions = keep;
-workflow.contentVersion = '1.0.7.0';
+workflow.contentVersion = '1.0.10.0';
 workflow.metadata.clientLastModifiedTime = new Date().toISOString();
-wrapper.properties.displayName = 'Operations Hub - Daily Incident Report v1.0.7';
-manifest.details.displayName = 'OperationsHub-DailyIncidentReport-v1.0.7';
+wrapper.properties.displayName = 'Operations Hub - Daily Incident Report v1.0.10';
+manifest.details.displayName = 'OperationsHub-DailyIncidentReport-v1.0.10';
 manifest.details.description = 'Compact two-window report with bounded manual-run periods, event-time activity metrics, and non-zero open queue summaries.';
 manifest.details.createdTime = new Date().toISOString();
 manifest.resources[assetId].details.displayName = wrapper.properties.displayName;

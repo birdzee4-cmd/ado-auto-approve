@@ -6,7 +6,11 @@ const id = fm.flowAssets.assetPaths[0];
 const w = JSON.parse(fs.readFileSync(path.join(root, 'Microsoft.Flow', 'flows', id, 'definition.json'), 'utf8'));
 const text = JSON.stringify(w.properties.definition);
 const checks = [
-  ['v1.0.7 name', w.properties.displayName.endsWith('v1.0.7')],
+  ['v1.0.10 name', w.properties.displayName.endsWith('v1.0.10')],
+  ['operations closure is authoritative', text.includes('Compose_Operations_Closed') && text.includes('Compose_Incident_Closed')],
+  ['closed incidents with no open related work excluded', text.includes("equals(length(body('Filter_Open_Related_Items')),0)")],
+  ['follow up section is separate', text.includes('FollowUpRows') && text.includes('Follow up — Incident')],
+  ['follow up excluded from backlog section', text.includes("@outputs('Compose_Incident_Queue')") && text.includes("'WAITING_SUPPORT'") && text.includes('BacklogCount')],
   ['two daily runs retained', text.includes('"hours":[8,16]') && text.includes('"minutes":[30]')],
   ['related work items source', text.includes('OperationsHubWorkItems')],
   ['closure audit source', text.includes('OperationsHubAudit') && text.includes('INCIDENT_CLOSED')],
