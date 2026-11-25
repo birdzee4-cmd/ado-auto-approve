@@ -27,7 +27,7 @@ function isReplacementPair(failed, success) {
   return replacements.some(item => norm(item.old) === oldName && norm(item.next) === nextName);
 }
 function sameCommitScope(a, b) {
-  const repositoryMatches = repositoryKey(a) && repositoryKey(b) && repositoryKey(a) === repositoryKey(b);
+  const repositoryMatches = !repositoryKey(a) || !repositoryKey(b) || repositoryKey(a) === repositoryKey(b);
   return !!a.commitId && !!b.commitId && norm(a.commitId) === norm(b.commitId) &&
     norm(a.environment) === norm(b.environment) && branch(a.branch) === branch(b.branch) && repositoryMatches;
 }
@@ -44,7 +44,14 @@ function correlationFor(failed, success) {
   return null;
 }
 function isRecoveryCandidate(failed, success) {
-  if (!success || Date.parse(success.updatedAt) <= Date.parse(failed.updatedAt)) return false;
+  if (!success) return false;
+  // Monitor snapshots can arrive out of chronological order. For an exact
+  // same-commit rerun, an increasing Azure Build ID is reliable evidence that
+  // the successful build was created after the failed build.
+  const failedBuild = Number(String(failed.azureBuildId || failed.id || '').replace(/_[MP]$/, ''));
+  const successBuild = Number(String(success.azureBuildId || success.id || '').replace(/_[MP]$/, ''));
+  if (sameCommitScope(failed, success) && Number.isFinite(failedBuild) && Number.isFinite(successBuild) && successBuild > failedBuild) return true;
+  if (Date.parse(success.updatedAt) <= Date.parse(failed.updatedAt)) return false;
   // A deployment can fail while the corresponding build is already running.
   // For deploy failures, completion after the failure plus exact lineage is sufficient.
   if (failed.status === 'deploy fail' && sameCommitScope(failed, success)) return true;
@@ -58,6 +65,12 @@ function findReplacement(failed, events, used = new Set()) {
   const best = candidates[0];
   const bestCorrelation = correlationFor(failed, best);
   const equivalent = candidates.filter(item => correlationFor(failed, item)?.type === bestCorrelation.type);
+  // Multiple successful reruns of the same commit are still one recovery.
+  // Prefer the newest Azure Build ID instead of making the issue ambiguous.
+  if (equivalent.length > 1 && equivalent.every(item => sameCommitScope(failed, item))) {
+    equivalent.sort((a, b) => Number(String(b.azureBuildId || b.id || '').replace(/_[MP]$/, '')) - Number(String(a.azureBuildId || a.id || '').replace(/_[MP]$/, '')));
+    return { recovery: equivalent[0], candidate: null, ambiguous: false, correlation: correlationFor(failed, equivalent[0]) };
+  }
   if (equivalent.length > 1) return { recovery: null, candidate: best, ambiguous: true };
   return { recovery: best, candidate: null, ambiguous: false, correlation: bestCorrelation };
 }
