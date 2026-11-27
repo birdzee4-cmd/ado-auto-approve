@@ -7,11 +7,13 @@ let listIdCache;
 
 function getConfig() {
   return {
-    tenant: process.env.PROJECT_PLANNING_NOTIFICATION_SP_TENANT_ID,
-    clientId: process.env.PROJECT_PLANNING_NOTIFICATION_SP_CLIENT_ID,
-    clientSecret: process.env.PROJECT_PLANNING_NOTIFICATION_SP_CLIENT_SECRET,
-    hostname: process.env.PROJECT_PLANNING_NOTIFICATION_SP_HOSTNAME,
-    sitePath: process.env.PROJECT_PLANNING_NOTIFICATION_SP_SITE_PATH,
+    // Reuse the existing production Graph app configuration by default.
+    // Dedicated notification-log settings can override it when needed.
+    tenant: process.env.PROJECT_PLANNING_NOTIFICATION_SP_TENANT_ID || process.env.AAD_TENANT_ID,
+    clientId: process.env.PROJECT_PLANNING_NOTIFICATION_SP_CLIENT_ID || process.env.AAD_CLIENT_ID,
+    clientSecret: process.env.PROJECT_PLANNING_NOTIFICATION_SP_CLIENT_SECRET || process.env.AAD_CLIENT_SECRET,
+    hostname: process.env.PROJECT_PLANNING_NOTIFICATION_SP_HOSTNAME || process.env.SHAREPOINT_HOSTNAME,
+    sitePath: process.env.PROJECT_PLANNING_NOTIFICATION_SP_SITE_PATH || process.env.SHAREPOINT_SITE_PATH,
     listName: process.env.PROJECT_PLANNING_NOTIFICATION_SP_LIST_NAME || 'Project Planning Deployment Notifications'
   };
 }

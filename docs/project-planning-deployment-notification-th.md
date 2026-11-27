@@ -198,7 +198,9 @@ I'm going to deploy {ProjectName}
 - ตัวกรองหน้าเว็บ: Project, Task Planning ID, Teams status และ LINE status
 - API ส่งกลับเฉพาะคอลัมน์ที่จำเป็น และไม่เปิดเผยรายละเอียดข้อผิดพลาดจาก upstream ให้ browser
 
-ก่อนเปิดใช้งาน API ให้ผู้ดูแลตั้งค่า App Settings ต่อไปนี้ใน Azure Static Web Apps/Functions ของ **environment ที่อนุมัติ** (แนะนำใช้ Key Vault reference สำหรับ secret):
+API ใช้ app settings เฉพาะของ Notification Log หากมี และ fallback ไปยัง Graph/SharePoint settings ที่ระบบใช้อยู่แล้ว (`AAD_TENANT_ID`, `AAD_CLIENT_ID`, `AAD_CLIENT_SECRET`, `SHAREPOINT_HOSTNAME`, `SHAREPOINT_SITE_PATH`) ได้ โดย list name ยังคงเป็น `Project Planning Deployment Notifications` หากไม่ได้กำหนดค่าเฉพาะ วิธีนี้ช่วย reuse credential เดิมโดยไม่ต้องคัดลอก secret ลง setting ซ้ำ
+
+หากยังไม่มี settings เดิมหรือจำเป็นต้องใช้ app registration แยก ผู้ดูแลตั้งค่า App Settings ต่อไปนี้ใน Azure Static Web Apps/Functions ของ **environment ที่อนุมัติ** (แนะนำใช้ Key Vault reference สำหรับ secret):
 
 | App Setting | ค่า |
 |---|---|
