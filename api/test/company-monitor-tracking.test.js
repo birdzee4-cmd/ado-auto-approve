@@ -25,6 +25,11 @@ test('same job status change preserves failure; repeated polls do not inflate co
   const [project] = run([event('1', 'build fail', '13:00'), event('1', 'build fail', '13:01'), event('1', 'building', '13:10'), event('1', 'complete', '13:20')]);
   assert.equal(project.failedCount, 1); assert.equal(project.totalRuns, 1); assert.equal(project.timeline.length, 3); assert.equal(project.openCount, 0);
 });
+test('same build id changing back to building without a new start is not a retry', () => {
+  const [project] = run([event('1', 'build fail', '13:00'), event('1', 'building', '13:10')]);
+  assert.equal(project.retrying, false);
+  assert.equal(project.openBuild, 1);
+});
 test('build and deploy failures remain separate and recurrence after success reopens the project', () => {
   const [project] = run([event('1', 'build fail', '13:00'), event('2', 'deploy fail', '13:10'), event('3', 'complete', '13:20', { startText: '11/6/2026 1:15:00 PM' }), event('4', 'build fail', '14:00')]);
   assert.equal(project.recoveredCount, 1); assert.equal(project.openBuild, 1); assert.equal(project.openDeploy, 1);

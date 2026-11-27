@@ -61,7 +61,13 @@ function trackDay(events, day, now = new Date(), overrides = {}) {
       if (recovery) usedRecoveries.add(recovery.eventKey);
       const candidate = !recovery ? match.candidate || following.find(item => item.status === 'complete' && Date.parse(item.updatedAt) > Date.parse(failed.updatedAt)) || null : null;
       const laneLatest = following.at(-1);
-      const retry = !recovery && laneLatest && !laneLatest.terminal && later(laneLatest, failed) ? laneLatest : null;
+      // A monitor may keep the same Build ID and report `building` again after
+      // a failure. Treat it as a retry only when there is evidence that a new
+      // attempt actually started after the failure; otherwise it is a stale
+      // status transition of the failed run.
+      const latestStart = laneLatest && startedAt(laneLatest.startText);
+      const hasNewAttempt = laneLatest && latestStart && Date.parse(latestStart) >= Date.parse(failed.updatedAt);
+      const retry = !recovery && laneLatest && !laneLatest.terminal && later(laneLatest, failed) && (laneLatest.id !== failed.id || hasNewAttempt) ? laneLatest : null;
       const replacement = recovery && match.correlation?.type === 'legacy-replacement' ? recovery : null;
       const ambiguous = !recovery && match.ambiguous;
       project.failures.push({ failed, recovery, candidate, replacement, retry, ambiguous, manual, correlationType: recovery ? match.correlation?.type : manual ? 'manual-confirmed' : ambiguous ? 'ambiguous' : candidate ? 'unverified' : 'no-match', confidence: recovery ? match.correlation?.confidence : manual ? 'manual' : ambiguous ? 'low' : 'none', matchedBy: recovery ? match.correlation?.matchedBy || [] : manual ? ['manual-confirmation'] : [], status: recovery ? 'recovered' : replacement ? 'superseded' : manual ? 'manually-resolved' : retry ? 'retrying' : ambiguous || candidate ? 'unverified' : 'open',
